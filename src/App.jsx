@@ -97,7 +97,7 @@ function track(event, props = {}) {
   } catch(e) {}
 }
 
-// ─── BRAND ────────────────────────────────────────────────────────────────────
+// ─── BRAND ─── v2.0 live─────────────────────────────────────────────────────────────────
 const B = {
   cream:"#FFFFFF", white:"#FFFFFF", offwhite:"#F7F6F4", stone:"#E8E6E1",
   mid:"#6B6B6B", charcoal:"#111111", gold:"#B8955A", goldLight:"#F2EBE0",
@@ -1207,6 +1207,14 @@ export default function ChelgyApp() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("admin") !== null) setIsAdmin(true);
 
+    // Load Stripe.js
+    if (!window.Stripe) {
+      const stripeScript = document.createElement("script");
+      stripeScript.src = "https://js.stripe.com/v3/";
+      stripeScript.async = true;
+      document.head.appendChild(stripeScript);
+    }
+
     // Initialize Google Analytics
     if (GA_ID !== "G-XXXXXXXXXX") {
       const script1 = document.createElement("script");
@@ -1621,7 +1629,7 @@ export default function ChelgyApp() {
   const TOP_H = 44;
 
   return (
-    <div style={{fontFamily:"Georgia,serif",background:B.cream,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
+    <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
 
       {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onJoin={()=>{setShowPaywall(false);setPage("signup");}} />}
       {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
@@ -2303,7 +2311,7 @@ export default function ChelgyApp() {
       </main>
 
       {/* ── BOTTOM NAV ── */}
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,display:"flex",zIndex:300}}>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1100,margin:"0 auto",height:"100%",display:"flex"}}>
         {[
           {id:"home",label:"HOME",Icon:Icons.Home},
           {id:"learn",label:"LEARN",Icon:Icons.Learn},
@@ -2316,7 +2324,7 @@ export default function ChelgyApp() {
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.1em",fontWeight:tab===id?700:400}}>{label}</span>
           </button>
         ))}
-      </nav>
+      </div></nav>
 
     </div>
   );
