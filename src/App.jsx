@@ -1485,6 +1485,12 @@ export default function ChelgyApp() {
       const n = params.get("name")||"Member";
       setMyName(n); setIsTrial(false); setPage("app");
     }
+    if (params.get("admin")===null && window.location.search.includes("admin")) {
+      setPage("app"); setIsTrial(false); setIsAdmin(true);
+    }
+    if (window.location.search.includes("admin")) {
+      setPage("app"); setIsTrial(false); setIsAdmin(true);
+    }
   },[]);
 
   const handleStripeCheckout = async () => {
@@ -1686,7 +1692,7 @@ export default function ChelgyApp() {
 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"0 20px"}}>
+        <div style={{maxWidth:"100%",padding:"0 40px"}}>
 
           {/* ═══ HOME ═══ */}
           {tab==="home"&&subTab==="feed"&&(
