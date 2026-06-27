@@ -285,11 +285,11 @@ const BIZ = [
 function getLevel(pts) { return [...LEVELS].reverse().find(l => pts >= l.min) || LEVELS[0]; }
 function nextLevel(pts) { return LEVELS.find(l => l.min > pts); }
 
-async function callClaude(prompt) {
+async function callClaude(prompt, maxTokens) {
   try {
     const res = await fetch("/api/claude", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ prompt })
+      body:JSON.stringify({ prompt, max_tokens: maxTokens })
     });
     const d = await res.json();
     return d.text || "Unable to generate. Please try again.";
@@ -1512,7 +1512,7 @@ export default function ChelgyApp() {
       "- Key metrics to track\n\n" +
       "Make everything specific to THIS business. No generic advice. Real, usable copy they can implement immediately."
 
-    const result = await callClaude(prompt);
+    const result = await callClaude(prompt, 8000);
     
     // Parse sections
     const sections = {};
@@ -1526,7 +1526,7 @@ export default function ChelgyApp() {
       }
     });
     
-    setLaunchResult(sections.WEBSITE ? sections : { "WEBSITE COPY": result });
+    setLaunchResult(Object.keys(sections).length ? sections : { "WEBSITE COPY": result });
     setLaunchLoading(false);
   }
 

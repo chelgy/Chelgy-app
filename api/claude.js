@@ -9,6 +9,8 @@ export default async function handler(req, res) {
     const prompt = body.prompt;
     if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
+    const maxTokens = Math.min(Math.max(parseInt(body.max_tokens, 10) || 1000, 1), 8192);
+
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -18,7 +20,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1000,
+        max_tokens: maxTokens,
         system: body.system || "You are Chelgy marketing advisor. Write punchy specific actionable content. No fluff.",
         messages: [{ role: "user", content: prompt }]
       })
