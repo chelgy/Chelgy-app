@@ -12,8 +12,10 @@ export default async function handler(req, res) {
     if (!prompt || !String(prompt).trim()) {
       return res.status(400).json({ error: "Missing prompt" });
     }
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Image service is not configured (no API key)." });
+
+    const key = (process.env.GEMINI_API_KEY || "").trim();
+    if (!key) {
+      return res.status(500).json({ error: "Image service is not configured." });
     }
 
     const parts = inputImage && inputImage.data
@@ -21,13 +23,10 @@ export default async function handler(req, res) {
       : [{ text: prompt }];
 
     const r = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key),
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts }],
           generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
