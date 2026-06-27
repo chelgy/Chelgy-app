@@ -76,6 +76,8 @@ async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
 // Replace these with your real IDs after setting up Google Analytics and Mixpanel
 const GA_ID = "G-TGPP84RZXM"; // Your Google Analytics Measurement ID
 const MIXPANEL_TOKEN = "b831509150f993629b0b3d79d55be935"; // Your Mixpanel Project Token
+// Mixpanel is OFF for now. When you're ready to turn on visitor tracking, change false to true below.
+const MIXPANEL_ENABLED = false;
 
 // Google Analytics tracker
 function gtag(...args) {
@@ -1201,6 +1203,15 @@ export default function ChelgyApp() {
   }
   const [appStrategies, setAppStrategies] = useState(strategies);
   const [appWeeklyPosts, setAppWeeklyPosts] = useState(weeklyPosts);
+  const [isTrial, setIsTrial] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [signupStep, setSignupStep] = useState(1);
+  const [signupData, setSignupData] = useState({ name:"", email:"" });
+  const [processing, setProcessing] = useState(false);
+  const [stripeError, setStripeError] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [discountError, setDiscountError] = useState("");
 
   // Secret admin URL: add ?admin to the URL
   useEffect(()=>{
@@ -1227,8 +1238,8 @@ export default function ChelgyApp() {
       window.gtag("config", GA_ID);
     }
 
-    // Initialize Mixpanel (official loader - loads safely, only inits when ready)
-    if (MIXPANEL_TOKEN && MIXPANEL_TOKEN !== "YOUR_MIXPANEL_TOKEN") {
+    // Initialize Mixpanel (only runs when MIXPANEL_ENABLED is true)
+    if (MIXPANEL_ENABLED && MIXPANEL_TOKEN && MIXPANEL_TOKEN !== "YOUR_MIXPANEL_TOKEN") {
       const script2 = document.createElement("script");
       script2.src = "https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";
       script2.async = true;
@@ -1243,19 +1254,6 @@ export default function ChelgyApp() {
     // Track app open
     track("app_opened", { timestamp: new Date().toISOString() });
   },[]);
-
-  if (isAdmin && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
-  if (isAdmin && adminAuthed) return <AdminDashboard onExit={()=>{setIsAdmin(false);setAdminAuthed(false);}} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
-
-  const [isTrial, setIsTrial] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [signupStep, setSignupStep] = useState(1);
-  const [signupData, setSignupData] = useState({ name:"", email:"" });
-  const [processing, setProcessing] = useState(false);
-  const [stripeError, setStripeError] = useState("");
-  const [discountCode, setDiscountCode] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState(null);
-  const [discountError, setDiscountError] = useState("");
 
   function applyDiscount() {
     const result = getDiscountedPrice(discountCode);
@@ -1530,6 +1528,10 @@ export default function ChelgyApp() {
     if (navigator.share) navigator.share({title:post.title,text:txt});
     else { navigator.clipboard?.writeText(txt); setCopied(true); setTimeout(()=>setCopied(false),2000); }
   };
+
+  // ── ADMIN (placed here so it runs only after all hooks are declared) ─────────
+  if (isAdmin && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
+  if (isAdmin && adminAuthed) return <AdminDashboard onExit={()=>{setIsAdmin(false);setAdminAuthed(false);}} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
   if (page==="onboarding") return <Onboarding onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} />;
