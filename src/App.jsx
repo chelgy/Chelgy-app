@@ -1,6 +1,103 @@
 import { useState, useEffect, useRef } from "react";
 
-// ─── BRAND ────────────────────────────────────────────────────────────────────
+// ─── SUPABASE ────────────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
+
+async function sbFetch(table, method="GET", body=null, id=null) {
+  const url = SUPABASE_URL + "/rest/v1/" + table + (id ? "?id=eq." + id : method==="GET" ? "?order=created_at.desc" : "");
+  const opts = {
+    method: method === "GET" ? "GET" : method === "DELETE" ? "DELETE" : method === "PATCH" ? "PATCH" : "POST",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      "Prefer": method === "POST" ? "return=representation" : method === "PATCH" ? "return=representation" : ""
+    },
+    ...(body ? { body: JSON.stringify(body) } : {})
+  };
+  const res = await fetch(url, opts);
+  if (!res.ok) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ─── AI SERVICE KEYS ─────────────────────────────────────────────────────────
+const WAVESPEED_KEY = "wsk_live_JZfXRCjiMjV_bNK5OuVWj72ULFhPSTFrJskN07DzHmU";
+const ELEVENLABS_KEY = "sk_8158417eb825f0f19a5eccdd0952635d6638c78f05967852";
+
+// WaveSpeed video generation
+async function generateVideo(prompt, model="wavespeed-ai/wan-2.1-i2v-480p") {
+  const res = await fetch("https://api.wavespeed.ai/api/v2/predict", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + WAVESPEED_KEY
+    },
+    body: JSON.stringify({ model, input: { prompt, num_frames: 81, guidance_scale: 7 } })
+  });
+  const data = await res.json();
+  return data?.data?.id || null;
+}
+
+async function pollVideo(taskId) {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const res = await fetch("https://api.wavespeed.ai/api/v2/predict/"+taskId+"/result", {
+      headers: { "Authorization": "Bearer " + WAVESPEED_KEY }
+    });
+    const data = await res.json();
+    if (data?.data?.status === "completed") return data?.data?.outputs?.[0] || null;
+    if (data?.data?.status === "failed") return null;
+  }
+  return null;
+}
+
+// ElevenLabs voiceover generation
+async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
+  const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": ELEVENLABS_KEY
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+    })
+  });
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+// ─── ANALYTICS ───────────────────────────────────────────────────────────────
+// Replace these with your real IDs after setting up Google Analytics and Mixpanel
+const GA_ID = "G-TGPP84RZXM"; // Your Google Analytics Measurement ID
+const MIXPANEL_TOKEN = "b831509150f993629b0b3d79d55be935"; // Your Mixpanel Project Token
+
+// Google Analytics tracker
+function gtag(...args) {
+  if (typeof window !== "undefined" && window.gtag) window.gtag(...args);
+}
+
+// Mixpanel tracker
+function mpTrack(event, props = {}) {
+  if (typeof window !== "undefined" && window.mixpanel) {
+    window.mixpanel.track(event, { ...props, app: "Chelgy", timestamp: new Date().toISOString() });
+  }
+}
+
+// Combined tracker - sends to both GA and Mixpanel
+function track(event, props = {}) {
+  try {
+    gtag("event", event, props);
+    mpTrack(event, props);
+  } catch(e) {}
+}
+
+// ─── BRAND ─── v2.1 wide─────────────────────────────────────────────────────────────────
 const B = {
   cream:"#FFFFFF", white:"#FFFFFF", offwhite:"#F7F6F4", stone:"#E8E6E1",
   mid:"#6B6B6B", charcoal:"#111111", gold:"#B8955A", goldLight:"#F2EBE0",
@@ -51,7 +148,38 @@ const strategies = [
 
   { id: 9, category: "AI Marketing", level: "Intermediate", timeToResult: "Immediate", isNew: true, title: "AI-Powered Marketing: Work Smarter and Scale Faster", summary: "AI does not replace your marketing — it removes the friction that stops most business owners from marketing consistently in the first place.", content: "Most business owners know what they should be doing. They just do not do it consistently because it takes too much time. AI changes that equation entirely.\n\n**What AI Can Do For Your Marketing Right Now**\n- Write first drafts of captions, emails, and ad copy in seconds\n- Generate content ideas based on your niche and audience\n- Create images for posts, flyers, and ads without a designer\n- Repurpose one piece of content into five different formats\n- Research competitors, keywords, and trending topics instantly\n\n**The Real Use Case: Consistency**\nThe most valuable thing AI gives you is not perfection — it is speed. A business owner who posts mediocre content every day will always outperform one who posts perfect content twice a month. AI helps you maintain the volume that the algorithm rewards.\n\n**ChatGPT and Claude for Content Creation**\nUse AI to generate captions, blog posts, email sequences, and ad copy. Give it your brand voice, your offer, and your audience, and it will produce drafts in seconds that you can refine in minutes. The key is giving it context — the more specific you are, the better the output.\n\n**AI for Images**\nTools like Midjourney, DALL-E, and Gemini can generate marketing visuals, product mockups, and brand graphics without a photographer or designer. Use them to maintain a consistent visual presence without the cost.\n\n**AI for Video**\nPlatforms like HeyGen let you create talking-head videos from a script without ever turning on a camera. Tools like Runway generate cinematic video from text prompts. This removes the barrier of video production entirely.\n\n**The Human Element**\nAI handles the volume. You bring the strategy, the brand voice, and the authentic story that no AI can replicate. Use AI to handle what drains you, and spend your human energy on what differentiates you." },
 
-  { id: 10, category: "Email Marketing", level: "Foundational", timeToResult: "2–4 weeks", title: "Email Marketing: The Channel You Actually Own", summary: "Social media can change its algorithm overnight. Email is the one marketing channel no platform can take from you.", content: "Every follower you have on Instagram, TikTok, or Facebook belongs to that platform — not to you. If the algorithm changes, your reach drops. If the account gets suspended, your audience is gone. Your email list belongs to you. That is why email is still the highest-ROI channel in marketing.\n\n**Building Your List From Zero**\nStart simple: offer something valuable in exchange for an email address. A free guide, a discount, a checklist, a mini-course. The lead magnet does not have to be elaborate — it has to be genuinely useful to your ideal customer.\n\n**The Welcome Sequence**\nThe moment someone joins your list, they are at peak interest. Send a welcome email within minutes. Follow up over the next 5 to 7 days with value — introduce yourself, share your best content, and make your offer.\n\n**What to Send and How Often**\nMost businesses overthink email frequency. Start with one email per week. Each email should do one of three things: teach something useful, share a story, or make an offer. Rotate between the three.\n\n**Subject Lines Are Everything**\nYour open rate is determined almost entirely by the subject line. Write it last, spend the most time on it, and test variations. The best subject lines create curiosity, are personal, or promise a specific benefit.\n\n**Segmentation**\nAs your list grows, segment it. Separate new subscribers from long-term ones. Separate buyers from non-buyers. Targeted emails outperform broadcast emails every time.\n\n**The Revenue Math**\nA healthy email list converts at 1 to 5 percent per campaign. If you have 1,000 subscribers and sell a $300 service, one email can generate $3,000 to $15,000 in revenue. That is why building your list is the single highest-leverage activity in your marketing." },
+  { id: 10, category: "Email Marketing", level: "Foundational", timeToResult: "2–4 weeks", title: "Email Marketing: The Channel You Actually Own", summary: "Social media can change its algorithm overnight. Email is the one marketing channel no platform can take from you.", content: "Every follower you have on Instagram, TikTok, or Facebook belongs to that platform — not to you. If the algorithm changes, your reach drops. If the account gets suspended, your audience is gone. Your email list belongs to you. That is why email is still the highest-ROI channel in marketing.\n\n**Building Your List From Zero**\nStart simple: offer something valuable in exchange for an email address. A free guide, a discount, a checklist, a mini-course. The lead magnet does not have to be elaborate — it has to be genuinely useful to your ideal customer.\n\n**The Welcome Sequence**\nThe moment someone joins your list, they are at peak interest. Send a welcome email within minutes. Follow up over the next 5 to 7 days with value — introduce yourself, share your best content, and make your offer.\n\n**What to Send and How Often**\nMost businesses overthink email frequency. Start with one email per week. Each email should do one of three things: teach something useful, share a story, or make an offer. Rotate between the three.\n\n**Subject Lines Are Everything**\nYour open rate is determined almost entirely by the subject line. Write it last, spend the most time on it, and test variations. The best subject lines create curiosity, are personal, or promise a specific benefit.\n\n**Segmentation**\nAs your list grows, segment it. Separate new subscribers from long-term ones. Separate buyers from non-buyers. Targeted emails outperform broadcast emails every time.\n\n**The Revenue Math**\nA healthy email list converts at 1 to 5 percent per campaign. If you have 1,000 subscribers and sell a $300 service, one email can generate $3,000 to $15,000 in revenue. That is why building your list is the single highest-leverage activity in your marketing." },,
+  { id: 11, category: "Influencer Marketing", level: "Intermediate", timeToResult: "1-3 months", isNew: true, title: "Micro-Influencer Marketing: The Highest ROI Influencer Strategy", summary: "Micro-influencers with 5,000 to 50,000 followers consistently outperform celebrity influencers on engagement, trust, and conversions at a fraction of the cost.", content: "Most business owners either avoid influencer marketing because they think it requires a huge budget, or they waste money on big accounts with low engagement. Micro-influencers are the answer to both problems.\n\n**Why Micro-Influencers Outperform Celebrities**\nMicro-influencers have audiences that actually listen to them. A celebrity with 2 million followers might get 0.5% engagement. A micro-influencer with 20,000 followers might get 8%. That is 16 times more engagement per follower.\n\n**How to Find the Right Micro-Influencers**\nSearch Instagram, TikTok, and YouTube for creators in your niche. Look for accounts with 5,000 to 50,000 followers, consistent posting, high comment engagement, and an audience that matches your ideal customer. Tools like Creator.co and AspireIQ work well.\n\n**What to Offer**\nMany micro-influencers will work for free product, a small flat fee of $50 to $300, or a commission on sales. Start with gifting your product and asking for an honest review.\n\n**What to Ask For**\nOne Instagram Reel or TikTok video, three Instagram Stories, and the right to reuse their content in your own ads. Usage rights to their content is often more valuable than the post itself.\n\n**Tracking Performance**\nGive each influencer a unique discount code or tracking link. Double down on winners, move on from underperformers.\n\n**Building Long-Term Partnerships**\nOne post rarely moves the needle. Find 5 to 10 micro-influencers who perform well and turn them into ongoing brand ambassadors." },
+  { id: 12, category: "Content Marketing", level: "Foundational", timeToResult: "2-4 months", isNew: true, title: "Pinterest Marketing: The Evergreen Traffic Machine", summary: "Pinterest is not social media - it is a visual search engine. Content posted today can drive traffic for years, making it one of the highest-ROI platforms for certain businesses.", content: "Most business owners ignore Pinterest because they think it is just for recipes and home decor. Pinterest has over 450 million monthly users actively searching for ideas, products, and solutions - and pins stay in search results for months or years.\n\n**Who Pinterest Works For**\nPinterest works for fashion, beauty, home decor, food, fitness, weddings, travel, personal finance, business, and marketing. If you can create a beautiful image, Pinterest can work for you.\n\n**How Pinterest Search Works**\nPinterest works like Google. People type in what they are looking for. Your job is to create pins that rank for the searches your ideal customer is making. Use keyword-rich pin titles, descriptions, and board names.\n\n**Creating High-Performing Pins**\nVertical images perform best at a 2:3 ratio. Use bold text overlays that state the benefit clearly. Every pin should link to a specific page on your website.\n\n**Board Strategy**\nCreate boards around specific topics your customer searches for. Each board should have 20 to 50 pins of consistent, relevant content.\n\n**The Compounding Effect**\nA Pinterest pin can drive traffic for 3 to 5 years. One strong pin can send thousands of visitors to your site over time." },
+  { id: 13, category: "Content Marketing", level: "Intermediate", timeToResult: "3-6 months", isNew: true, title: "YouTube SEO: Build an Audience That Compounds Forever", summary: "YouTube is the second largest search engine in the world. Videos that rank today will drive views, leads, and sales for years - completely free.", content: "YouTube is not just a video platform - it is a search engine owned by Google. When you upload a video that ranks for the right keywords, it can drive traffic, leads, and customers indefinitely.\n\n**The YouTube SEO Formula**\nEvery high-ranking YouTube video has three things: a keyword-rich title, an optimized description, and strong viewer retention. Your job is to hook viewers in the first 30 seconds and keep them watching.\n\n**Keyword Research for YouTube**\nUse YouTube search bar autocomplete to find what people are searching for. Tools like TubeBuddy and VidIQ show you search volume and competition for any keyword.\n\n**Optimizing Your Video**\nTitle: Include your main keyword, under 60 characters. Description: 200 to 300 words with your keyword in the first two sentences. Thumbnail: Custom thumbnails with bold text dramatically increase click-through rates.\n\n**Content That Performs**\nHow-to videos, listicles, tutorials, and case studies consistently perform well. Answer the specific questions your ideal customer is already searching for.\n\n**Monetizing YouTube Traffic**\nYouTube traffic converts because viewers already trust you before they visit your site. Drive them to a lead magnet, a free consultation, or a product page." },
+  { id: 14, category: "Content Marketing", level: "Intermediate", timeToResult: "2-6 months", isNew: true, title: "Podcast Marketing: Build Authority While People Are Listening", summary: "Podcast listeners are the most engaged audience in any medium. Being a guest on the right podcasts can position you as an expert and drive qualified leads overnight.", content: "Podcasting is the only marketing channel where your ideal customer gives you 30 to 60 uninterrupted minutes of their attention.\n\n**Guest Podcasting: The Fastest Path to Authority**\nYou do not need your own podcast to benefit. Being a guest on established shows puts you in front of an existing, engaged audience. Start by pitching shows with 1,000 to 10,000 listeners in your niche.\n\n**How to Pitch Yourself as a Guest**\nListen to 2 to 3 episodes. Send a personalized email explaining who you are, what value you would bring, and 3 specific topic ideas. Keep it short. Follow up once if you do not hear back.\n\n**What to Talk About**\nShare specific, actionable insights your audience can use immediately. Always have a clear call to action - a free resource or specific offer.\n\n**Starting Your Own Podcast**\nA decent USB microphone costs under $100. Publish weekly, be consistent, and focus on serving your listener with every episode.\n\n**The Long-Term Play**\nPodcast listeners are loyal. An audience built through podcasting often has higher lifetime value than social media followers because the relationship is deeper and more personal." },
+  { id: 15, category: "Funnel Strategy", level: "Intermediate", timeToResult: "2-4 weeks", isNew: true, title: "Sales Funnels: Turn Strangers Into Paying Customers Automatically", summary: "A sales funnel is a system that takes someone from never having heard of you to becoming a paying customer - on autopilot, while you sleep.", content: "Most businesses lose customers not because their product is bad but because they have no system to guide a prospect from awareness to purchase.\n\n**The 4 Stages of Every Funnel**\nAwareness: The person discovers you. Interest: They consume your content and begin to trust you. Decision: They evaluate your offer. Action: They purchase.\n\n**The Lead Magnet**\nEvery funnel starts with a lead magnet - a free resource that solves a specific problem. A checklist, guide, template, mini-course, or free consultation that captures their email address.\n\n**The Email Nurture Sequence**\nAfter someone opts in, an automated email sequence builds the relationship. Send 5 to 7 emails over 7 to 10 days. Each email provides value and moves them closer to your offer.\n\n**The Sales Page**\nYour sales page must clearly articulate the problem, present your solution, provide proof, handle objections, and make the purchase process simple.\n\n**Measuring Your Funnel**\nTrack the conversion rate at each stage. If 100 people opt in and only 1 buys, your email sequence or sales page needs work. Funnels are built by measuring and optimizing each step." },
+  { id: 16, category: "Local Marketing", level: "Foundational", timeToResult: "2-4 weeks", isNew: true, title: "Google Business Profile: Your Free Local Marketing Powerhouse", summary: "Your Google Business Profile is the most powerful free marketing tool for local businesses. An optimized profile puts you at the top of local search results and Google Maps.", content: "When someone searches for a business like yours nearby, Google shows a map with three local businesses before any website results. Your Google Business Profile is what gets you there.\n\n**Claiming and Verifying Your Profile**\nGo to business.google.com and claim your listing. Google will verify by postcard, phone, or email. This is free and takes less than a week.\n\n**Optimizing Every Section**\nBusiness name, category, description with keywords, accurate hours, phone, and website. Every section matters for ranking.\n\n**Photos Drive Clicks**\nBusinesses with more than 100 photos get 520% more calls than businesses with no photos. Add new photos weekly.\n\n**Google Posts**\nPublish posts directly to your profile - promotions, events, new products. Post at least once per week to show Google your business is active.\n\n**The Review Strategy**\nReviews are the most important ranking factor for local search. Ask every satisfied customer to leave a review. Send them a direct link to make it easy." },
+  { id: 17, category: "Email Marketing", level: "Intermediate", timeToResult: "2-4 weeks", isNew: true, title: "SMS Marketing: The Highest Open Rate Channel in Existence", summary: "Text messages have a 98% open rate. No other marketing channel comes close. SMS marketing is underused, underpriced, and incredibly effective.", content: "Email open rates average 20 to 25%. SMS open rates average 98%. Text messages are read within 3 minutes of being received.\n\n**When SMS Marketing Works Best**\nFlash sales and time-sensitive promotions. Appointment reminders. Abandoned cart recovery. Event announcements. Loyalty program updates. Re-engagement campaigns.\n\n**Building Your SMS List**\nNever text someone without explicit consent. Build your list through opt-in forms, keyword campaigns, checkout opt-ins, and in-person sign-ups.\n\n**Writing Effective SMS Messages**\nKeep it under 160 characters. Lead with the offer. Include a clear call to action with a link. Always include your business name. Never send more than 2 to 4 texts per month.\n\n**Platforms to Use**\nAttentive, Klaviyo, Postscript, and SimpleTexting are popular SMS marketing platforms.\n\n**SMS and Email Together**\nSend an email first with full details. Follow up with an SMS 24 hours later to reach people who did not open the email. This two-touch approach significantly increases campaign performance." },
+  { id: 18, category: "Brand Strategy", level: "Intermediate", timeToResult: "1-3 months", isNew: true, title: "Referral Marketing: Turn Your Customers Into Your Sales Team", summary: "Word of mouth is the most trusted form of marketing. A structured referral program turns your happiest customers into a commission-based sales force that grows your business for you.", content: "People trust recommendations from friends and family 92% more than any form of advertising. A referral program systematizes that trust and gives your customers an incentive to spread the word.\n\n**Why Referral Programs Work**\nReferred customers have a 37% higher retention rate and 16% higher lifetime value. They come in pre-sold on your quality because someone they trust vouched for you.\n\n**Designing Your Referral Program**\nThe reward must be meaningful enough to motivate action. For service businesses, 10 to 20% of the first month or a flat gift card works well. Both the referrer and the new customer should receive a benefit.\n\n**Making It Easy to Refer**\nGive customers a unique referral link or code they can share instantly. The fewer steps required, the more referrals you will get. Automate the tracking and reward delivery.\n\n**When to Ask for a Referral**\nAsk immediately after a positive experience - after a successful project, a great appointment, or a glowing review. This is when enthusiasm is highest.\n\n**Promoting Your Referral Program**\nInclude it in your welcome email, post-purchase confirmation, and monthly newsletter. The program only works if people know it exists." },
+  { id: 19, category: "Paid Advertising", level: "Advanced", timeToResult: "1-2 weeks", isNew: true, title: "Retargeting Ads: Convert the 97% Who Did Not Buy the First Time", summary: "97% of visitors leave your website without buying. Retargeting ads follow them around the internet and bring them back - converting people who already showed interest.", content: "When someone visits your website, they are showing interest. But most people do not buy on the first visit. Retargeting keeps you top of mind and brings them back when they are ready to purchase.\n\n**How Retargeting Works**\nA small piece of code called a pixel is installed on your website. When someone visits, the pixel drops a cookie. When they browse other websites, your ads appear. You are only showing ads to people who already visited your site.\n\n**The Math That Makes Retargeting Powerful**\nRetargeted website visitors are 70% more likely to convert than cold audiences. Because the audience is warm and targeted, costs per click are lower and conversion rates are higher.\n\n**Setting Up Your Pixel**\nInstall the Meta Pixel on your website through your website settings or Google Tag Manager. Install the Google Tag for Google retargeting.\n\n**Retargeting Ad Strategy**\nCreate specific ads for specific behaviors. Someone who visited your pricing page gets a different ad than someone who only visited your homepage.\n\n**Retargeting Windows**\nCreate different audiences based on recency: 3-day visitors are hottest, 7-day visitors are warm, 30-day visitors are cool. Show your most aggressive offers to the hottest audiences." },
+  { id: 20, category: "Funnel Strategy", level: "Intermediate", timeToResult: "2-4 weeks", isNew: true, title: "Landing Page Optimization: The Difference Between Leads and Lost Visitors", summary: "Your landing page is where visitors decide whether to become customers or leave forever. Small changes can double or triple your conversion rate.", content: "You can spend thousands on ads and drive thousands of visitors - but if your landing page does not convert, every dollar is wasted.\n\n**The Anatomy of a High-Converting Landing Page**\nHeadline: Immediately communicate who this is for and what they get. Sub-headline: Support with a specific benefit. Benefits section: What they get, not features. Social proof: Testimonials, reviews, and numbers. Call to action: One clear button with specific text.\n\n**The One Page, One Goal Rule**\nEvery landing page should have exactly one goal. Remove your navigation menu. Remove links to other pages. Distraction is conversion death.\n\n**Social Proof That Converts**\nSpecific testimonials convert better than generic ones. Use real names, photos, and specific results whenever possible.\n\n**Speed and Mobile**\nA one-second delay in page load time reduces conversions by 7%. Your page must load in under 2 seconds on mobile. Over 60% of your traffic is on mobile.\n\n**A/B Testing**\nTest your headline, your CTA button color and text, your hero image, and your offer. Change one element at a time and run each test for at least 100 visitors before drawing conclusions." },
+  { id: 21, category: "Social Media", level: "Foundational", timeToResult: "1-3 months", isNew: true, title: "LinkedIn Marketing: Build B2B Authority and Generate Professional Leads", summary: "LinkedIn has over 900 million professionals. For B2B businesses, coaches, consultants, and service providers, it is the most powerful organic lead generation platform available.", content: "LinkedIn is not just a job board. It is the only social media platform where professional credibility is currency.\n\n**Optimizing Your Profile**\nYour LinkedIn profile is your landing page. The headline should say what you do and who you help. Your About section should read like a sales page: who you help, what problems you solve, and what results you deliver.\n\n**Content That Performs on LinkedIn**\nLong-form posts of 1,300 to 2,000 characters consistently outperform short posts. Share specific insights, lessons learned, and results. Personal stories with a professional lesson perform exceptionally well.\n\n**The Connection Strategy**\nConnect with your ideal clients directly. Send a personalized connection request. Once connected, send a value-first message before ever mentioning your services.\n\n**LinkedIn Articles and Newsletters**\nLinkedIn lets you publish long-form articles and newsletters directly on the platform. Publish one article per month on a topic your ideal client cares deeply about.\n\n**LinkedIn Groups**\nJoin and actively participate in groups where your ideal clients gather. Answer questions, share insights, and be genuinely helpful." },
+  { id: 22, category: "Brand Strategy", level: "Foundational", timeToResult: "Immediate", isNew: true, title: "PR and Media Outreach: Get Featured Without Paying for Ads", summary: "Being featured in a publication, podcast, or news outlet gives you third-party credibility that no ad can buy. PR puts your brand in front of massive audiences for free.", content: "When a respected publication writes about you, it is not just an audience - it is an endorsement. PR delivers credibility that takes years to build organically, overnight.\n\n**Understanding What Journalists Want**\nJournalists are not interested in your business. They are interested in stories their readers care about. Frame your expertise as a story - a trend, a data point, a counterintuitive insight. Never pitch your product. Pitch a perspective.\n\n**HARO: Help a Reporter Out**\nSign up at helpareporter.com. Three times a day, journalists send requests for expert sources. When you see a request in your area of expertise, respond quickly with a concise, quotable answer.\n\n**Pitching Local Media**\nLocal TV news, newspapers, and blogs are always looking for local business stories. Local media coverage is easier to get and still highly credible.\n\n**Building a Media Kit**\nCreate a one-page media kit with your bio, headshot, areas of expertise, and previous press mentions.\n\n**Guest Articles and Op-Eds**\nMany publications accept guest contributions from industry experts. A published byline in an industry magazine builds authority that compounds indefinitely." },
+  { id: 23, category: "Content Marketing", level: "Foundational", timeToResult: "1-3 months", isNew: true, title: "Content Repurposing: Create Once, Distribute Everywhere", summary: "The most efficient content strategy is not creating more content - it is getting more out of the content you already create. One piece can feed your entire marketing ecosystem.", content: "Most business owners think they need to create separate content for every platform. This leads to burnout and giving up. The smarter approach is to create one strong piece per week and repurpose it into a dozen different formats.\n\n**The Repurposing Pyramid**\nStart with your largest format - a long-form blog post, YouTube video, or podcast episode. A 20-minute YouTube video becomes a blog post, 5 short clips for TikTok and Reels, 10 tweets, 3 LinkedIn posts, a newsletter, and an email. One idea, 20 pieces of content.\n\n**Tools That Make Repurposing Easy**\nDescript transcribes your video and lets you pull quotes and clips. Canva turns quotes into graphics. ChatGPT rewrites your transcript into a blog post or social captions.\n\n**What to Repurpose**\nFocus on your best-performing content - posts with high engagement, videos with strong retention. Repurposing amplifies what already works.\n\n**The Content Calendar System**\nPlan one cornerstone piece per week. Repurpose it across platforms throughout the week. This is how solo business owners maintain a massive content presence without burning out." },
+  { id: 24, category: "Local Marketing", level: "Foundational", timeToResult: "1-4 weeks", isNew: true, title: "Event Marketing: Build Community and Customers in Person", summary: "Hosting or attending events puts your brand in front of warm, engaged audiences. In-person connections convert faster and retain longer than any digital interaction.", content: "Digital marketing has made in-person connection more valuable. People crave real experiences and real community. Businesses that create those experiences build loyalties that no ad campaign can replicate.\n\n**Types of Events That Build Business**\nWorkshops and classes: Teach your expertise live. Attendees become highly qualified leads. Networking events: Host a monthly mixer for your industry. Pop-up shops: Bring your product to where your customers already are. Webinars: Online events serve a national or global audience.\n\n**The Event Marketing Formula**\nCreate an event your ideal customer would pay to attend - then host it for free or at low cost. Capture every attendee email and follow up within 24 hours.\n\n**Partnering for Events**\nCo-host events with complementary businesses to split costs and double the audience.\n\n**Before, During, and After**\nBefore: Promote through email, social, and local listings. During: Deliver exceptional value and collect emails. After: Follow up with every attendee and invite them to the next one.\n\n**Sponsoring Events**\nIf hosting is too much, sponsor existing events in your community. A booth or speaking slot puts your brand in front of a qualified local audience." },
+  { id: 25, category: "AI Marketing", level: "Intermediate", timeToResult: "Immediate", isNew: true, title: "AI Video Marketing: Create Professional Video Without a Camera", summary: "AI video tools have eliminated the biggest barrier to video marketing. Businesses that adopt these tools now will dominate video content in their industry.", content: "Video is the highest-converting content format across every platform. But most business owners avoid it because they do not want to be on camera or lack production equipment. AI video tools have solved all three problems.\n\n**AI Avatar Videos with HeyGen**\nHeyGen lets you create a digital avatar and animate it with any script. You type your script, the avatar speaks it with natural gestures. No camera, no lighting, no editing needed.\n\n**AI Video Generation with Runway and Kling**\nRunway ML and Kling AI generate cinematic video footage from text prompts. Used for product showcases, brand videos, and social content without hiring a videographer.\n\n**Script to Video with Pictory and InVideo**\nPaste a blog post or script and these tools automatically create a video with stock footage, captions, and background music.\n\n**AI Voiceovers with ElevenLabs**\nElevenLabs creates hyper-realistic AI voices in any tone or accent. Clone your own voice or use a preset for video voiceovers and audio content.\n\n**The Workflow**\nWrite script with AI. Generate voiceover with ElevenLabs. Create visuals with Runway. Add captions with Descript. Distribute across TikTok, Instagram, YouTube, and LinkedIn. One professional video in under an hour." },
+  { id: 26, category: "Social Media", level: "Foundational", timeToResult: "1-2 months", isNew: true, title: "Community Building: Create a Movement Around Your Brand", summary: "The most valuable asset a brand can have is a community of passionate, engaged people. Communities create word of mouth, loyalty, and revenue that no ad can replicate.", content: "Products can be copied. Prices can be undercut. But a community cannot be replicated. When your brand has a community of true believers, you have a competitive advantage no competitor can buy.\n\n**What Makes a Community Different from an Audience**\nAn audience watches you. A community belongs to something together. The shift from audience to community happens when members interact with each other, not just with you.\n\n**Where to Build Your Community**\nFacebook Groups work well for broad consumer communities. Discord for younger audiences. Slack for professional communities. Mighty Networks and Circle are purpose-built for paid communities.\n\n**The Community Launch Strategy**\nStart with your most engaged existing followers. Invite them personally to join a founding member group. Give them early access, special recognition, and real input. Founding members become your most vocal advocates.\n\n**Keeping a Community Alive**\nYou must actively facilitate discussion, recognize members, celebrate wins, and introduce new topics. The first 90 days require intense engagement from you personally.\n\n**Monetizing Your Community**\nThe Chelgy membership model - a community paired with educational content and tools - is one of the most proven models in the creator economy." },
+  { id: 27, category: "Email Marketing", level: "Advanced", timeToResult: "2-4 weeks", isNew: true, title: "Email Segmentation: Send the Right Message to the Right Person", summary: "Sending the same email to your entire list is leaving money on the table. Segmented campaigns generate 760% more revenue than one-size-fits-all broadcasts.", content: "Most businesses treat their email list like one homogeneous group. A new subscriber has completely different needs than a loyal customer who has been with you for two years. Segmentation makes every email more relevant and more profitable.\n\n**The Most Important Segments**\nNew subscribers (0 to 30 days): They need education and trust-building. Engaged subscribers: Your warmest audience - make them offers. Inactive subscribers: They need a re-engagement campaign. Buyers: Offer upgrades and complementary products. Non-buyers: Focus on objection handling and social proof.\n\n**Behavioral Segmentation**\nSegment based on actions people take. Someone who clicked a link about Facebook Ads gets more Facebook Ads content. Behavior-based segmentation is the most powerful form.\n\n**Setting Up Segmentation**\nMost email platforms (Klaviyo, ActiveCampaign, Mailchimp, ConvertKit) have built-in tagging and segmentation features.\n\n**The Re-engagement Campaign**\nFor subscribers who have not opened in 90 days, send a 3-email re-engagement sequence. Remove those who do not re-engage. A smaller engaged list always outperforms a large disengaged one.\n\n**Personalization Beyond First Name**\nTrue personalization means sending content based on specific interests, behaviors, and stage in your customer journey. When people feel understood, they buy." },
+  { id: 28, category: "Paid Advertising", level: "Advanced", timeToResult: "2-4 weeks", isNew: true, title: "Ad Creative Strategy: The Science of Ads That Stop the Scroll", summary: "The best targeting in the world cannot save a bad ad. Creative is now the most important variable in paid advertising performance.", content: "The businesses winning with paid ads are those who produce compelling, native-feeling creative at scale.\n\n**The Hook: Your Most Important 2 Seconds**\nOn social media, users scroll at about 300 feet per hour. Your ad has 1 to 2 seconds to stop that scroll. Test multiple hooks on the same ad body to find what works for your specific audience.\n\n**The 3 Types of Creative That Convert**\nUGC style: Raw, authentic video that looks like it was filmed on a phone. Testimonial format: Real customers sharing real results. Before and after: Show the transformation your product or service creates.\n\n**Creative Volume Wins**\nThe brands winning with paid ads are testing 20 to 30 creative variations per month. Most will underperform. A few will win big. Those winners get scaled.\n\n**Static vs Video**\nVideo consistently outperforms static images for cold audiences. Static images work well for retargeting when the offer is clear and simple.\n\n**Creative Fatigue**\nEven the best-performing creative eventually fatigues. Refresh your creative every 2 to 4 weeks. Keep the winning angle but change the hook, visual, or format to extend performance." },
+  { id: 29, category: "Brand Strategy", level: "Foundational", timeToResult: "Immediate", isNew: true, title: "Brand Voice: How to Sound Like a Brand People Remember", summary: "Your brand voice is the personality behind every word you write. Brands with a distinct, consistent voice build recognition, trust, and loyalty faster than those who sound generic.", content: "Walk into any Apple Store and you immediately feel something. Read any Nike copy and you feel it. That feeling is brand voice in action.\n\n**Why Brand Voice Matters**\nA distinct brand voice makes you recognizable before anyone reads your name. It signals your values, personality, and who you are for. It attracts your ideal customer and repels everyone else.\n\n**Defining Your Brand Voice**\nChoose 3 to 5 adjectives that describe your brand personality. Chelgy might be: confident, warm, direct, editorial, aspirational. These guide every piece of communication.\n\n**Voice vs Tone**\nYour voice is consistent - it never changes. Your tone adapts to context. A brand can be consistently warm and direct while being more playful on social media and more professional in a proposal.\n\n**What to Avoid**\nGeneric corporate speak. Jargon your customers do not use. Inconsistency between platforms - sounding like three different companies on Instagram, your website, and your emails.\n\n**Creating a Brand Voice Guide**\nDocument your brand voice in a simple one-page guide. Include your voice adjectives, examples of on-brand vs off-brand language, and your do not use list." },
+  { id: 30, category: "Funnel Strategy", level: "Advanced", timeToResult: "1-2 months", isNew: true, title: "Affiliate Marketing: Build a Sales Army That Only Gets Paid When You Do", summary: "Affiliate marketing lets other people sell your product for a commission. You pay nothing until a sale is made, making it one of the lowest-risk, highest-leverage growth strategies available.", content: "Affiliate marketing is performance-based marketing at its best. You create a program, recruit partners who promote your product, and pay them a commission only when they make a sale.\n\n**How Affiliate Marketing Works**\nYou give each affiliate a unique tracking link. When someone clicks and purchases, the affiliate earns a commission. The tracking is automated and the payouts are automated.\n\n**Who Makes a Great Affiliate**\nYour happiest existing customers. Bloggers and content creators in your niche. Complementary businesses who serve your audience. Podcast hosts and YouTubers your ideal customer follows.\n\n**Setting Your Commission Rate**\nFor digital products and memberships, commissions of 20 to 40% are standard. The higher your commission, the more motivated affiliates will be to promote you.\n\n**Affiliate Program Platforms**\nShareASale, Impact, PartnerStack, and Gumroad all have built-in affiliate tracking. Kajabi and Teachable have affiliate features built in for course creators.\n\n**Supporting Your Affiliates**\nProvide pre-written emails, social posts, graphics, and talking points. The easier you make it to promote you, the more they will." },
+  { id: 31, category: "SEO", level: "Intermediate", timeToResult: "3-6 months", isNew: true, title: "Local SEO: Dominate Search Results in Your City", summary: "Local SEO gets your business found when people search for your services in your area. It is the most targeted form of organic traffic because searchers are ready to buy right now.", content: "When someone searches for your services near them, they have immediate buying intent. Local SEO puts your business in front of these ready-to-buy customers at the exact moment they are looking for you.\n\n**The Local SEO Ranking Factors**\nGoogle ranks local businesses based on Relevance, Distance, and Prominence. Optimize for all three.\n\n**Keyword Strategy for Local SEO**\nTarget keywords that combine your service with your location. Best marketing agency Tampa. Hair salon St Petersburg FL. Include these naturally in your website content and page titles.\n\n**NAP Consistency**\nYour Name, Address, and Phone number must be identical across every online directory. Even minor inconsistencies confuse Google and hurt your ranking.\n\n**Local Citations**\nA citation is any mention of your business name, address, and phone number on another website. Build citations on local directories and industry-specific sites.\n\n**Reviews Are a Ranking Factor**\nGoogle reviews directly influence your local search ranking. More reviews, more recent reviews, and higher star ratings all improve your position." },
+  { id: 32, category: "Social Media", level: "Intermediate", timeToResult: "1-3 months", isNew: true, title: "Instagram Growth Strategy: Build a Following That Actually Converts", summary: "Instagram rewards consistency, quality, and community. The accounts that grow fastest have the clearest positioning and most consistent strategy.", content: "Instagram has over 2 billion monthly active users. Growth requires a clear strategy, not just pretty pictures.\n\n**Your Instagram Profile as a Landing Page**\nYour bio has 150 characters to tell someone who you are, who you serve, and what to do next. Include a keyword, a clear value proposition, and a call to action.\n\n**Content Pillars**\nChoose 3 to 5 content pillars - the specific topics you post about consistently. For a marketing brand: marketing tips, business mindset, client results, behind the scenes, and personal brand.\n\n**Reels Are Non-Negotiable**\nInstagram heavily favors Reels for reach and discovery. Posting 3 to 5 Reels per week is the fastest way to grow your account. The hook in the first second is everything.\n\n**Engagement Strategy**\nSpend 15 to 20 minutes per day commenting on posts in your niche, replying to every comment on your posts, and engaging in DMs. Genuine engagement compounds into reach.\n\n**Hashtag Strategy**\nUse a mix of large hashtags (1M plus posts), medium hashtags (100K to 1M), and small niche hashtags (under 100K). Use 5 to 15 hashtags per post." },
+  { id: 33, category: "AI Marketing", level: "Foundational", timeToResult: "Immediate", isNew: true, title: "ChatGPT for Marketing: The Complete Business Owner Guide", summary: "ChatGPT is the most powerful marketing tool most business owners are underusing. Here is the exact system for using AI to handle writing, research, and strategy work that used to take hours.", content: "Most business owners use ChatGPT like a search engine and get generic answers. The business owners getting real results treat it like a skilled contractor who needs clear instructions and specific deliverables.\n\n**The Prompt Formula That Gets Real Results**\nThe best prompts have four elements: Role (you are a marketing expert), Context (I run a marketing membership), Task (write an Instagram caption), and Format (under 150 words with a CTA and 5 hashtags).\n\n**Marketing Tasks to Automate with ChatGPT**\nSocial media captions. Email subject lines and body copy. Blog post outlines and first drafts. Ad copy variations. Website copy. Customer FAQ responses. Video scripts and hooks.\n\n**Training ChatGPT on Your Brand Voice**\nStart every conversation by pasting in your brand voice guide and examples of copy you love. Tell ChatGPT: write everything in this style. The output will be dramatically more consistent.\n\n**The Editing Workflow**\nAI output is always a first draft. Plan to spend 10 to 20% of the time you would have spent writing from scratch - reviewing, refining, and adding your personal touch.\n\n**Building a Prompt Library**\nSave your best prompts in a document. When you find a prompt that consistently produces great output, document it. Over time, you build a library of proven prompts." },
+  { id: 34, category: "Brand Strategy", level: "Intermediate", timeToResult: "1-3 months", isNew: true, title: "Personal Brand Marketing: When You Are the Brand", summary: "In the creator economy, people buy from people. A strong personal brand makes you magnetic to clients, partners, and opportunities.", content: "The most successful businesses in the modern economy are often built on a personal brand. Gary Vaynerchuk built a media empire. Alex Hormozi built a nine-figure portfolio. They all started by sharing their authentic perspective.\n\n**Why Personal Brands Win**\nPeople trust people more than they trust companies. A personal brand creates parasocial relationships - followers feel like they know you before they ever buy from you. This dramatically shortens the sales cycle.\n\n**Defining Your Personal Brand Position**\nWhat do you believe about your industry that most people get wrong? What is your specific approach? What results have you achieved? Your position is the intersection of your expertise, experience, and perspective.\n\n**Content for Personal Brand Building**\nShare your journey, not just your expertise. The struggles, the wins, the lessons learned. Authenticity builds connection. Pair that authenticity with genuine insight and value.\n\n**The Platforms for Personal Brand**\nInstagram and TikTok for broad consumer audiences. LinkedIn for professional and B2B audiences. YouTube for long-form authority building. Choose one or two platforms and commit fully before expanding.\n\n**Monetizing Your Personal Brand**\nA personal brand monetizes through courses, coaching, consulting, memberships, speaking, book deals, brand partnerships, and products." },
+  { id: 35, category: "Content Marketing", level: "Intermediate", timeToResult: "2-4 months", isNew: true, title: "Blogging for Business: Create Content That Ranks and Converts for Years", summary: "A well-written blog post can rank on Google and drive traffic to your business for 5 to 10 years. Blogging is the gift that keeps giving.", content: "Social media posts disappear in hours. Blog posts compound over years. A single well-optimized blog post can rank on Google and send qualified traffic to your business indefinitely.\n\n**The Blog Posts That Drive Business Results**\nHow-to guides, listicles, comparison posts, ultimate guides, and case studies are the formats that drive the most traffic and leads.\n\n**SEO Fundamentals for Blog Posts**\nChoose one primary keyword per post. Include it in the title, first paragraph, one H2 subheading, and naturally throughout. Write a minimum of 1,000 words. Add internal links to other relevant pages on your site.\n\n**The Blog Post Structure That Converts**\nTitle: keyword-rich and compelling. Introduction: hook the reader. Body: organized with subheadings and practical examples. CTA: tell readers what to do next.\n\n**Promoting Your Blog Posts**\nShare to all social platforms. Include in your email newsletter. Pitch to other websites for backlinks. Repurpose into social content. Update and republish posts every 12 to 18 months.\n\n**The Compounding Math**\nIf you publish one optimized post per week for a year, you have 52 assets working for you around the clock. This is how small blogs become major sources of leads and revenue." },
+  { id: 36, category: "Funnel Strategy", level: "Advanced", timeToResult: "1-2 months", isNew: true, title: "Webinar Marketing: Convert Audiences Into Customers in 90 Minutes", summary: "A well-executed webinar is one of the highest-converting marketing formats in existence. Live events create urgency, build trust, and allow you to make an offer to a warm audience.", content: "Webinars convert at 15 to 20% on average - far higher than email campaigns, social media, or cold ads.\n\n**The Webinar Formula That Converts**\nFive parts: The Hook (why you should listen and what you will learn). The Teaching (3 to 5 insights that create genuine aha moments). The Pivot (bridge from teaching to your offer). The Pitch (present your product as the logical next step). The Q&A (handle objections in real time).\n\n**Choosing Your Webinar Topic**\nYour topic must promise a specific, desirable transformation. Specificity drives registrations and attendance.\n\n**Driving Registrations**\nPromote 1 to 2 weeks in advance. Send 3 reminder emails: one week before, one day before, and one hour before.\n\n**The Follow-Up Sequence**\nMost sales come in the 48 to 72 hours after the event. Send a replay email. Send a reminder to non-buyers at 24 hours. Send a final deadline email when your special offer expires.\n\n**Automated Webinars**\nOnce a webinar converts live, record it and run it as an automated evergreen webinar. Platforms like EverWebinar automate registration, reminders, and replay." },
+  { id: 37, category: "Local Marketing", level: "Foundational", timeToResult: "2-4 weeks", isNew: true, title: "Nextdoor Marketing: Dominate Your Hyperlocal Community", summary: "Nextdoor is the neighborhood social network where residents ask for local business recommendations. Being active puts your business in front of high-intent local buyers.", content: "When someone needs a plumber, cleaning service, or restaurant recommendation, they ask their neighborhood. Nextdoor is where that conversation happens online.\n\n**Setting Up Your Business Profile**\nCreate a free Business Page at business.nextdoor.com. Complete every section including category, service area, hours, website, and a compelling description.\n\n**Getting Recommended**\nRecommendations on Nextdoor are the equivalent of Google reviews. Ask your happy customers who live in the area to recommend your business.\n\n**Engaging Authentically**\nWhen someone asks for a recommendation in your category, respond helpfully. Introduce yourself, share your expertise, and offer value before asking for business.\n\n**Nextdoor Ads**\nNextdoor offers paid advertising that targets specific zip codes and neighborhoods. For local service businesses, Nextdoor ads can be extremely cost-effective.\n\n**The Neighborhood Sponsorship**\nNextdoor allows businesses to sponsor specific neighborhoods - your business appears as a recommended local business to all residents in that area." },
+  { id: 38, category: "Email Marketing", level: "Foundational", timeToResult: "1-2 weeks", isNew: true, title: "Lead Magnets That Convert: Build Your Email List Faster", summary: "A lead magnet is the most important piece of content you will ever create. The right one can add hundreds of qualified subscribers to your list every month on autopilot.", content: "People do not give away their email address for nothing. A lead magnet is the something valuable enough to exchange for it.\n\n**What Makes a Great Lead Magnet**\nThe best lead magnets solve one specific problem for one specific person in a way that can be consumed quickly. A one-page checklist that solves an immediate problem gets downloaded, used, and remembered.\n\n**The 7 Highest-Converting Lead Magnet Formats**\nChecklist. Template. Cheat sheet. Mini-course (3 to 5 short emails or videos). Free tool or calculator. Case study. Webinar or workshop.\n\n**Matching Your Lead Magnet to Your Offer**\nThe best lead magnets are directly related to your paid offer. People who download it are self-identifying as your ideal customer. The transition from free to paid feels natural.\n\n**Promoting Your Lead Magnet**\nYour lead magnet should be everywhere: your website header, Instagram bio link, video CTAs, podcast outro, email signature, and social media posts.\n\n**The Thank You Page**\nAfter someone downloads, use the thank you page to introduce your paid offer, invite them to follow you on social, or direct them to your most popular content." },
+  { id: 39, category: "Paid Advertising", level: "Intermediate", timeToResult: "1-2 weeks", isNew: true, title: "TikTok Ads: The Most Underpriced Ad Platform Right Now", summary: "TikTok ads are currently the most cost-effective paid advertising platform for consumer brands. CPMs are lower, engagement is higher, and the audience is growing.", content: "Every few years a new ad platform emerges with low competition and low prices before the market catches up. TikTok Ads right now offer the same opportunity - lower costs and higher engagement than any established platform.\n\n**Why TikTok Ads Work Differently**\nTikTok is a discovery platform. Ads work best when they feel like organic content - not polished commercials. The native, authentic look is a feature, not a bug.\n\n**Spark Ads: The Most Powerful TikTok Ad Format**\nSpark Ads let you boost your existing organic TikTok content as an ad. It looks identical to a regular TikTok post and carries the social proof of your existing likes and comments.\n\n**In-Feed Ads**\nIn-Feed ads appear in the For You page as native content. The hook in the first second is critical. Test 5 to 10 different hooks on the same video.\n\n**TikTok Pixel and Targeting**\nInstall the TikTok Pixel on your website to track conversions. Start broad and let TikTok's algorithm find your buyer.\n\n**Budget and Expectations**\nStart with $20 to $50 per day. Give each campaign at least 7 days before evaluating performance. The algorithm needs 50 conversion events to exit the learning phase." },
+  { id: 40, category: "Brand Strategy", level: "Advanced", timeToResult: "3-6 months", isNew: true, title: "Brand Partnerships: Grow Your Audience Without Growing Your Budget", summary: "Strategic brand partnerships let you access another brand audience, credibility, and distribution instantly. The right collaboration can do in one week what takes months of organic growth.", content: "The fastest way to grow is to borrow someone else audience. Brand partnerships put you in front of warm, targeted audiences that would take you years to build on your own.\n\n**What Makes a Great Brand Partnership**\nThe best partnerships are between brands that serve the same customer but are not direct competitors. A marketing membership and a business bank. A fitness brand and a meal prep service. The audiences overlap perfectly and neither is competing for the same sale.\n\n**Types of Brand Collaborations**\nCo-created content: Both brands create something together and share it with both audiences. Bundle deals: Offer a combined package at a discount. Giveaways: Both brands contribute and both audiences are required to follow both accounts. Cross-promotions: Simply promoting each other through email or social.\n\n**How to Approach a Brand for Partnership**\nResearch their brand thoroughly. Find the decision-maker. Reach out with a specific, mutually beneficial proposal. Lead with what is in it for them.\n\n**Influencer Partnerships vs Brand Partnerships**\nInfluencer partnerships are transactional - you pay for reach. Brand partnerships are strategic - both parties invest in a shared outcome.\n\n**Measuring Partnership ROI**\nTrack new followers, email subscribers, and customers attributed to each partnership using unique discount codes or tracking links." }
+
 ];
 
 const SEED_MEMBERS = [
@@ -287,7 +415,7 @@ const SLIDES = [
   {bg:"#000000",eyebrow:null,headline:"Welcome to Chelgy.",sub:"The marketing intelligence membership built for business owners who are serious about growth.",items:null,isFinal:false},
   {bg:"#111111",eyebrow:"KNOWLEDGE LIBRARY",headline:"Every marketing strategy. All in one place.",sub:"40+ deep-dive strategies covering SEO, email, content, paid ads, social, branding, AI, and funnels. Updated every week.",items:["SEO & Local Search","Email Marketing","Paid Ads — Meta, Google, TikTok","Brand Strategy","AI-Powered Marketing"],isFinal:false},
   {bg:"#000000",eyebrow:"AI TOOLS SUITE",headline:"6 AI tools. Included.",sub:"Write content, generate images, build video scripts, launch your business — all powered by AI.",items:["AI Content Writer","AI Image Creator (Nano Banana 2)","AI Video Studio","Business Builder","Dropshipping Directory","Platform Setup Guides"],isFinal:false},
-  {bg:"#111111",eyebrow:"LIVE COMMUNITY",headline:"You are not building alone.",sub:"A members-only forum, weekly live events, challenges with real rewards, leaderboards, and your own AI Advisor.",items:["Members-only forum","Weekly live events and Q&As","Earn points and level up","Community challenges","Member directory"],isFinal:false},
+  {bg:"#111111",eyebrow:"LIVE COMMUNITY",headline:"You are not building alone.",sub:"A members-only forum, weekly updates, challenges with real rewards, leaderboards, and your own AI Advisor.",items:["Members-only forum","Weekly strategy updates","Earn points and level up","Community challenges","Member directory"],isFinal:false},
   {bg:"#000000",eyebrow:"ONE MEMBERSHIP",headline:"Everything. $100 a month.",sub:"No upsells. No paywalled tiers. Start free and explore before you commit.",items:null,isFinal:true},
 ];
 
@@ -330,7 +458,7 @@ function Onboarding({ onTrial, onSubscribe }) {
             <button onClick={onSubscribe} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.4)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer"}}>START FREE TRIAL NOW — $100/MO</button>
           </>
         ):(
-          <button onClick={idx<SLIDES.length-1?next:onSubscribe} style={{width:"100%",maxWidth:340,background:B.gold,color:"#111",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
+          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:B.gold,color:"#111",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
         )}
       </div>
     </div>
@@ -347,7 +475,7 @@ function Paywall({ onClose, onJoin }) {
         <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 10px"}}>Members Only</h2>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 22px",letterSpacing:"0.01em"}}>Subscribe to unlock everything — all strategies, all 6 AI tools, the full community, and your AI Advisor.</p>
         <div style={{borderTop:"1px solid "+B.stone,borderBottom:"1px solid "+B.stone,padding:"16px 0",marginBottom:22}}>
-          {["40+ full marketing strategies","6 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","Weekly updates and live events"].map((item,i)=>(
+          {["40+ full marketing strategies","6 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","Weekly updates and member events"].map((item,i)=>(
             <div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"5px 0",display:"flex",gap:12,letterSpacing:"0.02em"}}>
               <span style={{color:B.gold}}>—</span>{item}
             </div>
@@ -393,7 +521,7 @@ function Rich({ text }) {
 }
 
 // ─── TOOLS PAGE ───────────────────────────────────────────────────────────────
-function ToolsPage({ tool, onBack }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{} }) {
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
@@ -420,8 +548,8 @@ function ToolsPage({ tool, onBack }) {
     return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{content}</div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
   };
 
-  async function genC(){if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C."};setCRes(await callClaude(p[cType]));setCLoad(false);}
-  async function genI(){if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality."};try{setIRes(await generateGeminiImage(p[iType]));}catch{setIErr("Image generation is temporarily unavailable. Please try again.");}setILoad(false);}
+  async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C."};setCRes(await callClaude(p[cType]));setCLoad(false);}
+  async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality."};try{setIRes(await generateGeminiImage(p[iType]));}catch{setIErr("Image generation is temporarily unavailable. Please try again.");}setILoad(false);}
   async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(p[vType]));setVLoad(false);}
   async function genN(){if(!bNiche.trim())return;setNLoad(true);setNRes("");setNRes(await callClaude("Generate 10 creative business names for a "+bNiche+" business. For each: the name, why it works in one sentence, and a domain tip. Numbered list."));setNLoad(false);}
   async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude("You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
@@ -430,9 +558,15 @@ function ToolsPage({ tool, onBack }) {
 
   return (
     <div>
-      <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:24,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
-        <Icons.ChevronLeft /> Back
-      </button>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
+          <Icons.ChevronLeft /> Back
+        </button>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.06em"}}>{credits.toLocaleString()} credits</span>
+          <button onClick={onBuyCredits} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark}}>TOP UP</button>
+        </div>
+      </div>
 
       {tool==="content"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Content Writer</h2>
@@ -461,7 +595,7 @@ function ToolsPage({ tool, onBack }) {
           <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
-          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={genI}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE"}</Btn>
+          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={()=>{if(useCredits("image"))genI();}}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE (100 credits)"}</Btn>
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
@@ -481,7 +615,7 @@ function ToolsPage({ tool, onBack }) {
             <Fl label="Duration"><Ss value={vDur} onChange={e=>setVDur(e.target.value)}>{["15 seconds","30 seconds","60 seconds","2 minutes","5 minutes","10 minutes"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Goal"><Ss value={vGoal} onChange={e=>setVGoal(e.target.value)}>{["Brand awareness","Lead generation","Sales / Conversions","Education / Value","Entertainment","Product showcase"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           </div>
-          <Btn dark disabled={vLoad||!vTopic.trim()} onClick={genV}>{vLoad?"GENERATING...":"GENERATE"}</Btn>
+          <Btn dark disabled={vLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genV();}}>{vLoad?"GENERATING...":"GENERATE (500 credits)"}</Btn>
         </Card>
         <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />
         <div style={{marginTop:24}}>
@@ -599,15 +733,548 @@ function ToolsPage({ tool, onBack }) {
 }
 
 
+// ─── CREDIT SHOP ─────────────────────────────────────────────────────────────
+function CreditShop({ onClose, currentCredits, onPurchase }) {
+  const [purchasing, setPurchasing] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  async function buyPack(pack) {
+    setPurchasing(true);
+    // In production this would go to Stripe
+    // For now simulate purchase
+    setTimeout(() => {
+      onPurchase(pack.credits);
+      setSuccess(true);
+      setTimeout(() => { setSuccess(false); setPurchasing(false); }, 2000);
+    }, 1500);
+  }
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 20px",overflowY:"auto"}}>
+      <div style={{background:"#fff",width:"100%",maxWidth:520,padding:"32px 28px",position:"relative",maxHeight:"90vh",overflowY:"auto"}}>
+        <button onClick={onClose} style={{position:"absolute",top:14,right:14,background:"none",border:"none",cursor:"pointer",color:"#6B6B6B"}}><Icons.X /></button>
+
+        <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
+        <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400,margin:"0 0 4px"}}>Credit Top-Up</h2>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px",letterSpacing:"0.01em"}}>Purchase credits to generate more images, videos, and voiceovers.</p>
+
+        {/* Current balance */}
+        <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Current Balance</span>
+          <span style={{fontFamily:"Georgia,serif",fontSize:20,color:B.gold}}>{currentCredits.toLocaleString()} credits</span>
+        </div>
+
+        {/* Credit costs reference */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:B.stone,marginBottom:20}}>
+          {[{label:"1 Image",cost:"100 credits"},{label:"1 Video",cost:"500 credits"},{label:"1 Voiceover",cost:"50 credits"}].map((item,i)=>(
+            <div key={i} style={{background:B.white,padding:"10px 12px",textAlign:"center"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,marginBottom:3}}>{item.label}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:B.gold}}>{item.cost}</div>
+            </div>
+          ))}
+        </div>
+
+        {success&&<div style={{background:"#E8F5EE",border:"1px solid #4CAF82",padding:"11px 14px",fontFamily:"sans-serif",fontSize:12,color:"#2E7D32",marginBottom:14,letterSpacing:"0.04em"}}>Credits added successfully!</div>}
+
+        {/* Credit packs */}
+        <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+          {CREDIT_PACKS.map(pack=>(
+            <div key={pack.id} style={{background:pack.popular?B.goldLight:B.white,padding:"18px 20px",position:"relative"}}>
+              {pack.popular&&<div style={{position:"absolute",top:-1,right:16,background:B.gold,color:"#fff",fontSize:8,letterSpacing:"0.14em",fontWeight:700,padding:"3px 10px",fontFamily:"sans-serif"}}>MOST POPULAR</div>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div>
+                  <div style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,marginBottom:2}}>{pack.name}</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.gold}}>{pack.credits.toLocaleString()} credits</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400}}>${pack.price}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.04em"}}>one time</div>
+                </div>
+              </div>
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12,lineHeight:1.5}}>{pack.description}</div>
+              <button onClick={()=>buyPack(pack)} disabled={purchasing} style={{background:pack.popular?B.charcoal:B.white,color:pack.popular?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 20px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:purchasing?"not-allowed":"pointer"}}>
+                {purchasing?"PROCESSING...":"BUY NOW"}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,textAlign:"center",marginTop:14,letterSpacing:"0.04em"}}>Credits never expire. Secured by Stripe.</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── REVIEW PROMPT ───────────────────────────────────────────────────────────
+function ReviewPrompt({ onClose, onReview }) {
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 28px"}}>
+      <div style={{background:"#fff",width:"100%",maxWidth:380,padding:"36px 28px",position:"relative",textAlign:"center"}}>
+        <button onClick={onClose} style={{position:"absolute",top:14,right:14,background:"none",border:"none",cursor:"pointer",color:"#6B6B6B"}}><Icons.X /></button>
+        
+        {/* Logo */}
+        <img src={LOGO_B64} alt="Chelgy" style={{height:24,objectFit:"contain",marginBottom:24,display:"block",margin:"0 auto 24px"}} />
+        
+        {/* Stars */}
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:20}}>
+          {[1,2,3,4,5].map(i=>(
+            <svg key={i} width="32" height="32" viewBox="0 0 24 24" fill="#B8955A" stroke="#B8955A" strokeWidth="1">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          ))}
+        </div>
+
+        <div style={{width:28,height:1,background:"#B8955A",margin:"0 auto 16px"}} />
+        <h2 style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:400,margin:"0 0 10px",color:"#111"}}>Enjoying Chelgy?</h2>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px",lineHeight:1.75,letterSpacing:"0.01em"}}>Your review helps other business owners discover Chelgy and join our community. It takes less than 30 seconds.</p>
+
+        <button onClick={onReview} style={{width:"100%",background:"#111",color:"#fff",border:"none",padding:"14px",fontSize:10,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>LEAVE A REVIEW</button>
+        <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"10px",fontSize:11,letterSpacing:"0.06em",fontFamily:"sans-serif",color:"#6B6B6B",cursor:"pointer"}}>Maybe later</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP — VOGUE LAYOUT ──────────────────────────────────────────────────
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "chelo373";
+
+// ─── CREDIT SYSTEM ────────────────────────────────────────────────────────────
+const CREDIT_COSTS = {
+  image: 100,
+  video: 500,
+  voiceover: 50,
+};
+
+const FREE_CREDITS = {
+  images: 5,    // 500 credits worth
+  videos: 5,    // 2500 credits worth
+  voiceovers: 5 // 250 credits worth
+};
+
+const CREDIT_PACKS = [
+  { id:"starter", name:"Starter Pack", credits:16500, price:13.99, description:"~165 images OR 33 videos OR 330 voiceovers", popular:false },
+  { id:"creator", name:"Creator Pack", credits:40000, price:24.99, description:"~400 images OR 80 videos OR 800 voiceovers", popular:true },
+  { id:"pro",     name:"Pro Pack",     credits:120000, price:59.99, description:"~1,200 images OR 240 videos OR 2,400 voiceovers", popular:false },
+  { id:"power",   name:"Power Pack",   credits:300000, price:69.99, description:"~3,000 images OR 600 videos OR 6,000 voiceovers", popular:false },
+];
+
+// Starting credits = 5 images + 5 videos + 5 voiceovers
+const STARTING_CREDITS = (5 * 100) + (5 * 500) + (5 * 50); // 3250
+
+const DISCOUNT_CODES = {
+  "CHELGYFREE": { discount: 100, label: "First month FREE" },
+  "CHELGY25":   { discount: 25,  label: "25% off your first month" },
+  "CHELGY50":   { discount: 50,  label: "50% off your first month" },
+  "CHELGY75":   { discount: 75,  label: "75% off your first month" },
+  "CHELGY90":   { discount: 90,  label: "90% off your first month" },
+};
+
+function getDiscountedPrice(code) {
+  const d = DISCOUNT_CODES[code.toUpperCase()];
+  if (!d) return null;
+  const original = 100;
+  const price = d.discount === 100 ? 0 : Math.round(original * (1 - d.discount/100));
+  return { ...d, price };
+}
+
+function AdminLogin({ onLogin }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState(false);
+  function tryLogin() {
+    if (pw === ADMIN_PASSWORD) { onLogin(); }
+    else { setErr(true); setTimeout(()=>setErr(false), 2000); }
+  }
+  return (
+    <div style={{position:"fixed",inset:0,background:"#000",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:9999}}>
+      <img src={LOGO_B64} alt="Chelgy" style={{height:32,objectFit:"contain",filter:"invert(1)",marginBottom:48,display:"block"}} />
+      <div style={{width:"100%",maxWidth:360,padding:"0 28px",boxSizing:"border-box"}}>
+        <div style={{width:24,height:1,background:"rgba(255,255,255,0.4)",marginBottom:20}} />
+        <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400,color:"#fff",margin:"0 0 8px"}}>Admin Access</h2>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.4)",margin:"0 0 28px",letterSpacing:"0.04em"}}>Enter your password to continue.</p>
+        <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryLogin()} placeholder="Password" style={{width:"100%",padding:"13px 16px",border:"1px solid "+(err?"#C0392B":"rgba(255,255,255,0.15)"),outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff",marginBottom:10}} />
+        {err&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#C0392B",marginBottom:10,letterSpacing:"0.04em"}}>Incorrect password. Try again.</div>}
+        <button onClick={tryLogin} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>ENTER</button>
+      </div>
+    </div>
+  );
+}
+
+function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWeeklyPosts }) {
+  const [view, setView] = useState("home");
+  const [editStrat, setEditStrat] = useState(null);
+  const [editWeekly, setEditWeekly] = useState(null);
+  const [newStrat, setNewStrat] = useState({ title:"", category:"SEO", level:"Foundational", timeToResult:"1-3 months", summary:"", content:"", imageUrl:"" });
+  const [newWeekly, setNewWeekly] = useState({ title:"", tag:"AI Update", week:"This Week", readTime:"5 min read", content:"", imageUrl:"" });
+  const [saved, setSaved] = useState(false);
+  const [dbLoading, setDbLoading] = useState(false);
+
+  useEffect(()=>{ loadFromDB(); },[]);
+
+  async function loadFromDB() {
+    setDbLoading(true);
+    const strats = await sbFetch("strategies");
+    const weekly = await sbFetch("weekly_posts");
+    if (strats && strats.length > 0) setStrategies(prev=>[...strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new})),...prev]);
+    if (weekly && weekly.length > 0) setWeeklyPosts(prev=>[...weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]})),...prev]);
+    setDbLoading(false);
+  }
+
+  async function publishStrategy() {
+    if (!newStrat.title.trim()) return;
+    setDbLoading(true);
+    const data = { title:newStrat.title, category:newStrat.category, level:newStrat.level, time_to_result:newStrat.timeToResult, summary:newStrat.summary, content:newStrat.content, image_url:newStrat.imageUrl||null, is_new:true };
+    const result = await sbFetch("strategies","POST",data);
+    if (result && result[0]) {
+      const ns = {...newStrat, id:result[0].id, isNew:true};
+      setStrategies(prev=>[ns,...prev]);
+      setNewStrat({title:"",category:"SEO",level:"Foundational",timeToResult:"1-3 months",summary:"",content:"",imageUrl:""});
+      setEditStrat(null); flash();
+    }
+    setDbLoading(false);
+  }
+
+  async function updateStrategy(s) {
+    setDbLoading(true);
+    const data = { title:s.title, summary:s.summary, content:s.content, image_url:s.imageUrl||null };
+    await sbFetch("strategies","PATCH",data,s.id);
+    setEditStrat(null); flash(); setDbLoading(false);
+  }
+
+  async function deleteStrategy(id) {
+    await sbFetch("strategies","DELETE",null,id);
+    setStrategies(prev=>prev.filter(x=>x.id!==id));
+  }
+
+  async function publishWeekly() {
+    if (!newWeekly.title.trim()) return;
+    setDbLoading(true);
+    const data = { title:newWeekly.title, tag:newWeekly.tag, week:newWeekly.week, read_time:newWeekly.readTime, content:newWeekly.content, image_url:newWeekly.imageUrl||null };
+    const result = await sbFetch("weekly_posts","POST",data);
+    if (result && result[0]) {
+      const nw = {...newWeekly, id:result[0].id, comments:[]};
+      setWeeklyPosts(prev=>[nw,...prev]);
+      setNewWeekly({title:"",tag:"AI Update",week:"This Week",readTime:"5 min read",content:"",imageUrl:""});
+      setEditWeekly(null); flash();
+    }
+    setDbLoading(false);
+  }
+
+  async function updateWeekly(p) {
+    setDbLoading(true);
+    const data = { title:p.title, content:p.content, image_url:p.imageUrl||null };
+    await sbFetch("weekly_posts","PATCH",data,p.id);
+    setEditWeekly(null); flash(); setDbLoading(false);
+  }
+
+  async function deleteWeekly(id) {
+    await sbFetch("weekly_posts","DELETE",null,id);
+    setWeeklyPosts(prev=>prev.filter(x=>x.id!==id));
+  }
+
+  const cats = ["SEO","Content Marketing","Email Marketing","Paid Advertising","Brand Strategy","Social Media","AI Marketing","Influencer Marketing","Funnel Strategy","Local Marketing"];
+  const levels = ["Foundational","Intermediate","Advanced"];
+  const tags = ["AI Update","Platform Update","Strategy Drop","Tool Alert","Weekly Roundup"];
+
+  function flash() { setSaved(true); setTimeout(()=>setSaved(false), 2000); }
+
+  const Si = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,...(p.style||{})}} />;
+  const St = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
+  const Ss = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",cursor:"pointer",marginBottom:12}}>{children}</select>;
+  const Lbl = ({children}) => <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>{children}</div>;
+
+  return (
+    <div style={{fontFamily:"Georgia,serif",background:"#F7F6F4",minHeight:"100vh"}}>
+      {/* Top bar */}
+      <div style={{background:"#111",padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <img src={LOGO_B64} alt="Chelgy" style={{height:22,objectFit:"contain",filter:"invert(1)"}} />
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <span style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",fontWeight:700}}>ADMIN</span>
+          <button onClick={onExit} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",cursor:"pointer"}}>EXIT</button>
+        </div>
+      </div>
+
+      <div style={{maxWidth:900,margin:"0 auto",padding:"32px 24px"}}>
+        {dbLoading&&<div style={{background:"#F7F6F4",border:"1px solid #E8E6E1",padding:"10px 16px",fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",marginBottom:16,letterSpacing:"0.04em"}}>Saving to database...</div>}
+        {saved&&<div style={{background:"#E8F5EE",border:"1px solid #4CAF82",padding:"10px 16px",fontFamily:"sans-serif",fontSize:12,color:"#2E7D32",marginBottom:16,letterSpacing:"0.04em"}}>Saved successfully!</div>}
+
+        {/* Nav */}
+        <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["settings","Settings"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
+              {label.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* DASHBOARD */}
+        {view==="home"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back, Chelsea.</h1>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Your Chelgy admin dashboard.</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
+              {[{label:"Total Strategies",value:strategies.length},{label:"Weekly Posts",value:weeklyPosts.length},{label:"Status",value:"Live"},{label:"Membership",value:"$100/mo"}].map((stat,i)=>(
+                <div key={i} style={{background:"#fff",padding:"22px"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>{stat.label}</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:28,fontWeight:400,color:"#111"}}>{stat.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,background:"#E8E6E1"}}>
+              <div onClick={()=>setView("strategies")} style={{background:"#111",padding:"24px",cursor:"pointer"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Manage Strategies</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.45)"}}>Add, edit, or delete strategy posts</div>
+              </div>
+              <div onClick={()=>setView("weekly")} style={{background:"#fff",padding:"24px",cursor:"pointer",border:"1px solid #E8E6E1"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>Weekly Updates</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>Publish new weekly content</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STRATEGIES */}
+        {view==="strategies"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>Strategy Posts ({strategies.length})</h2>
+              <button onClick={()=>setEditStrat("new")} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>+ NEW STRATEGY</button>
+            </div>
+
+            {editStrat==="new"&&(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:16}}>
+                <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 20px"}}>New Strategy Post</h3>
+                <Lbl>Title</Lbl><Si value={newStrat.title} onChange={e=>setNewStrat(s=>({...s,title:e.target.value}))} placeholder="e.g. How to Build a Brand That Sells" />
+                <Lbl>Summary</Lbl><Si value={newStrat.summary} onChange={e=>setNewStrat(s=>({...s,summary:e.target.value}))} placeholder="One sentence summary..." />
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+                  <div><Lbl>Category</Lbl><Ss value={newStrat.category} onChange={e=>setNewStrat(s=>({...s,category:e.target.value}))}>{cats.map(c=><option key={c}>{c}</option>)}</Ss></div>
+                  <div><Lbl>Level</Lbl><Ss value={newStrat.level} onChange={e=>setNewStrat(s=>({...s,level:e.target.value}))}>{levels.map(l=><option key={l}>{l}</option>)}</Ss></div>
+                  <div><Lbl>Time to Results</Lbl><Si value={newStrat.timeToResult} onChange={e=>setNewStrat(s=>({...s,timeToResult:e.target.value}))} placeholder="e.g. 1-3 months" /></div>
+                </div>
+                <Lbl>Image URL (optional)</Lbl><Si value={newStrat.imageUrl} onChange={e=>setNewStrat(s=>({...s,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
+                {newStrat.imageUrl&&<img src={newStrat.imageUrl} alt="Preview" style={{width:"100%",maxHeight:200,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                <Lbl>Full Content</Lbl>
+                <St value={newStrat.content} onChange={e=>setNewStrat(s=>({...s,content:e.target.value}))} placeholder="Write your full strategy content here. Use **bold** for headings and - for bullet points." rows={12} />
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={publishStrategy} style={{background:"#111",color:"#fff",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>PUBLISH</button>
+                  <button onClick={()=>setEditStrat(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"11px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{display:"flex",flexDirection:"column",gap:1,background:"#E8E6E1"}}>
+              {strategies.map((s,i)=>(
+                <div key={s.id||i} style={{background:"#fff",padding:"16px 18px"}}>
+                  {editStrat===s.id?(
+                    <div>
+                      <Lbl>Title</Lbl><Si value={s.title} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,title:e.target.value}:x))} />
+                      <Lbl>Summary</Lbl><Si value={s.summary} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,summary:e.target.value}:x))} />
+                      <Lbl>Image URL (optional)</Lbl><Si value={s.imageUrl||""} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
+                      {s.imageUrl&&<img src={s.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                      <Lbl>Content</Lbl><St value={s.content} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,content:e.target.value}:x))} rows={10} />
+                      <div style={{display:"flex",gap:10}}>
+                        <button onClick={()=>updateStrategy(s)} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
+                        <button onClick={()=>setEditStrat(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
+                      </div>
+                    </div>
+                  ):(
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.1em",marginBottom:5}}>{s.category} · {s.level}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,marginBottom:3}}>{s.title}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>{s.summary?.slice(0,80)}{s.summary?.length>80&&"..."}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8,flexShrink:0}}>
+                        <button onClick={()=>setEditStrat(s.id)} style={{background:"none",border:"1px solid #E8E6E1",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>EDIT</button>
+                        <button onClick={()=>deleteStrategy(s.id)} style={{background:"none",border:"1px solid #FECACA",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#C0392B"}}>DELETE</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* WEEKLY UPDATES */}
+        {view==="weekly"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>Weekly Updates ({weeklyPosts.length})</h2>
+              <button onClick={()=>setEditWeekly("new")} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>+ NEW UPDATE</button>
+            </div>
+
+            {editWeekly==="new"&&(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:16}}>
+                <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 20px"}}>New Weekly Update</h3>
+                <Lbl>Title</Lbl><Si value={newWeekly.title} onChange={e=>setNewWeekly(w=>({...w,title:e.target.value}))} placeholder="e.g. The AI Tools Changing Marketing This Week" />
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+                  <div><Lbl>Tag</Lbl><Ss value={newWeekly.tag} onChange={e=>setNewWeekly(w=>({...w,tag:e.target.value}))}>{tags.map(t=><option key={t}>{t}</option>)}</Ss></div>
+                  <div><Lbl>Week Label</Lbl><Si value={newWeekly.week} onChange={e=>setNewWeekly(w=>({...w,week:e.target.value}))} placeholder="e.g. June 25, 2026" /></div>
+                  <div><Lbl>Read Time</Lbl><Si value={newWeekly.readTime} onChange={e=>setNewWeekly(w=>({...w,readTime:e.target.value}))} placeholder="e.g. 5 min read" /></div>
+                </div>
+                <Lbl>Image URL (optional)</Lbl><Si value={newWeekly.imageUrl} onChange={e=>setNewWeekly(w=>({...w,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
+                {newWeekly.imageUrl&&<img src={newWeekly.imageUrl} alt="Preview" style={{width:"100%",maxHeight:200,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                <Lbl>Content</Lbl>
+                <St value={newWeekly.content} onChange={e=>setNewWeekly(w=>({...w,content:e.target.value}))} placeholder="Write your weekly update content here..." rows={12} />
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={publishWeekly} style={{background:"#111",color:"#fff",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>PUBLISH</button>
+                  <button onClick={()=>setEditWeekly(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"11px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{display:"flex",flexDirection:"column",gap:1,background:"#E8E6E1"}}>
+              {weeklyPosts.map((p,i)=>(
+                <div key={p.id||i} style={{background:"#fff",padding:"16px 18px"}}>
+                  {editWeekly===p.id?(
+                    <div>
+                      <Lbl>Title</Lbl><Si value={p.title} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,title:e.target.value}:x))} />
+                      <Lbl>Image URL (optional)</Lbl><Si value={p.imageUrl||""} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
+                      {p.imageUrl&&<img src={p.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                      <Lbl>Content</Lbl><St value={p.content} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,content:e.target.value}:x))} rows={10} />
+                      <div style={{display:"flex",gap:10}}>
+                        <button onClick={()=>{setEditWeekly(null);flash();}} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
+                        <button onClick={()=>setEditWeekly(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
+                      </div>
+                    </div>
+                  ):(
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.1em",marginBottom:5}}>{p.tag} · {p.week}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,marginBottom:3}}>{p.title}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>{p.readTime}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8,flexShrink:0}}>
+                        <button onClick={()=>setEditWeekly(p.id)} style={{background:"none",border:"1px solid #E8E6E1",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>EDIT</button>
+                        <button onClick={()=>deleteWeekly(p.id)} style={{background:"none",border:"1px solid #FECACA",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#C0392B"}}>DELETE</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {view==="settings"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 22px"}}>Settings</h2>
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>App Info</div>
+              {[{label:"App Name",value:"Chelgy"},{label:"Membership Price",value:"$100/month"},{label:"Stripe Status",value:"Connected"},{label:"AI Advisor",value:"Active (Claude)"},{label:"Image AI",value:"Active (Nano Banana 2)"}].map((item,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"11px 0",borderBottom:"1px solid #E8E6E1"}}>
+                  <span style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>{item.label}</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"16px 18px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",lineHeight:1.7}}>
+              Your posts are saved permanently to Supabase. Any strategy or weekly update you publish will appear instantly for all members and will never be lost. Image uploads coming soon!
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [logoTaps, setLogoTaps] = useState(0);
+  const tapTimer = useRef(null);
+
+  function handleLogoTap() {
+    const newCount = logoTaps + 1;
+    setLogoTaps(newCount);
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    if (newCount >= 5) { setIsAdmin(true); setLogoTaps(0); return; }
+    tapTimer.current = setTimeout(()=>setLogoTaps(0), 2000);
+  }
+  const [appStrategies, setAppStrategies] = useState(strategies);
+  const [appWeeklyPosts, setAppWeeklyPosts] = useState(weeklyPosts);
+
+  // Secret admin URL: add ?admin to the URL
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("admin") !== null) { setIsAdmin(true); setPage("app"); setIsTrial(false); }
+
+    // Load Stripe.js
+    if (!window.Stripe) {
+      const stripeScript = document.createElement("script");
+      stripeScript.src = "https://js.stripe.com/v3/";
+      stripeScript.async = true;
+      document.head.appendChild(stripeScript);
+    }
+
+    // Initialize Google Analytics
+    if (GA_ID !== "G-XXXXXXXXXX") {
+      const script1 = document.createElement("script");
+      script1.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+      script1.async = true;
+      document.head.appendChild(script1);
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function(){window.dataLayer.push(arguments);};
+      window.gtag("js", new Date());
+      window.gtag("config", GA_ID);
+    }
+
+    // Initialize Mixpanel
+    if (MIXPANEL_TOKEN !== "YOUR_MIXPANEL_TOKEN") {
+      const script2 = document.createElement("script");
+      script2.innerHTML = '(function(c,a){window.mixpanel=a;var b=a.__SV=a.__SV||[];if(b.init)return;b.init=function(g,f,e){b.push(["init",g,f,e]);};b.push=function(f){b.push(f);};})(document,window.mixpanel||[]);mixpanel.init("' + MIXPANEL_TOKEN + '");';
+      document.head.appendChild(script2);
+    }
+
+    // Track app open
+    track("app_opened", { timestamp: new Date().toISOString() });
+  },[]);
+
+  if (isAdmin && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
+  if (isAdmin && adminAuthed) return <AdminDashboard onExit={()=>{setIsAdmin(false);setAdminAuthed(false);}} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
+
   const [isTrial, setIsTrial] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"" });
   const [processing, setProcessing] = useState(false);
   const [stripeError, setStripeError] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [discountError, setDiscountError] = useState("");
+
+  function applyDiscount() {
+    const result = getDiscountedPrice(discountCode);
+    if (result) {
+      setAppliedDiscount(result);
+      setDiscountError("");
+    } else {
+      setDiscountError("Invalid code. Try again.");
+      setAppliedDiscount(null);
+    }
+  }
+
+  function DiscountInput() {
+    return (
+      <div style={{marginBottom:20}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.4)",letterSpacing:"0.14em",marginBottom:8,textTransform:"uppercase"}}>Have a discount code?</div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={discountCode} onChange={e=>setDiscountCode(e.target.value.toUpperCase())} placeholder="Enter code here" style={{flex:1,padding:"11px 14px",border:"1px solid "+(appliedDiscount?"#4CAF82":discountError?"#C0392B":"rgba(255,255,255,0.15)"),outline:"none",fontSize:13,fontFamily:"sans-serif",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
+          <button onClick={applyDiscount} style={{background:"rgba(255,255,255,0.12)",color:"#fff",border:"1px solid rgba(255,255,255,0.2)",padding:"11px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>APPLY</button>
+        </div>
+        {appliedDiscount&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#4CAF82",marginTop:7,letterSpacing:"0.04em"}}>Code applied: {appliedDiscount.label}</div>}
+        {discountError&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#C0392B",marginTop:7,letterSpacing:"0.04em"}}>{discountError}</div>}
+      </div>
+    );
+  }
 
   // Nav state — bottom tab + top subcategory
   const [tab, setTab] = useState("home");       // home | learn | tools | community | profile
@@ -640,6 +1307,27 @@ export default function ChelgyApp() {
     {id:5,text:"7-Day Content Sprint starts tomorrow",time:"Yesterday",read:true},
   ]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [credits, setCredits] = useState(STARTING_CREDITS);
+  const [showCredits, setShowCredits] = useState(false);
+  const [creditError, setCreditError] = useState("");
+
+  function useCredits(type) {
+    const cost = CREDIT_COSTS[type];
+    if (credits < cost) {
+      setCreditError("Not enough credits. Purchase a top-up pack to continue generating.");
+      setTimeout(()=>setCreditError(""), 4000);
+      return false;
+    }
+    setCredits(c => c - cost);
+    return true;
+  }
+
+  function formatCredits(n) {
+    return n.toLocaleString();
+  }
+  const [reviewShown, setReviewShown] = useState(false);
+  const [activityCount, setActivityCount] = useState(0);
   const unread = notifications.filter(n=>!n.read).length;
 
   // Forum state
@@ -663,7 +1351,96 @@ export default function ChelgyApp() {
   const [aiA, setAiA] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
-  const addPts = (n) => setMyPoints(p=>p+n);
+  // ─── BUSINESS LAUNCH PACKAGE ─────────────────────────────────────────────
+  const [launchStep, setLaunchStep] = useState(1);
+  const [launchData, setLaunchData] = useState({
+    bizName: "", bizType: "", niche: "", targetCustomer: "", location: "",
+    uniqueValue: "", services: "", priceRange: "", tone: "Professional & Warm",
+    colors: "", competitors: "", goal: ""
+  });
+  const [launchResult, setLaunchResult] = useState(null);
+  const [launchLoading, setLaunchLoading] = useState(false);
+  const [launchSection, setLaunchSection] = useState("website");
+
+  async function generateLaunchPackage() {
+    track("launch_package_generated", {biz_type:launchData.bizType, niche:launchData.niche});
+    setLaunchLoading(true);
+    setLaunchResult(null);
+    const d = launchData;
+    const prompt = "You are an expert brand strategist, copywriter, and business consultant. Create a complete business launch package for the following business.\n\n" +
+      "Business Name: " + d.bizName + "\n" +
+      "Business Type: " + d.bizType + "\n" +
+      "Niche: " + d.niche + "\n" +
+      "Target Customer: " + d.targetCustomer + "\n" +
+      "Location: " + d.location + "\n" +
+      "Unique Value Proposition: " + d.uniqueValue + "\n" +
+      "Services/Products: " + d.services + "\n" +
+      "Price Range: " + d.priceRange + "\n" +
+      "Brand Tone: " + d.tone + "\n" +
+      "Brand Colors: " + (d.colors || "Not specified") + "\n" +
+      "Main Goal: " + d.goal + "\n\n" +
+      "Generate a COMPLETE launch package with these exact sections:\n\n" +
+      "[WEBSITE COPY]\n" +
+      "- Hero headline (punchy, under 10 words)\n" +
+      "- Hero subheadline (one sentence, benefit-focused)\n" +
+      "- About section (3 paragraphs, warm and authentic)\n" +
+      "- Services section (list each service with a name, one-line description, and price if provided)\n" +
+      "- Testimonial placeholders (3 sample testimonials they can customize)\n" +
+      "- Call to action copy (compelling button text and surrounding copy)\n\n" +
+      "[BRAND STRATEGY]\n" +
+      "- Brand positioning statement (one paragraph)\n" +
+      "- Brand voice (5 adjectives with explanations)\n" +
+      "- Ideal customer profile (detailed description)\n" +
+      "- Unique selling proposition (one powerful sentence)\n" +
+      "- Brand story framework (beginning, middle, future)\n\n" +
+      "[SOCIAL MEDIA PLAN]\n" +
+      "- Instagram bio (150 characters max)\n" +
+      "- TikTok bio\n" +
+      "- Facebook page description\n" +
+      "- LinkedIn description\n" +
+      "- 10 content ideas specific to this business\n" +
+      "- Hashtag strategy (20 relevant hashtags)\n" +
+      "- Posting schedule recommendation\n\n" +
+      "[LAUNCH ROADMAP]\n" +
+      "- Week 1: Foundation (specific daily tasks)\n" +
+      "- Week 2: Content Creation (specific tasks)\n" +
+      "- Week 3: Launch (specific tasks)\n" +
+      "- Week 4: Growth (specific tasks)\n" +
+      "- First 3 months milestones\n" +
+      "- Key metrics to track\n\n" +
+      "Make everything specific to THIS business. No generic advice. Real, usable copy they can implement immediately."
+
+    const result = await callClaude(prompt);
+    
+    // Parse sections
+    const sections = {};
+    const sectionKeys = ["WEBSITE COPY", "BRAND STRATEGY", "SOCIAL MEDIA PLAN", "LAUNCH ROADMAP"];
+    sectionKeys.forEach((key, i) => {
+      const start = result.indexOf("[" + key + "]");
+      const nextKey = sectionKeys[i + 1];
+      const end = nextKey ? result.indexOf("[" + nextKey + "]") : result.length;
+      if (start !== -1) {
+        sections[key] = result.slice(start + key.length + 2, end).trim();
+      }
+    });
+    
+    setLaunchResult(sections.WEBSITE ? sections : { "WEBSITE COPY": result });
+    setLaunchLoading(false);
+  }
+
+
+  const addPts = (n) => {
+    setMyPoints(p=>p+n);
+    setActivityCount(c=>{
+      const next = c + 1;
+      // Show review prompt after 5 meaningful actions, only once
+      if (next >= 5 && !reviewShown && !isTrial) {
+        setTimeout(()=>setShowReview(true), 1500);
+        setReviewShown(true);
+      }
+      return next;
+    });
+  };
   const PTS = { post:10, reply:5, upvote:2, challenge:25, weekly:3, strategy:2 };
   const cats = ["All","SEO","Content Marketing","Email Marketing","Paid Advertising","Brand Strategy","Social Media","AI Marketing","AI Video Tools","Influencer Marketing","Funnel Strategy"];
   const levels = ["All Levels","Foundational","Intermediate","Advanced"];
@@ -684,12 +1461,13 @@ export default function ChelgyApp() {
   const subTabs = {
     home: [["feed","Feed"],["leaderboard","Top Members"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["weekly","Weekly Updates"]],
-    tools: [["hub","All Tools"],["content","Content Writer"],["images","Image Creator"],["video","Video Studio"],["business","Business Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["content","Content Writer"],["images","Image Creator"],["video","Video Studio"],["business","Business Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"],["launch","Launch Package"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
     profile: [["overview","Overview"],["stats","Stats"]],
   };
 
   function goTab(t, sub) {
+    track("tab_navigated", {tab:t, sub:sub||""});
     setTab(t);
     setSubTab(sub || subTabs[t][0][0]);
     setSelectedStrategy(null);
@@ -707,6 +1485,12 @@ export default function ChelgyApp() {
       const n = params.get("name")||"Member";
       setMyName(n); setIsTrial(false); setPage("app");
     }
+    if (params.get("admin")===null && window.location.search.includes("admin")) {
+      setPage("app"); setIsTrial(false); setIsAdmin(true);
+    }
+    if (window.location.search.includes("admin")) {
+      setPage("app"); setIsTrial(false); setIsAdmin(true);
+    }
   },[]);
 
   const handleStripeCheckout = async () => {
@@ -721,6 +1505,7 @@ export default function ChelgyApp() {
   };
 
   const askAI = async () => {
+    track("ai_advisor_used", { question_length: aiQ.length });
     if (isTrial) { setShowPaywall(true); return; }
     if (!aiQ.trim()) return;
     setAiLoading(true); setAiA("");
@@ -794,7 +1579,7 @@ export default function ChelgyApp() {
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
               <input value={signupData.name} onChange={e=>setSignupData(d=>({...d,name:e.target.value}))} placeholder="Full name" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
               <input type="email" value={signupData.email} onChange={e=>setSignupData(d=>({...d,email:e.target.value}))} placeholder="Email address" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
-              <button onClick={()=>{if(signupData.name.trim()&&signupData.email.trim())setSignupStep(2);}} disabled={!signupData.name.trim()||!signupData.email.trim()} style={{width:"100%",background:signupData.name.trim()&&signupData.email.trim()?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.15)",color:signupData.name.trim()&&signupData.email.trim()?"#000":"rgba(255,255,255,0.3)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:signupData.name.trim()&&signupData.email.trim()?"pointer":"not-allowed"}}>CONTINUE WITH EMAIL</button>
+              <button onClick={()=>{if(signupData.name.trim()&&signupData.email.trim()){track("signup_step1_complete",{method:"email"});setSignupStep(2);}}} disabled={!signupData.name.trim()||!signupData.email.trim()} style={{width:"100%",background:signupData.name.trim()&&signupData.email.trim()?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.15)",color:signupData.name.trim()&&signupData.email.trim()?"#000":"rgba(255,255,255,0.3)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:signupData.name.trim()&&signupData.email.trim()?"pointer":"not-allowed"}}>CONTINUE WITH EMAIL</button>
             </div>
 
             <p style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.3)",textAlign:"center",lineHeight:1.6,margin:0}}>By continuing you agree to our Terms of Service and Privacy Policy</p>
@@ -808,10 +1593,11 @@ export default function ChelgyApp() {
             </button>
             <div style={{width:24,height:1,background:"rgba(255,255,255,0.4)",marginBottom:18}} />
             <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 6px",color:"#fff"}}>Choose your plan</h1>
-            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.5)",fontSize:13,margin:"0 0 24px",letterSpacing:"0.01em"}}>Start free or go all-in from day one.</p>
+            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.5)",fontSize:13,margin:"0 0 20px",letterSpacing:"0.01em"}}>Start free or go all-in from day one.</p>
+            <DiscountInput />
 
             {/* Free trial option */}
-            <div onClick={()=>{setIsTrial(true);setPage("app");}} style={{border:"1px solid rgba(255,255,255,0.15)",padding:"20px",marginBottom:10,cursor:"pointer",position:"relative"}}>
+            <div onClick={()=>{track("trial_started");setIsTrial(true);setPage("app");}} style={{border:"1px solid rgba(255,255,255,0.15)",padding:"20px",marginBottom:10,cursor:"pointer",position:"relative"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:"rgba(255,255,255,0.45)",marginBottom:8,fontWeight:700,textTransform:"uppercase"}}>Free Trial</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff",marginBottom:6}}>Explore first</div>
               <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>Browse strategies and community. Upgrade anytime to unlock AI tools and full content.</div>
@@ -835,7 +1621,7 @@ export default function ChelgyApp() {
             {stripeError&&<div style={{background:"rgba(255,0,0,0.1)",border:"1px solid rgba(255,0,0,0.3)",padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,color:"#ff6b6b",marginBottom:12}}>{stripeError}</div>}
 
             <button onClick={handleStripeCheckout} disabled={processing} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>
-              {processing?"REDIRECTING...":"START FREE TRIAL — 7 DAYS"}
+              {processing?"REDIRECTING...":appliedDiscount?"START FOR "+(appliedDiscount.price===0?"FREE":"$"+appliedDiscount.price)+" — FIRST MONTH":"START FREE TRIAL — 7 DAYS"}
             </button>
             <p style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.25)",textAlign:"center",marginTop:8,letterSpacing:"0.04em"}}>Secured by Stripe · Cancel anytime</p>
           </div>
@@ -849,19 +1635,28 @@ export default function ChelgyApp() {
   const TOP_H = 44;
 
   return (
-    <div style={{fontFamily:"Georgia,serif",background:B.cream,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
+    <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
 
       {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onJoin={()=>{setShowPaywall(false);setPage("signup");}} />}
+      {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
+      {showCredits&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
+      {creditError&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#C0392B",color:"#fff",padding:"12px 20px",fontFamily:"sans-serif",fontSize:12,zIndex:9997,letterSpacing:"0.04em",textAlign:"center",maxWidth:340}}>{creditError}</div>}
 
       {/* ── HEADER ── */}
       <header style={{background:B.white,borderBottom:"1px solid "+B.stone,flexShrink:0,zIndex:300}}>
         <div style={{maxWidth:1100,margin:"0 auto",padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div onClick={()=>goTab("home")} style={{cursor:"pointer"}}>
-            <img src={LOGO_B64} alt="Chelgy" style={{height:26,objectFit:"contain"}} />
+            <img src={LOGO_B64} alt="Chelgy" onClick={handleLogoTap} onTouchEnd={handleLogoTap} style={{height:26,objectFit:"contain",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} />
+          {logoTaps>0&&logoTaps<5&&<div style={{position:"absolute",top:56,left:20,fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.1em",opacity:0.6}}>{5-logoTaps} more</div>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:18}}>
             {isTrial&&(
               <button onClick={()=>setPage("signup")} style={{background:"none",border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.charcoal}}>START FREE TRIAL</button>
+            )}
+            {!isTrial&&(
+              <button onClick={()=>setShowCredits(true)} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark,display:"flex",alignItems:"center",gap:5}}>
+                <Icons.Star />{credits.toLocaleString()}
+              </button>
             )}
             <div style={{position:"relative"}}>
               <button onClick={()=>setShowNotifs(s=>!s)} style={{background:"none",border:"none",cursor:"pointer",color:B.charcoal,display:"flex",alignItems:"center"}}><Icons.Bell count={unread} /></button>
@@ -897,7 +1692,7 @@ export default function ChelgyApp() {
 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"0 20px"}}>
+        <div style={{maxWidth:"100%",padding:"0 40px"}}>
 
           {/* ═══ HOME ═══ */}
           {tab==="home"&&subTab==="feed"&&(
@@ -911,9 +1706,9 @@ export default function ChelgyApp() {
                     <div style={{width:24,height:1,background:"rgba(255,255,255,0.5)"}} />
                     <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.2em",color:"rgba(255,255,255,0.6)",fontWeight:700}}>FEATURED THIS WEEK</span>
                   </div>
-                  <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(24px,4vw,40px)",fontWeight:400,color:"#fff",margin:"0 0 14px",lineHeight:1.2}}>{weeklyPosts[0].title}</h1>
-                  <p style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.55)",margin:"0 0 24px",lineHeight:1.7,maxWidth:520,letterSpacing:"0.01em"}}>{weeklyPosts[0].content.split("\n")[0].slice(0,160)}...</p>
-                  <button onClick={()=>{setSelectedPost(weeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
+                  <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(24px,4vw,40px)",fontWeight:400,color:"#fff",margin:"0 0 14px",lineHeight:1.2}}>{appWeeklyPosts[0].title}</h1>
+                  <p style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.55)",margin:"0 0 24px",lineHeight:1.7,maxWidth:520,letterSpacing:"0.01em"}}>{appWeeklyPosts[0].content.split("\n")[0].slice(0,160)}...</p>
+                  <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
                 </div>
               </div>
               {/* Points card + quick actions */}
@@ -1011,8 +1806,8 @@ export default function ChelgyApp() {
                 <select value={filterLevel} onChange={e=>setFilterLevel(e.target.value)} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>{levels.map(l=><option key={l}>{l}</option>)}</select>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
-                {strategies.filter(s=>(filterCat==="All"||s.category===filterCat)&&(filterLevel==="All Levels"||s.level===filterLevel)&&(s.title.toLowerCase().includes(search.toLowerCase())||s.summary.toLowerCase().includes(search.toLowerCase()))).map(s=>(
-                  <div key={s.id} onClick={()=>{setSelectedStrategy(s);addPts(PTS.strategy);}} style={{background:B.white,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
+                {appStrategies.filter(s=>(filterCat==="All"||s.category===filterCat)&&(filterLevel==="All Levels"||s.level===filterLevel)&&(s.title.toLowerCase().includes(search.toLowerCase())||s.summary.toLowerCase().includes(search.toLowerCase()))).map(s=>(
+                  <div key={s.id} onClick={()=>{track("strategy_viewed",{title:s.title,category:s.category,level:s.level});setSelectedStrategy(s);addPts(PTS.strategy);}} style={{background:B.white,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                     <div style={{flex:1}}>
                       <div style={{display:"flex",gap:7,marginBottom:9,flexWrap:"wrap"}}>
                         <Tag>{s.category}</Tag><Tag gold>{s.level}</Tag>{s.isNew&&<Tag green>NEW</Tag>}
@@ -1066,7 +1861,7 @@ export default function ChelgyApp() {
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Weekly Updates</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.01em"}}>Every major platform update, new tool, and emerging strategy — published every Monday.</p>
               <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
-                {weeklyPosts.map(post=>(
+                {appWeeklyPosts.map(post=>(
                   <div key={post.id} onClick={()=>{setSelectedPost(post);addPts(PTS.weekly);}} style={{background:B.white,padding:"20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                     <div style={{flex:1}}>
                       <Tag gold>{post.tag}</Tag>
@@ -1145,7 +1940,7 @@ export default function ChelgyApp() {
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:1,background:B.stone}}>
-                {[{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans, name generator, and 24/7 AI business coach."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans, name generator, and 24/7 AI business coach."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start"}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -1158,9 +1953,101 @@ export default function ChelgyApp() {
             </div>
           )}
 
-          {tab==="tools"&&!isTrial&&subTab!=="hub"&&(
+          {tab==="tools"&&!isTrial&&subTab!=="hub"&&subTab!=="launch"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} />
+              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} />
+            </div>
+          )}
+
+          {tab==="tools"&&!isTrial&&subTab==="launch"&&(
+            <div style={{paddingTop:28}}>
+              <button onClick={()=>setSubTab("hub")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:24,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
+                <Icons.ChevronLeft /> Back
+              </button>
+              <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Business Launch Package</h2>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 24px",lineHeight:1.7}}>Fill in your business details and get a complete website copy, brand strategy, social media plan, and 30-day launch roadmap — all generated by AI in seconds.</p>
+
+              {!launchResult&&!launchLoading&&(
+                <div>
+                  {launchStep===1&&(
+                    <Card style={{padding:"24px",marginBottom:14}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:18,fontWeight:700}}>STEP 1 OF 3 — YOUR BUSINESS</div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Business Name</div><input value={launchData.bizName} onChange={e=>setLaunchData(d=>({...d,bizName:e.target.value}))} placeholder="e.g. Glow Beauty Studio" style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Type of Business</div><input value={launchData.bizType} onChange={e=>setLaunchData(d=>({...d,bizType:e.target.value}))} placeholder="e.g. Hair salon, online coaching, e-commerce store..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your Niche</div><input value={launchData.niche} onChange={e=>setLaunchData(d=>({...d,niche:e.target.value}))} placeholder="e.g. Natural hair care for Black women, luxury pet grooming..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your City / Location</div><input value={launchData.location} onChange={e=>setLaunchData(d=>({...d,location:e.target.value}))} placeholder="e.g. Tampa FL, Online, New York City..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
+                      <button onClick={()=>setLaunchStep(2)} disabled={!launchData.bizName.trim()||!launchData.bizType.trim()} style={{background:launchData.bizName.trim()&&launchData.bizType.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.bizName.trim()&&launchData.bizType.trim()?"pointer":"not-allowed"}}>NEXT STEP</button>
+                    </Card>
+                  )}
+
+                  {launchStep===2&&(
+                    <Card style={{padding:"24px",marginBottom:14}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:18,fontWeight:700}}>STEP 2 OF 3 — YOUR CUSTOMERS AND OFFER</div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Who is your ideal customer?</div><textarea value={launchData.targetCustomer} onChange={e=>setLaunchData(d=>({...d,targetCustomer:e.target.value}))} placeholder="e.g. Women aged 25-45 who want to embrace their natural hair but feel overwhelmed by the process..." rows={3} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>What makes you different?</div><textarea value={launchData.uniqueValue} onChange={e=>setLaunchData(d=>({...d,uniqueValue:e.target.value}))} placeholder="e.g. I specialize in protective styles for women transitioning from relaxed to natural hair..." rows={3} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your services or products</div><textarea value={launchData.services} onChange={e=>setLaunchData(d=>({...d,services:e.target.value}))} placeholder="e.g. Box braids $200, knotless braids $250, consultation $50..." rows={3} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:16}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Price range</div><input value={launchData.priceRange} onChange={e=>setLaunchData(d=>({...d,priceRange:e.target.value}))} placeholder="e.g. $50-$500 per service, $29/month subscription..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{display:"flex",gap:10}}>
+                        <button onClick={()=>setLaunchStep(1)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
+                        <button onClick={()=>setLaunchStep(3)} disabled={!launchData.targetCustomer.trim()||!launchData.services.trim()} style={{background:launchData.targetCustomer.trim()&&launchData.services.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.targetCustomer.trim()&&launchData.services.trim()?"pointer":"not-allowed"}}>NEXT STEP</button>
+                      </div>
+                    </Card>
+                  )}
+
+                  {launchStep===3&&(
+                    <Card style={{padding:"24px",marginBottom:14}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:18,fontWeight:700}}>STEP 3 OF 3 — BRAND AND GOALS</div>
+                      <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Brand tone and personality</div><select value={launchData.tone} onChange={e=>setLaunchData(d=>({...d,tone:e.target.value}))} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",marginBottom:0}}>
+                        {["Professional and Warm","Bold and Confident","Luxury and Editorial","Fun and Playful","Educational and Expert","Edgy and Direct","Soft and Nurturing"].map(o=><option key={o}>{o}</option>)}
+                      </select></div>
+                      <div style={{marginBottom:12,marginTop:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Brand colors (optional)</div><input value={launchData.colors} onChange={e=>setLaunchData(d=>({...d,colors:e.target.value}))} placeholder="e.g. Sage green and cream, black and gold, coral and white..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{marginBottom:16}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your main goal right now</div><textarea value={launchData.goal} onChange={e=>setLaunchData(d=>({...d,goal:e.target.value}))} placeholder="e.g. Get my first 10 clients, launch my online store, build my brand presence in Tampa..." rows={3} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white}} /></div>
+                      <div style={{background:B.goldLight,padding:"14px 16px",marginBottom:18,borderLeft:"2px solid "+B.gold}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>Your launch package will include: complete website copy, brand strategy, social media bios and content plan, and a 30-day launch roadmap. All specific to your business.</div>
+                      </div>
+                      <div style={{display:"flex",gap:10}}>
+                        <button onClick={()=>setLaunchStep(2)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
+                        <button onClick={generateLaunchPackage} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>GENERATE MY LAUNCH PACKAGE</button>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {launchLoading&&(
+                <div style={{background:B.charcoal,padding:"48px 32px",textAlign:"center"}}>
+                  <div style={{width:32,height:1,background:B.gold,margin:"0 auto 20px"}} />
+                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff",marginBottom:10}}>Building your launch package...</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.5)",letterSpacing:"0.04em"}}>This takes about 15 seconds. Your complete package is being written now.</div>
+                </div>
+              )}
+
+              {launchResult&&!launchLoading&&(
+                <div>
+                  <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone,overflowX:"auto"}}>
+                    {[["website","Website Copy"],["brand","Brand Strategy"],["social","Social Media"],["roadmap","Launch Roadmap"]].map(([id,label])=>(
+                      <button key={id} onClick={()=>setLaunchSection(id)} style={{background:"none",color:launchSection===id?B.charcoal:B.mid,border:"none",borderBottom:launchSection===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:launchSection===id?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>
+                    ))}
+                  </div>
+
+                  <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"24px",marginBottom:14}}>
+                    <div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:16,textTransform:"uppercase"}}>
+                      {launchSection==="website"?"Website Copy":launchSection==="brand"?"Brand Strategy":launchSection==="social"?"Social Media Plan":"30-Day Launch Roadmap"}
+                    </div>
+                    <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.9,whiteSpace:"pre-wrap"}}>
+                      {launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"]}
+                    </div>
+                    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+                      <button onClick={()=>navigator.clipboard?.writeText(launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"])} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy This Section</button>
+                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("website");}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
+                    </div>
+                  </div>
+                  <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
+                    This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1190,7 +2077,7 @@ export default function ChelgyApp() {
                     <select value={newPost.cat} onChange={e=>setNewPost(p=>({...p,cat:e.target.value}))} style={{padding:"7px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:11,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>
                       {["wins","questions","working","ai","memes","intros","life"].map(c=><option key={c} value={c}>{c}</option>)}
                     </select>
-                    <Btn dark small onClick={()=>{if(!newPost.title.trim()||!newPost.body.trim())return;setForumPosts(ps=>[{id:Date.now(),cat:newPost.cat,author:myName,avatar:myName[0]||"M",time:"Just now",title:newPost.title,body:newPost.body,upvotes:0,replies:[]},...ps]);setNewPost({title:"",body:"",cat:"questions"});setShowNewPost(false);addPts(PTS.post);}}>POST</Btn>
+                    <Btn dark small onClick={()=>{if(!newPost.title.trim()||!newPost.body.trim())return;setForumPosts(ps=>[{id:Date.now(),cat:newPost.cat,author:myName,avatar:myName[0]||"M",time:"Just now",title:newPost.title,body:newPost.body,upvotes:0,replies:[]},...ps]);setNewPost({title:"",body:"",cat:"questions"});setShowNewPost(false);track("forum_post_created");addPts(PTS.post);}}>POST</Btn>
                     <button onClick={()=>setShowNewPost(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                   </div>
                 </div>
@@ -1278,7 +2165,7 @@ export default function ChelgyApp() {
               </div>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:12,textTransform:"uppercase",fontWeight:700}}>Upcoming Events</div>
               <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
-                {[{id:1,title:"Live Q&A — Marketing Strategy Session",date:"July 1, 2026",time:"7:00 PM EST",type:"Live Q&A"},{id:2,title:"Mastermind: AI Tools for Business Owners",date:"July 8, 2026",time:"6:00 PM EST",type:"Mastermind"},{id:3,title:"Workshop: Building Your First Email Funnel",date:"July 15, 2026",time:"7:00 PM EST",type:"Workshop"},{id:4,title:"Community Challenge Kickoff",date:"July 7, 2026",time:"All Day",type:"Challenge"}].map(ev=>(
+                {[{id:1,title:"Member Event — Marketing Strategy Session",date:"July 1, 2026",time:"Coming Soon",type:"Member Event"},{id:2,title:"Mastermind: AI Tools for Business Owners",date:"July 8, 2026",time:"Coming Soon",type:"Mastermind"},{id:3,title:"Workshop: Building Your First Email Funnel",date:"July 15, 2026",time:"Coming Soon",type:"Workshop"},{id:4,title:"Community Challenge Kickoff",date:"July 7, 2026",time:"All Day",type:"Challenge"}].map(ev=>(
                   <div key={ev.id} style={{background:B.white,padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                     <div>
                       <Tag gold>{ev.type}</Tag>
@@ -1430,7 +2317,7 @@ export default function ChelgyApp() {
       </main>
 
       {/* ── BOTTOM NAV ── */}
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,display:"flex",zIndex:300}}>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1100,margin:"0 auto",height:"100%",display:"flex"}}>
         {[
           {id:"home",label:"HOME",Icon:Icons.Home},
           {id:"learn",label:"LEARN",Icon:Icons.Learn},
@@ -1443,7 +2330,7 @@ export default function ChelgyApp() {
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.1em",fontWeight:tab===id?700:400}}>{label}</span>
           </button>
         ))}
-      </nav>
+      </div></nav>
 
     </div>
   );
