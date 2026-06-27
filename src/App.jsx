@@ -24,7 +24,7 @@ async function sbFetch(table, method="GET", body=null, id=null) {
 
 // ─── AI SERVICE KEYS ─────────────────────────────────────────────────────────
 const WAVESPEED_KEY = "";
-const ELEVENLABS_KEY = "sk_8158417eb825f0f19a5eccdd0952635d6638c78f05967852";
+const ELEVENLABS_KEY = ""; // moved server-side to /api/voice (Vercel env: ELEVENLABS_API_KEY)
 
 // WaveSpeed video generation — runs through the secure backend (/api/video)
 async function generateVideo(prompt, image) {
@@ -57,19 +57,16 @@ async function pollVideo(taskId) {
 
 // ElevenLabs voiceover generation
 async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
-  const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
+  const res = await fetch("/api/voice", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "xi-api-key": ELEVENLABS_KEY
-    },
-    body: JSON.stringify({
-      text,
-      model_id: "eleven_multilingual_v2",
-      voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-    })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voiceId })
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    let msg = "Voiceover failed";
+    try { const d = await res.json(); msg = d.error || msg; } catch (_) {}
+    throw new Error(msg);
+  }
   const blob = await res.blob();
   return URL.createObjectURL(blob);
 }
@@ -637,7 +634,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const url=await generateVoiceover(voText,voVoice);
       if(!url){setVoErr("Couldn't generate the voiceover. Please try again in a moment.");setVoLoad(false);return;}
       setVoUrl(url);
-    }catch(e){setVoErr("Something went wrong while generating the voiceover. Please try again.");}
+    }catch(e){setVoErr("Voiceover error: "+(e&&e.message?e.message:"unknown"));}
     setVoLoad(false);
   }
   async function dlVideo(){
