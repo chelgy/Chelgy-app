@@ -1227,10 +1227,16 @@ export default function ChelgyApp() {
       window.gtag("config", GA_ID);
     }
 
-    // Initialize Mixpanel
-    if (MIXPANEL_TOKEN !== "YOUR_MIXPANEL_TOKEN") {
+    // Initialize Mixpanel (official loader - loads safely, only inits when ready)
+    if (MIXPANEL_TOKEN && MIXPANEL_TOKEN !== "YOUR_MIXPANEL_TOKEN") {
       const script2 = document.createElement("script");
-      script2.innerHTML = '(function(c,a){window.mixpanel=a;var b=a.__SV=a.__SV||[];if(b.init)return;b.init=function(g,f,e){b.push(["init",g,f,e]);};b.push=function(f){b.push(f);};})(document,window.mixpanel||[]);mixpanel.init("' + MIXPANEL_TOKEN + '");';
+      script2.src = "https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";
+      script2.async = true;
+      script2.onload = function() {
+        if (window.mixpanel && typeof window.mixpanel.init === "function") {
+          window.mixpanel.init(MIXPANEL_TOKEN);
+        }
+      };
       document.head.appendChild(script2);
     }
 
