@@ -1203,6 +1203,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [saved, setSaved] = useState(false);
   const [dbLoading, setDbLoading] = useState(false);
   const [helpReqs, setHelpReqs] = useState([]);
+  const [subsList, setSubsList] = useState([]);
 
   useEffect(()=>{ loadFromDB(); },[]);
 
@@ -1220,6 +1221,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const direct = await sbFetch("help_requests");
       if (direct && direct.length > 0) setHelpReqs(direct.map(h=>({ id:h.id, name:h.name, email:h.email, message:h.message, time:h.created_at })));
     }
+    const subs = await sbFetch("subscribers");
+    if (subs && subs.length > 0) setSubsList(subs);
     setDbLoading(false);
   }
 
@@ -1300,7 +1303,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["help","Help Requests"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1356,6 +1359,32 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     </div>
                     <a href={"mailto:"+h.email} style={{fontFamily:"sans-serif",fontSize:11,color:"#B8955A",textDecoration:"none",display:"inline-block",marginBottom:10}}>{h.email}</a>
                     <div style={{fontFamily:"sans-serif",fontSize:13,color:"#333",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{h.message}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SUBSCRIBERS */}
+        {view==="subscribers"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>Subscribers ({subsList.length})</h2>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{const rows=["email,date",...subsList.map(s=>(s.email||"")+","+(s.created_at?new Date(s.created_at).toLocaleString():""))].join("\n");const blob=new Blob([rows],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="subscribers.csv";a.click();URL.revokeObjectURL(url);}} style={{background:"#111",color:"#fff",border:"none",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>Export CSV</button>
+                <button onClick={loadFromDB} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase"}}>Refresh</button>
+              </div>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 22px"}}>Emails collected from the "Stay in the loop" newsletter signup. Export the list to send through your email tool.</p>
+            {subsList.length===0?(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No subscribers yet.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:"#E8E6E1"}}>
+                {subsList.map(s=>(
+                  <div key={s.id} style={{background:"#fff",padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}}>
+                    <a href={"mailto:"+s.email} style={{fontFamily:"sans-serif",fontSize:13,color:"#B8955A",textDecoration:"none"}}>{s.email}</a>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{s.created_at?new Date(s.created_at).toLocaleString():""}</div>
                   </div>
                 ))}
               </div>
@@ -1709,6 +1738,8 @@ export default function ChelgyApp() {
   const [rsvpd, setRsvpd] = useState({});
   const [emailSub, setEmailSub] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [subSending, setSubSending] = useState(false);
+  const [subErr, setSubErr] = useState("");
   const [dirSearch, setDirSearch] = useState("");
   const [dirFilter, setDirFilter] = useState("All");
   const [commentsByPost, setCommentsByPost] = useState(weeklyPosts.reduce((a,p)=>({...a,[p.id]:p.comments}),{}));
@@ -1915,6 +1946,22 @@ export default function ChelgyApp() {
     } else {
       // Don't pretend it worked — let the person know so they can retry
       setHelpErr("Sorry — that didn't send. Please check your connection and try again in a moment.");
+    }
+  }
+
+  async function submitNewsletter() {
+    setSubErr("");
+    const email = emailSub.trim();
+    if (!email) { setSubErr("Please enter your email."); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setSubErr("Please enter a valid email address."); return; }
+    setSubSending(true);
+    let saved = null;
+    try { saved = await sbFetch("subscribers","POST",{ email: email }); } catch(e){ saved = null; }
+    setSubSending(false);
+    if (saved && saved.length) {
+      setSubscribed(true); setEmailSub("");
+    } else {
+      setSubErr("Sorry — that didn't go through. Please try again in a moment.");
     }
   }
 
@@ -2189,9 +2236,12 @@ export default function ChelgyApp() {
               {subscribed?(
                 <div style={{fontFamily:"sans-serif",fontSize:13,color:B.green,letterSpacing:"0.04em"}}>You are on the list.</div>
               ):(
-                <div style={{display:"flex",gap:0}}>
-                  <input value={emailSub} onChange={e=>setEmailSub(e.target.value)} placeholder="your@email.com" style={{flex:1,padding:"12px 16px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white}} />
-                  <button onClick={()=>{if(emailSub.trim()){setSubscribed(true);}}} style={{background:B.charcoal,color:"#fff",border:"none",padding:"12px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SIGN UP</button>
+                <div>
+                  <div style={{display:"flex",gap:0}}>
+                    <input value={emailSub} onChange={e=>setEmailSub(e.target.value)} placeholder="your@email.com" style={{flex:1,padding:"12px 16px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white}} />
+                    <button onClick={submitNewsletter} disabled={subSending} style={{background:B.charcoal,color:"#fff",border:"none",padding:"12px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:subSending?"default":"pointer",opacity:subSending?0.6:1}}>{subSending?"...":"SIGN UP"}</button>
+                  </div>
+                  {subErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:10}}>{subErr}</div>}
                 </div>
               )}
             </div>
