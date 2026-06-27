@@ -23,34 +23,35 @@ async function sbFetch(table, method="GET", body=null, id=null) {
 }
 
 // ─── AI SERVICE KEYS ─────────────────────────────────────────────────────────
-const WAVESPEED_KEY = "wsk_live_JZfXRCjiMjV_bNK5OuVWj72ULFhPSTFrJskN07DzHmU";
+const WAVESPEED_KEY = "";
 const ELEVENLABS_KEY = "sk_8158417eb825f0f19a5eccdd0952635d6638c78f05967852";
 
-// WaveSpeed video generation
-async function generateVideo(prompt, model="wavespeed-ai/wan-2.1-i2v-480p", image) {
-  const input = { prompt, num_frames: 81, guidance_scale: 7 };
-  if (image) input.image = image;
-  const res = await fetch("https://api.wavespeed.ai/api/v2/predict", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + WAVESPEED_KEY
-    },
-    body: JSON.stringify({ model, input })
-  });
-  const data = await res.json();
-  return data?.data?.id || null;
+// WaveSpeed video generation — runs through the secure backend (/api/video)
+async function generateVideo(prompt, image) {
+  try {
+    const res = await fetch("/api/video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, image })
+    });
+    const data = await res.json();
+    return data.id || null;
+  } catch { return null; }
 }
 
 async function pollVideo(taskId) {
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 3000));
-    const res = await fetch("https://api.wavespeed.ai/api/v2/predict/"+taskId+"/result", {
-      headers: { "Authorization": "Bearer " + WAVESPEED_KEY }
-    });
-    const data = await res.json();
-    if (data?.data?.status === "completed") return data?.data?.outputs?.[0] || null;
-    if (data?.data?.status === "failed") return null;
+    try {
+      const res = await fetch("/api/video-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: taskId })
+      });
+      const data = await res.json();
+      if (data.status === "completed") return data.output || null;
+      if (data.status === "failed") return null;
+    } catch {}
   }
   return null;
 }
@@ -623,8 +624,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
     setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
     try{
-      const model=vVidUpload?"wavespeed-ai/wan-2.1-i2v-480p":"wavespeed-ai/wan-2.1-t2v-480p";
-      const taskId=await generateVideo(vTopic,model,vVidUpload||undefined);
+      const taskId=await generateVideo(vTopic,vVidUpload||undefined);
       if(!taskId){setVVidErr("Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
       const url=await pollVideo(taskId);
