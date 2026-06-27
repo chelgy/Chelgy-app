@@ -2044,7 +2044,7 @@ export default function ChelgyApp() {
             <div style={{width:24,height:1,background:"rgba(255,255,255,0.4)",marginBottom:18}} />
             <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 6px",color:"#fff"}}>Choose your plan</h1>
             <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.5)",fontSize:13,margin:"0 0 20px",letterSpacing:"0.01em"}}>Start free or go all-in from day one.</p>
-            <DiscountInput />
+            {DiscountInput()}
 
             {/* Free trial option */}
             <div onClick={()=>{track("trial_started");setIsTrial(true);setPage("app");}} style={{border:"1px solid rgba(255,255,255,0.15)",padding:"20px",marginBottom:10,cursor:"pointer",position:"relative"}}>
