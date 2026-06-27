@@ -34,9 +34,8 @@ async function generateVideo(prompt, image) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, image })
     });
-    const data = await res.json();
-    return data.id || null;
-  } catch { return null; }
+    return await res.json();
+  } catch { return { error: "Couldn't reach the video service." }; }
 }
 
 async function pollVideo(taskId) {
@@ -624,10 +623,10 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
     setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
     try{
-      const taskId=await generateVideo(vTopic,vVidUpload||undefined);
-      if(!taskId){setVVidErr("Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
+      const started=await generateVideo(vTopic,vVidUpload||undefined);
+      if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
-      const url=await pollVideo(taskId);
+      const url=await pollVideo(started.id);
       if(!url){setVVidErr("The video didn't finish in time. Please try again.");setVVidLoad(false);setVVidStatus("");return;}
       setVVidUrl(url);setVVidStatus("");
     }catch(e){setVVidErr("Something went wrong while generating the video. Please try again.");}
