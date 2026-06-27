@@ -22,6 +22,19 @@ async function sbFetch(table, method="GET", body=null, id=null) {
   return text ? JSON.parse(text) : null;
 }
 
+// Admin-only: read help requests through a private server function (keeps user emails non-public)
+async function fetchHelpRequests() {
+  try {
+    const r = await fetch("/api/help-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: ADMIN_PASSWORD })
+    });
+    const d = await r.json().catch(()=>({}));
+    return (d && d.requests) ? d.requests : [];
+  } catch (e) { return []; }
+}
+
 // ─── AI SERVICE KEYS ─────────────────────────────────────────────────────────
 const WAVESPEED_KEY = "";
 const ELEVENLABS_KEY = ""; // moved server-side to /api/voice (Vercel env: ELEVENLABS_API_KEY)
@@ -256,11 +269,11 @@ const PLATFORMS = [
 
 const BIZ = [
   {stage:"1st Stage",sub:"I have an idea",emoji:"💡",steps:[
-    {title:"Get clear on what you offer",desc:"Write your business in one sentence: \"I help [type of person] get [result] through [your service or product].\" If you can't say it clearly, your branding won't be clear either. This one sentence becomes the backbone of everything."},
-    {title:"Choose your brand feeling",desc:"Branding is the overall feeling your business gives, not just a logo. Pick 3-5 words for how you want to come across (like luxury, clean, bold, or warm). Every color, font, and caption should match those words."},
-    {title:"Make your message instantly clear",desc:"A stranger should understand what you do, who it's for, and the next step within seconds. Clarity beats clever, so skip the fancy wording. Say what you offer in plain language people actually use."},
-    {title:"Pick your platform direction",desc:"Choose Squarespace if you're mostly service-based, or Shopify if you're mostly selling physical products. Pick a clean template close to your business type — not the fanciest one. Easy for the customer always wins."},
-    {title:"Create a simple logo and brand kit",desc:"In Canva, make one clean logo with one main font and one or two colors. Keep it readable and consistent everywhere. Simple looks far more professional and trustworthy than busy and cluttered."},
+    {title:"Get clear on your brand",desc:"Start with three things rolled into one foundation. First, get clear on what you offer — write it in one sentence: \"I help [type of person] get [result] through [your service or product].\" Second, choose your brand feeling — pick 3-5 words for how you want to come across (luxury, clean, bold, warm) so every color, font, and caption matches. Third, make your message instantly clear — a stranger should understand what you do, who it's for, and the next step within seconds. Clarity beats clever."},
+    {title:"Create an offer people want",desc:"Turn your solution into something easy to buy. Define your product or service, your pricing, exactly what's included, and what makes you different from everyone else. Your offer should answer one question immediately: \"Why should I buy this?\" If a stranger can't answer that in a few seconds, simplify until they can."},
+    {title:"Register your business",desc:"Make it official. Look up how to register a business in your state or country — most have a simple online process through the Secretary of State (US) or your local government. Decide on a structure (many people start as a sole proprietor or LLC), claim your business name, and grab any licenses your industry requires. This protects you and makes you look legit to customers."},
+    {title:"Set your budget or secure funding",desc:"Get clear on what your launch will actually cost, then make sure the money is there. Common starting costs include a website, photography and videography, business cards, printed materials, and an advertising budget. Add them up, set a realistic number, and if you need help covering it, look into small business funding, a grant, or starting lean and reinvesting your first profits."},
+    {title:"Build your brand assets",desc:"Now create the things customers will actually see. Make a clean logo (one main font, one or two colors — simple looks more professional than busy), then develop your product photography, marketing materials, and any systems you need to run day to day. Keep it all consistent so everything feels like the same brand everywhere."},
   ]},
   {stage:"2nd Stage",sub:"Getting started",emoji:"🚀",steps:[
     {title:"Build a website people trust",desc:"Your site is your digital storefront. Include a clear headline, a strong main image, a simple call to action (Book now / Shop now), proof like reviews or before-and-afters, an about section, and easy-to-find contact info."},
@@ -282,11 +295,11 @@ const BIZ = [
 function getLevel(pts) { return [...LEVELS].reverse().find(l => pts >= l.min) || LEVELS[0]; }
 function nextLevel(pts) { return LEVELS.find(l => l.min > pts); }
 
-async function callClaude(prompt, maxTokens) {
+async function callClaude(prompt, maxTokens, webSearch=false) {
   try {
     const res = await fetch("/api/claude", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ prompt, max_tokens: maxTokens })
+      body:JSON.stringify({ prompt, max_tokens: maxTokens, web_search: webSearch })
     });
     const d = await res.json();
     return d.text || "Unable to generate. Please try again.";
@@ -417,6 +430,16 @@ const Icons = {
   Mic: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v1a7 7 0 0014 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
+    </svg>
+  ),
+  Flame: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8.5 14.5A3.5 3.5 0 0012 18a3.5 3.5 0 003.5-3.5c0-1.5-.5-2.5-2-4 0 1.5-1 2-1.5 2 0-1.5-1-3-3-4 .5 2.5-1 3.5-2 5a3.5 3.5 0 001.5 1z"/><path d="M12 2c1 2 4 4 4 8a4 4 0 11-8 0c0-2 1-3 1.5-4"/>
+    </svg>
+  ),
+  Grant: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="6"/><path d="M15.5 13.5L17 22l-5-3-5 3 1.5-8.5"/><line x1="12" y1="6" x2="12" y2="10"/><line x1="10" y1="8" x2="14" y2="8"/>
     </svg>
   ),
 };
@@ -583,7 +606,26 @@ const Rb=({label,content,loading})=>{
   if(!content)return null;
   return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85}}><Md text={content} /></div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
 };
-// Admin-panel input helpers (stable identity, original admin styling)
+// Soft upsell block — points to the course book and/or done-for-you services
+const Upsell = ({ variant="both" }) => {
+  const course = variant==="course"||variant==="both";
+  const services = variant==="services"||variant==="both";
+  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:B.gold,color:B.charcoal,textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
+  return (
+    <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid "+B.gold}}>
+      {course&&<div style={{marginBottom:services?18:0}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Go Deeper</div>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Want an in-depth deep dive into every step of marketing your business? It's all in our 138-page course book, <span style={{color:B.gold,fontWeight:700}}>The Profitable Business Blueprint</span>.</p>
+        {link("https://chelgy.com/course","Get the Course Book")}
+      </div>}
+      {services&&<div>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Short on Time?</div>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Too busy or not sure where to start? Let us handle your marketing for you with professional done-for-you services.</p>
+        {link("https://chelgy.com","Explore Marketing Services")}
+      </div>}
+    </div>
+  );
+};
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
@@ -606,6 +648,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [bQ,setBQ]=useState("");const [bA,setBA]=useState("");const [bLoad,setBLoad]=useState(false);
   const [dFilt,setDFilt]=useState("All");
   const [selP,setSelP]=useState(null);const [gTab,setGTab]=useState("setup");
+  const [vbBiz,setVbBiz]=useState("");const [vbIdea,setVbIdea]=useState("");const [vbPlat,setVbPlat]=useState("TikTok");const [vbRes,setVbRes]=useState("");const [vbLoad,setVbLoad]=useState(false);
+  const [grBiz,setGrBiz]=useState("");const [grLoc,setGrLoc]=useState("");const [grDetails,setGrDetails]=useState("");const [grRes,setGrRes]=useState("");const [grLoad,setGrLoad]=useState(false);
 
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
@@ -650,6 +694,22 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){ window.open(vVidUrl,"_blank"); }
   }
   async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude("You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
+  async function genViral(){
+    if(!vbBiz.trim())return;
+    track("tool_used",{tool:"viral_video",platform:vbPlat});
+    setVbLoad(true);setVbRes("");
+    const p="You are a viral short-form video strategist who studies what makes "+vbPlat+" videos blow up. A business owner needs viral video ideas they can actually shoot.\n\nBusiness: "+vbBiz+"\n"+(vbIdea.trim()?("Their idea / what they want to make: "+vbIdea+"\n"):"")+"Platform: "+vbPlat+"\n\nGive a complete, ready-to-use plan in clean markdown with EXACTLY these sections:\n\n## 3 Viral Video Ideas\nFor each: a punchy title, the concept in 1-2 sentences, and one line on WHY it could go viral (the trend, emotion, or psychology it taps).\n\n## Recommended Format\nWhich idea to start with and why, the ideal length, and the style (talking head, voiceover + b-roll, text-on-screen, trending sound, etc).\n\n## Scroll-Stopping Hook\n2-3 hook options for the first 3 seconds — the exact words to say or show.\n\n## Full Script\nA ready-to-shoot script for the recommended idea with [scene/time] cues, what to say, and on-screen text. Natural and punchy.\n\n## Caption\nA ready-to-post caption: hook line, value, call to action.\n\n## Hashtags\n8-12 relevant hashtags mixing broad and niche.\n\nBe specific to their actual business — no generic filler. Make it doable for a solo creator.";
+    setVbRes(await callClaude(p,4000));
+    setVbLoad(false);
+  }
+  async function genGrants(){
+    if(!grBiz.trim())return;
+    track("tool_used",{tool:"grants"});
+    setGrLoad(true);setGrRes("");
+    const p="You are a small-business grants researcher. Use web search to find REAL, currently-available grants, funds, and programs this business owner may qualify for. Search by their location and business type — include federal, state/provincial, local, and private/corporate small-business grants, plus any tied to their situation (women-owned, minority-owned, veteran-owned, rural, startup, etc).\n\nBusiness: "+grBiz+"\nLocation: "+(grLoc.trim()||"not specified — note that adding a location gives better results")+"\n"+(grDetails.trim()?("About the owner/situation: "+grDetails+"\n"):"")+"\n\nReturn a clear markdown list of 5-10 specific grants or programs. For EACH: the grant name, who runs it, a one-line description, key eligibility, typical award amount if known, and where to apply (official website or how to find it). Group by type (Federal / State / Local / Private / Identity-based) where helpful.\n\nEnd with a short '## Before You Apply' note: grant programs, deadlines, and eligibility change often, so confirm every detail on the official site first, and never pay a fee to apply for a free government grant.\n\nBe specific and real — name verifiable programs, not vague advice.";
+    setGrRes(await callClaude(p,5000,true));
+    setGrLoad(false);
+  }
 
   const dNiches=["All",...Array.from(new Set(SUPPLIERS.map(s=>s.niche)))];
 
@@ -764,6 +824,33 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
       </div>}
 
+      {tool==="viral"&&<div>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Viral Video Generator</h2>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Tell us about your business and we'll hand you viral video ideas, the format that'll pop, a hook, a full script, caption, and hashtags.</p>
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="Your Business"><Si value={vbBiz} onChange={e=>setVbBiz(e.target.value)} placeholder="e.g. Tampa knotless braids salon, handmade candle shop..." /></Fl>
+          <Fl label="What do you want a video about? (optional)"><St value={vbIdea} onChange={e=>setVbIdea(e.target.value)} placeholder="e.g. Promote my summer collection — or leave blank and we'll suggest ideas for you" rows={3} /></Fl>
+          <Fl label="Platform"><Ss value={vbPlat} onChange={e=>setVbPlat(e.target.value)}>{["TikTok","Instagram Reels","YouTube Shorts","Facebook Reels"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
+          <Btn dark disabled={vbLoad||!vbBiz.trim()} onClick={genViral}>{vbLoad?"FINDING YOUR VIRAL ANGLE...":"GENERATE VIRAL PLAN"}</Btn>
+        </Card>
+        <Rb label="Your Viral Video Plan" content={vbRes} loading={vbLoad} />
+        <Upsell variant="services" />
+      </div>}
+
+      {tool==="grants"&&<div>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Grant Finder</h2>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Tell us about your business and we'll search the web for real grants and funding programs you might qualify for.</p>
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="Your Business"><Si value={grBiz} onChange={e=>setGrBiz(e.target.value)} placeholder="e.g. Woman-owned hair salon, eco-friendly candle startup..." /></Fl>
+          <Fl label="Location (city, state/country)"><Si value={grLoc} onChange={e=>setGrLoc(e.target.value)} placeholder="e.g. Tampa, Florida, USA" /></Fl>
+          <Fl label="Anything else that might help? (optional)"><St value={grDetails} onChange={e=>setGrDetails(e.target.value)} placeholder="e.g. minority-owned, veteran, business under 2 years old, need equipment funding" rows={3} /></Fl>
+          <Btn dark disabled={grLoad||!grBiz.trim()} onClick={genGrants}>{grLoad?"SEARCHING FOR GRANTS...":"FIND GRANTS"}</Btn>
+          {grLoad&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"12px 0 0",letterSpacing:"0.01em"}}>Searching the web — this can take 20-40 seconds. Hang tight.</p>}
+        </Card>
+        <Rb label="Grants You Might Qualify For" content={grRes} loading={grLoad} />
+        <Upsell variant="services" />
+      </div>}
+
       {tool==="business"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Builder</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Stage-by-stage guidance and a 24/7 AI business coach.</p>
@@ -795,6 +882,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </Card>
           <Rb label="Business Coach Answer" content={bA} loading={bLoad} />
         </div>
+        <Upsell variant="both" />
       </div>}
 
       {tool==="dropshipping"&&<div>
@@ -966,7 +1054,7 @@ function ReviewPrompt({ onClose, onReview }) {
 // ─── MAIN APP — VOGUE LAYOUT ──────────────────────────────────────────────────
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-const ADMIN_PASSWORD = "chelo373";
+const ADMIN_PASSWORD = "chelochelo1";
 
 // ─── CREDIT SYSTEM ────────────────────────────────────────────────────────────
 const CREDIT_COSTS = {
@@ -1039,6 +1127,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [newWeekly, setNewWeekly] = useState({ title:"", tag:"AI Update", week:"This Week", readTime:"5 min read", content:"", imageUrl:"" });
   const [saved, setSaved] = useState(false);
   const [dbLoading, setDbLoading] = useState(false);
+  const [helpReqs, setHelpReqs] = useState([]);
 
   useEffect(()=>{ loadFromDB(); },[]);
 
@@ -1048,6 +1137,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     const weekly = await sbFetch("weekly_posts");
     if (strats && strats.length > 0) setStrategies(prev=>[...strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new})),...prev]);
     if (weekly && weekly.length > 0) setWeeklyPosts(prev=>[...weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]})),...prev]);
+    const help = await fetchHelpRequests();
+    if (help && help.length > 0) setHelpReqs(help);
     setDbLoading(false);
   }
 
@@ -1128,7 +1219,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["help","Help Requests"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1161,6 +1252,33 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>Publish new weekly content</div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* HELP REQUESTS */}
+        {view==="help"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>Help Requests ({helpReqs.length})</h2>
+              <button onClick={loadFromDB} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase"}}>Refresh</button>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 22px"}}>Messages submitted from the Need Help form. You also get each one by email.</p>
+            {helpReqs.length===0?(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No help requests yet.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:"#E8E6E1"}}>
+                {helpReqs.map(h=>(
+                  <div key={h.id} style={{background:"#fff",padding:"18px 20px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:8}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#111"}}>{h.name}</div>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{h.created_at?new Date(h.created_at).toLocaleString():(h.time||"")}</div>
+                    </div>
+                    <a href={"mailto:"+h.email} style={{fontFamily:"sans-serif",fontSize:11,color:"#B8955A",textDecoration:"none",display:"inline-block",marginBottom:10}}>{h.email}</a>
+                    <div style={{fontFamily:"sans-serif",fontSize:13,color:"#333",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{h.message}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1316,12 +1434,13 @@ export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
     const s=document.createElement("style");
-    s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}h1,h2,h3,h4,h5,h6{color:#111111;}:root{color-scheme:light;background-color:#ffffff;}body{margin:0;background-color:#ffffff;}#root{max-width:none;width:100%;margin:0;padding:0;text-align:left;}";
+    s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}h1,h2,h3,h4,h5,h6{color:#111111;}:root{color-scheme:light;background-color:#ffffff;}body{margin:0;background-color:#ffffff;}#root{max-width:none;width:100%;margin:0;padding:0;text-align:left;}.cg-main{padding:0 40px;}@media(max-width:640px){.cg-main{padding:0 14px;}}";
     document.head.appendChild(s);
     return ()=>{ try{document.head.removeChild(s);}catch(e){} };
   },[]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminAuthed, setAdminAuthed] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(true);
   const [logoTaps, setLogoTaps] = useState(0);
   const tapTimer = useRef(null);
 
@@ -1329,7 +1448,7 @@ export default function ChelgyApp() {
     const newCount = logoTaps + 1;
     setLogoTaps(newCount);
     if (tapTimer.current) clearTimeout(tapTimer.current);
-    if (newCount >= 5) { setIsAdmin(true); setLogoTaps(0); return; }
+    if (newCount >= 5) { setIsAdmin(true); setAdminPanelOpen(true); setLogoTaps(0); return; }
     tapTimer.current = setTimeout(()=>setLogoTaps(0), 2000);
   }
   const [appStrategies, setAppStrategies] = useState(strategies);
@@ -1347,7 +1466,7 @@ export default function ChelgyApp() {
   // Secret admin URL: add ?admin to the URL
   useEffect(()=>{
     const params = new URLSearchParams(window.location.search);
-    if (params.get("admin") !== null) { setIsAdmin(true); setPage("app"); setIsTrial(false); }
+    if (params.get("admin") !== null) { setIsAdmin(true); setAdminPanelOpen(true); setPage("app"); setIsTrial(false); }
 
     // Load Stripe.js
     if (!window.Stripe) {
@@ -1415,6 +1534,39 @@ export default function ChelgyApp() {
   const [tab, setTab] = useState("home");       // home | learn | tools | community | profile
   const [subTab, setSubTab] = useState("feed"); // varies per tab
 
+  // Guided tour
+  const [tourStep, setTourStep] = useState(null);
+  const [spotRect, setSpotRect] = useState(null);
+  const navRefs = useRef({});
+  const TOUR_STEPS = [
+    { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
+    { target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." },
+    { target: "learn", title: "Learn", body: "Marketing strategies and weekly updates. Tap any strategy for a step-by-step deep dive." },
+    { target: "tools", title: "Tools", body: "Your AI toolkit: image creator, video studio, the new Viral Video Generator, voiceovers, content writer, Grant Finder, and the Business Builder." },
+    { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
+    { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
+    { target: null, title: "You're all set! ✨", body: "That's the grand tour. Dive in wherever you like — and remember, help is always one tap away in your Profile." },
+  ];
+  function endTour() { try { localStorage.setItem("chelgy_tour_done", "1"); } catch(e){} setTourStep(null); setSpotRect(null); }
+  function nextTour() { if (tourStep === null) return; if (tourStep >= TOUR_STEPS.length - 1) endTour(); else setTourStep(tourStep + 1); }
+  useEffect(()=>{
+    if (page!=="app" || isAdmin) return;
+    let done=false; try{ done=!!localStorage.getItem("chelgy_tour_done"); }catch(e){}
+    if(!done) setTourStep(0);
+  },[page,isAdmin]);
+  useEffect(()=>{
+    if(tourStep===null) return;
+    const step=TOUR_STEPS[tourStep];
+    const calc=()=>{
+      const el = step && step.target ? navRefs.current[step.target] : null;
+      if(el){ const r=el.getBoundingClientRect(); setSpotRect({top:r.top,left:r.left,width:r.width,height:r.height}); }
+      else setSpotRect(null);
+    };
+    const t=setTimeout(calc,30);
+    window.addEventListener("resize",calc);
+    return ()=>{ clearTimeout(t); window.removeEventListener("resize",calc); };
+  },[tourStep]);
+
   // Content state
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -1481,6 +1633,13 @@ export default function ChelgyApp() {
   const [commentsByPost, setCommentsByPost] = useState(weeklyPosts.reduce((a,p)=>({...a,[p.id]:p.comments}),{}));
   const [commentText, setCommentText] = useState("");
   const [commentName, setCommentName] = useState("");
+  const [helpName, setHelpName] = useState("");
+  const [helpEmail, setHelpEmail] = useState("");
+  const [helpMsg, setHelpMsg] = useState("");
+  const [helpSending, setHelpSending] = useState(false);
+  const [helpDone, setHelpDone] = useState(false);
+  const [helpErr, setHelpErr] = useState("");
+  const [helpRequests, setHelpRequests] = useState([]);
   const [copied, setCopied] = useState(false);
   const [aiQ, setAiQ] = useState("");
   const [aiA, setAiA] = useState("");
@@ -1621,10 +1780,10 @@ export default function ChelgyApp() {
       setMyName(n); setIsTrial(false); setPage("app");
     }
     if (params.get("admin")===null && window.location.search.includes("admin")) {
-      setPage("app"); setIsTrial(false); setIsAdmin(true);
+      setPage("app"); setIsTrial(false); setIsAdmin(true); setAdminPanelOpen(true);
     }
     if (window.location.search.includes("admin")) {
-      setPage("app"); setIsTrial(false); setIsAdmin(true);
+      setPage("app"); setIsTrial(false); setIsAdmin(true); setAdminPanelOpen(true);
     }
   },[]);
 
@@ -1658,6 +1817,27 @@ export default function ChelgyApp() {
     setCommentsByPost(prev=>({...prev,[postId]:(prev[postId]||[]).filter(c=>c.id!==commentId)}));
   };
 
+  async function submitHelp() {
+    setHelpErr("");
+    if (!helpName.trim() || !helpEmail.trim() || !helpMsg.trim()) { setHelpErr("Please fill in your name, email, and message."); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(helpEmail.trim())) { setHelpErr("Please enter a valid email address."); return; }
+    setHelpSending(true);
+    const entry = { id: Date.now(), name: helpName.trim(), email: helpEmail.trim(), message: helpMsg.trim(), time: new Date().toLocaleString() };
+    // Save to Supabase so it appears in the admin panel on any device
+    try { await sbFetch("help_requests","POST",{ name: entry.name, email: entry.email, message: entry.message }); } catch(e){}
+    // Keep a local copy too for instant feedback
+    setHelpRequests(prev => [entry, ...prev]);
+    // Email it (best effort — if Resend isn't set up yet, the admin panel still has it)
+    try {
+      await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: entry.name, email: entry.email, message: entry.message })
+      });
+    } catch (e) {}
+    setHelpSending(false); setHelpDone(true); setHelpMsg("");
+  }
+
   const sharePost = (post) => {
     const txt = post.title+" — Chelgy";
     if (navigator.share) navigator.share({title:post.title,text:txt});
@@ -1665,8 +1845,8 @@ export default function ChelgyApp() {
   };
 
   // ── ADMIN (placed here so it runs only after all hooks are declared) ─────────
-  if (isAdmin && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
-  if (isAdmin && adminAuthed) return <AdminDashboard onExit={()=>{setIsAdmin(false);setAdminAuthed(false);}} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
+  if (isAdmin && adminPanelOpen && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
+  if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
   if (page==="onboarding") return <Onboarding onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} />;
@@ -1835,7 +2015,7 @@ export default function ChelgyApp() {
 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
-        <div style={{maxWidth:1400,margin:"0 auto",padding:"0 40px"}}>
+        <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
 
           {/* ═══ HOME ═══ */}
           {tab==="home"&&subTab==="feed"&&(
@@ -1864,7 +2044,7 @@ export default function ChelgyApp() {
                 </div>
                 <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase"}}>Quick Actions</div>
-                  {[["Browse strategies","learn","strategies"],["Ask AI Advisor","community","forum"],["Open Tools Hub","tools","hub"]].map(([l,t,s])=>(
+                  {[["Browse strategies","learn","strategies"],["Ask AI Advisor","community","advisor"],["Open Tools Hub","tools","hub"]].map(([l,t,s])=>(
                     <button key={l} onClick={()=>goTab(t,s)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:B.offwhite,border:"none",padding:"10px 12px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",textAlign:"left",color:B.charcoal,marginBottom:6,letterSpacing:"0.02em"}}>
                       {l} <Icons.ChevronRight />
                     </button>
@@ -1991,8 +2171,9 @@ export default function ChelgyApp() {
                   <Rich text={selectedStrategy.content} />
                   <div style={{marginTop:36,background:B.offwhite,padding:"20px 22px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,borderLeft:"2px solid "+B.gold}}>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Have a specific question about this strategy?</div>
-                    <Btn dark small onClick={()=>{setAiQ("Give me specific advice on implementing "+selectedStrategy.title+" for my business.");goTab("community","forum");}}>ASK AI ADVISOR</Btn>
+                    <Btn dark small onClick={()=>{setAiQ("Give me specific advice on implementing "+selectedStrategy.title+" for my business.");goTab("community","advisor");}}>ASK AI ADVISOR</Btn>
                   </div>
+                  <Upsell variant="course" />
                 </>
               )}
             </div>
@@ -2085,9 +2266,9 @@ export default function ChelgyApp() {
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:1,background:B.stone}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
-                  <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:0,background:"transparent"}}>
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                  <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
                       <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 6px",letterSpacing:"0.02em"}}>{t.title}</h3>
@@ -2192,6 +2373,7 @@ export default function ChelgyApp() {
                   <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
                     This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
                   </div>
+                  <Upsell variant="both" />
                 </div>
               )}
             </div>
@@ -2441,6 +2623,27 @@ export default function ChelgyApp() {
                       <Btn dark full onClick={()=>setPage("signup")}>UPGRADE TO FULL MEMBERSHIP</Btn>
                     </div>
                   )}
+                  <div style={{marginTop:18,paddingTop:16,borderTop:"1px solid "+B.stone}}>
+                    <button onClick={()=>{setTab("home");setSubTab("feed");setTourStep(0);}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",width:"100%"}}>Replay App Tutorial</button>
+                  </div>
+                </div>
+                <div style={{background:B.white,padding:"26px"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Need Help?</div>
+                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 16px",lineHeight:1.6}}>Stuck on something or have a question? Send us a message and we'll get back to you by email.</p>
+                  {helpDone?(
+                    <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"16px",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>
+                      Thanks{helpName?(", "+helpName):""}! Your message is on its way — we'll reply to your email soon.
+                      <div style={{marginTop:12}}><button onClick={()=>{setHelpDone(false);setHelpErr("");}} style={{background:"none",border:"1px solid "+B.gold,padding:"7px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.goldDark,letterSpacing:"0.1em",textTransform:"uppercase"}}>Send another</button></div>
+                    </div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                      <input value={helpName} onChange={e=>setHelpName(e.target.value)} placeholder="Your name" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,color:B.charcoal}} />
+                      <input value={helpEmail} onChange={e=>setHelpEmail(e.target.value)} placeholder="Your email" type="email" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,color:B.charcoal}} />
+                      <textarea value={helpMsg} onChange={e=>setHelpMsg(e.target.value)} placeholder="How can we help?" rows={4} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",background:B.white,color:B.charcoal,lineHeight:1.5}} />
+                      {helpErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red}}>{helpErr}</div>}
+                      <div><Btn dark small disabled={helpSending} onClick={submitHelp}>{helpSending?"SENDING...":"SEND MESSAGE"}</Btn></div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2473,6 +2676,15 @@ export default function ChelgyApp() {
         </div>
       </main>
 
+      {/* ── ADMIN MODE FLOATING CONTROL (shows when browsing the app as admin) ── */}
+      {isAdmin && !adminPanelOpen && (
+        <div style={{position:"fixed",right:14,bottom:BOT_H+14,zIndex:350,display:"flex",alignItems:"center",gap:8,background:B.charcoal,padding:"8px 10px 8px 14px",borderRadius:30,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
+          <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase"}}>Admin</span>
+          <button onClick={()=>setAdminPanelOpen(true)} style={{background:B.gold,color:B.charcoal,border:"none",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Panel</button>
+          <button onClick={()=>{setIsAdmin(false);setAdminAuthed(false);setAdminPanelOpen(true);}} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.25)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Exit</button>
+        </div>
+      )}
+
       {/* ── BOTTOM NAV ── */}
       <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1400,margin:"0 auto",height:"100%",display:"flex"}}>
         {[
@@ -2482,12 +2694,36 @@ export default function ChelgyApp() {
           {id:"community",label:"COMMUNITY",Icon:Icons.Community},
           {id:"profile",label:"PROFILE",Icon:Icons.Profile},
         ].map(({id,label,Icon})=>(
-          <button key={id} onClick={()=>goTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:tab===id?B.charcoal:B.mid,borderTop:tab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",paddingTop:2}}>
+          <button key={id} ref={el=>{navRefs.current[id]=el;}} onClick={()=>goTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:tab===id?B.charcoal:B.mid,borderTop:tab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",paddingTop:2}}>
             <Icon />
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.1em",fontWeight:tab===id?700:400}}>{label}</span>
           </button>
         ))}
       </div></nav>
+
+      {/* ── GUIDED TOUR ── */}
+      {tourStep!==null && (()=>{ const step=TOUR_STEPS[tourStep]; const last=tourStep>=TOUR_STEPS.length-1; return (
+        <div style={{position:"fixed",inset:0,zIndex:9990}}>
+          {spotRect ? (
+            <div style={{position:"fixed",top:spotRect.top-6,left:spotRect.left-6,width:spotRect.width+12,height:spotRect.height+12,borderRadius:10,boxShadow:"0 0 0 9999px rgba(0,0,0,0.74)",border:"2px solid "+B.gold,zIndex:9991,pointerEvents:"none",transition:"all 0.2s"}} />
+          ) : (
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.74)",zIndex:9991}} />
+          )}
+          <div style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:BOT_H+24,width:"min(360px, calc(100% - 32px))",background:B.white,zIndex:9992,padding:"22px",boxShadow:"0 8px 30px rgba(0,0,0,0.3)"}}>
+            <div style={{width:24,height:1,background:B.gold,marginBottom:12}} />
+            <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:8,color:B.charcoal}}>{step.title}</div>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>{step.body}</p>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+              <button onClick={endTour} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.06em"}}>Exit tour</button>
+              <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.1em"}}>{tourStep+1} / {TOUR_STEPS.length}</span>
+              <div style={{display:"flex",gap:8}}>
+                {tourStep>0&&<button onClick={()=>setTourStep(tourStep-1)} style={{background:"none",border:"1px solid "+B.stone,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.charcoal,padding:"7px 12px",letterSpacing:"0.08em",textTransform:"uppercase"}}>Back</button>}
+                <button onClick={nextTour} style={{background:B.charcoal,border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:"#fff",padding:"7px 14px",letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase"}}>{last?"Done":"Next"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ); })()}
 
     </div>
   );

@@ -9,13 +9,43 @@ export default async function handler(req, res) {
     const prompt = body.prompt;
     if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
+    const key = (process.env.WAVESPEED_API_KEY || "").trim();
+    if (!key) return res.status(500).json({ error: "Video service is not configured." });
+
     const image = body.image;
-    let modelPath, input;
-    // Image-to-video only works when the photo is a public web link.
-    // Uploaded photos arrive as raw data, so we fall back to text-to-video for now.
+    let imageUrl = null;
+
+    // If a photo was provided, get it to WaveSpeed as a hosted URL so image-to-video can use it.
     if (image && /^https?:\/\//.test(image)) {
+      // Already a public web link
+      imageUrl = image;
+    } else if (image && /^data:.*;base64,/.test(image)) {
+      // Uploaded photo (base64). Upload it to WaveSpeed's media endpoint to get a URL.
+      const m = image.match(/^data:(.*?);base64,(.*)$/);
+      const mime = (m && m[1]) || "image/png";
+      const b64 = (m && m[2]) || "";
+      const bytes = Buffer.from(b64, "base64");
+      const ext = (mime.split("/")[1] || "png").split("+")[0];
+      const form = new FormData();
+      form.append("file", new Blob([bytes], { type: mime }), "upload." + ext);
+
+      const up = await fetch("https://api.wavespeed.ai/api/v3/media/upload/binary", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + key },
+        body: form
+      });
+      const upData = await up.json();
+      if (!up.ok) {
+        return res.status(up.status).json({ error: (upData && upData.message) || "Couldn't upload your photo." });
+      }
+      imageUrl = upData && upData.data && upData.data.download_url;
+      if (!imageUrl) return res.status(502).json({ error: "Photo upload returned no URL." });
+    }
+
+    let modelPath, input;
+    if (imageUrl) {
       modelPath = "wavespeed-ai/wan-2.2/i2v-480p";
-      input = { prompt, image, duration: 5, seed: -1 };
+      input = { prompt, image: imageUrl, duration: 5, seed: -1 };
     } else {
       modelPath = "wavespeed-ai/wan-2.2/t2v-480p-ultra-fast";
       input = { prompt, size: "832*480", duration: 5, seed: -1 };
@@ -25,7 +55,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer " + process.env.WAVESPEED_API_KEY
+        "Authorization": "Bearer " + key
       },
       body: JSON.stringify(input)
     });
@@ -38,6 +68,6 @@ export default async function handler(req, res) {
     if (!id) return res.status(502).json({ error: "No prediction id returned" });
     return res.status(200).json({ id });
   } catch (e) {
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
 }
