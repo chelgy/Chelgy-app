@@ -27,14 +27,16 @@ const WAVESPEED_KEY = "wsk_live_JZfXRCjiMjV_bNK5OuVWj72ULFhPSTFrJskN07DzHmU";
 const ELEVENLABS_KEY = "sk_8158417eb825f0f19a5eccdd0952635d6638c78f05967852";
 
 // WaveSpeed video generation
-async function generateVideo(prompt, model="wavespeed-ai/wan-2.1-i2v-480p") {
+async function generateVideo(prompt, model="wavespeed-ai/wan-2.1-i2v-480p", image) {
+  const input = { prompt, num_frames: 81, guidance_scale: 7 };
+  if (image) input.image = image;
   const res = await fetch("https://api.wavespeed.ai/api/v2/predict", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + WAVESPEED_KEY
     },
-    body: JSON.stringify({ model, input: { prompt, num_frames: 81, guidance_scale: 7 } })
+    body: JSON.stringify({ model, input })
   });
   const data = await res.json();
   return data?.data?.id || null;
@@ -256,21 +258,21 @@ const PLATFORMS = [
 ];
 
 const BIZ = [
-  {stage:"I have an idea",emoji:"💡",steps:[
+  {stage:"1st Stage",sub:"I have an idea",emoji:"💡",steps:[
     {title:"Get clear on what you offer",desc:"Write your business in one sentence: \"I help [type of person] get [result] through [your service or product].\" If you can't say it clearly, your branding won't be clear either. This one sentence becomes the backbone of everything."},
     {title:"Choose your brand feeling",desc:"Branding is the overall feeling your business gives, not just a logo. Pick 3-5 words for how you want to come across (like luxury, clean, bold, or warm). Every color, font, and caption should match those words."},
     {title:"Make your message instantly clear",desc:"A stranger should understand what you do, who it's for, and the next step within seconds. Clarity beats clever, so skip the fancy wording. Say what you offer in plain language people actually use."},
     {title:"Pick your platform direction",desc:"Choose Squarespace if you're mostly service-based, or Shopify if you're mostly selling physical products. Pick a clean template close to your business type — not the fanciest one. Easy for the customer always wins."},
     {title:"Create a simple logo and brand kit",desc:"In Canva, make one clean logo with one main font and one or two colors. Keep it readable and consistent everywhere. Simple looks far more professional and trustworthy than busy and cluttered."},
   ]},
-  {stage:"I am getting started",emoji:"🚀",steps:[
+  {stage:"2nd Stage",sub:"Getting started",emoji:"🚀",steps:[
     {title:"Build a website people trust",desc:"Your site is your digital storefront. Include a clear headline, a strong main image, a simple call to action (Book now / Shop now), proof like reviews or before-and-afters, an about section, and easy-to-find contact info."},
     {title:"Stack your platforms",desc:"Don't rely on one place — every platform is another door into your business. Set up Google Business Profile, Instagram, Facebook, and TikTok, plus the niche platform for your industry (StyleSeat or Booksy for hair, Vagaro for beauty, Thumbtack for home services, Etsy for products)."},
     {title:"Set up local SEO",desc:"Fully complete your Google Business Profile, keep your business name, phone, and address identical everywhere, and mention your city naturally on your site. Then start asking happy customers for reviews. This is how you show up in \"near me\" searches."},
     {title:"Use keywords customers actually search",desc:"Build your pages around \"[service] + [location]\" phrases like \"knotless braids Tampa.\" Put that keyword in your page title, headline, and description — naturally, never stuffed. Give each page one clear topic."},
     {title:"Start posting consistently",desc:"Post 3-5 times a week, rotating four content types: showcase (your work), educational (teach something), lifestyle (your brand vibe), and proof (results and testimonials). Use Canva for graphics and Temply for reels. Consistency beats perfection."},
   ]},
-  {stage:"I already run a business",emoji:"📈",steps:[
+  {stage:"3rd Stage",sub:"Already up & running",emoji:"📈",steps:[
     {title:"Add physical marketing",desc:"Put your business in the real world with clean business cards, flyers, signage, and even a car magnet or wrap. Add QR codes so people can reach you instantly. Physical marketing is underused, not outdated, and it feeds people straight into your online presence."},
     {title:"Build referral partnerships",desc:"Team up with complementary (not competing) businesses that already serve your customers. Swap cards, recommend each other, and offer a referral commission so they're motivated to send people your way. You tap into traffic you didn't have to build."},
     {title:"Do daily direct outreach",desc:"Reach out to people who clearly need your service through DMs, email, or text. It's a numbers game — about 100 messages leads to 5-10 replies and a few clients. Keep messages short and non-pushy: greeting, a genuine compliment, what you offer, a simple invite. Follow up and stay consistent."},
@@ -296,11 +298,14 @@ async function callClaude(prompt) {
   } catch { return "Something went wrong. Please try again."; }
 }
 
-async function generateGeminiImage(prompt) {
+async function generateGeminiImage(prompt, inputImage) {
+  const parts = inputImage
+    ? [{inlineData:{mimeType:inputImage.mimeType,data:inputImage.data}},{text:prompt}]
+    : [{text:prompt}];
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key="+GEMINI_KEY,
     { method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:["TEXT","IMAGE"]}}) }
+      body:JSON.stringify({contents:[{parts}],generationConfig:{responseModalities:["TEXT","IMAGE"]}}) }
   );
   const d = await res.json();
   const img = (d.candidates?.[0]?.content?.parts||[]).find(p=>p.inlineData);
@@ -536,44 +541,53 @@ function Rich({ text }) {
 }
 
 // ─── TOOLS PAGE ───────────────────────────────────────────────────────────────
+// Input helpers defined at module level so they keep a stable identity across
+// renders — defining them inside ToolsPage remounts inputs and drops focus on every keystroke.
+const Fl=({label,children})=><div style={{marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{label}</div>{children}</div>;
+const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white,color:B.charcoal}} />;
+const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white,color:B.charcoal}} />;
+const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",color:B.charcoal}}>{children}</select>;
+const Tb=({label,active,onClick})=><button onClick={onClick} style={{background:"none",color:active?B.charcoal:B.mid,border:"none",borderBottom:active?"1px solid "+B.charcoal:"1px solid transparent",padding:"8px 14px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:active?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>;
+const Rb=({label,content,loading})=>{
+  if(loading)return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"28px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Generating...</div>;
+  if(!content)return null;
+  return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{content}</div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
+};
+// Admin-panel input helpers (stable identity, original admin styling)
+const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
+const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
+const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
 function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{} }) {
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
   const [cSeoType,setCSeoType]=useState("Blog Post");const [cKeyword,setCKeyword]=useState("");
-  const [iType,setIType]=useState("logo");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");
+  const [iType,setIType]=useState("ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
-  const [vType,setVType]=useState("script");const [vTopic,setVTopic]=useState("");const [vPlat,setVPlat]=useState("TikTok");
+  const [iUpload,setIUpload]=useState("");
+  const [vType,setVType]=useState("generate");const [vTopic,setVTopic]=useState("");const [vPlat,setVPlat]=useState("TikTok");
   const [vDur,setVDur]=useState("60 seconds");const [vGoal,setVGoal]=useState("Brand awareness");
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
   const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
+  const [vVidUpload,setVVidUpload]=useState("");
   const [voText,setVoText]=useState("");const [voVoice,setVoVoice]=useState("JBFqnCBsd6RMkjVDRZzb");const [voUrl,setVoUrl]=useState("");const [voLoad,setVoLoad]=useState(false);const [voErr,setVoErr]=useState("");
   const [bStage,setBStage]=useState(null);const [bNiche,setBNiche]=useState("");const [bName,setBName]=useState("");
   const [bQ,setBQ]=useState("");const [bA,setBA]=useState("");const [bLoad,setBLoad]=useState(false);
   const [dFilt,setDFilt]=useState("All");
   const [selP,setSelP]=useState(null);const [gTab,setGTab]=useState("setup");
 
-  const Fl=({label,children})=><div style={{marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{label}</div>{children}</div>;
-  const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white,color:B.charcoal}} />;
-  const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white,color:B.charcoal}} />;
-  const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",color:B.charcoal}}>{children}</select>;
-  const Tb=({label,active,onClick})=><button onClick={onClick} style={{background:"none",color:active?B.charcoal:B.mid,border:"none",borderBottom:active?"1px solid "+B.charcoal:"1px solid transparent",padding:"8px 14px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:active?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>;
-  const Rb=({label,content,loading})=>{
-    if(loading)return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"28px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Generating...</div>;
-    if(!content)return null;
-    return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{content}</div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
-  };
-
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(p[cType]));setCLoad(false);}
-  async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality."};try{setIRes(await generateGeminiImage(p[iType]));}catch{setIErr("Image generation is temporarily unavailable. Please try again.");}setILoad(false);}
+  async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch{setIErr("Image generation is temporarily unavailable. Please try again.");}setILoad(false);}
+  function onUploadImg(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setIUpload(r.result);r.readAsDataURL(f);}
   async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(p[vType]));setVLoad(false);}
   async function genVid(){
     if(!vTopic.trim())return;
-    track("tool_used",{tool:"video_generator"});
+    track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
     setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
     try{
-      const taskId=await generateVideo(vTopic,"wavespeed-ai/wan-2.1-t2v-480p");
+      const model=vVidUpload?"wavespeed-ai/wan-2.1-i2v-480p":"wavespeed-ai/wan-2.1-t2v-480p";
+      const taskId=await generateVideo(vTopic,model,vVidUpload||undefined);
       if(!taskId){setVVidErr("Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
       const url=await pollVideo(taskId);
@@ -582,6 +596,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){setVVidErr("Something went wrong while generating the video. Please try again.");}
     setVVidLoad(false);
   }
+  function onUploadVid(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setVVidUpload(r.result);r.readAsDataURL(f);}
   async function genVoice(){
     if(!voText.trim())return;
     track("tool_used",{tool:"voiceover"});
@@ -592,6 +607,18 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       setVoUrl(url);
     }catch(e){setVoErr("Something went wrong while generating the voiceover. Please try again.");}
     setVoLoad(false);
+  }
+  async function dlVideo(){
+    if(!vVidUrl)return;
+    try{
+      const r=await fetch(vVidUrl);
+      const b=await r.blob();
+      const u=URL.createObjectURL(b);
+      const a=document.createElement("a");
+      a.href=u;a.download="chelgy-video.mp4";
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(u),1500);
+    }catch(e){ window.open(vVidUrl,"_blank"); }
   }
   async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude("You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
 
@@ -631,12 +658,18 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       {tool==="images"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Image Creator</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 6px",letterSpacing:"0.02em"}}>Powered by Nano Banana 2 (Google Gemini 2.0 Flash)</p>
-        <div style={{background:B.goldLight,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — logos, flyers, social graphics, banners, and product images</div>
+        <div style={{background:B.goldLight,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-          {[["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
+          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
           <Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>
+          {iType==="ad"&&<div style={{marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload Product Photo (optional)</div>
+            {!iUpload
+              ? <label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"18px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>Tap to upload your product photo — the AI will turn it into high-end imagery<input type="file" accept="image/*" onChange={onUploadImg} style={{display:"none"}} /></label>
+              : <div style={{display:"flex",alignItems:"center",gap:12,border:"1px solid "+B.stone,padding:"10px",background:B.white}}><img src={iUpload} alt="Your product" style={{width:54,height:54,objectFit:"cover",flexShrink:0}} /><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,flex:1}}>Photo ready — the AI will transform this into a polished ad.</div><button onClick={()=>setIUpload("")} style={{background:"none",border:"1px solid "+B.stone,padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Remove</button></div>}
+          </div>}
           <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
@@ -651,10 +684,16 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Video Studio</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Scripts, storyboards, AI prompts — plus real AI video generation, right here.</p>
         <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-          {[["script","Video Script"],["storyboard","Storyboard"],["prompt","AI Prompts"],["generate","Generate Video"]].map(([id,l])=><Tb key={id} label={l} active={vType===id} onClick={()=>setVType(id)} />)}
+          {[["generate","Generate Video"],["script","Video Script"],["storyboard","Storyboard"],["prompt","AI Prompts"]].map(([id,l])=><Tb key={id} label={l} active={vType===id} onClick={()=>setVType(id)} />)}
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
-          <Fl label={vType==="generate"?"Describe the video you want":"Video Topic / Goal"}><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder={vType==="generate"?"e.g. A cinematic shot of a coffee cup steaming on a marble table, soft morning light...":"e.g. Why your business needs email marketing..."} rows={3} /></Fl>
+          <Fl label={vType==="generate"?"Describe the video you want":"Video Topic / Goal"}><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder={vType==="generate"?"e.g. Slowly rotate the product with soft studio lighting and a clean background...":"e.g. Why your business needs email marketing..."} rows={3} /></Fl>
+          {vType==="generate"&&<div style={{marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Product Reference Photo (optional)</div>
+            {!vVidUpload
+              ? <label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"18px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>Tap to upload a product photo — the AI will animate it into a video<input type="file" accept="image/*" onChange={onUploadVid} style={{display:"none"}} /></label>
+              : <div style={{display:"flex",alignItems:"center",gap:12,border:"1px solid "+B.stone,padding:"10px",background:B.white}}><img src={vVidUpload} alt="Your product" style={{width:54,height:54,objectFit:"cover",flexShrink:0}} /><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,flex:1}}>Photo ready — the AI will bring this product to life in your video.</div><button onClick={()=>setVVidUpload("")} style={{background:"none",border:"1px solid "+B.stone,padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Remove</button></div>}
+          </div>}
           {vType!=="generate"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
             <Fl label="Platform"><Ss value={vPlat} onChange={e=>setVPlat(e.target.value)}>{["TikTok","Instagram Reels","YouTube Shorts","YouTube","LinkedIn","Facebook"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Duration"><Ss value={vDur} onChange={e=>setVDur(e.target.value)}>{["15 seconds","30 seconds","60 seconds","2 minutes","5 minutes","10 minutes"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
@@ -662,13 +701,13 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>}
           {vType==="generate"
             ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genVid();}}>{vVidLoad?"GENERATING VIDEO...":"GENERATE VIDEO (500 credits)"}</Btn>
-            : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genV();}}>{vLoad?"GENERATING...":"GENERATE (500 credits)"}</Btn>}
+            : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={genV}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
         </Card>
         {vType==="generate"
           ? <div>
               {vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{vVidStatus||"Working..."}</div></div>}
               {vVidErr&&!vVidLoad&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C",letterSpacing:"0.02em"}}>{vVidErr}</div></div>}
-              {vVidUrl&&!vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI-Generated Video</div><video src={vVidUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><a href={vVidUrl} download="chelgy-video.mp4"><Btn dark small>DOWNLOAD VIDEO</Btn></a></div>}
+              {vVidUrl&&!vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI-Generated Video</div><video src={vVidUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><Btn dark small onClick={dlVideo}>DOWNLOAD VIDEO</Btn></div>}
             </div>
           : <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />}
         <div style={{marginTop:24}}>
@@ -699,9 +738,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       {tool==="business"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Builder</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Stage-by-stage guidance and a 24/7 AI business coach.</p>
-        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:11,textTransform:"uppercase",fontWeight:700}}>Where are you in your journey?</div>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:11,textTransform:"uppercase",fontWeight:700}}>Your 3-Stage Business Plan</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:24}}>
-          {BIZ.map((s,i)=><div key={i} onClick={()=>setBStage(bStage===i?null:i)} style={{background:bStage===i?B.goldLight:B.white,border:"1px solid "+(bStage===i?B.gold:B.stone),padding:"16px",cursor:"pointer",transition:"all 0.15s"}}><div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:8}}>{s.emoji}</div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.02em"}}>{s.stage}</div></div>)}
+          {BIZ.map((s,i)=><div key={i} onClick={()=>setBStage(bStage===i?null:i)} style={{background:bStage===i?B.goldLight:B.white,border:"1px solid "+(bStage===i?B.gold:B.stone),padding:"16px",cursor:"pointer",transition:"all 0.15s"}}><div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:8}}>{s.emoji}</div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.02em"}}>{s.stage}</div><div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:3,letterSpacing:"0.01em"}}>{s.sub}</div></div>)}
         </div>
         {bStage!==null&&<div style={{marginBottom:28}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase",fontWeight:700}}>Your Action Plan</div>
@@ -1039,9 +1078,6 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
   function flash() { setSaved(true); setTimeout(()=>setSaved(false), 2000); }
 
-  const Si = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
-  const St = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
-  const Ss = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
   const Lbl = ({children}) => <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>{children}</div>;
 
   return (
@@ -1108,17 +1144,17 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             {editStrat==="new"&&(
               <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:16}}>
                 <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 20px"}}>New Strategy Post</h3>
-                <Lbl>Title</Lbl><Si value={newStrat.title} onChange={e=>setNewStrat(s=>({...s,title:e.target.value}))} placeholder="e.g. How to Build a Brand That Sells" />
-                <Lbl>Summary</Lbl><Si value={newStrat.summary} onChange={e=>setNewStrat(s=>({...s,summary:e.target.value}))} placeholder="One sentence summary..." />
+                <Lbl>Title</Lbl><ASi value={newStrat.title} onChange={e=>setNewStrat(s=>({...s,title:e.target.value}))} placeholder="e.g. How to Build a Brand That Sells" />
+                <Lbl>Summary</Lbl><ASi value={newStrat.summary} onChange={e=>setNewStrat(s=>({...s,summary:e.target.value}))} placeholder="One sentence summary..." />
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-                  <div><Lbl>Category</Lbl><Ss value={newStrat.category} onChange={e=>setNewStrat(s=>({...s,category:e.target.value}))}>{cats.map(c=><option key={c}>{c}</option>)}</Ss></div>
-                  <div><Lbl>Level</Lbl><Ss value={newStrat.level} onChange={e=>setNewStrat(s=>({...s,level:e.target.value}))}>{levels.map(l=><option key={l}>{l}</option>)}</Ss></div>
-                  <div><Lbl>Time to Results</Lbl><Si value={newStrat.timeToResult} onChange={e=>setNewStrat(s=>({...s,timeToResult:e.target.value}))} placeholder="e.g. 1-3 months" /></div>
+                  <div><Lbl>Category</Lbl><ASs value={newStrat.category} onChange={e=>setNewStrat(s=>({...s,category:e.target.value}))}>{cats.map(c=><option key={c}>{c}</option>)}</ASs></div>
+                  <div><Lbl>Level</Lbl><ASs value={newStrat.level} onChange={e=>setNewStrat(s=>({...s,level:e.target.value}))}>{levels.map(l=><option key={l}>{l}</option>)}</ASs></div>
+                  <div><Lbl>Time to Results</Lbl><ASi value={newStrat.timeToResult} onChange={e=>setNewStrat(s=>({...s,timeToResult:e.target.value}))} placeholder="e.g. 1-3 months" /></div>
                 </div>
-                <Lbl>Image URL (optional)</Lbl><Si value={newStrat.imageUrl} onChange={e=>setNewStrat(s=>({...s,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
+                <Lbl>Image URL (optional)</Lbl><ASi value={newStrat.imageUrl} onChange={e=>setNewStrat(s=>({...s,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
                 {newStrat.imageUrl&&<img src={newStrat.imageUrl} alt="Preview" style={{width:"100%",maxHeight:200,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
                 <Lbl>Full Content</Lbl>
-                <St value={newStrat.content} onChange={e=>setNewStrat(s=>({...s,content:e.target.value}))} placeholder="Write your full strategy content here. Use **bold** for headings and - for bullet points." rows={12} />
+                <ASt value={newStrat.content} onChange={e=>setNewStrat(s=>({...s,content:e.target.value}))} placeholder="Write your full strategy content here. Use **bold** for headings and - for bullet points." rows={12} />
                 <div style={{display:"flex",gap:10}}>
                   <button onClick={publishStrategy} style={{background:"#111",color:"#fff",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>PUBLISH</button>
                   <button onClick={()=>setEditStrat(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"11px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
@@ -1131,11 +1167,11 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <div key={s.id||i} style={{background:"#fff",padding:"16px 18px"}}>
                   {editStrat===s.id?(
                     <div>
-                      <Lbl>Title</Lbl><Si value={s.title} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,title:e.target.value}:x))} />
-                      <Lbl>Summary</Lbl><Si value={s.summary} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,summary:e.target.value}:x))} />
-                      <Lbl>Image URL (optional)</Lbl><Si value={s.imageUrl||""} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
+                      <Lbl>Title</Lbl><ASi value={s.title} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,title:e.target.value}:x))} />
+                      <Lbl>Summary</Lbl><ASi value={s.summary} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,summary:e.target.value}:x))} />
+                      <Lbl>Image URL (optional)</Lbl><ASi value={s.imageUrl||""} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
                       {s.imageUrl&&<img src={s.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
-                      <Lbl>Content</Lbl><St value={s.content} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,content:e.target.value}:x))} rows={10} />
+                      <Lbl>Content</Lbl><ASt value={s.content} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,content:e.target.value}:x))} rows={10} />
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>updateStrategy(s)} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
                         <button onClick={()=>setEditStrat(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
@@ -1171,16 +1207,16 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             {editWeekly==="new"&&(
               <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:16}}>
                 <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 20px"}}>New Weekly Update</h3>
-                <Lbl>Title</Lbl><Si value={newWeekly.title} onChange={e=>setNewWeekly(w=>({...w,title:e.target.value}))} placeholder="e.g. The AI Tools Changing Marketing This Week" />
+                <Lbl>Title</Lbl><ASi value={newWeekly.title} onChange={e=>setNewWeekly(w=>({...w,title:e.target.value}))} placeholder="e.g. The AI Tools Changing Marketing This Week" />
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-                  <div><Lbl>Tag</Lbl><Ss value={newWeekly.tag} onChange={e=>setNewWeekly(w=>({...w,tag:e.target.value}))}>{tags.map(t=><option key={t}>{t}</option>)}</Ss></div>
-                  <div><Lbl>Week Label</Lbl><Si value={newWeekly.week} onChange={e=>setNewWeekly(w=>({...w,week:e.target.value}))} placeholder="e.g. June 25, 2026" /></div>
-                  <div><Lbl>Read Time</Lbl><Si value={newWeekly.readTime} onChange={e=>setNewWeekly(w=>({...w,readTime:e.target.value}))} placeholder="e.g. 5 min read" /></div>
+                  <div><Lbl>Tag</Lbl><ASs value={newWeekly.tag} onChange={e=>setNewWeekly(w=>({...w,tag:e.target.value}))}>{tags.map(t=><option key={t}>{t}</option>)}</ASs></div>
+                  <div><Lbl>Week Label</Lbl><ASi value={newWeekly.week} onChange={e=>setNewWeekly(w=>({...w,week:e.target.value}))} placeholder="e.g. June 25, 2026" /></div>
+                  <div><Lbl>Read Time</Lbl><ASi value={newWeekly.readTime} onChange={e=>setNewWeekly(w=>({...w,readTime:e.target.value}))} placeholder="e.g. 5 min read" /></div>
                 </div>
-                <Lbl>Image URL (optional)</Lbl><Si value={newWeekly.imageUrl} onChange={e=>setNewWeekly(w=>({...w,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
+                <Lbl>Image URL (optional)</Lbl><ASi value={newWeekly.imageUrl} onChange={e=>setNewWeekly(w=>({...w,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
                 {newWeekly.imageUrl&&<img src={newWeekly.imageUrl} alt="Preview" style={{width:"100%",maxHeight:200,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
                 <Lbl>Content</Lbl>
-                <St value={newWeekly.content} onChange={e=>setNewWeekly(w=>({...w,content:e.target.value}))} placeholder="Write your weekly update content here..." rows={12} />
+                <ASt value={newWeekly.content} onChange={e=>setNewWeekly(w=>({...w,content:e.target.value}))} placeholder="Write your weekly update content here..." rows={12} />
                 <div style={{display:"flex",gap:10}}>
                   <button onClick={publishWeekly} style={{background:"#111",color:"#fff",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>PUBLISH</button>
                   <button onClick={()=>setEditWeekly(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"11px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
@@ -1193,10 +1229,10 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <div key={p.id||i} style={{background:"#fff",padding:"16px 18px"}}>
                   {editWeekly===p.id?(
                     <div>
-                      <Lbl>Title</Lbl><Si value={p.title} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,title:e.target.value}:x))} />
-                      <Lbl>Image URL (optional)</Lbl><Si value={p.imageUrl||""} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
+                      <Lbl>Title</Lbl><ASi value={p.title} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,title:e.target.value}:x))} />
+                      <Lbl>Image URL (optional)</Lbl><ASi value={p.imageUrl||""} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
                       {p.imageUrl&&<img src={p.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
-                      <Lbl>Content</Lbl><St value={p.content} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,content:e.target.value}:x))} rows={10} />
+                      <Lbl>Content</Lbl><ASt value={p.content} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,content:e.target.value}:x))} rows={10} />
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>{setEditWeekly(null);flash();}} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
                         <button onClick={()=>setEditWeekly(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
@@ -1529,7 +1565,7 @@ export default function ChelgyApp() {
   const subTabs = {
     home: [["feed","Feed"],["leaderboard","Top Members"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["weekly","Weekly Updates"]],
-    tools: [["hub","All Tools"],["content","Content Writer"],["images","Image Creator"],["video","Video Studio"],["voiceover","Voiceover Studio"],["business","Business Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"],["launch","Launch Package"]],
+    tools: [["hub","All Tools"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["voiceover","Voiceover Studio"],["business","Business Builder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
     profile: [["overview","Overview"],["stats","Stats"]],
   };
@@ -2012,7 +2048,7 @@ export default function ChelgyApp() {
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:1,background:B.stone}}>
-                {[{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start"}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
