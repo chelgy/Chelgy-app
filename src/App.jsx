@@ -546,10 +546,49 @@ const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px
 const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white,color:B.charcoal}} />;
 const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",color:B.charcoal}}>{children}</select>;
 const Tb=({label,active,onClick})=><button onClick={onClick} style={{background:"none",color:active?B.charcoal:B.mid,border:"none",borderBottom:active?"1px solid "+B.charcoal:"1px solid transparent",padding:"8px 14px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:active?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>;
+// Lightweight Markdown renderer — turns ###, **bold**, lists, tables, --- into real formatting
+function Md({ text }) {
+  if (!text) return null;
+  const lines = String(text).split("\n");
+  const inline = (s) => {
+    const out = []; let rest = s, k = 0;
+    while (true) {
+      const m = rest.match(/\*\*([^*]+)\*\*/);
+      if (!m) { if (rest) out.push(rest); break; }
+      if (m.index > 0) out.push(rest.slice(0, m.index));
+      out.push(<strong key={k++}>{m[1]}</strong>);
+      rest = rest.slice(m.index + m[0].length);
+    }
+    return out;
+  };
+  const blocks = []; let i = 0;
+  while (i < lines.length) {
+    const t = lines[i].trim();
+    if (!t) { i++; continue; }
+    if (/^---+$/.test(t) || /^\*\*\*+$/.test(t)) { blocks.push(<div key={i} style={{height:1,background:B.stone,margin:"16px 0"}} />); i++; continue; }
+    const h = t.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { const lvl = h[1].length; const size = lvl===1?19:lvl===2?16:14;
+      blocks.push(<div key={i} style={{fontFamily:"Georgia,serif",fontWeight:lvl<=2?400:700,fontSize:size,color:B.charcoal,margin:"18px 0 8px"}}>{inline(h[2].replace(/[#*]/g,"").trim())}</div>); i++; continue; }
+    if (t.startsWith("|") && i+1 < lines.length && /^\|[\s:|-]+\|?$/.test(lines[i+1].trim())) {
+      const head = t.split("|").slice(1,-1).map(c=>c.trim()); i += 2; const rows = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) { rows.push(lines[i].trim().split("|").slice(1,-1).map(c=>c.trim())); i++; }
+      blocks.push(<div key={"tb"+i} style={{overflowX:"auto",margin:"12px 0"}}><table style={{borderCollapse:"collapse",width:"100%",fontSize:12}}>
+        <thead><tr>{head.map((c,ci)=><th key={ci} style={{textAlign:"left",padding:"8px 10px",borderBottom:"2px solid "+B.stone,fontWeight:700,color:B.charcoal}}>{inline(c)}</th>)}</tr></thead>
+        <tbody>{rows.map((r,ri)=><tr key={ri}>{r.map((c,ci)=><td key={ci} style={{padding:"8px 10px",borderBottom:"1px solid "+B.stone,color:B.mid,verticalAlign:"top"}}>{inline(c)}</td>)}</tr>)}</tbody></table></div>); continue; }
+    if (/^[-*]\s+/.test(t)) { const items = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i]) && lines[i].trim()) { items.push(lines[i].trim().replace(/^[-*]\s+/,"")); i++; }
+      blocks.push(<ul key={"ul"+i} style={{margin:"6px 0",paddingLeft:20}}>{items.map((it,ii)=><li key={ii} style={{marginBottom:4,lineHeight:1.7}}>{inline(it)}</li>)}</ul>); continue; }
+    if (/^\d+\.\s+/.test(t)) { const items = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i]) && lines[i].trim()) { items.push(lines[i].trim().replace(/^\d+\.\s+/,"")); i++; }
+      blocks.push(<ol key={"ol"+i} style={{margin:"6px 0",paddingLeft:20}}>{items.map((it,ii)=><li key={ii} style={{marginBottom:4,lineHeight:1.7}}>{inline(it)}</li>)}</ol>); continue; }
+    blocks.push(<p key={i} style={{margin:"0 0 10px",lineHeight:1.8}}>{inline(t)}</p>); i++;
+  }
+  return <div>{blocks}</div>;
+}
 const Rb=({label,content,loading})=>{
   if(loading)return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"28px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Generating...</div>;
   if(!content)return null;
-  return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{content}</div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
+  return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85}}><Md text={content} /></div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
 };
 // Admin-panel input helpers (stable identity, original admin styling)
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
@@ -2148,8 +2187,8 @@ export default function ChelgyApp() {
                     <div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:16,textTransform:"uppercase"}}>
                       {launchSection==="website"?"Website Copy":launchSection==="brand"?"Brand Strategy":launchSection==="social"?"Social Media Plan":"30-Day Launch Roadmap"}
                     </div>
-                    <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.9,whiteSpace:"pre-wrap"}}>
-                      {launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"]}
+                    <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.9}}>
+                      <Md text={launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"]} />
                     </div>
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
                       <button onClick={()=>navigator.clipboard?.writeText(launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"])} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy This Section</button>
