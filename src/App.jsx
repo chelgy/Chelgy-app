@@ -442,6 +442,16 @@ const Icons = {
       <circle cx="12" cy="8" r="6"/><path d="M15.5 13.5L17 22l-5-3-5 3 1.5-8.5"/><line x1="12" y1="6" x2="12" y2="10"/><line x1="10" y1="8" x2="14" y2="8"/>
     </svg>
   ),
+  Target: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>
+    </svg>
+  ),
+  Chart: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="11" width="3" height="7"/><rect x="11" y="6" width="3" height="12"/><rect x="16" y="14" width="3" height="4"/>
+    </svg>
+  ),
 };
 
 // ─── ONBOARDING ───────────────────────────────────────────────────────────────
@@ -650,6 +660,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [selP,setSelP]=useState(null);const [gTab,setGTab]=useState("setup");
   const [vbBiz,setVbBiz]=useState("");const [vbIdea,setVbIdea]=useState("");const [vbPlat,setVbPlat]=useState("TikTok");const [vbRes,setVbRes]=useState("");const [vbLoad,setVbLoad]=useState(false);
   const [grBiz,setGrBiz]=useState("");const [grLoc,setGrLoc]=useState("");const [grDetails,setGrDetails]=useState("");const [grRes,setGrRes]=useState("");const [grLoad,setGrLoad]=useState(false);
+  const [adBiz,setAdBiz]=useState("");const [adProduct,setAdProduct]=useState("");const [adCity,setAdCity]=useState("");const [adPlat,setAdPlat]=useState("Facebook & Instagram");const [adBudget,setAdBudget]=useState("");const [adGoal,setAdGoal]=useState("Sales / conversions");const [adRes,setAdRes]=useState("");const [adLoad,setAdLoad]=useState(false);
+  const [auBiz,setAuBiz]=useState("");const [auSite,setAuSite]=useState("");const [auComp,setAuComp]=useState("");const [auRes,setAuRes]=useState("");const [auLoad,setAuLoad]=useState(false);
 
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
@@ -709,6 +721,22 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     const p="You are a small-business grants researcher. Use web search to find REAL, currently-available grants, funds, and programs this business owner may qualify for. Search by their location and business type — include federal, state/provincial, local, and private/corporate small-business grants, plus any tied to their situation (women-owned, minority-owned, veteran-owned, rural, startup, etc).\n\nBusiness: "+grBiz+"\nLocation: "+(grLoc.trim()||"not specified — note that adding a location gives better results")+"\n"+(grDetails.trim()?("About the owner/situation: "+grDetails+"\n"):"")+"\n\nReturn a clear markdown list of 5-10 specific grants or programs. For EACH: the grant name, who runs it, a one-line description, key eligibility, typical award amount if known, and where to apply (official website or how to find it). Group by type (Federal / State / Local / Private / Identity-based) where helpful.\n\nEnd with a short '## Before You Apply' note: grant programs, deadlines, and eligibility change often, so confirm every detail on the official site first, and never pay a fee to apply for a free government grant.\n\nBe specific and real — name verifiable programs, not vague advice.";
     setGrRes(await callClaude(p,5000,true));
     setGrLoad(false);
+  }
+  async function genAd(){
+    if(!adBiz.trim())return;
+    track("tool_used",{tool:"ad_builder",platform:adPlat});
+    setAdLoad(true);setAdRes("");
+    const p="You are an expert paid-ads strategist who runs profitable Facebook, Instagram, and TikTok campaigns. Build a complete, ready-to-launch ad plan for this business.\n\nBusiness: "+adBiz+"\n"+(adProduct.trim()?("Product/service to promote: "+adProduct+"\n"):"")+(adCity.trim()?("Location/market: "+adCity+"\n"):"")+"Platform(s): "+adPlat+"\nGoal: "+adGoal+"\n"+(adBudget.trim()?("Budget: "+adBudget+"\n"):"")+"\nReturn a clear markdown plan with EXACTLY these sections:\n\n## Best Platform & Why\nWhich platform/placement to start with for this business and goal.\n\n## Ad Copy (ready to paste)\nGive 2 variations. For each: Primary Text, Headline, and Description, written to convert.\n\n## Creative Direction\nWhat the image or video should show, including a strong hook for the first 3 seconds if video.\n\n## Audience Targeting\nBe specific: location/radius, age range, gender, and a detailed list of interests, behaviors, and demographics to target. Note whether to use a broad or detailed-targeting approach and why.\n\n## Budget & Bidding\nSuggested daily budget to start, campaign objective to choose, and how long to run before judging results.\n\n## Spy on What's Working\nTell them to open the Meta Ad Library (facebook.com/ads/library), search their top competitors and their niche, and study the ads that have been running the longest (long-running ads are usually profitable). List 3 specific things to look for.\n\nBe specific to their actual business and city — no generic filler.";
+    setAdRes(await callClaude(p,4500));
+    setAdLoad(false);
+  }
+  async function genAudit(){
+    if(!auBiz.trim()&&!auSite.trim())return;
+    track("tool_used",{tool:"business_audit"});
+    setAuLoad(true);setAuRes("");
+    const p="You are a marketing consultant doing an outside-in audit of a business using only what is publicly visible online. Use web search to look up this business and its competitors, then give an honest, specific assessment.\n\nBusiness: "+(auBiz.trim()||"(see website)")+"\n"+(auSite.trim()?("Website: "+auSite+"\n"):"")+(auComp.trim()?("Known competitors to include: "+auComp+"\n"):"")+"\nSearch for the business's website, social media profiles, Google/Yelp reviews, and overall online presence. Also find 2-4 competitors (use any the user named, and fill in others you find).\n\nReturn a clear markdown report with EXACTLY these sections:\n\n## What's Working\nWhat they're already doing well online.\n\n## What Needs Work (Prioritized)\nThe biggest gaps and fixes, ranked most-to-least important. Cover website quality/clarity, SEO and Google visibility, social media presence and consistency, reviews/reputation, and anything else notable. Be specific and actionable.\n\n## Competitor Comparison\nA clear comparison vs the competitors you found. What are the competitors doing better, and why are they showing up where this business isn't? Use a short markdown table if helpful.\n\n## Your 5 Next Moves\nThe 5 highest-impact actions to take first, in order.\n\nBe honest and specific. If you couldn't find certain info online, say so and note that having a stronger online presence is itself part of the fix. Remind them this is based on public information.";
+    setAuRes(await callClaude(p,5500,true));
+    setAuLoad(false);
   }
 
   const dNiches=["All",...Array.from(new Set(SUPPLIERS.map(s=>s.niche)))];
@@ -848,6 +876,40 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {grLoad&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"12px 0 0",letterSpacing:"0.01em"}}>Searching the web — this can take 20-40 seconds. Hang tight.</p>}
         </Card>
         <Rb label="Grants You Might Qualify For" content={grRes} loading={grLoad} />
+        <Upsell variant="services" />
+      </div>}
+
+      {tool==="ads"&&<div>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Ad Campaign Builder</h2>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Get a complete paid-ads plan — copy, creative, exact audience targeting, and budget — for Facebook, Instagram, and TikTok.</p>
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="Your Business"><Si value={adBiz} onChange={e=>setAdBiz(e.target.value)} placeholder="e.g. Tampa knotless braids salon" /></Fl>
+          <Fl label="Product or Service to Promote"><Si value={adProduct} onChange={e=>setAdProduct(e.target.value)} placeholder="e.g. Summer braid special, $50 off first visit" /></Fl>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Fl label="City / Market"><Si value={adCity} onChange={e=>setAdCity(e.target.value)} placeholder="e.g. Tampa, FL" /></Fl>
+            <Fl label="Monthly Budget (optional)"><Si value={adBudget} onChange={e=>setAdBudget(e.target.value)} placeholder="e.g. $300" /></Fl>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Fl label="Platform"><Ss value={adPlat} onChange={e=>setAdPlat(e.target.value)}>{["Facebook & Instagram","TikTok","Facebook only","Instagram only","All platforms"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
+            <Fl label="Goal"><Ss value={adGoal} onChange={e=>setAdGoal(e.target.value)}>{["Sales / conversions","More bookings / leads","Brand awareness","Website traffic","Followers / engagement"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
+          </div>
+          <Btn dark disabled={adLoad||!adBiz.trim()} onClick={genAd}>{adLoad?"BUILDING YOUR CAMPAIGN...":"BUILD MY AD CAMPAIGN"}</Btn>
+        </Card>
+        <Rb label="Your Ad Campaign Plan" content={adRes} loading={adLoad} />
+        <Upsell variant="services" />
+      </div>}
+
+      {tool==="audit"&&<div>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Audit &amp; Competitor Analysis</h2>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>We'll scan your online presence, tell you exactly what to improve, and compare you against your competitors.</p>
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="Your Business Name"><Si value={auBiz} onChange={e=>setAuBiz(e.target.value)} placeholder="e.g. Chelgy Marketing" /></Fl>
+          <Fl label="Website (optional but helps)"><Si value={auSite} onChange={e=>setAuSite(e.target.value)} placeholder="e.g. chelgy.com" /></Fl>
+          <Fl label="Competitors to compare against (optional)"><St value={auComp} onChange={e=>setAuComp(e.target.value)} placeholder="Name any competitors you know — we'll find more for you" rows={2} /></Fl>
+          <Btn dark disabled={auLoad||(!auBiz.trim()&&!auSite.trim())} onClick={genAudit}>{auLoad?"ANALYZING YOUR BUSINESS...":"RUN MY AUDIT"}</Btn>
+          {auLoad&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"12px 0 0",letterSpacing:"0.01em"}}>Searching the web and your competitors — this can take 20-40 seconds.</p>}
+        </Card>
+        <Rb label="Your Business Audit" content={auRes} loading={auLoad} />
         <Upsell variant="services" />
       </div>}
 
@@ -1827,14 +1889,6 @@ export default function ChelgyApp() {
     try { await sbFetch("help_requests","POST",{ name: entry.name, email: entry.email, message: entry.message }); } catch(e){}
     // Keep a local copy too for instant feedback
     setHelpRequests(prev => [entry, ...prev]);
-    // Email it (best effort — if Resend isn't set up yet, the admin panel still has it)
-    try {
-      await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: entry.name, email: entry.email, message: entry.message })
-      });
-    } catch (e) {}
     setHelpSending(false); setHelpDone(true); setHelpMsg("");
   }
 
@@ -2267,7 +2321,7 @@ export default function ChelgyApp() {
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
