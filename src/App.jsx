@@ -555,12 +555,25 @@ function PBar({ points }) {
   return <div><div style={{display:"flex",justifyContent:"space-between",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:5,letterSpacing:"0.04em"}}><span>{points} pts</span><span>{nl.min} for Lv.{nl.level}</span></div><div style={{height:1,background:B.stone}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.5s"}} /></div></div>;
 }
 function Rich({ text }) {
+  const inline = (s, kp) => String(s).split(/\*\*(.+?)\*\*/g).map((p,j)=>j%2===1?<strong key={kp+"-"+j}>{p}</strong>:p);
   return <div style={{fontSize:14,lineHeight:1.95,color:B.charcoal,fontFamily:"sans-serif",letterSpacing:"0.01em"}}>{text.split("\n").map((line,i)=>{
-    if(!line.trim())return<br key={i}/>;
-    if(/^\*\*(.+)\*\*$/.test(line))return<p key={i} style={{fontWeight:700,fontSize:13,margin:"18px 0 6px",letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid}}>{line.replace(/\*\*/g,"")}</p>;
-    if(line.startsWith("- "))return<p key={i} style={{margin:"3px 0 3px 14px",display:"flex",gap:8}}><span style={{color:B.gold,flexShrink:0}}>—</span>{line.slice(2)}</p>;
-    const parts=line.split(/\*\*(.+?)\*\*/g);
-    return<p key={i} style={{margin:"0 0 10px"}}>{parts.map((p,j)=>j%2===1?<strong key={j}>{p}</strong>:p)}</p>;
+    const t=line.trim();
+    if(!t)return<br key={i}/>;
+    // Markdown headings (#, ##, ###...) — strip the hashes and render as a heading
+    const h=t.match(/^(#{1,6})\s+(.*)$/);
+    if(h){
+      const lvl=h[1].length;
+      const size=lvl<=1?16:lvl===2?14:13;
+      return<p key={i} style={{fontWeight:700,fontSize:size,margin:"18px 0 6px",letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid}}>{h[2].replace(/\*\*/g,"")}</p>;
+    }
+    // A line that is entirely bold acts as a heading
+    if(/^\*\*(.+)\*\*$/.test(t))return<p key={i} style={{fontWeight:700,fontSize:13,margin:"18px 0 6px",letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid}}>{t.replace(/\*\*/g,"")}</p>;
+    // Bullet points (- or *)
+    if(/^[-*]\s+/.test(t))return<p key={i} style={{margin:"3px 0 3px 14px",display:"flex",gap:8}}><span style={{color:B.gold,flexShrink:0}}>—</span><span>{inline(t.replace(/^[-*]\s+/,""),i)}</span></p>;
+    // Numbered lists (1. 2. 3. ...)
+    const num=t.match(/^(\d+)\.\s+(.*)$/);
+    if(num)return<p key={i} style={{margin:"3px 0 3px 14px",display:"flex",gap:8}}><span style={{color:B.gold,flexShrink:0,fontWeight:700}}>{num[1]}.</span><span>{inline(num[2],i)}</span></p>;
+    return<p key={i} style={{margin:"0 0 10px"}}>{inline(line,i)}</p>;
   })}</div>;
 }
 
@@ -829,7 +842,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           : <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />}
         <div style={{marginTop:24}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase",fontWeight:700}}>Launch on AI Video Platforms</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
             {[{n:"HeyGen",d:"AI avatar videos",u:"https://heygen.com"},{n:"Runway ML",d:"Cinematic AI",u:"https://runwayml.com"},{n:"Kling AI",d:"Hyper-realistic",u:"https://klingai.com"},{n:"Sora",d:"Long-form video",u:"https://openai.com"},{n:"Pika Labs",d:"Quick clips",u:"https://pika.art"},{n:"Descript",d:"Edit your own",u:"https://descript.com"}].map(p=>(
               <a key={p.n} href={p.u} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}><div style={{background:B.white,border:"1px solid "+B.stone,padding:"12px"}}><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,marginBottom:2,color:B.charcoal}}>{p.n}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{p.d}</div></div></a>
             ))}
@@ -917,7 +930,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Builder</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Stage-by-stage guidance and a 24/7 AI business coach.</p>
         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:11,textTransform:"uppercase",fontWeight:700}}>Your 3-Stage Business Plan</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:24}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginBottom:24}}>
           {BIZ.map((s,i)=><div key={i} onClick={()=>setBStage(bStage===i?null:i)} style={{background:bStage===i?B.goldLight:B.white,border:"1px solid "+(bStage===i?B.gold:B.stone),padding:"16px",cursor:"pointer",transition:"all 0.15s"}}><div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:8}}>{s.emoji}</div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.02em"}}>{s.stage}</div><div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:3,letterSpacing:"0.01em"}}>{s.sub}</div></div>)}
         </div>
         {bStage!==null&&<div style={{marginBottom:28}}>
@@ -979,7 +992,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       {tool==="platforms"&&selP===null&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Platform Setup Guides</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Step-by-step instructions for every major business platform.</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:1,background:B.stone}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:B.stone}}>
           {PLATFORMS.map((p,i)=>(
             <div key={i} onClick={()=>{setSelP(i);setGTab("setup");}} style={{background:B.white,padding:"20px",cursor:"pointer"}}>
               <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:8}}><span style={{fontSize:22}}>{p.emoji}</span><h3 style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,margin:0,letterSpacing:"0.02em"}}>{p.name}</h3></div>
@@ -1200,7 +1213,13 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     if (strats && strats.length > 0) setStrategies(prev=>[...strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new})),...prev]);
     if (weekly && weekly.length > 0) setWeeklyPosts(prev=>[...weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]})),...prev]);
     const help = await fetchHelpRequests();
-    if (help && help.length > 0) setHelpReqs(help);
+    if (help && help.length > 0) {
+      setHelpReqs(help);
+    } else {
+      // Fallback: read straight from the help_requests table if the server function returns nothing
+      const direct = await sbFetch("help_requests");
+      if (direct && direct.length > 0) setHelpReqs(direct.map(h=>({ id:h.id, name:h.name, email:h.email, message:h.message, time:h.created_at })));
+    }
     setDbLoading(false);
   }
 
@@ -1294,7 +1313,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back, Chelsea.</h1>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Your Chelgy admin dashboard.</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
               {[{label:"Total Strategies",value:strategies.length},{label:"Weekly Posts",value:weeklyPosts.length},{label:"Status",value:"Live"},{label:"Membership",value:"$100/mo"}].map((stat,i)=>(
                 <div key={i} style={{background:"#fff",padding:"22px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>{stat.label}</div>
@@ -1886,10 +1905,17 @@ export default function ChelgyApp() {
     setHelpSending(true);
     const entry = { id: Date.now(), name: helpName.trim(), email: helpEmail.trim(), message: helpMsg.trim(), time: new Date().toLocaleString() };
     // Save to Supabase so it appears in the admin panel on any device
-    try { await sbFetch("help_requests","POST",{ name: entry.name, email: entry.email, message: entry.message }); } catch(e){}
-    // Keep a local copy too for instant feedback
-    setHelpRequests(prev => [entry, ...prev]);
-    setHelpSending(false); setHelpDone(true); setHelpMsg("");
+    let saved = null;
+    try { saved = await sbFetch("help_requests","POST",{ name: entry.name, email: entry.email, message: entry.message }); } catch(e){ saved = null; }
+    setHelpSending(false);
+    if (saved && saved.length) {
+      // Keep a local copy too for instant feedback
+      setHelpRequests(prev => [entry, ...prev]);
+      setHelpDone(true); setHelpMsg("");
+    } else {
+      // Don't pretend it worked — let the person know so they can retry
+      setHelpErr("Sorry — that didn't send. Please check your connection and try again in a moment.");
+    }
   }
 
   const sharePost = (post) => {
@@ -2119,7 +2145,7 @@ export default function ChelgyApp() {
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase"}}>Latest Strategies</div>
                   <button onClick={()=>goTab("learn","strategies")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.gold,letterSpacing:"0.08em"}}>View all</button>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:2,background:B.stone}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
                   {strategies.slice(0,4).map(s=>(
                     <div key={s.id} onClick={()=>{setSelectedStrategy(s);goTab("learn","strategies");addPts(PTS.strategy);}} style={{background:B.white,padding:"18px",cursor:"pointer"}}>
                       <Tag gold>{s.level}</Tag>
@@ -2165,7 +2191,7 @@ export default function ChelgyApp() {
               ):(
                 <div style={{display:"flex",gap:0}}>
                   <input value={emailSub} onChange={e=>setEmailSub(e.target.value)} placeholder="your@email.com" style={{flex:1,padding:"12px 16px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white}} />
-                  <button onClick={()=>{if(emailSub.trim()){setSubscribed(true);}}} style={{background:B.charcoal,color:"#fff",border:"none",padding:"12px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>START FREE TRIAL</button>
+                  <button onClick={()=>{if(emailSub.trim()){setSubscribed(true);}}} style={{background:B.charcoal,color:"#fff",border:"none",padding:"12px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SIGN UP</button>
                 </div>
               )}
             </div>
@@ -2223,9 +2249,10 @@ export default function ChelgyApp() {
               ):(
                 <>
                   <Rich text={selectedStrategy.content} />
-                  <div style={{marginTop:36,background:B.offwhite,padding:"20px 22px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,borderLeft:"2px solid "+B.gold}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Have a specific question about this strategy?</div>
-                    <Btn dark small onClick={()=>{setAiQ("Give me specific advice on implementing "+selectedStrategy.title+" for my business.");goTab("community","advisor");}}>ASK AI ADVISOR</Btn>
+                  <div style={{marginTop:36,background:B.offwhite,padding:"20px 22px",borderLeft:"2px solid "+B.gold}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:12}}>Have a specific question about this strategy? Type it below.</div>
+                    <textarea value={aiQ} onChange={e=>setAiQ(e.target.value)} rows={3} placeholder={"e.g. How do I apply \""+selectedStrategy.title+"\" to my business?"} style={{width:"100%",padding:"12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",marginBottom:12,boxSizing:"border-box",lineHeight:1.6,background:B.white}} />
+                    <Btn dark small onClick={()=>{if(!aiQ.trim())setAiQ("Give me specific advice on implementing "+selectedStrategy.title+" for my business.");goTab("community","advisor");}}>ASK AI ADVISOR</Btn>
                   </div>
                   <Upsell variant="course" />
                 </>
@@ -2320,7 +2347,7 @@ export default function ChelgyApp() {
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:0,background:"transparent"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
                 {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
@@ -2541,7 +2568,7 @@ export default function ChelgyApp() {
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 22px"}}>Events and Challenges</h2>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:12,textTransform:"uppercase",fontWeight:700}}>Active Challenges</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:1,marginBottom:24,background:B.stone}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:1,marginBottom:24,background:B.stone}}>
                 {[{id:1,title:"7-Day Content Sprint",desc:"Post one piece of content every day for 7 days.",pts:25,cat:"Content"},{id:2,title:"Share Your Win",desc:"Post a business win in the community forum.",pts:10,cat:"Community"},{id:3,title:"Try an AI Tool",desc:"Use one of the AI tools and share your result.",pts:15,cat:"AI Tools"},{id:4,title:"Platform Audit",desc:"Audit one of your social media profiles and post what you improved.",pts:20,cat:"Strategy"}].map(ch=>(
                   <div key={ch.id} style={{background:B.white,padding:"18px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9}}>
@@ -2585,7 +2612,7 @@ export default function ChelgyApp() {
                   {["All","Agency","eCommerce","Creator","Entrepreneur","Freelancer"].map(f=><option key={f}>{f}</option>)}
                 </select>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:1,background:B.stone}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:B.stone}}>
                 {[...SEED_MEMBERS,{id:"me",name:myName,avatar:myName[0]||"M",points:myPoints,business:myBusiness,bio:myBio,type:"Entrepreneur",badges:["Member"]}].filter(m=>(dirFilter==="All"||m.type===dirFilter)&&(m.name.toLowerCase().includes(dirSearch.toLowerCase())||m.business.toLowerCase().includes(dirSearch.toLowerCase()))).map(m=>(
                   <div key={m.id} style={{background:m.id==="me"?B.goldLight:B.white,padding:"18px"}}>
                     <div style={{display:"flex",gap:11,marginBottom:11,alignItems:"center"}}>
