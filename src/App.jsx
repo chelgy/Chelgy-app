@@ -709,7 +709,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
-          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={()=>{if(useCredits("image"))genI();}}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE (100 credits)"}</Btn>
+          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={()=>{if(useCredits("image"))genI();}}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE (120 credits)"}</Btn>
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
@@ -762,7 +762,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <Card style={{padding:"22px",marginBottom:14}}>
           <Fl label="Voice"><Ss value={voVoice} onChange={e=>setVoVoice(e.target.value)}>{[["JBFqnCBsd6RMkjVDRZzb","George — warm, narration"],["21m00Tcm4TlvDq8ikWAM","Rachel — calm, friendly"],["EXAVITQu4vr4xnSDxMaL","Bella — soft, expressive"],["pNInz6obpgDQGcFmaJgB","Adam — deep, confident"],["ErXwobaYiN019PkySvjV","Antoni — smooth, upbeat"],["yoZ06aMxZJJ28mfd3POQ","Sam — energetic, casual"]].map(([id,l])=><option key={id} value={id}>{l}</option>)}</Ss></Fl>
           <Fl label="Script / Text"><St value={voText} onChange={e=>setVoText(e.target.value)} placeholder="Paste the script you want spoken... (e.g. your reel hook or ad copy)" rows={5} /></Fl>
-          <Btn dark disabled={voLoad||!voText.trim()} onClick={()=>{if(useCredits("voiceover"))genVoice();}}>{voLoad?"GENERATING VOICEOVER...":"GENERATE VOICEOVER (50 credits)"}</Btn>
+          <Btn dark disabled={voLoad||!voText.trim()} onClick={()=>{if(useCredits("voiceover"))genVoice();}}>{voLoad?"GENERATING VOICEOVER...":"GENERATE VOICEOVER (150 credits)"}</Btn>
         </Card>
         <div>
           {voLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em"}}>Creating your voiceover — this usually takes a few seconds...</div></div>}
@@ -901,7 +901,7 @@ function CreditShop({ onClose, currentCredits, onPurchase }) {
 
         {/* Credit costs reference */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:B.stone,marginBottom:20}}>
-          {[{label:"1 Image",cost:"100 credits"},{label:"1 Video",cost:"500 credits"},{label:"1 Voiceover",cost:"50 credits"}].map((item,i)=>(
+          {[{label:"1 Image",cost:"120 credits"},{label:"1 Video",cost:"500 credits"},{label:"1 Voiceover",cost:"150 credits"}].map((item,i)=>(
             <div key={i} style={{background:B.white,padding:"10px 12px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,marginBottom:3}}>{item.label}</div>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.gold}}>{item.cost}</div>
@@ -977,26 +977,28 @@ const ADMIN_PASSWORD = "chelo373";
 
 // ─── CREDIT SYSTEM ────────────────────────────────────────────────────────────
 const CREDIT_COSTS = {
-  image: 100,
+  image: 120,
   video: 500,
-  voiceover: 50,
+  voiceover: 150,
 };
 
 const FREE_CREDITS = {
-  images: 5,    // 500 credits worth
+  images: 5,    // 600 credits worth
   videos: 5,    // 2500 credits worth
-  voiceovers: 5 // 250 credits worth
+  voiceovers: 5 // 750 credits worth
 };
 
 const CREDIT_PACKS = [
-  { id:"starter", name:"Starter Pack", credits:16500, price:13.99, description:"~165 images OR 33 videos OR 330 voiceovers", popular:false },
-  { id:"creator", name:"Creator Pack", credits:40000, price:24.99, description:"~400 images OR 80 videos OR 800 voiceovers", popular:true },
-  { id:"pro",     name:"Pro Pack",     credits:120000, price:59.99, description:"~1,200 images OR 240 videos OR 2,400 voiceovers", popular:false },
-  { id:"power",   name:"Power Pack",   credits:300000, price:69.99, description:"~3,000 images OR 600 videos OR 6,000 voiceovers", popular:false },
+  { id:"starter", name:"Starter Pack", credits:11000, price:13.99, description:"~91 images, 22 videos, or 73 voiceovers", popular:false },
+  { id:"creator", name:"Creator Pack", credits:26000, price:24.99, description:"~216 images, 52 videos, or 173 voiceovers", popular:true },
+  { id:"pro",     name:"Pro Pack",     credits:75000, price:59.99, description:"~625 images, 150 videos, or 500 voiceovers", popular:false },
+  { id:"power",   name:"Power Pack",   credits:90000, price:69.99, description:"~750 images, 180 videos, or 600 voiceovers", popular:false },
+  { id:"studio",  name:"Studio Pack",  credits:340000, price:249.99, description:"~2,830 images, 680 videos, or 2,260 voiceovers", popular:false },
+  { id:"agency",  name:"Agency Pack",  credits:850000, price:599.99, description:"~7,080 images, 1,700 videos, or 5,660 voiceovers", popular:false },
 ];
 
 // Starting credits = 5 images + 5 videos + 5 voiceovers
-const STARTING_CREDITS = (5 * 100) + (5 * 500) + (5 * 50); // 3250
+const STARTING_CREDITS = (5 * 120) + (5 * 500) + (5 * 150); // 3850
 
 const DISCOUNT_CODES = {
   "CHELGYFREE": { discount: 100, label: "First month FREE" },
