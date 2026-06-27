@@ -555,19 +555,45 @@ function PBar({ points }) {
   return <div><div style={{display:"flex",justifyContent:"space-between",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:5,letterSpacing:"0.04em"}}><span>{points} pts</span><span>{nl.min} for Lv.{nl.level}</span></div><div style={{height:1,background:B.stone}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.5s"}} /></div></div>;
 }
 function Rich({ text }) {
-  const inline = (s, kp) => String(s).split(/\*\*(.+?)\*\*/g).map((p,j)=>j%2===1?<strong key={kp+"-"+j}>{p}</strong>:p);
+  // Handles **bold** and [text](url) links inside a line
+  const inline = (s, kp) => {
+    const parts = []; let rest = String(s); let k = 0;
+    const linkRe = /\[([^\]]+)\]\(([^)\s]+)\)/;
+    while (true) {
+      const m = rest.match(linkRe);
+      if (!m) { if (rest) parts.push(rest); break; }
+      if (m.index > 0) parts.push(rest.slice(0, m.index));
+      parts.push(<a key={kp+"-l"+(k++)} href={m[2]} target="_blank" rel="noopener noreferrer" style={{color:B.gold,textDecoration:"underline"}}>{m[1]}</a>);
+      rest = rest.slice(m.index + m[0].length);
+    }
+    const out = [];
+    parts.forEach((p, pi) => {
+      if (typeof p !== "string") { out.push(p); return; }
+      p.split(/\*\*(.+?)\*\*/g).forEach((seg, j) => out.push(j % 2 === 1 ? <strong key={kp+"-b"+pi+"-"+j}>{seg}</strong> : seg));
+    });
+    return out;
+  };
   return <div style={{fontSize:14,lineHeight:1.95,color:B.charcoal,fontFamily:"sans-serif",letterSpacing:"0.01em"}}>{text.split("\n").map((line,i)=>{
     const t=line.trim();
     if(!t)return<br key={i}/>;
-    // Markdown headings (#, ##, ###...) — strip the hashes and render as a heading
-    const h=t.match(/^(#{1,6})\s+(.*)$/);
-    if(h){
+    // Horizontal rule (---, ***, ___)
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(t))return<div key={i} style={{height:1,background:B.stone,margin:"16px 0"}} />;
+    // Markdown headings (# .. ######) — with OR without a space after the hashes, trailing # stripped
+    const h=t.match(/^(#{1,6})\s*(.*?)\s*#*$/);
+    if(h&&h[2]){
       const lvl=h[1].length;
       const size=lvl<=1?16:lvl===2?14:13;
-      return<p key={i} style={{fontWeight:700,fontSize:size,margin:"18px 0 6px",letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid}}>{h[2].replace(/\*\*/g,"")}</p>;
+      return<p key={i} style={{fontWeight:700,fontSize:size,margin:"18px 0 6px",letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid}}>{inline(h[2].replace(/\*\*/g,""),i)}</p>;
     }
     // A line that is entirely bold acts as a heading
     if(/^\*\*(.+)\*\*$/.test(t))return<p key={i} style={{fontWeight:700,fontSize:13,margin:"18px 0 6px",letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid}}>{t.replace(/\*\*/g,"")}</p>;
+    // Markdown table separator row (|---|---|) — drop it
+    if(/^\|?[\s:|-]+\|?$/.test(t)&&t.includes("-"))return null;
+    // Markdown table data row — show the cells without the raw pipes
+    if(t.startsWith("|")&&t.endsWith("|")){
+      const cells=t.slice(1,-1).split("|").map(c=>c.trim());
+      return<p key={i} style={{margin:"3px 0",display:"flex",gap:18,flexWrap:"wrap"}}>{cells.map((c,ci)=><span key={ci}>{inline(c,i+"-"+ci)}</span>)}</p>;
+    }
     // Bullet points (- or *)
     if(/^[-*]\s+/.test(t))return<p key={i} style={{margin:"3px 0 3px 14px",display:"flex",gap:8}}><span style={{color:B.gold,flexShrink:0}}>—</span><span>{inline(t.replace(/^[-*]\s+/,""),i)}</span></p>;
     // Numbered lists (1. 2. 3. ...)
@@ -2149,8 +2175,7 @@ export default function ChelgyApp() {
             <div style={{paddingTop:28}}>
               {/* Hero card */}
               <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+HOME_HERO+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
-              <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.2) 100%)"}} />
+              <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 100%)"}} />
                 <div style={{position:"relative"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
                     <div style={{width:24,height:1,background:"rgba(255,255,255,0.5)"}} />
