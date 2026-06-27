@@ -287,14 +287,12 @@ function nextLevel(pts) { return LEVELS.find(l => l.min > pts); }
 
 async function callClaude(prompt) {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/claude", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000,
-        system:"You are Chelgy marketing advisor. Write punchy specific actionable content. No fluff.",
-        messages:[{role:"user",content:prompt}] })
+      body:JSON.stringify({ prompt })
     });
     const d = await res.json();
-    return d.content?.map(b=>b.text||"").join("") || "Unable to generate. Please try again.";
+    return d.text || "Unable to generate. Please try again.";
   } catch { return "Something went wrong. Please try again."; }
 }
 
@@ -303,7 +301,7 @@ async function generateGeminiImage(prompt, inputImage) {
     ? [{inlineData:{mimeType:inputImage.mimeType,data:inputImage.data}},{text:prompt}]
     : [{text:prompt}];
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key="+GEMINI_KEY,
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key="+GEMINI_KEY,
     { method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts}],generationConfig:{responseModalities:["TEXT","IMAGE"]}}) }
   );
@@ -1285,7 +1283,7 @@ export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
     const s=document.createElement("style");
-    s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}";
+    s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}h1,h2,h3,h4,h5,h6{color:#111111;}:root{color-scheme:light;background-color:#ffffff;}body{margin:0;background-color:#ffffff;}#root{max-width:none;width:100%;margin:0;padding:0;text-align:left;}";
     document.head.appendChild(s);
     return ()=>{ try{document.head.removeChild(s);}catch(e){} };
   },[]);
@@ -1621,6 +1619,10 @@ export default function ChelgyApp() {
     if (!commentText.trim()||!commentName.trim()) return;
     setCommentsByPost(prev=>({...prev,[postId]:[...(prev[postId]||[]),{id:Date.now(),author:commentName,text:commentText,time:"Just now"}]}));
     setCommentText(""); setCommentName(""); addPts(PTS.reply);
+  };
+  const deleteComment = (postId, commentId) => {
+    if (!window.confirm("Delete this comment?")) return;
+    setCommentsByPost(prev=>({...prev,[postId]:(prev[postId]||[]).filter(c=>c.id!==commentId)}));
   };
 
   const sharePost = (post) => {
@@ -2014,7 +2016,10 @@ export default function ChelgyApp() {
                         <div key={c.id} style={{background:B.white,padding:"13px 16px"}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                             <span style={{fontFamily:"sans-serif",fontWeight:700,fontSize:12,letterSpacing:"0.02em"}}>{c.author}</span>
-                            <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{c.time}</span>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{c.time}</span>
+                              {isAdmin&&<button onClick={()=>deleteComment(selectedPost.id,c.id)} style={{background:"none",border:"none",color:"#C0392B",fontSize:9,letterSpacing:"0.08em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",padding:0}}>Delete</button>}
+                            </div>
                           </div>
                           <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:0,lineHeight:1.65}}>{c.text}</p>
                         </div>
@@ -2207,6 +2212,10 @@ export default function ChelgyApp() {
                         <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 4px",letterSpacing:"0.02em"}}>{post.title}</h3>
                         <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 7px",lineHeight:1.55}}>{post.body.slice(0,110)}{post.body.length>110&&"..."}</p>
                         <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>by {post.author} · {post.time} · {post.replies.length} replies</div>
+                        {isAdmin&&<div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:8,marginTop:10}}>
+                          <button onClick={()=>setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,pinned:!p.pinned}:p))} style={{background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{post.pinned?"Unpin":"Pin"}</button>
+                          <button onClick={()=>{if(window.confirm("Delete this post permanently?"))setForumPosts(ps=>ps.filter(p=>p.id!==post.id));}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete</button>
+                        </div>}
                       </div>
                     </div>
                   </div>
@@ -2221,6 +2230,10 @@ export default function ChelgyApp() {
               <Tag>{selectedForumPost.cat}</Tag>
               <h1 style={{fontSize:"clamp(17px,3vw,26px)",fontWeight:400,margin:"12px 0 5px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{selectedForumPost.title}</h1>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:20,letterSpacing:"0.04em"}}>by {selectedForumPost.author} · {selectedForumPost.time}</div>
+              {isAdmin&&<div style={{display:"flex",gap:8,marginBottom:20}}>
+                <button onClick={()=>setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,pinned:!p.pinned}:p))} style={{background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{selectedForumPost.pinned?"Unpin":"Pin"}</button>
+                <button onClick={()=>{if(window.confirm("Delete this post permanently?")){setForumPosts(ps=>ps.filter(p=>p.id!==selectedForumPost.id));setSelectedForumPost(null);}}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete Post</button>
+              </div>}
               <p style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.8,color:B.charcoal,margin:"0 0 28px"}}>{selectedForumPost.body}</p>
               <div style={{borderTop:"1px solid "+B.stone,paddingTop:22}}>
                 <h3 style={{fontSize:13,fontWeight:400,margin:"0 0 14px",fontFamily:"Georgia,serif"}}>Replies ({selectedForumPost.replies.length})</h3>
@@ -2229,7 +2242,10 @@ export default function ChelgyApp() {
                     <div key={i} style={{background:B.white,padding:"12px 16px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                         <span style={{fontFamily:"sans-serif",fontWeight:700,fontSize:12,letterSpacing:"0.02em"}}>{r.author}</span>
-                        <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{r.time}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{r.time}</span>
+                          {isAdmin&&<button onClick={()=>{const nr=selectedForumPost.replies.filter((_,idx)=>idx!==i);setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));}} style={{background:"none",border:"none",color:"#C0392B",fontSize:9,letterSpacing:"0.08em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",padding:0}}>Delete</button>}
+                        </div>
                       </div>
                       <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:0,lineHeight:1.65}}>{r.text}</p>
                     </div>
