@@ -245,29 +245,37 @@ const PLATFORMS = [
     setup:["Create a personal LinkedIn profile if you do not have one — this is mandatory","Go to linkedin.com/company/setup and click Create a Company Page","Enter your company name, LinkedIn URL, website, industry, and size","Upload your logo at 300x300px and banner at 1128x191px","Write a compelling About section with keywords your clients search","Add your location, founding year, and specialties","Invite your employees and connections to follow the page"],
     posting:["Go to your LinkedIn Page and click Start a post","Write your content — LinkedIn rewards text-first value-driven posts","Add an image, video, or document — carousels get the highest reach","Use line breaks generously — walls of text get scrolled past","Add 3 to 5 relevant hashtags at the end","Tag relevant people or companies only if genuinely relevant","Click Post — best times Tue to Thu 8-10am or 12pm"],
     tips:["Personal profiles get 5 to 10 times more reach than Company Pages","Document carousels are currently the highest reach format on LinkedIn","Comment on your own post immediately after posting to boost visibility","Engage with 5 to 10 posts before posting your own each day","B2B content, thought leadership, and industry insights perform best"]},
+  {name:"Pinterest",emoji:"📌",color:"#E60023",
+    setup:["Go to business.pinterest.com and click Sign up — or convert a personal account in Settings","Enter your business email, a password, and your business name","Choose your business type and add your website link","Claim your website so your logo shows on every Pin and you unlock analytics","Add a profile photo, a keyword-rich bio, and your location","Create 5 to 8 boards around the topics your customers actually search","Turn on Rich Pins so your Pins automatically pull info from your site"],
+    posting:["Click the Create button at the top left and choose Create Pin","Upload a vertical image or video — 1000x1500px (a 2:3 ratio) performs best","Write a keyword-rich title up to 100 characters","Write a description up to 500 characters with natural keywords","Add your destination link so the Pin drives traffic back to your site","Choose the board the Pin belongs to","Click Publish — or schedule it for later"],
+    tips:["Pinterest is a search engine, not social media — put keywords in titles, descriptions, and board names","Vertical Pins at a 2:3 ratio get the most reach, so avoid square or horizontal images","Pins have a long life — a single Pin can drive traffic for months or even years","Post fresh Pins consistently instead of repinning the same image over and over","Add text overlay to your images so people instantly know what they will get when they click"]},
+  {name:"Etsy",emoji:"🛍️",color:"#F1641E",
+    setup:["Go to etsy.com/sell and click Get started","Set your shop preferences: language, country, and currency","Choose a unique shop name (4 to 20 characters, no spaces)","Add at least one listing — you need one to open the shop","Set up how you get paid with Etsy Payments and add your bank info","Set up billing and confirm any required deposit","Open your shop, then complete your About section, shop policies, and profile"],
+    posting:["Go to Shop Manager, then Listings, then Add a listing","Upload up to 10 photos plus a video — use natural light and a clean background","Write a keyword-rich title and front-load the words shoppers actually search","Fill in every attribute and use all 13 tags","Write a detailed description covering what it is, sizing, materials, and shipping","Set your price, quantity, and processing time","Set your shipping options and click Publish"],
+    tips:["Etsy is a search engine — the first words of your title and your 13 tags drive your visibility","Photos sell the product, so use all 10 slots and add a video to boost your ranking","Offer free shipping where you can — Etsy favors US listings with free shipping over $35","Reply to messages fast and aim for 5-star reviews; both lift your search ranking","Run a small Etsy Ads budget on your best listings to jump-start traffic, then let organic search build"]},
 ];
 
 const BIZ = [
   {stage:"I have an idea",emoji:"💡",steps:[
-    {title:"Validate your idea",desc:"Before spending a dollar, confirm people will pay for this. Talk to 10 potential customers and ask: would you pay for X and how much? Real conversations beat market research every time."},
-    {title:"Define your niche",desc:"The narrower your niche, the faster you grow. Marketing for restaurants in Tampa beats marketing for small businesses. Specific means less competition, easier to find customers, and higher prices."},
-    {title:"Research your competition",desc:"Google your service plus location. Who shows up? What do they charge? What do customers complain about in their reviews? Your opportunity is in the gap between what exists and what customers wish existed."},
-    {title:"Choose your business structure",desc:"For most beginners: LLC protects personal assets and costs $50 to $500 to form. Sole proprietorship is simpler but offers no liability protection. Consult a local attorney or use LegalZoom to get started."},
-    {title:"Name your business",desc:"Your name should be easy to spell, easy to remember, searchable online, and available as a dot com domain. Check name availability at your state Secretary of State website."},
+    {title:"Get clear on what you offer",desc:"Write your business in one sentence: \"I help [type of person] get [result] through [your service or product].\" If you can't say it clearly, your branding won't be clear either. This one sentence becomes the backbone of everything."},
+    {title:"Choose your brand feeling",desc:"Branding is the overall feeling your business gives, not just a logo. Pick 3-5 words for how you want to come across (like luxury, clean, bold, or warm). Every color, font, and caption should match those words."},
+    {title:"Make your message instantly clear",desc:"A stranger should understand what you do, who it's for, and the next step within seconds. Clarity beats clever, so skip the fancy wording. Say what you offer in plain language people actually use."},
+    {title:"Pick your platform direction",desc:"Choose Squarespace if you're mostly service-based, or Shopify if you're mostly selling physical products. Pick a clean template close to your business type — not the fanciest one. Easy for the customer always wins."},
+    {title:"Create a simple logo and brand kit",desc:"In Canva, make one clean logo with one main font and one or two colors. Keep it readable and consistent everywhere. Simple looks far more professional and trustworthy than busy and cluttered."},
   ]},
   {stage:"I am getting started",emoji:"🚀",steps:[
-    {title:"Register your business",desc:"File for your LLC with your state. Apply for an EIN for free at irs.gov in 5 minutes. Open a separate business bank account immediately — mixing personal and business finances is the number one beginner mistake."},
-    {title:"Build your online presence",desc:"At minimum: a professional website and Google Business Profile. These two alone will get you found by customers searching locally."},
-    {title:"Set your pricing",desc:"Price at the top of your market, not the bottom. Low prices attract difficult clients and signal low quality. Your pricing should reflect the value you deliver, not your hours."},
-    {title:"Create service packages",desc:"Package your services into clear tiers: Starter, Professional, and Premium. Packages are easier to sell, set clear expectations, and allow upselling. Sell outcomes not hours."},
-    {title:"Get your first client",desc:"Tell everyone in your network what you do. Post on LinkedIn. Reach out to 10 businesses directly with a specific value proposition. Offer a discounted first project in exchange for a detailed testimonial."},
+    {title:"Build a website people trust",desc:"Your site is your digital storefront. Include a clear headline, a strong main image, a simple call to action (Book now / Shop now), proof like reviews or before-and-afters, an about section, and easy-to-find contact info."},
+    {title:"Stack your platforms",desc:"Don't rely on one place — every platform is another door into your business. Set up Google Business Profile, Instagram, Facebook, and TikTok, plus the niche platform for your industry (StyleSeat or Booksy for hair, Vagaro for beauty, Thumbtack for home services, Etsy for products)."},
+    {title:"Set up local SEO",desc:"Fully complete your Google Business Profile, keep your business name, phone, and address identical everywhere, and mention your city naturally on your site. Then start asking happy customers for reviews. This is how you show up in \"near me\" searches."},
+    {title:"Use keywords customers actually search",desc:"Build your pages around \"[service] + [location]\" phrases like \"knotless braids Tampa.\" Put that keyword in your page title, headline, and description — naturally, never stuffed. Give each page one clear topic."},
+    {title:"Start posting consistently",desc:"Post 3-5 times a week, rotating four content types: showcase (your work), educational (teach something), lifestyle (your brand vibe), and proof (results and testimonials). Use Canva for graphics and Temply for reels. Consistency beats perfection."},
   ]},
   {stage:"I already run a business",emoji:"📈",steps:[
-    {title:"Audit your current marketing",desc:"Where are your clients coming from? Double down on what is working. Cut what is not. Focus on one or two channels and master them before expanding."},
-    {title:"Build your referral system",desc:"Your happiest clients are your best salespeople. Ask every happy client for a referral, offer an incentive, and make it easy. Referrals close 4 times faster than cold leads."},
-    {title:"Systematize your operations",desc:"Document every process you repeat more than once. Use Notion, Monday.com, or Asana to manage projects. Build SOPs so your business can run without you in every meeting."},
-    {title:"Raise your prices",desc:"If you are at 80% capacity and have not raised prices in 12 months, raise them now. A 20% price increase with 10% fewer clients equals more revenue with less work."},
-    {title:"Add recurring revenue",desc:"Monthly retainers beat one-time projects every time. What service can you offer monthly? Management, maintenance, consulting, content? Recurring revenue equals predictable income."},
+    {title:"Add physical marketing",desc:"Put your business in the real world with clean business cards, flyers, signage, and even a car magnet or wrap. Add QR codes so people can reach you instantly. Physical marketing is underused, not outdated, and it feeds people straight into your online presence."},
+    {title:"Build referral partnerships",desc:"Team up with complementary (not competing) businesses that already serve your customers. Swap cards, recommend each other, and offer a referral commission so they're motivated to send people your way. You tap into traffic you didn't have to build."},
+    {title:"Do daily direct outreach",desc:"Reach out to people who clearly need your service through DMs, email, or text. It's a numbers game — about 100 messages leads to 5-10 replies and a few clients. Keep messages short and non-pushy: greeting, a genuine compliment, what you offer, a simple invite. Follow up and stay consistent."},
+    {title:"Amplify what's working with ads",desc:"Only run ads once your branding, content, and offer are strong — ads amplify a working business, they don't fix a broken one. Put budget behind content that's already performing organically. Start small at $5-20 a day and scale slowly."},
+    {title:"Pick the right ad platform",desc:"Facebook and Instagram create demand (your first 1-3 seconds of creative matter most). Google captures people already searching (use specific keywords). TikTok rewards content that blends in with a fast hook. Yelp reaches decision-ready local customers, where reviews and photos are everything."},
   ]},
 ];
 
@@ -410,6 +418,11 @@ const Icons = {
       <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
     </svg>
   ),
+  Mic: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v1a7 7 0 0014 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
+    </svg>
+  ),
 };
 
 // ─── ONBOARDING ───────────────────────────────────────────────────────────────
@@ -527,22 +540,24 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
+  const [cSeoType,setCSeoType]=useState("Blog Post");const [cKeyword,setCKeyword]=useState("");
   const [iType,setIType]=useState("logo");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
   const [vType,setVType]=useState("script");const [vTopic,setVTopic]=useState("");const [vPlat,setVPlat]=useState("TikTok");
   const [vDur,setVDur]=useState("60 seconds");const [vGoal,setVGoal]=useState("Brand awareness");
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
+  const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
+  const [voText,setVoText]=useState("");const [voVoice,setVoVoice]=useState("JBFqnCBsd6RMkjVDRZzb");const [voUrl,setVoUrl]=useState("");const [voLoad,setVoLoad]=useState(false);const [voErr,setVoErr]=useState("");
   const [bStage,setBStage]=useState(null);const [bNiche,setBNiche]=useState("");const [bName,setBName]=useState("");
   const [bQ,setBQ]=useState("");const [bA,setBA]=useState("");const [bLoad,setBLoad]=useState(false);
-  const [nRes,setNRes]=useState("");const [nLoad,setNLoad]=useState(false);
   const [dFilt,setDFilt]=useState("All");
   const [selP,setSelP]=useState(null);const [gTab,setGTab]=useState("setup");
 
   const Fl=({label,children})=><div style={{marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{label}</div>{children}</div>;
-  const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} />;
-  const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white}} />;
-  const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>{children}</select>;
+  const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white,color:B.charcoal}} />;
+  const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white,color:B.charcoal}} />;
+  const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",color:B.charcoal}}>{children}</select>;
   const Tb=({label,active,onClick})=><button onClick={onClick} style={{background:"none",color:active?B.charcoal:B.mid,border:"none",borderBottom:active?"1px solid "+B.charcoal:"1px solid transparent",padding:"8px 14px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:active?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>;
   const Rb=({label,content,loading})=>{
     if(loading)return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"28px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Generating...</div>;
@@ -550,10 +565,34 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     return<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{content}</div><button onClick={()=>navigator.clipboard?.writeText(content)} style={{marginTop:12,background:"none",border:"1px solid "+B.stone,padding:"6px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button></div>;
   };
 
-  async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C."};setCRes(await callClaude(p[cType]));setCLoad(false);}
+  async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality."};try{setIRes(await generateGeminiImage(p[iType]));}catch{setIErr("Image generation is temporarily unavailable. Please try again.");}setILoad(false);}
   async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(p[vType]));setVLoad(false);}
-  async function genN(){if(!bNiche.trim())return;setNLoad(true);setNRes("");setNRes(await callClaude("Generate 10 creative business names for a "+bNiche+" business. For each: the name, why it works in one sentence, and a domain tip. Numbered list."));setNLoad(false);}
+  async function genVid(){
+    if(!vTopic.trim())return;
+    track("tool_used",{tool:"video_generator"});
+    setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
+    try{
+      const taskId=await generateVideo(vTopic,"wavespeed-ai/wan-2.1-t2v-480p");
+      if(!taskId){setVVidErr("Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
+      setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
+      const url=await pollVideo(taskId);
+      if(!url){setVVidErr("The video didn't finish in time. Please try again.");setVVidLoad(false);setVVidStatus("");return;}
+      setVVidUrl(url);setVVidStatus("");
+    }catch(e){setVVidErr("Something went wrong while generating the video. Please try again.");}
+    setVVidLoad(false);
+  }
+  async function genVoice(){
+    if(!voText.trim())return;
+    track("tool_used",{tool:"voiceover"});
+    setVoLoad(true);setVoUrl("");setVoErr("");
+    try{
+      const url=await generateVoiceover(voText,voVoice);
+      if(!url){setVoErr("Couldn't generate the voiceover. Please try again in a moment.");setVoLoad(false);return;}
+      setVoUrl(url);
+    }catch(e){setVoErr("Something went wrong while generating the voiceover. Please try again.");}
+    setVoLoad(false);
+  }
   async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude("You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
 
   const dNiches=["All",...Array.from(new Set(SUPPLIERS.map(s=>s.niche)))];
@@ -574,15 +613,19 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Content Writer</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Generate high-converting content for every platform in seconds.</p>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:22,borderBottom:"1px solid "+B.stone,overflowX:"auto"}}>
-          {[["instagram","Instagram"],["tiktok","TikTok"],["facebook","Facebook"],["linkedin","LinkedIn"],["google","Google Business"],["yelp","Yelp"],["blog","Blog"],["email","Email"],["ad","Ad Copy"]].map(([id,l])=><Tb key={id} label={l} active={cType===id} onClick={()=>setCType(id)} />)}
+          {[["instagram","Instagram"],["tiktok","TikTok"],["facebook","Facebook"],["linkedin","LinkedIn"],["google","Google Business"],["yelp","Yelp"],["blog","Blog"],["email","Email"],["ad","Ad Copy"],["seo","SEO Content"]].map(([id,l])=><Tb key={id} label={l} active={cType===id} onClick={()=>setCType(id)} />)}
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
           <Fl label="Your Business"><Si value={cBiz} onChange={e=>setCBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, Tampa fitness studio..." /></Fl>
-          <Fl label="Topic or Goal"><St value={cTopic} onChange={e=>setCTopic(e.target.value)} placeholder="e.g. Promoting our summer sale, announcing a new service..." rows={3} /></Fl>
+          <Fl label={cType==="seo"?"Topic or Page Subject":"Topic or Goal"}><St value={cTopic} onChange={e=>setCTopic(e.target.value)} placeholder={cType==="seo"?"e.g. Best email marketing tips for small businesses...":"e.g. Promoting our summer sale, announcing a new service..."} rows={3} /></Fl>
+          {cType==="seo"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Fl label="Content Type"><Ss value={cSeoType} onChange={e=>setCSeoType(e.target.value)}>{["Blog Post","Product Description","Service Page","Category Description","Landing Page","Meta Title & Description"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
+            <Fl label="Target Keyword(s)"><Si value={cKeyword} onChange={e=>setCKeyword(e.target.value)} placeholder="e.g. email marketing for small business" /></Fl>
+          </div>}
           <Fl label="Tone"><Ss value={cTone} onChange={e=>setCTone(e.target.value)}>{["Confident & Direct","Warm & Conversational","Funny & Relatable","Professional & Expert","Bold & Hype","Educational & Informative"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
-          <Btn dark disabled={cLoad||!cBiz.trim()||!cTopic.trim()} onClick={genC}>{cLoad?"GENERATING...":"GENERATE CONTENT"}</Btn>
+          <Btn dark disabled={cLoad||!cBiz.trim()||!cTopic.trim()} onClick={genC}>{cLoad?"GENERATING...":cType==="seo"?"GENERATE SEO CONTENT":"GENERATE CONTENT"}</Btn>
         </Card>
-        <Rb label="Generated Content" content={cRes} loading={cLoad} />
+        <Rb label={cType==="seo"?"SEO-Optimized Content":"Generated Content"} content={cRes} loading={cLoad} />
       </div>}
 
       {tool==="images"&&<div>
@@ -606,20 +649,28 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 
       {tool==="video"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Video Studio</h2>
-        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Scripts, storyboards, and AI video prompts for every platform.</p>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Scripts, storyboards, AI prompts — plus real AI video generation, right here.</p>
         <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-          {[["script","Video Script"],["storyboard","Storyboard"],["prompt","AI Prompts"]].map(([id,l])=><Tb key={id} label={l} active={vType===id} onClick={()=>setVType(id)} />)}
+          {[["script","Video Script"],["storyboard","Storyboard"],["prompt","AI Prompts"],["generate","Generate Video"]].map(([id,l])=><Tb key={id} label={l} active={vType===id} onClick={()=>setVType(id)} />)}
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
-          <Fl label="Video Topic / Goal"><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder="e.g. Why your business needs email marketing..." rows={3} /></Fl>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <Fl label={vType==="generate"?"Describe the video you want":"Video Topic / Goal"}><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder={vType==="generate"?"e.g. A cinematic shot of a coffee cup steaming on a marble table, soft morning light...":"e.g. Why your business needs email marketing..."} rows={3} /></Fl>
+          {vType!=="generate"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
             <Fl label="Platform"><Ss value={vPlat} onChange={e=>setVPlat(e.target.value)}>{["TikTok","Instagram Reels","YouTube Shorts","YouTube","LinkedIn","Facebook"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Duration"><Ss value={vDur} onChange={e=>setVDur(e.target.value)}>{["15 seconds","30 seconds","60 seconds","2 minutes","5 minutes","10 minutes"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Goal"><Ss value={vGoal} onChange={e=>setVGoal(e.target.value)}>{["Brand awareness","Lead generation","Sales / Conversions","Education / Value","Entertainment","Product showcase"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
-          </div>
-          <Btn dark disabled={vLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genV();}}>{vLoad?"GENERATING...":"GENERATE (500 credits)"}</Btn>
+          </div>}
+          {vType==="generate"
+            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genVid();}}>{vVidLoad?"GENERATING VIDEO...":"GENERATE VIDEO (500 credits)"}</Btn>
+            : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genV();}}>{vLoad?"GENERATING...":"GENERATE (500 credits)"}</Btn>}
         </Card>
-        <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />
+        {vType==="generate"
+          ? <div>
+              {vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{vVidStatus||"Working..."}</div></div>}
+              {vVidErr&&!vVidLoad&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C",letterSpacing:"0.02em"}}>{vVidErr}</div></div>}
+              {vVidUrl&&!vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI-Generated Video</div><video src={vVidUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><a href={vVidUrl} download="chelgy-video.mp4"><Btn dark small>DOWNLOAD VIDEO</Btn></a></div>}
+            </div>
+          : <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />}
         <div style={{marginTop:24}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase",fontWeight:700}}>Launch on AI Video Platforms</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
@@ -630,9 +681,24 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
       </div>}
 
+      {tool==="voiceover"&&<div>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Voiceover Studio</h2>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Turn any script into a natural, studio-quality voiceover.</p>
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="Voice"><Ss value={voVoice} onChange={e=>setVoVoice(e.target.value)}>{[["JBFqnCBsd6RMkjVDRZzb","George — warm, narration"],["21m00Tcm4TlvDq8ikWAM","Rachel — calm, friendly"],["EXAVITQu4vr4xnSDxMaL","Bella — soft, expressive"],["pNInz6obpgDQGcFmaJgB","Adam — deep, confident"],["ErXwobaYiN019PkySvjV","Antoni — smooth, upbeat"],["yoZ06aMxZJJ28mfd3POQ","Sam — energetic, casual"]].map(([id,l])=><option key={id} value={id}>{l}</option>)}</Ss></Fl>
+          <Fl label="Script / Text"><St value={voText} onChange={e=>setVoText(e.target.value)} placeholder="Paste the script you want spoken... (e.g. your reel hook or ad copy)" rows={5} /></Fl>
+          <Btn dark disabled={voLoad||!voText.trim()} onClick={()=>{if(useCredits("voiceover"))genVoice();}}>{voLoad?"GENERATING VOICEOVER...":"GENERATE VOICEOVER (50 credits)"}</Btn>
+        </Card>
+        <div>
+          {voLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em"}}>Creating your voiceover — this usually takes a few seconds...</div></div>}
+          {voErr&&!voLoad&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C",letterSpacing:"0.02em"}}>{voErr}</div></div>}
+          {voUrl&&!voLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI Voiceover</div><audio src={voUrl} controls style={{width:"100%",marginBottom:12,display:"block"}} /><a href={voUrl} download="chelgy-voiceover.mp3"><Btn dark small>DOWNLOAD AUDIO</Btn></a></div>}
+        </div>
+      </div>}
+
       {tool==="business"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Builder</h2>
-        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Stage-by-stage guidance, name generation, and AI business coaching.</p>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Stage-by-stage guidance and a 24/7 AI business coach.</p>
         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:11,textTransform:"uppercase",fontWeight:700}}>Where are you in your journey?</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:24}}>
           {BIZ.map((s,i)=><div key={i} onClick={()=>setBStage(bStage===i?null:i)} style={{background:bStage===i?B.goldLight:B.white,border:"1px solid "+(bStage===i?B.gold:B.stone),padding:"16px",cursor:"pointer",transition:"all 0.15s"}}><div style={{fontFamily:"Georgia,serif",fontSize:22,marginBottom:8}}>{s.emoji}</div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.02em"}}>{s.stage}</div></div>)}
@@ -648,14 +714,6 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             ))}
           </div>
         </div>}
-        <div style={{borderTop:"1px solid "+B.stone,paddingTop:24,marginBottom:24}}>
-          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:11,textTransform:"uppercase",fontWeight:700}}>Business Name Generator</div>
-          <Card style={{padding:"16px",marginBottom:11,display:"flex",gap:11,flexWrap:"wrap"}}>
-            <div style={{flex:1,minWidth:200}}><Fl label="Your Niche"><Si value={bNiche} onChange={e=>setBNiche(e.target.value)} placeholder="e.g. luxury pet grooming, fitness coaching for women..." /></Fl></div>
-            <div style={{display:"flex",alignItems:"flex-end"}}><Btn dark disabled={nLoad||!bNiche.trim()} onClick={genN}>{nLoad?"GENERATING...":"GENERATE NAMES"}</Btn></div>
-          </Card>
-          <Rb label="Business Name Ideas" content={nRes} loading={nLoad} />
-        </div>
         <div style={{borderTop:"1px solid "+B.stone,paddingTop:24}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:4,textTransform:"uppercase",fontWeight:700}}>AI Business Coach</div>
           <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 13px"}}>Ask anything about starting or growing your business.</p>
@@ -981,9 +1039,9 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
   function flash() { setSaved(true); setTimeout(()=>setSaved(false), 2000); }
 
-  const Si = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,...(p.style||{})}} />;
-  const St = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
-  const Ss = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",cursor:"pointer",marginBottom:12}}>{children}</select>;
+  const Si = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
+  const St = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
+  const Ss = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
   const Lbl = ({children}) => <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>{children}</div>;
 
   return (
@@ -1189,6 +1247,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
+  useEffect(()=>{
+    const s=document.createElement("style");
+    s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}";
+    document.head.appendChild(s);
+    return ()=>{ try{document.head.removeChild(s);}catch(e){} };
+  },[]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminAuthed, setAdminAuthed] = useState(false);
   const [logoTaps, setLogoTaps] = useState(0);
@@ -1465,7 +1529,7 @@ export default function ChelgyApp() {
   const subTabs = {
     home: [["feed","Feed"],["leaderboard","Top Members"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["weekly","Weekly Updates"]],
-    tools: [["hub","All Tools"],["content","Content Writer"],["images","Image Creator"],["video","Video Studio"],["business","Business Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"],["launch","Launch Package"]],
+    tools: [["hub","All Tools"],["content","Content Writer"],["images","Image Creator"],["video","Video Studio"],["voiceover","Voiceover Studio"],["business","Business Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"],["launch","Launch Package"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
     profile: [["overview","Overview"],["stats","Stats"]],
   };
@@ -1652,7 +1716,7 @@ export default function ChelgyApp() {
 
       {/* ── HEADER ── */}
       <header style={{background:B.white,borderBottom:"1px solid "+B.stone,flexShrink:0,zIndex:300}}>
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{maxWidth:1400,margin:"0 auto",padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div onClick={()=>goTab("home")} style={{cursor:"pointer"}}>
             <img src={LOGO_B64} alt="Chelgy" onClick={handleLogoTap} onTouchEnd={handleLogoTap} style={{height:26,objectFit:"contain",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} />
           {logoTaps>0&&logoTaps<5&&<div style={{position:"absolute",top:56,left:20,fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.1em",opacity:0.6}}>{5-logoTaps} more</div>}
@@ -1688,7 +1752,7 @@ export default function ChelgyApp() {
 
         {/* ── TOP SUBCATEGORY BAR (hides on scroll) ── */}
         <div style={{borderTop:"1px solid "+B.stone,height:TOP_H,overflow:"hidden",transition:"height 0.25s ease, opacity 0.25s ease",opacity:topVisible?1:0,maxHeight:topVisible?TOP_H:0}}>
-          <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",maxWidth:1100,margin:"0 auto",padding:"0 12px",height:TOP_H,alignItems:"center",gap:2}}>
+          <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",maxWidth:1400,margin:"0 auto",padding:"0 12px",height:TOP_H,alignItems:"center",gap:2}}>
             {(subTabs[tab]||[]).map(([id,label])=>(
               <button key={id} onClick={()=>{setSubTab(id);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"none",borderBottom:subTab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:subTab===id?700:400,color:subTab===id?B.charcoal:B.mid,padding:"0 12px",height:"100%",whiteSpace:"nowrap",flexShrink:0}}>
                 {label}
@@ -1700,7 +1764,7 @@ export default function ChelgyApp() {
 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
-        <div style={{maxWidth:"100%",padding:"0 40px"}}>
+        <div style={{maxWidth:1400,margin:"0 auto",padding:"0 40px"}}>
 
           {/* ═══ HOME ═══ */}
           {tab==="home"&&subTab==="feed"&&(
@@ -1945,10 +2009,10 @@ export default function ChelgyApp() {
           {tab==="tools"&&!isTrial&&subTab==="hub"&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Tools Hub</h2>
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:1,background:B.stone}}>
-                {[{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans, name generator, and 24/7 AI business coach."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."}].map(t=>(
+                {[{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start"}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -2325,7 +2389,7 @@ export default function ChelgyApp() {
       </main>
 
       {/* ── BOTTOM NAV ── */}
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1100,margin:"0 auto",height:"100%",display:"flex"}}>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1400,margin:"0 auto",height:"100%",display:"flex"}}>
         {[
           {id:"home",label:"HOME",Icon:Icons.Home},
           {id:"learn",label:"LEARN",Icon:Icons.Learn},
