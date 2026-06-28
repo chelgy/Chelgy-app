@@ -1431,6 +1431,34 @@ const CREDIT_PACKS = [
 // plus a good run of standard images, videos and voiceovers before topping up.
 const STARTING_CREDITS = 12000;
 
+// ─── Daily quick-win tasks (each linked to the Chelgy tool that does it) ─────
+const DAILY_POOL = [
+  { title:"Post once on your busiest platform", tool:"content" },
+  { title:"Reply to 5 comments or DMs", tool:"" },
+  { title:"Reach out to 5 potential customers who fit your ideal client", tool:"content" },
+  { title:"Comment genuinely on 10 posts from your target audience", tool:"" },
+  { title:"Find a business in a complementary field and pitch a cross-promo", tool:"content" },
+  { title:"Share a customer review to your story or feed", tool:"images" },
+  { title:"Update one part of your Google Business Profile", tool:"platforms" },
+  { title:"Follow 10 ideal customers or local accounts", tool:"" },
+  { title:"Write and schedule tomorrow's post", tool:"content" },
+  { title:"Ask one happy customer for a review", tool:"content" },
+  { title:"Record a 15-second behind-the-scenes clip", tool:"video" },
+  { title:"Repurpose last week's best post to another platform", tool:"content" },
+  { title:"Answer a question in a local or niche Facebook group", tool:"" },
+  { title:"Check in with 3 past customers", tool:"content" },
+  { title:"Make a fresh product or service photo", tool:"images" },
+  { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
+];
+const TOOL_LABELS = { launch:"Business Launch Package", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function dailyTasksFor(dateStr){
+  const seed = [...dateStr].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const pool=[...DAILY_POOL]; const picks=[];
+  for(let i=0;i<4 && pool.length;i++){ const idx=(seed*(i+7))%pool.length; picks.push(pool.splice(idx,1)[0]); }
+  return picks.map((t,i)=>({ id:"daily-"+dateStr+"-"+i, title:t.title, tool:t.tool }));
+}
+
 const DISCOUNT_CODES = {
   "CHELGYFREE": { discount: 100, label: "First month FREE" },
   "CHELGY25":   { discount: 25,  label: "25% off your first month" },
@@ -1990,6 +2018,14 @@ export default function ChelgyApp() {
   const [spotRect, setSpotRect] = useState(null);
   const [showIntake, setShowIntake] = useState(false);
   const [intake, setIntake] = useState(()=>lsGetJSON("chelgy_intake", null));
+  const [plan, setPlan] = useState(()=>{ try { return localStorage.getItem("chelgy_plan")||""; } catch { return ""; } });
+  const [planLoading, setPlanLoading] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
+  const [bigTasks, setBigTasks] = useState(()=>lsGetJSON("chelgy_tasks", []));
+  const [dailyDone, setDailyDone] = useState(()=>lsGetJSON("chelgy_daily_done", {}));
+  const [showTasks, setShowTasks] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [celebrate, setCelebrate] = useState("");
   const navRefs = useRef({});
   const TOUR_STEPS = [
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
@@ -2009,14 +2045,106 @@ export default function ChelgyApp() {
     let done=false; try{ done=!!localStorage.getItem("chelgy_tour_done"); }catch(e){}
     if(!done) setTourStep(0);
   },[page,isAdmin]);
+  useEffect(()=>{
+    if (page!=="app" || isAdmin || showIntake) return;
+    let intakeDone=false; try{ intakeDone=!!localStorage.getItem("chelgy_intake_done"); }catch(e){}
+    if(!intakeDone) return; // intake comes before the daily greeting
+    let last=null; try{ last=localStorage.getItem("chelgy_last_greeting"); }catch(e){}
+    if(last!==todayStr()){ setShowGreeting(true); try{ localStorage.setItem("chelgy_last_greeting", todayStr()); }catch(e){} }
+  },[page,isAdmin,showIntake]);
   function completeIntake(d){
     try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_tour_done","1"); } catch(e){}
     setIntake(d);
     if(d.what && (!myBusiness)) setMyBusiness(d.what);
     if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { intake: d });
     setShowIntake(false);
-    pushNotif("Your profile is set — Chelgy is ready to build your roadmap.");
+    generatePlan(d);
   }
+  async function generatePlan(d){
+    setPlanLoading(true); setShowPlan(true);
+    const haveStr = (d.have && d.have.length) ? d.have.join(", ") : "nothing yet";
+    const isIdea = d.hasBiz==="idea";
+    const stage = d.hasBiz==="running" ? "Has a running business" : d.hasBiz==="starting" ? "Just starting out" : "Just an idea so far";
+    const prompt =
+`You are Chelgy — a warm, sharp AI business coach speaking directly to a member. Create their personalized business plan and roadmap from the intake answers below.
+
+MEMBER'S ANSWERS
+- Stage: ${stage}
+- Business or idea: ${d.what||"(not specified)"}
+- Field/industry: ${d.field||"(not specified)"}
+- Name / website / social: ${d.bizNameSite||"(none given)"}
+- Location: ${d.location||"(not specified)"}
+- Already set up: ${haveStr}
+- #1 goal right now: ${d.goal||"(not specified)"}
+- Biggest challenge: ${d.challenge||"(not specified)"}
+- Hours per week available: ${d.hours||"(not specified)"}
+
+${d.bizNameSite && !isIdea ? `FIRST: Search the web for "${d.bizNameSite}" and for their main competitors in ${d.location||"their area"} within the ${d.field||"their"} field. Base your assessment on what you actually find. If you cannot find them, say so plainly and assess from what they told you.` : `This person is at the idea stage — focus on a clear, motivating starting roadmap.`}
+
+Write the plan in clean markdown with these exact section headings:
+
+## A note for you
+Two warm, encouraging sentences addressed to them.
+
+## Where you stand
+${isIdea ? "Their honest starting point and the 2-3 things that matter most to do first." : "What they appear to be doing well and the biggest gaps, based on what you found online and what they told you."}
+
+${!isIdea ? "## How you compare\nName 2-3 real competitors in their field/area and one specific thing each does well that this member could learn from or beat.\n" : ""}
+## Your roadmap
+A numbered, stage-by-stage list of the highest-impact moves to get from where they are now to their #1 goal (${d.goal||"their goal"}). Be specific to their field and location, and pace it for ${d.hours||"their available"} hours per week.
+
+## Your Chelgy toolkit
+For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on how to use it for that step. Only use tools from this list:
+- Business Launch Package (full website copy, brand strategy, social plan, launch roadmap)
+- AI Image Creator (logos, flyers, social graphics, product images)
+- AI Video Studio & Viral Video Generator (video scripts, viral ideas, AI video)
+- Ad Campaign Builder (ad copy, targeting, budget for Facebook/Instagram/TikTok)
+- Business Audit & Competitors (scan your presence, compare to competitors)
+- AI Voiceover Studio (studio-quality voiceovers)
+- Business Builder (stage-by-stage plans + a 24/7 AI coach)
+- Grant Finder (search real grants and funding)
+- AI Content Writer (captions, posts, blogs, emails, ad copy)
+- Dropshipping Directory (vetted suppliers)
+- Platform Setup Guides (set up Google Business, social profiles, etc.)
+- AI Advisor (ask any marketing question anytime)
+
+Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no preamble before the first heading.`;
+    const result = await callClaude(prompt, 6000, true);
+    setPlan(result);
+    try { localStorage.setItem("chelgy_plan", result); } catch(e){}
+    if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { plan: result });
+    setPlanLoading(false);
+    buildTasks(d); // generate the checkable big tasks from the same answers
+  }
+  async function buildTasks(d){
+    const haveStr = (d.have && d.have.length) ? d.have.join(", ") : "nothing yet";
+    const stage = d.hasBiz==="running" ? "running business" : d.hasBiz==="starting" ? "just starting" : "just an idea";
+    const prompt =
+`Based on this member's situation, list their 6 most important "big tasks" to grow toward their #1 goal, in priority order (highest impact first).
+Member: ${stage}; business/idea: ${d.what||"n/a"}; field: ${d.field||"n/a"}; location: ${d.location||"n/a"}; already has: ${haveStr}; #1 goal: ${d.goal||"n/a"}; biggest challenge: ${d.challenge||"n/a"}; hours/week: ${d.hours||"n/a"}.
+For each task also pick the single best Chelgy tool to accomplish it, by its id, or "" if none fits. Tool ids:
+launch = full website copy/brand/launch plan; images = make logos, flyers, graphics, product photos; video = video scripts & AI video; viral = viral video ideas; ads = paid ad campaigns; audit = scan presence & competitors; voiceover = voiceovers; business = stage-by-stage plan + AI coach; grants = find funding; content = write posts/captions/emails/blogs; dropshipping = find suppliers; platforms = set up Google Business & social profiles.
+Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item: {"title": short action under 9 words, "detail": one sentence on how or why, "time": estimate like "15 min" or "1 hour", "impact": integer 1-5, "tool": one tool id from the list or ""}.`;
+    const raw = await callClaude(prompt, 1800, false);
+    let tasks = [];
+    try {
+      const clean = raw.replace(/```json/gi,"").replace(/```/g,"").trim();
+      const arr = JSON.parse(clean.slice(clean.indexOf("["), clean.lastIndexOf("]")+1));
+      tasks = arr.map((t,i)=>({ id:"big-"+Date.now()+"-"+i, title:String(t.title||"").slice(0,80), detail:String(t.detail||""), time:String(t.time||""), impact:Math.max(1,Math.min(5,parseInt(t.impact,10)||3)), tool:(TOOL_LABELS[t.tool]?t.tool:""), done:false }));
+    } catch { tasks = []; }
+    if(tasks.length){
+      setBigTasks(tasks);
+      lsSet("chelgy_tasks", tasks);
+      if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { tasks });
+    }
+  }
+  // Persist task progress
+  useEffect(()=>{ lsSet("chelgy_tasks", bigTasks); if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { tasks: bigTasks }); },[bigTasks]);
+  useEffect(()=>{ lsSet("chelgy_daily_done", dailyDone); },[dailyDone]);
+  function celebrateDone(){ const lines=["Nice work — that's done.","Done! Momentum is everything.","One step closer. Keep going.","Checked off. You're building real progress."]; setCelebrate(lines[Math.floor(Math.random()*lines.length)]); setTimeout(()=>setCelebrate(""),2600); }
+  function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd) celebrateDone(); return {...t,done:nd}; } return t; })); }
+  function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; } else { nd[id]=true; celebrateDone(); } return nd; }); }
+  function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
   useEffect(()=>{
     if(tourStep===null) return;
     const step=TOUR_STEPS[tourStep];
@@ -2300,6 +2428,9 @@ export default function ChelgyApp() {
         setIsTrial(false); try{ localStorage.setItem("chelgy_member","1"); }catch{}
       }
       if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
+      if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
+      if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
+      if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
       if(m.business){ setMyBusiness(m.business); }
       if(m.bio){ setMyBio(m.bio); }
@@ -2326,13 +2457,7 @@ export default function ChelgyApp() {
     }
   },[appWeeklyPosts]);
 
-  // ─── Notify on level up ──────────────────────────────────────────────────────
-  const lastLevelRef = useRef(null);
-  useEffect(()=>{
-    const lvl = getLevel(myPoints);
-    if(lastLevelRef.current===null){ lastLevelRef.current = lvl.title; return; }
-    if(lvl.title !== lastLevelRef.current){ pushNotif("You leveled up — you're now "+lvl.title+"!"); lastLevelRef.current = lvl.title; }
-  },[myPoints]);
+  // (Level-up notifications removed — the task system replaces points/levels.)
 
   // ─── One-time low-credit warning ─────────────────────────────────────────────
   const lowWarnedRef = useRef(false);
@@ -2622,6 +2747,115 @@ export default function ChelgyApp() {
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
 
       {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");}catch(e){} setShowIntake(false);}} />}
+      {showPlan&&(
+        <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
+          <div style={{maxWidth:640,margin:"0 auto",padding:"32px 24px 60px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{width:32,height:1,background:B.gold}} />
+              {!planLoading&&<button onClick={()=>setShowPlan(false)} style={{background:"none",border:"none",cursor:"pointer",color:B.mid}}><Icons.X/></button>}
+            </div>
+            {planLoading?(
+              <div style={{textAlign:"center",padding:"70px 10px"}}>
+                <h2 style={{fontSize:23,fontFamily:"Georgia,serif",fontWeight:400,margin:"0 0 14px"}}>Building your plan…</h2>
+                <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.8,maxWidth:380,margin:"0 auto"}}>Chelgy is analyzing your business, checking your online presence, and looking at your competitors. This can take up to a minute — hang tight.</p>
+              </div>
+            ):(<>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:8,textTransform:"uppercase",fontWeight:700}}>Your Coach</div>
+              <h2 style={{fontSize:26,fontFamily:"Georgia,serif",fontWeight:400,margin:"0 0 20px"}}>Your Business Plan</h2>
+              <Md text={plan} />
+              <div style={{marginTop:30,display:"flex",flexDirection:"column",gap:10}}>
+                <Btn dark full onClick={()=>{setShowPlan(false);if(!aiQ.trim())setAiQ("Walk me through the first step of my roadmap and exactly how to do it.");goTab("community","advisor");}}>ASK THE ADVISOR ABOUT THIS</Btn>
+                <Btn outline full onClick={()=>{setShowPlan(false);setShowIntake(true);}}>REBUILD MY PLAN</Btn>
+                <Btn full onClick={()=>setShowPlan(false)}>CLOSE</Btn>
+              </div>
+            </>)}
+          </div>
+        </div>
+      )}
+      {showGreeting&&(()=>{ const hero=bigTasks.find(t=>!t.done); const dailies=dailyTasksFor(todayStr()); return (
+        <div onClick={()=>setShowGreeting(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:B.white,width:"100%",maxWidth:600,padding:"32px 26px 36px",position:"relative",maxHeight:"86vh",overflowY:"auto"}}>
+            <button onClick={()=>setShowGreeting(false)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",cursor:"pointer",color:B.mid}}><Icons.X/></button>
+            <div style={{width:32,height:1,background:B.gold,marginBottom:16}} />
+            <h2 style={{fontSize:23,fontFamily:"Georgia,serif",fontWeight:400,margin:"0 0 4px"}}>Welcome back{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",letterSpacing:"0.01em"}}>Here are your tasks for today.</p>
+            {hero&&(
+              <div style={{background:B.charcoal,padding:"20px 22px",marginBottom:16}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:B.gold,fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Today's Highest-Impact Task</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:19,color:"#fff",lineHeight:1.3,marginBottom:10}}>{hero.title}</div>
+                {hero.detail&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:12}}>{hero.detail}</div>}
+                <div style={{display:"flex",gap:22}}>
+                  {hero.time&&<div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Time</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#fff"}}>{hero.time}</div></div>}
+                  <div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:B.gold,fontSize:12}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
+                </div>
+                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:B.gold,color:"#111",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
+              </div>
+            )}
+            <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",marginBottom:12}}>Today's Quick Wins</div>
+            <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:24}}>
+              {dailies.map(t=>(
+                <div key={t.id} style={{display:"flex",gap:10,alignItems:"center",fontFamily:"sans-serif",fontSize:13,color:dailyDone[t.id]?B.mid:B.charcoal}}>
+                  <span style={{color:dailyDone[t.id]?B.green:B.stone}}>{dailyDone[t.id]?"✓":"○"}</span>
+                  <span style={{textDecoration:dailyDone[t.id]?"line-through":"none"}}>{t.title}</span>
+                </div>
+              ))}
+            </div>
+            <Btn dark full onClick={()=>{setShowGreeting(false);setShowTasks(true);}}>OPEN MY TASKS</Btn>
+            <button onClick={()=>setShowGreeting(false)} style={{width:"100%",background:"none",border:"none",padding:"12px",marginTop:4,fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>MAYBE LATER</button>
+          </div>
+        </div>
+      ); })()}
+      {showTasks&&(()=>{ const dailies=dailyTasksFor(todayStr()); return (
+        <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
+          <div style={{maxWidth:620,margin:"0 auto",padding:"32px 24px 60px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div><div style={{width:32,height:1,background:B.gold,marginBottom:14}} /><h2 style={{fontSize:25,fontFamily:"Georgia,serif",fontWeight:400,margin:0}}>Your Tasks</h2></div>
+              <button onClick={()=>setShowTasks(false)} style={{background:"none",border:"none",cursor:"pointer",color:B.mid,marginTop:4}}><Icons.X/></button>
+            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",margin:"22px 0 10px"}}>From Your Roadmap</div>
+            {bigTasks.length===0 ? (
+              <div style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.7}}>Your roadmap tasks appear here once you build your plan. <button onClick={()=>{setShowTasks(false);setShowIntake(true);}} style={{background:"none",border:"none",color:B.gold,cursor:"pointer",textDecoration:"underline",fontFamily:"sans-serif",fontSize:13,padding:0}}>Build my plan</button></div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+                {bigTasks.map(t=>(
+                  <div key={t.id} style={{background:t.done?B.offwhite:B.white,padding:"16px 18px"}}>
+                    <div onClick={()=>toggleBigTask(t.id)} style={{display:"flex",gap:13,alignItems:"flex-start",cursor:"pointer"}}>
+                      <span style={{color:t.done?B.green:B.stone,fontSize:18,lineHeight:1,marginTop:1}}>{t.done?"✓":"○"}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"sans-serif",fontWeight:700,fontSize:13,color:t.done?B.mid:B.charcoal,textDecoration:t.done?"line-through":"none",marginBottom:3}}>{t.title}</div>
+                        {t.detail&&<div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.5}}>{t.detail}</div>}
+                        <div style={{display:"flex",gap:14,marginTop:6,alignItems:"center"}}>
+                          {t.time&&<span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{t.time}</span>}
+                          <span style={{color:B.gold,fontSize:10}}>{"★".repeat(t.impact)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {t.tool&&!t.done&&<button onClick={()=>openTool(t.tool)} style={{marginTop:12,marginLeft:31,background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"7px 13px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[t.tool].toUpperCase()} →</button>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",margin:"26px 0 10px"}}>Today's Quick Wins</div>
+            <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+              {dailies.map(t=>(
+                <div key={t.id} style={{background:dailyDone[t.id]?B.offwhite:B.white,padding:"14px 18px"}}>
+                  <div onClick={()=>toggleDaily(t.id)} style={{display:"flex",gap:13,alignItems:"center",cursor:"pointer"}}>
+                    <span style={{color:dailyDone[t.id]?B.green:B.stone,fontSize:18}}>{dailyDone[t.id]?"✓":"○"}</span>
+                    <span style={{flex:1,fontFamily:"sans-serif",fontSize:13,color:dailyDone[t.id]?B.mid:B.charcoal,textDecoration:dailyDone[t.id]?"line-through":"none"}}>{t.title}</span>
+                  </div>
+                  {t.tool&&!dailyDone[t.id]&&<button onClick={()=>openTool(t.tool)} style={{marginTop:10,marginLeft:31,background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"6px 12px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[t.tool].toUpperCase()} →</button>}
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:28}}><Btn dark full onClick={()=>setShowTasks(false)}>DONE</Btn></div>
+          </div>
+        </div>
+      ); })()}
+      {celebrate&&(
+        <div style={{position:"fixed",bottom:96,left:"50%",transform:"translateX(-50%)",zIndex:10000,background:B.charcoal,color:"#fff",padding:"12px 22px",fontFamily:"sans-serif",fontSize:13,letterSpacing:"0.02em",boxShadow:"0 6px 24px rgba(0,0,0,0.3)",whiteSpace:"nowrap"}}>
+          <span style={{color:B.gold,marginRight:8}}>✓</span>{celebrate}
+        </div>
+      )}
       {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onSubscribe={()=>{setShowPaywall(false);startUpgrade();}} />}
       {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
       {showCredits&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
@@ -2697,14 +2931,34 @@ export default function ChelgyApp() {
                   <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
                 </div>
               </div>
+              {/* Your plan / build-plan card */}
+              {plan ? (
+                <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                  <div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Coach</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3}}>Your Business Plan &amp; Roadmap</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>Tap to view your personalized plan and next steps.</div>
+                  </div>
+                  <Icons.ChevronRight />
+                </button>
+              ) : (
+                <button onClick={()=>setShowIntake(true)} style={{width:"100%",textAlign:"left",background:B.charcoal,border:"none",padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                  <div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3,color:"#fff"}}>Build your business plan &amp; roadmap</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",letterSpacing:"0.01em"}}>Answer a few questions and Chelgy builds your personalized plan.</div>
+                  </div>
+                  <span style={{color:B.gold}}><Icons.ChevronRight /></span>
+                </button>
+              )}
               {/* Points card + quick actions */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2}}>
-                <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Your Points</div>
-                  <div style={{fontSize:34,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:12}}>{myPoints}</div>
-                  <LvBadge points={myPoints} />
-                  <div style={{marginTop:14}}><PBar points={myPoints} /></div>
-                </div>
+                <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Today's Tasks</div>
+                  <div style={{fontSize:34,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:4}}>{bigTasks.filter(t=>t.done).length+Object.keys(dailyDone).filter(k=>k.indexOf("daily-"+todayStr())===0).length}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:14}}>completed today</div>
+                  <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.04em",fontWeight:700}}>View my tasks →</span>
+                </button>
                 <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase"}}>Quick Actions</div>
                   {[["Browse strategies","learn","strategies"],["Ask AI Advisor","community","advisor"],["Open Tools Hub","tools","hub"]].map(([l,t,s])=>(
@@ -3182,7 +3436,6 @@ export default function ChelgyApp() {
                         <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{m.business}</div>
                       </div>
                     </div>
-                    <LvBadge points={m.points} small />
                     {m.bio&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"9px 0 0",lineHeight:1.55}}>{m.bio}</p>}
                   </div>
                 ))}
@@ -3227,10 +3480,9 @@ export default function ChelgyApp() {
                     </div>
                     <div>
                       <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:5}}>{myName}</div>
-                      <LvBadge points={myPoints} />
+                      <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,letterSpacing:"0.04em"}}>{isTrial?"Free (Explore)":"Member"}</div>
                     </div>
                   </div>
-                  <div style={{marginBottom:18}}><PBar points={myPoints} /></div>
                   {!editingProfile?(
                     <div>
                       <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 4px"}}>{myBusiness}</p>
