@@ -499,7 +499,7 @@ function Onboarding({ onTrial, onSubscribe }) {
         {s.isFinal?(
           <>
             <button onClick={onSubscribe} style={{width:"100%",maxWidth:340,background:"#ffffff",color:"#000",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>GET STARTED</button>
-            <button onClick={onSubscribe} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.4)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer"}}>START FREE TRIAL NOW — $100/MO</button>
+            <button onClick={onTrial} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.4)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer"}}>START FREE TRIAL</button>
           </>
         ):(
           <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:B.gold,color:"#111",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
@@ -678,7 +678,8 @@ const Upsell = ({ variant="both" }) => {
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{} }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{} }) {
+  const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
@@ -791,6 +792,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <button onClick={onBuyCredits} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark}}>TOP UP</button>
         </div>
       </div>
+      {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Free trial — preview mode. Explore every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
       {tool==="content"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Content Writer</h2>
@@ -806,7 +808,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <Fl label="Target Keyword(s)"><Si value={cKeyword} onChange={e=>setCKeyword(e.target.value)} placeholder="e.g. email marketing for small business" /></Fl>
           </div>}
           <Fl label="Tone"><Ss value={cTone} onChange={e=>setCTone(e.target.value)}>{["Confident & Direct","Warm & Conversational","Funny & Relatable","Professional & Expert","Bold & Hype","Educational & Informative"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
-          <Btn dark disabled={cLoad||!cBiz.trim()||!cTopic.trim()} onClick={genC}>{cLoad?"GENERATING...":cType==="seo"?"GENERATE SEO CONTENT":"GENERATE CONTENT"}</Btn>
+          <Btn dark disabled={cLoad||!cBiz.trim()||!cTopic.trim()} onClick={act(genC)}>{cLoad?"GENERATING...":cType==="seo"?"GENERATE SEO CONTENT":"GENERATE CONTENT"}</Btn>
         </Card>
         <Rb label={cType==="seo"?"SEO-Optimized Content":"Generated Content"} content={cRes} loading={cLoad} />
       </div>}
@@ -829,7 +831,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
-          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={()=>{if(useCredits("image"))genI();}}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE (120 credits)"}</Btn>
+          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={act(()=>{if(useCredits("image"))genI();})}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE (120 credits)"}</Btn>
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
@@ -856,8 +858,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <Fl label="Goal"><Ss value={vGoal} onChange={e=>setVGoal(e.target.value)}>{["Brand awareness","Lead generation","Sales / Conversions","Education / Value","Entertainment","Product showcase"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           </div>}
           {vType==="generate"
-            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={()=>{if(useCredits("video"))genVid();}}>{vVidLoad?"GENERATING VIDEO...":"GENERATE VIDEO (500 credits)"}</Btn>
-            : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={genV}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
+            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{if(useCredits("video"))genVid();})}>{vVidLoad?"GENERATING VIDEO...":"GENERATE VIDEO (500 credits)"}</Btn>
+            : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={act(genV)}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
         </Card>
         {vType==="generate"
           ? <div>
@@ -882,7 +884,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <Card style={{padding:"22px",marginBottom:14}}>
           <Fl label="Voice"><Ss value={voVoice} onChange={e=>setVoVoice(e.target.value)}>{[["JBFqnCBsd6RMkjVDRZzb","George — warm, narration"],["21m00Tcm4TlvDq8ikWAM","Rachel — calm, friendly"],["EXAVITQu4vr4xnSDxMaL","Bella — soft, expressive"],["pNInz6obpgDQGcFmaJgB","Adam — deep, confident"],["ErXwobaYiN019PkySvjV","Antoni — smooth, upbeat"],["yoZ06aMxZJJ28mfd3POQ","Sam — energetic, casual"]].map(([id,l])=><option key={id} value={id}>{l}</option>)}</Ss></Fl>
           <Fl label="Script / Text"><St value={voText} onChange={e=>setVoText(e.target.value)} placeholder="Paste the script you want spoken... (e.g. your reel hook or ad copy)" rows={5} /></Fl>
-          <Btn dark disabled={voLoad||!voText.trim()} onClick={()=>{if(useCredits("voiceover"))genVoice();}}>{voLoad?"GENERATING VOICEOVER...":"GENERATE VOICEOVER (150 credits)"}</Btn>
+          <Btn dark disabled={voLoad||!voText.trim()} onClick={act(()=>{if(useCredits("voiceover"))genVoice();})}>{voLoad?"GENERATING VOICEOVER...":"GENERATE VOICEOVER (150 credits)"}</Btn>
         </Card>
         <div>
           {voLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em"}}>Creating your voiceover — this usually takes a few seconds...</div></div>}
@@ -898,7 +900,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Your Business"><Si value={vbBiz} onChange={e=>setVbBiz(e.target.value)} placeholder="e.g. Tampa knotless braids salon, handmade candle shop..." /></Fl>
           <Fl label="What do you want a video about? (optional)"><St value={vbIdea} onChange={e=>setVbIdea(e.target.value)} placeholder="e.g. Promote my summer collection — or leave blank and we'll suggest ideas for you" rows={3} /></Fl>
           <Fl label="Platform"><Ss value={vbPlat} onChange={e=>setVbPlat(e.target.value)}>{["TikTok","Instagram Reels","YouTube Shorts","Facebook Reels"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
-          <Btn dark disabled={vbLoad||!vbBiz.trim()} onClick={genViral}>{vbLoad?"FINDING YOUR VIRAL ANGLE...":"GENERATE VIRAL PLAN"}</Btn>
+          <Btn dark disabled={vbLoad||!vbBiz.trim()} onClick={act(genViral)}>{vbLoad?"FINDING YOUR VIRAL ANGLE...":"GENERATE VIRAL PLAN"}</Btn>
         </Card>
         <Rb label="Your Viral Video Plan" content={vbRes} loading={vbLoad} />
         <Upsell variant="services" />
@@ -911,7 +913,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Your Business"><Si value={grBiz} onChange={e=>setGrBiz(e.target.value)} placeholder="e.g. Woman-owned hair salon, eco-friendly candle startup..." /></Fl>
           <Fl label="Location (city, state/country)"><Si value={grLoc} onChange={e=>setGrLoc(e.target.value)} placeholder="e.g. Tampa, Florida, USA" /></Fl>
           <Fl label="Anything else that might help? (optional)"><St value={grDetails} onChange={e=>setGrDetails(e.target.value)} placeholder="e.g. minority-owned, veteran, business under 2 years old, need equipment funding" rows={3} /></Fl>
-          <Btn dark disabled={grLoad||!grBiz.trim()} onClick={genGrants}>{grLoad?"SEARCHING FOR GRANTS...":"FIND GRANTS"}</Btn>
+          <Btn dark disabled={grLoad||!grBiz.trim()} onClick={act(genGrants)}>{grLoad?"SEARCHING FOR GRANTS...":"FIND GRANTS"}</Btn>
           {grLoad&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"12px 0 0",letterSpacing:"0.01em"}}>Searching the web — this can take 20-40 seconds. Hang tight.</p>}
         </Card>
         <Rb label="Grants You Might Qualify For" content={grRes} loading={grLoad} />
@@ -932,7 +934,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <Fl label="Platform"><Ss value={adPlat} onChange={e=>setAdPlat(e.target.value)}>{["Facebook & Instagram","TikTok","Facebook only","Instagram only","All platforms"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Goal"><Ss value={adGoal} onChange={e=>setAdGoal(e.target.value)}>{["Sales / conversions","More bookings / leads","Brand awareness","Website traffic","Followers / engagement"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           </div>
-          <Btn dark disabled={adLoad||!adBiz.trim()} onClick={genAd}>{adLoad?"BUILDING YOUR CAMPAIGN...":"BUILD MY AD CAMPAIGN"}</Btn>
+          <Btn dark disabled={adLoad||!adBiz.trim()} onClick={act(genAd)}>{adLoad?"BUILDING YOUR CAMPAIGN...":"BUILD MY AD CAMPAIGN"}</Btn>
         </Card>
         <Rb label="Your Ad Campaign Plan" content={adRes} loading={adLoad} />
         <Upsell variant="services" />
@@ -945,7 +947,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Your Business Name"><Si value={auBiz} onChange={e=>setAuBiz(e.target.value)} placeholder="e.g. Chelgy Marketing" /></Fl>
           <Fl label="Website (optional but helps)"><Si value={auSite} onChange={e=>setAuSite(e.target.value)} placeholder="e.g. chelgy.com" /></Fl>
           <Fl label="Competitors to compare against (optional)"><St value={auComp} onChange={e=>setAuComp(e.target.value)} placeholder="Name any competitors you know — we'll find more for you" rows={2} /></Fl>
-          <Btn dark disabled={auLoad||(!auBiz.trim()&&!auSite.trim())} onClick={genAudit}>{auLoad?"ANALYZING YOUR BUSINESS...":"RUN MY AUDIT"}</Btn>
+          <Btn dark disabled={auLoad||(!auBiz.trim()&&!auSite.trim())} onClick={act(genAudit)}>{auLoad?"ANALYZING YOUR BUSINESS...":"RUN MY AUDIT"}</Btn>
           {auLoad&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"12px 0 0",letterSpacing:"0.01em"}}>Searching the web and your competitors — this can take 20-40 seconds.</p>}
         </Card>
         <Rb label="Your Business Audit" content={auRes} loading={auLoad} />
@@ -962,13 +964,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {bStage!==null&&<div style={{marginBottom:28}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase",fontWeight:700}}>Your Action Plan</div>
           <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
-            {BIZ[bStage].steps.map((step,i)=>(
+            {BIZ[bStage].steps.slice(0,locked?5:BIZ[bStage].steps.length).map((step,i)=>(
               <div key={i} style={{background:B.white,padding:"16px 18px",display:"flex",gap:14,alignItems:"flex-start"}}>
                 <div style={{width:22,height:22,border:"1px solid "+B.gold,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.gold}}>{i+1}</span></div>
                 <div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,marginBottom:5,letterSpacing:"0.02em"}}>{step.title}</div><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7}}>{step.desc}</div></div>
               </div>
             ))}
           </div>
+          {locked&&BIZ[bStage].steps.length>5&&<div style={{marginTop:14,background:B.offwhite,border:"1px dashed "+B.stone,padding:"14px 16px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:10,lineHeight:1.6}}>{BIZ[bStage].steps.length-5} more steps in this plan are unlocked with membership.</div><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 18px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK FULL PLAN</button></div>}
         </div>}
         <div style={{borderTop:"1px solid "+B.stone,paddingTop:24}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:4,textTransform:"uppercase",fontWeight:700}}>AI Business Coach</div>
@@ -979,7 +982,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               <Fl label="Niche (optional)"><Si value={bNiche} onChange={e=>setBNiche(e.target.value)} placeholder="e.g. handmade jewelry" /></Fl>
             </div>
             <Fl label="Your Question"><St value={bQ} onChange={e=>setBQ(e.target.value)} placeholder="e.g. How do I get my first 10 clients? What should I charge?" rows={3} /></Fl>
-            <Btn dark disabled={bLoad||!bQ.trim()} onClick={askB}>{bLoad?"THINKING...":"GET ADVICE"}</Btn>
+            <Btn dark disabled={bLoad||!bQ.trim()} onClick={act(askB)}>{bLoad?"THINKING...":"GET ADVICE"}</Btn>
           </Card>
           <Rb label="Business Coach Answer" content={bA} loading={bLoad} />
         </div>
@@ -989,6 +992,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       {tool==="dropshipping"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Dropshipping Directory</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 18px",letterSpacing:"0.02em"}}>12 trusted suppliers, all vetted and ready to use.</p>
+        {locked ? (
+          <div style={{background:B.offwhite,border:"1px dashed "+B.stone,padding:"32px 20px",textAlign:"center"}}>
+            <div style={{color:B.stone,marginBottom:14,display:"flex",justifyContent:"center"}}><Icons.Lock /></div>
+            <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,fontWeight:700,marginBottom:6}}>Supplier directory is members-only</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:"0 auto 16px",maxWidth:340}}>Upgrade to unlock all 12 vetted suppliers with direct links, shipping times, and honest notes.</p>
+            <button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK SUPPLIERS</button>
+          </div>
+        ) : (<>
         <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:18}}>
           {dNiches.map(n=><button key={n} onClick={()=>setDFilt(n)} style={{background:"none",color:dFilt===n?B.charcoal:B.mid,border:"none",borderBottom:dFilt===n?"1px solid "+B.charcoal:"1px solid transparent",padding:"6px 4px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:dFilt===n?700:400}}>{n}</button>)}
         </div>
@@ -1013,6 +1024,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <div style={{fontWeight:700,marginBottom:6,color:B.goldDark,fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase"}}>Quick Tips</div>
           Always order samples before selling. Start with 3-5 products max. For fast US shipping use Spocket or Zendrop. For print on demand use Printful or Printify.
         </div>
+        </>)}
       </div>}
 
       {tool==="platforms"&&selP===null&&<div>
@@ -1237,8 +1249,16 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     setDbLoading(true);
     const strats = await sbFetch("strategies");
     const weekly = await sbFetch("weekly_posts");
-    if (strats && strats.length > 0) setStrategies(prev=>[...strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new})),...prev]);
-    if (weekly && weekly.length > 0) setWeeklyPosts(prev=>[...weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]})),...prev]);
+    if (strats && strats.length > 0) setStrategies(prev=>{
+      const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new}));
+      const ids = new Set(mapped.map(x=>x.id));
+      return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
+    });
+    if (weekly && weekly.length > 0) setWeeklyPosts(prev=>{
+      const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]}));
+      const ids = new Set(mapped.map(x=>x.id));
+      return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
+    });
     const help = await fetchHelpRequests();
     if (help && help.length > 0) {
       setHelpReqs(help);
@@ -1591,6 +1611,22 @@ export default function ChelgyApp() {
   }
   const [appStrategies, setAppStrategies] = useState(strategies);
   const [appWeeklyPosts, setAppWeeklyPosts] = useState(weeklyPosts);
+  useEffect(()=>{
+    (async()=>{
+      const strats = await sbFetch("strategies");
+      if (strats && strats.length>0) setAppStrategies(prev=>{
+        const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new}));
+        const ids = new Set(mapped.map(x=>x.id));
+        return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
+      });
+      const weekly = await sbFetch("weekly_posts");
+      if (weekly && weekly.length>0) setAppWeeklyPosts(prev=>{
+        const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]}));
+        const ids = new Set(mapped.map(x=>x.id));
+        return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
+      });
+    })();
+  },[]);
   const [isTrial, setIsTrial] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [signupStep, setSignupStep] = useState(1);
@@ -1895,7 +1931,7 @@ export default function ChelgyApp() {
   const subTabs = {
     home: [["feed","Feed"],["leaderboard","Top Members"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["weekly","Weekly Updates"]],
-    tools: [["hub","All Tools"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["voiceover","Voiceover Studio"],["business","Business Builder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
     profile: [["overview","Overview"],["stats","Stats"]],
   };
@@ -2413,17 +2449,7 @@ export default function ChelgyApp() {
           )}
 
           {/* ═══ TOOLS ═══ */}
-          {tab==="tools"&&isTrial&&(
-            <div style={{paddingTop:60,textAlign:"center",maxWidth:440,margin:"0 auto"}}>
-              <div style={{color:B.stone,marginBottom:20,display:"flex",justifyContent:"center"}}><Icons.Lock /></div>
-              <div style={{width:24,height:1,background:B.gold,margin:"0 auto 16px"}} />
-              <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 12px"}}>AI Tools Suite — Members Only</h2>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:"0 auto 26px",letterSpacing:"0.01em"}}>All 12 AI tools included with your Chelgy membership — content writer, image creator, video studio, viral video generator, ad campaign builder, business builder, and more.</p>
-              <Btn dark onClick={()=>setShowPaywall(true)}>UNLOCK ALL TOOLS</Btn>
-            </div>
-          )}
-
-          {tab==="tools"&&!isTrial&&subTab==="hub"&&(
+          {tab==="tools"&&subTab==="hub"&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
@@ -2442,13 +2468,13 @@ export default function ChelgyApp() {
             </div>
           )}
 
-          {tab==="tools"&&!isTrial&&subTab!=="hub"&&subTab!=="launch"&&(
+          {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} />
+              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} />
             </div>
           )}
 
-          {tab==="tools"&&!isTrial&&subTab==="launch"&&(
+          {tab==="tools"&&subTab==="launch"&&(
             <div style={{paddingTop:28}}>
               <button onClick={()=>setSubTab("hub")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:24,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
                 <Icons.ChevronLeft /> Back
@@ -2497,7 +2523,7 @@ export default function ChelgyApp() {
                       </div>
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>setLaunchStep(2)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
-                        <button onClick={generateLaunchPackage} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>GENERATE MY LAUNCH PACKAGE</button>
+                        <button onClick={()=>{if(isTrial){setShowPaywall(true);return;}generateLaunchPackage();}} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>GENERATE MY LAUNCH PACKAGE</button>
                       </div>
                     </Card>
                   )}
