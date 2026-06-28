@@ -81,6 +81,22 @@ async function patchByEmail(table, email, body) {
   } catch { return false; }
 }
 
+// ─── Local persistence helpers ───────────────────────────────────────────────
+function lsGetNum(k, d){ try { const v = localStorage.getItem(k); return v===null ? d : (Number(v) || d); } catch { return d; } }
+function lsGetJSON(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch {} }
+
+// Fetch a single member row by email (authoritative server copy of credits/points/progress)
+async function getMemberByEmail(email){
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/members?select=*&email=eq." + encodeURIComponent(email), {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+    });
+    const d = await res.json();
+    return Array.isArray(d) && d[0] ? d[0] : null;
+  } catch { return null; }
+}
+
 // Admin-only: read help requests through a private server function (keeps user emails non-public)
 async function fetchHelpRequests() {
   try {
@@ -1881,25 +1897,19 @@ export default function ChelgyApp() {
   const [search, setSearch] = useState("");
 
   // Member state
-  const [myPoints, setMyPoints] = useState(127);
+  const [myPoints, setMyPoints] = useState(()=>lsGetNum("chelgy_points", 0));
   const [myName, setMyName] = useState("You");
-  const [myBusiness, setMyBusiness] = useState("Marketing Pro");
-  const [myBio, setMyBio] = useState("Member since June 2026.");
-  const [completedChallenges, setCompletedChallenges] = useState([]);
+  const [myBusiness, setMyBusiness] = useState(()=>{ try { return localStorage.getItem("chelgy_business")||""; } catch { return ""; } });
+  const [myBio, setMyBio] = useState(()=>{ try { return localStorage.getItem("chelgy_bio")||""; } catch { return ""; } });
+  const [completedChallenges, setCompletedChallenges] = useState(()=>lsGetJSON("chelgy_completed", []));
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({});
 
   // Notifications
-  const [notifications, setNotifications] = useState([
-    {id:1,text:"Marcus T. replied to your post",time:"2 min ago",read:false},
-    {id:2,text:"Your post got 5 upvotes!",time:"1 hour ago",read:false},
-    {id:3,text:"New weekly update published",time:"3 hours ago",read:false},
-    {id:4,text:"Angela K. upvoted your reply",time:"Yesterday",read:true},
-    {id:5,text:"7-Day Content Sprint starts tomorrow",time:"Yesterday",read:true},
-  ]);
+  const [notifications, setNotifications] = useState(()=>lsGetJSON("chelgy_notifs", []));
   const [showNotifs, setShowNotifs] = useState(false);
   const [showReview, setShowReview] = useState(false);
-  const [credits, setCredits] = useState(STARTING_CREDITS);
+  const [credits, setCredits] = useState(()=>lsGetNum("chelgy_credits", STARTING_CREDITS));
   const [showCredits, setShowCredits] = useState(false);
   const [creditError, setCreditError] = useState("");
 
@@ -1928,8 +1938,8 @@ export default function ChelgyApp() {
   const [forumReplyName, setForumReplyName] = useState("");
   const [showNewPost, setShowNewPost] = useState(false);
   const [newPost, setNewPost] = useState({ title:"", body:"", cat:"questions" });
-  const [upvoted, setUpvoted] = useState({});
-  const [rsvpd, setRsvpd] = useState({});
+  const [upvoted, setUpvoted] = useState(()=>lsGetJSON("chelgy_upvoted", {}));
+  const [rsvpd, setRsvpd] = useState(()=>lsGetJSON("chelgy_rsvpd", {}));
   const [emailSub, setEmailSub] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [subSending, setSubSending] = useState(false);
@@ -2103,6 +2113,79 @@ export default function ChelgyApp() {
     }
   },[]);
 
+  // ─── Persist everything locally so nothing resets on refresh ─────────────────
+  useEffect(()=>{ lsSet("chelgy_credits", credits); },[credits]);
+  useEffect(()=>{ lsSet("chelgy_points", myPoints); },[myPoints]);
+  useEffect(()=>{ lsSet("chelgy_completed", completedChallenges); },[completedChallenges]);
+  useEffect(()=>{ lsSet("chelgy_upvoted", upvoted); },[upvoted]);
+  useEffect(()=>{ lsSet("chelgy_rsvpd", rsvpd); },[rsvpd]);
+  useEffect(()=>{ lsSet("chelgy_notifs", notifications); },[notifications]);
+  useEffect(()=>{ if(myBusiness) lsSet("chelgy_business", myBusiness); },[myBusiness]);
+  useEffect(()=>{ if(myBio) lsSet("chelgy_bio", myBio); },[myBio]);
+
+  // ─── Sync credits + points + progress to the member's server record (debounced) ─
+  const syncTimer = useRef(null);
+  useEffect(()=>{
+    if(!(user && user.email)) return;
+    if(syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(()=>{
+      patchByEmail("members", user.email, { credits, points: myPoints, progress: { completedChallenges, upvoted, rsvpd } });
+    }, 1500);
+    return ()=>{ if(syncTimer.current) clearTimeout(syncTimer.current); };
+  },[credits, myPoints, completedChallenges, upvoted, rsvpd, user]);
+
+  // ─── Add a notification (newest first) and persist it ────────────────────────
+  const pushNotif = (text) => setNotifications(ns => [{ id: Date.now()+Math.floor(Math.random()*1000), text, time:"Just now", read:false }, ...ns].slice(0,30));
+
+  // ─── On login: pull authoritative credits/points/profile from the server ─────
+  useEffect(()=>{
+    if(!(user && user.email)) return;
+    let cancelled = false;
+    getMemberByEmail(user.email).then(m=>{
+      if(cancelled || !m) return;
+      if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
+      if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
+      if(m.business){ setMyBusiness(m.business); }
+      if(m.bio){ setMyBio(m.bio); }
+      if(m.progress){
+        if(Array.isArray(m.progress.completedChallenges)) setCompletedChallenges(m.progress.completedChallenges);
+        if(m.progress.upvoted) setUpvoted(m.progress.upvoted);
+        if(m.progress.rsvpd) setRsvpd(m.progress.rsvpd);
+      }
+      let welcomed=false; try{ welcomed = localStorage.getItem("chelgy_welcomed")==="1"; }catch{}
+      if(!welcomed){ pushNotif("Welcome to Chelgy! Your membership is active — explore your tools and strategies."); try{ localStorage.setItem("chelgy_welcomed","1"); }catch{} }
+    });
+    return ()=>{ cancelled = true; };
+  },[user]);
+
+  // ─── Notify when a newer weekly update appears ───────────────────────────────
+  useEffect(()=>{
+    if(!appWeeklyPosts || !appWeeklyPosts.length) return;
+    const newestId = appWeeklyPosts[0].id;
+    let seen=null; try{ seen = localStorage.getItem("chelgy_lastWeeklyId"); }catch{}
+    if(seen===null){ try{ localStorage.setItem("chelgy_lastWeeklyId", String(newestId)); }catch{} return; }
+    if(String(newestId)!==seen){
+      pushNotif("New weekly update: "+cleanTitle(appWeeklyPosts[0].title));
+      try{ localStorage.setItem("chelgy_lastWeeklyId", String(newestId)); }catch{}
+    }
+  },[appWeeklyPosts]);
+
+  // ─── Notify on level up ──────────────────────────────────────────────────────
+  const lastLevelRef = useRef(null);
+  useEffect(()=>{
+    const lvl = getLevel(myPoints);
+    if(lastLevelRef.current===null){ lastLevelRef.current = lvl.title; return; }
+    if(lvl.title !== lastLevelRef.current){ pushNotif("You leveled up — you're now "+lvl.title+"!"); lastLevelRef.current = lvl.title; }
+  },[myPoints]);
+
+  // ─── One-time low-credit warning ─────────────────────────────────────────────
+  const lowWarnedRef = useRef(false);
+  useEffect(()=>{
+    if(isTrial) return;
+    if(credits < 1000 && !lowWarnedRef.current){ lowWarnedRef.current = true; pushNotif("Your credits are running low. Top up to keep creating."); }
+    if(credits >= 1000) lowWarnedRef.current = false;
+  },[credits, isTrial]);
+
   const startUpgrade = () => {
     let email = (user && user.email) || signupData.email || "";
     if (!email) { try { email = localStorage.getItem("chelgy_email") || ""; } catch {} }
@@ -2140,7 +2223,7 @@ export default function ChelgyApp() {
     }
     const s = saveSession(r.data || {});
     if (s) { setUser(s); setMyName(name.trim()||email.trim()); }
-    try { sbFetch("members","POST",{ name:name.trim(), email:email.trim(), status:"trial" }); } catch {}
+    try { sbFetch("members","POST",{ name:name.trim(), email:email.trim(), status:"trial", credits:STARTING_CREDITS, points:0 }); } catch {}
     track("signup_complete", { method: "email" });
     setSignupStep(2);
   };
@@ -2411,6 +2494,7 @@ export default function ChelgyApp() {
                     <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>Notifications</span>
                     <button onClick={()=>setNotifications(ns=>ns.map(n=>({...n,read:true})))} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.gold,letterSpacing:"0.06em"}}>Mark all read</button>
                   </div>
+                  {notifications.length===0&&<div style={{padding:"24px 16px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em"}}>You're all caught up.</div>}
                   {notifications.map(n=>(
                     <div key={n.id} onClick={()=>setNotifications(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} style={{padding:"11px 16px",borderBottom:"1px solid "+B.stone,background:n.read?B.white:B.goldLight,cursor:"pointer"}}>
                       <div style={{fontFamily:"sans-serif",fontSize:12,marginBottom:2}}>{n.text}</div>
