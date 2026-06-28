@@ -70,6 +70,34 @@ function loadSession() {
   try { const s = localStorage.getItem("chelgy_session"); return s ? JSON.parse(s) : null; } catch { return null; }
 }
 function clearSession() { try { localStorage.removeItem("chelgy_session"); } catch {} }
+
+// ─── Keep the login token fresh (Supabase tokens expire ~hourly) ─────────────
+function decodeExp(token){ try { const p = JSON.parse(atob(token.split(".")[1])); return p.exp ? p.exp * 1000 : 0; } catch { return 0; } }
+async function refreshSession(){
+  const s = loadSession();
+  if (!s || !s.refresh_token) return null;
+  try {
+    const res = await fetch(AUTH_URL + "/token?grant_type=refresh_token", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.access_token) return null;
+    const ns = { ...s, access_token: data.access_token, refresh_token: data.refresh_token || s.refresh_token };
+    if (data.user) { ns.id = data.user.id; ns.email = data.user.email; ns.name = (data.user.user_metadata && data.user.user_metadata.name) || ns.name; }
+    try { localStorage.setItem("chelgy_session", JSON.stringify(ns)); } catch {}
+    return ns.access_token;
+  } catch { return null; }
+}
+// Returns a valid (non-expired) access token, refreshing if needed, or null.
+async function freshToken(){
+  const s = loadSession();
+  if (!s || !s.access_token) return await refreshSession();
+  const exp = decodeExp(s.access_token);
+  if (exp && Date.now() > exp - 60000) return await refreshSession(); // expired or about to
+  return s.access_token;
+}
 async function patchByEmail(table, email, body) {
   try {
     const res = await fetch(SUPABASE_URL + "/rest/v1/" + table + "?email=eq." + encodeURIComponent(email), {
@@ -139,7 +167,7 @@ const ELEVENLABS_KEY = ""; // moved server-side to /api/voice (Vercel env: ELEVE
 // WaveSpeed video generation — runs through the secure backend (/api/video)
 async function generateVideo(prompt, image, opts) {
   try {
-    const s = loadSession(); const token = s && s.access_token;
+    const token = await freshToken();
     const res = await fetch("/api/video", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
@@ -168,7 +196,7 @@ async function pollVideo(taskId) {
 
 // ElevenLabs voiceover generation
 async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
-  const s = loadSession(); const token = s && s.access_token;
+  const token = await freshToken();
   const res = await fetch("/api/voice", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
@@ -408,7 +436,7 @@ async function callClaude(prompt, maxTokens, webSearch=false) {
 }
 
 async function generateGeminiImage(prompt, inputImage, aspectRatio, quality) {
-  const s = loadSession(); const token = s && s.access_token;
+  const token = await freshToken();
   const res = await fetch("/api/image", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
@@ -1200,12 +1228,12 @@ function CreditShop({ onClose, currentCredits, onPurchase }) {
     setBuyErr("");
     setPurchasing(true);
     try {
-      const s = loadSession();
-      if (!s || !s.access_token) { setBuyErr("Please log in before purchasing."); setPurchasing(false); return; }
+      const token = await freshToken();
+      if (!token) { setBuyErr("Please log in before purchasing."); setPurchasing(false); return; }
       const res = await fetch("/api/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack_id: pack.id, access_token: s.access_token })
+        body: JSON.stringify({ pack_id: pack.id, access_token: token })
       });
       const d = await res.json();
       if (d && d.url) { window.location.href = d.url; return; } // off to Stripe
@@ -2192,7 +2220,7 @@ export default function ChelgyApp() {
   useEffect(()=>{
     if(!(user && user.email)) return;
     let cancelled = false;
-    getMyMember(user.access_token, user.id).then(m=>{
+    freshToken().then(tok=> tok ? getMyMember(tok, user.id) : null).then(m=>{
       if(cancelled || !m) return;
       if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
