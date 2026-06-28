@@ -97,6 +97,28 @@ async function getMemberByEmail(email){
   } catch { return null; }
 }
 
+// Read/write the logged-in member's OWN row using their login token (works
+// under the new Row Level Security rules; credits are read-only here).
+async function getMyMember(token, uid){
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/members?select=*&user_id=eq." + uid, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token }
+    });
+    const d = await res.json();
+    return Array.isArray(d) && d[0] ? d[0] : null;
+  } catch { return null; }
+}
+async function patchMyMember(token, uid, body){
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/members?user_id=eq." + uid, {
+      method: "PATCH",
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token, "Content-Type": "application/json", "Prefer": "return=minimal" },
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 // Admin-only: read help requests through a private server function (keeps user emails non-public)
 async function fetchHelpRequests() {
   try {
@@ -117,12 +139,13 @@ const ELEVENLABS_KEY = ""; // moved server-side to /api/voice (Vercel env: ELEVE
 // WaveSpeed video generation — runs through the secure backend (/api/video)
 async function generateVideo(prompt, image, opts) {
   try {
+    const s = loadSession(); const token = s && s.access_token;
     const res = await fetch("/api/video", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
       body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p", duration: (opts&&opts.duration)||5, audio: opts&&opts.audio!==false })
     });
-    return await res.json();
+    return await res.json(); // { id, balance } or { error }
   } catch { return { error: "Couldn't reach the video service." }; }
 }
 
@@ -145,9 +168,10 @@ async function pollVideo(taskId) {
 
 // ElevenLabs voiceover generation
 async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
+  const s = loadSession(); const token = s && s.access_token;
   const res = await fetch("/api/voice", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
     body: JSON.stringify({ text, voiceId })
   });
   if (!res.ok) {
@@ -155,8 +179,10 @@ async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
     try { const d = await res.json(); msg = d.error || msg; } catch (_) {}
     throw new Error(msg);
   }
+  const balHeader = res.headers.get("X-Credits-Balance");
+  const balance = balHeader !== null ? Number(balHeader) : null;
   const blob = await res.blob();
-  return URL.createObjectURL(blob);
+  return { url: URL.createObjectURL(blob), balance };
 }
 
 // ─── ANALYTICS ───────────────────────────────────────────────────────────────
@@ -382,14 +408,15 @@ async function callClaude(prompt, maxTokens, webSearch=false) {
 }
 
 async function generateGeminiImage(prompt, inputImage, aspectRatio, quality) {
+  const s = loadSession(); const token = s && s.access_token;
   const res = await fetch("/api/image", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
     body: JSON.stringify({ prompt, inputImage: inputImage || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard" }),
   });
   const d = await res.json();
   if (!d.image) throw new Error(d.error || "No image");
-  return d.image;
+  return d; // { image, balance }
 }
 
 // ─── SVG ICONS (line art, no fill) ───────────────────────────────────────────
@@ -754,7 +781,7 @@ const Upsell = ({ variant="both" }) => {
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{} }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{} }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
@@ -797,8 +824,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     let inputImage=null;
     if(iType==="ad"&&iUpload&&/^data:(.*?);base64,/.test(iUpload)){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImage={mimeType:m[1],data:m[2]};}
     try{
-      const img=await generateGeminiImage(p,inputImage,iAspect,iQuality);
-      setIRes(img);
+      const r=await generateGeminiImage(p,inputImage,iAspect,iQuality);
+      setIRes(r.image);
+      if(typeof r.balance==="number") onBalance(r.balance);
     }catch(e){setIErr(e&&e.message?("Image error: "+e.message):"Couldn't create the image. Please try again.");}
     setILoad(false);
   }
@@ -810,9 +838,10 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     try{
       const started=await generateVideo(vTopic,vVidUpload||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
       if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
+      if(typeof started.balance==="number") onBalance(started.balance);
       setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
       const url=await pollVideo(started.id);
-      if(!url){setVVidErr("The video didn't finish in time. Please try again.");setVVidLoad(false);setVVidStatus("");return;}
+      if(!url){setVVidErr("The video didn't finish in time. Your credits were refunded.");if(typeof started.balance==="number") onBalance(started.balance+vidCost());setVVidLoad(false);setVVidStatus("");return;}
       setVVidUrl(url);setVVidStatus("");
     }catch(e){setVVidErr("Something went wrong while generating the video. Please try again.");}
     setVVidLoad(false);
@@ -825,9 +854,10 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"voiceover"});
     setVoLoad(true);setVoUrl("");setVoErr("");
     try{
-      const url=await generateVoiceover(voText,voVoice);
-      if(!url){setVoErr("Couldn't generate the voiceover. Please try again in a moment.");setVoLoad(false);return;}
-      setVoUrl(url);
+      const out=await generateVoiceover(voText,voVoice);
+      if(!out||!out.url){setVoErr("Couldn't generate the voiceover. Please try again in a moment.");setVoLoad(false);return;}
+      setVoUrl(out.url);
+      if(typeof out.balance==="number") onBalance(out.balance);
     }catch(e){setVoErr("Voiceover error: "+(e&&e.message?e.message:"unknown"));}
     setVoLoad(false);
   }
@@ -1164,16 +1194,27 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 function CreditShop({ onClose, currentCredits, onPurchase }) {
   const [purchasing, setPurchasing] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [buyErr, setBuyErr] = useState("");
 
   async function buyPack(pack) {
+    setBuyErr("");
     setPurchasing(true);
-    // In production this would go to Stripe
-    // For now simulate purchase
-    setTimeout(() => {
-      onPurchase(pack.credits);
-      setSuccess(true);
-      setTimeout(() => { setSuccess(false); setPurchasing(false); }, 2000);
-    }, 1500);
+    try {
+      const s = loadSession();
+      if (!s || !s.access_token) { setBuyErr("Please log in before purchasing."); setPurchasing(false); return; }
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack_id: pack.id, access_token: s.access_token })
+      });
+      const d = await res.json();
+      if (d && d.url) { window.location.href = d.url; return; } // off to Stripe
+      setBuyErr((d && d.error) || "Could not start checkout. Please try again.");
+      setPurchasing(false);
+    } catch {
+      setBuyErr("Could not reach checkout. Please try again.");
+      setPurchasing(false);
+    }
   }
 
   return (
@@ -1226,6 +1267,7 @@ function CreditShop({ onClose, currentCredits, onPurchase }) {
           ))}
         </div>
 
+        {buyErr&&<p style={{fontFamily:"sans-serif",fontSize:12,color:B.red,textAlign:"center",marginTop:14,letterSpacing:"0.02em"}}>{buyErr}</p>}
         <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,textAlign:"center",marginTop:14,letterSpacing:"0.04em"}}>Credits never expire. Secured by Stripe.</p>
       </div>
     </div>
@@ -1914,13 +1956,15 @@ export default function ChelgyApp() {
   const [creditError, setCreditError] = useState("");
 
   function useCredits(type) {
+    // Pre-check only — the REAL deduction happens server-side inside the
+    // generation functions, which return the new balance. This just gives
+    // instant feedback if the user clearly doesn't have enough.
     const cost = typeof type === "number" ? type : (CREDIT_COSTS[type] || 0);
     if (credits < cost) {
       setCreditError("Not enough credits. Purchase a top-up pack to continue generating.");
       setTimeout(()=>setCreditError(""), 4000);
       return false;
     }
-    setCredits(c => c - cost);
     return true;
   }
 
@@ -2098,10 +2142,17 @@ export default function ChelgyApp() {
       try { if(!n) n = localStorage.getItem("chelgy_name"); } catch {}
       setMyName(n||"Member"); setIsTrial(false); setPage("app");
       try { localStorage.setItem("chelgy_member","1"); } catch {}
-      try { let em = localStorage.getItem("chelgy_email"); if(em) patchByEmail("members", em, { status:"paid" }); } catch {}
+      try { const ss=loadSession(); if(ss&&ss.access_token&&ss.id) patchMyMember(ss.access_token, ss.id, { status:"paid" }); } catch {}
     }
     if (isAdminUrl) {
       setPage("app"); setIsTrial(false); setIsAdmin(true); setAdminPanelOpen(true);
+    }
+    const isCreditsBuy = params.get("credits")==="success";
+    if (isCreditsBuy) {
+      pushNotif("Payment received — your new credits are being added to your balance.");
+      const refresh = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&typeof m.credits==="number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); } }); };
+      setTimeout(refresh, 2500); setTimeout(refresh, 7000); // webhook may take a moment
+      try { window.history.replaceState({}, "", "/"); } catch {}
     }
     const s = loadSession();
     if (s && s.email) {
@@ -2129,7 +2180,7 @@ export default function ChelgyApp() {
     if(!(user && user.email)) return;
     if(syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(()=>{
-      patchByEmail("members", user.email, { credits, points: myPoints, progress: { completedChallenges, upvoted, rsvpd } });
+      if(user.access_token && user.id) patchMyMember(user.access_token, user.id, { points: myPoints, progress: { completedChallenges, upvoted, rsvpd } });
     }, 1500);
     return ()=>{ if(syncTimer.current) clearTimeout(syncTimer.current); };
   },[credits, myPoints, completedChallenges, upvoted, rsvpd, user]);
@@ -2141,7 +2192,7 @@ export default function ChelgyApp() {
   useEffect(()=>{
     if(!(user && user.email)) return;
     let cancelled = false;
-    getMemberByEmail(user.email).then(m=>{
+    getMyMember(user.access_token, user.id).then(m=>{
       if(cancelled || !m) return;
       if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
@@ -2223,7 +2274,7 @@ export default function ChelgyApp() {
     }
     const s = saveSession(r.data || {});
     if (s) { setUser(s); setMyName(name.trim()||email.trim()); }
-    try { sbFetch("members","POST",{ name:name.trim(), email:email.trim(), status:"trial", credits:STARTING_CREDITS, points:0 }); } catch {}
+    // Member row is created automatically by a database trigger on signup.
     track("signup_complete", { method: "email" });
     setSignupStep(2);
   };
@@ -2787,7 +2838,7 @@ export default function ChelgyApp() {
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} />
+              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} />
             </div>
           )}
 
@@ -3109,7 +3160,7 @@ export default function ChelgyApp() {
                       <input value={profileDraft.business} onChange={e=>setProfileDraft(d=>({...d,business:e.target.value}))} placeholder="Business type" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
                       <textarea value={profileDraft.bio} onChange={e=>setProfileDraft(d=>({...d,bio:e.target.value}))} placeholder="Short bio..." rows={3} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",background:B.white}} />
                       <div style={{display:"flex",gap:9}}>
-                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);setEditingProfile(false);if(user&&user.email)patchByEmail("members",user.email,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio});}}>SAVE</Btn>
+                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);setEditingProfile(false);if(user&&user.access_token&&user.id)patchMyMember(user.access_token,user.id,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio});}}>SAVE</Btn>
                         <button onClick={()=>setEditingProfile(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                       </div>
                     </div>
