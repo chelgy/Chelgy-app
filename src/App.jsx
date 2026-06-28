@@ -104,7 +104,7 @@ async function generateVideo(prompt, image, opts) {
     const res = await fetch("/api/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p" })
+      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p", duration: (opts&&opts.duration)||5, audio: opts&&opts.audio!==false })
     });
     return await res.json();
   } catch { return { error: "Couldn't reach the video service." }; }
@@ -558,7 +558,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin }) {
         {s.isFinal?(
           <>
             <button onClick={onSubscribe} style={{width:"100%",maxWidth:340,background:"#ffffff",color:"#000",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>GET STARTED</button>
-            <button onClick={onTrial} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.4)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer"}}>START FREE TRIAL</button>
+            <button onClick={onTrial} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.4)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer"}}>EXPLORE FOR FREE</button>
             <button onClick={onLogin} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.55)",border:"none",padding:"6px",fontSize:12,fontFamily:"sans-serif",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></button>
           </>
         ):(
@@ -585,7 +585,7 @@ function Paywall({ onClose, onJoin }) {
             </div>
           ))}
         </div>
-        <button onClick={onJoin} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>START FREE TRIAL — 7 DAYS</button>
+        <button onClick={onJoin} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>EXPLORE FOR FREE</button>
         <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"11px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>CONTINUE BROWSING</button>
       </div>
     </div>
@@ -755,7 +755,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
   const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
   const [vVidUpload,setVVidUpload]=useState("");
-  const [vOrient,setVOrient]=useState("portrait");const [vQuality,setVQuality]=useState("480p");
+  const [vOrient,setVOrient]=useState("portrait");const [vQuality,setVQuality]=useState("480p");const [vDuration,setVDuration]=useState("5");const [vAudio,setVAudio]=useState(true);
   const [voText,setVoText]=useState("");const [voVoice,setVoVoice]=useState("JBFqnCBsd6RMkjVDRZzb");const [voUrl,setVoUrl]=useState("");const [voLoad,setVoLoad]=useState(false);const [voErr,setVoErr]=useState("");
   const [bStage,setBStage]=useState(null);const [bNiche,setBNiche]=useState("");const [bName,setBName]=useState("");
   const [bQ,setBQ]=useState("");const [bA,setBA]=useState("");const [bLoad,setBLoad]=useState(false);
@@ -792,7 +792,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
     setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
     try{
-      const started=await generateVideo(vTopic,vVidUpload||undefined,{orientation:vOrient,quality:vQuality});
+      const started=await generateVideo(vTopic,vVidUpload||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
       if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
       const url=await pollVideo(started.id);
@@ -802,6 +802,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     setVVidLoad(false);
   }
   function onUploadVid(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setVVidUpload(r.result);r.readAsDataURL(f);}
+  function durOptionsFor(q){if(q==="veo")return [4,6,8];if(q==="kling4k"||q==="seedance4k"||q==="1080p")return [5,10,15];return [5,10];}
+  function vidCost(){const d=Number(vDuration);if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality==="seedance4k")return CREDIT_COSTS.seedanceSec*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
   async function genVoice(){
     if(!voText.trim())return;
     track("tool_used",{tool:"voiceover"});
@@ -872,7 +874,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <button onClick={onBuyCredits} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark}}>TOP UP</button>
         </div>
       </div>
-      {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Free trial — preview mode. Explore every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
+      {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
       {tool==="content"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Content Writer</h2>
@@ -939,12 +941,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <Fl label="Duration"><Ss value={vDur} onChange={e=>setVDur(e.target.value)}>{["15 seconds","30 seconds","60 seconds","2 minutes","5 minutes","10 minutes"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Goal"><Ss value={vGoal} onChange={e=>setVGoal(e.target.value)}>{["Brand awareness","Lead generation","Sales / Conversions","Education / Value","Entertainment","Product showcase"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           </div>}
-          {vType==="generate"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-            <Fl label="Orientation"><Ss value={vOrient} onChange={e=>setVOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option><option value="square">Square (1:1)</option></Ss></Fl>
-            <Fl label="Quality"><Ss value={vQuality} onChange={e=>setVQuality(e.target.value)}><option value="480p">Standard — faster ({CREDIT_COSTS.video} cr)</option><option value="720p">HD 720p — sharper ({CREDIT_COSTS.videoHD} cr)</option><option value="1080p">Premium 1080p — cinematic ({CREDIT_COSTS.video1080} cr)</option></Ss></Fl>
+          {vType==="generate"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:14}}>
+            <Fl label="Orientation"><Ss value={vOrient} onChange={e=>setVOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option>{vQuality!=="veo"&&<option value="square">Square (1:1)</option>}</Ss></Fl>
+            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance4k">4K Max · Seedance 2.0 — 4K multi-shot</option></Ss></Fl>
+            <Fl label="Length"><Ss value={vDuration} onChange={e=>setVDuration(e.target.value)}>{durOptionsFor(vQuality).map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
           </div>}
+          {vType==="generate"&&vQuality==="veo"&&<label style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.mid,cursor:"pointer",lineHeight:1.5}}><input type="checkbox" checked={vAudio} onChange={e=>setVAudio(e.target.checked)} style={{width:16,height:16,marginTop:1,accentColor:B.gold,flexShrink:0}} /><span>Generate synchronized audio — dialogue, music & sound effects (Veo's signature feature). Turn off to halve the credit cost for a silent clip.</span></label>}
           {vType==="generate"
-            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{const c=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;if(useCredits(c))genVid();})}>{vVidLoad?"GENERATING VIDEO...":("GENERATE VIDEO ("+(vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video)+" credits)")}</Btn>
+            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{if(useCredits(vidCost()))genVid();})}>{vVidLoad?"GENERATING VIDEO...":("GENERATE VIDEO ("+vidCost().toLocaleString()+" credits)")}</Btn>
             : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={act(genV)}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
         </Card>
         {vType==="generate"
@@ -954,14 +958,6 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               {vVidUrl&&!vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI-Generated Video</div><video src={vVidUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><Btn dark small onClick={dlVideo}>DOWNLOAD VIDEO</Btn></div>}
             </div>
           : <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />}
-        <div style={{marginTop:24}}>
-          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase",fontWeight:700}}>Launch on AI Video Platforms</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
-            {[{n:"HeyGen",d:"AI avatar videos",u:"https://heygen.com"},{n:"Runway ML",d:"Cinematic AI",u:"https://runwayml.com"},{n:"Kling AI",d:"Hyper-realistic",u:"https://klingai.com"},{n:"Sora",d:"Long-form video",u:"https://openai.com"},{n:"Pika Labs",d:"Quick clips",u:"https://pika.art"},{n:"Descript",d:"Edit your own",u:"https://descript.com"}].map(p=>(
-              <a key={p.n} href={p.u} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}><div style={{background:B.white,border:"1px solid "+B.stone,padding:"12px"}}><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,marginBottom:2,color:B.charcoal}}>{p.n}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{p.d}</div></div></a>
-            ))}
-          </div>
-        </div>
       </div>}
 
       {tool==="voiceover"&&<div>
@@ -1181,7 +1177,7 @@ function CreditShop({ onClose, currentCredits, onPurchase }) {
 
         {/* Credit costs reference */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:B.stone,marginBottom:20}}>
-          {[{label:"Image",cost:"120–750 cr"},{label:"Video",cost:"500–2500 cr"},{label:"Voiceover",cost:"150 cr"}].map((item,i)=>(
+          {[{label:"Image",cost:"120–750 cr"},{label:"Video",cost:"from 500 cr"},{label:"Voiceover",cost:"150 cr"}].map((item,i)=>(
             <div key={i} style={{background:B.white,padding:"10px 12px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,marginBottom:3}}>{item.label}</div>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.gold}}>{item.cost}</div>
@@ -1263,6 +1259,10 @@ const CREDIT_COSTS = {
   video: 500,      // Standard 480p — WAN 2.2
   videoHD: 1000,   // HD 720p — WAN 2.2 (≈2x the standard cost)
   video1080: 2500, // Premium 1080p — WAN 2.7 (~$0.75/clip, the priciest model)
+  veoSec: 1250,    // Cinematic Pro per second WITH audio — Veo 3.1 ($0.40/s, ~3x markup)
+  veoSecSilent: 625, // Cinematic Pro per second, video only — Veo 3.1 ($0.20/s)
+  klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
+  seedanceSec: 4600, // 4K Max per second — Seedance 2.0 4K (~$1.50/s, the absolute ceiling)
   voiceover: 150,
 };
 
@@ -1273,16 +1273,16 @@ const FREE_CREDITS = {
 };
 
 const CREDIT_PACKS = [
-  { id:"starter", name:"Starter Pack", credits:11000, price:13.99, description:"~91 images, 22 videos, or 73 voiceovers", popular:false },
-  { id:"creator", name:"Creator Pack", credits:26000, price:24.99, description:"~216 images, 52 videos, or 173 voiceovers", popular:true },
-  { id:"pro",     name:"Pro Pack",     credits:75000, price:59.99, description:"~625 images, 150 videos, or 500 voiceovers", popular:false },
-  { id:"power",   name:"Power Pack",   credits:90000, price:69.99, description:"~750 images, 180 videos, or 600 voiceovers", popular:false },
-  { id:"studio",  name:"Studio Pack",  credits:340000, price:249.99, description:"~2,830 images, 680 videos, or 2,260 voiceovers", popular:false },
-  { id:"agency",  name:"Agency Pack",  credits:850000, price:599.99, description:"~7,080 images, 1,700 videos, or 5,660 voiceovers", popular:false },
+  { id:"starter", name:"Starter Pack", credits:33000,  price:30,  description:"~275 images or 66 standard videos. Premium 4K & cinematic clips use more.", popular:false },
+  { id:"creator", name:"Creator Pack", credits:70000,  price:59,  description:"~580 images or 140 standard videos. Best value for regular creators.", popular:true },
+  { id:"pro",     name:"Pro Pack",     credits:150000, price:119, description:"~1,250 images or 300 standard videos. For high-volume marketing.", popular:false },
+  { id:"studio",  name:"Studio Pack",  credits:400000, price:299, description:"~3,300 images or 800 standard videos. For agencies & teams.", popular:false },
+  { id:"agency",  name:"Agency Pack",  credits:850000, price:599, description:"~7,000 images or 1,700 standard videos. Maximum value per credit.", popular:false },
 ];
 
-// Starting credits = 5 images + 5 videos + 5 voiceovers
-const STARTING_CREDITS = (5 * 120) + (5 * 500) + (5 * 150); // 3850
+// Welcome credits for new members — enough to try a cinematic Veo clip (or a 4K short)
+// plus a good run of standard images, videos and voiceovers before topping up.
+const STARTING_CREDITS = 12000;
 
 const DISCOUNT_CODES = {
   "CHELGYFREE": { discount: 100, label: "First month FREE" },
@@ -2330,7 +2330,7 @@ export default function ChelgyApp() {
 
             {/* Free trial option */}
             <div onClick={()=>{track("trial_started");setIsTrial(true);setPage("app");}} style={{border:"1px solid rgba(255,255,255,0.15)",padding:"20px",marginBottom:10,cursor:"pointer",position:"relative"}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:"rgba(255,255,255,0.45)",marginBottom:8,fontWeight:700,textTransform:"uppercase"}}>Free Trial</div>
+              <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:"rgba(255,255,255,0.45)",marginBottom:8,fontWeight:700,textTransform:"uppercase"}}>Explore Free</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff",marginBottom:6}}>Explore first</div>
               <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>Browse strategies and community. Upgrade anytime to unlock AI tools and full content.</div>
             </div>
@@ -2383,7 +2383,7 @@ export default function ChelgyApp() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:18}}>
             {isTrial&&(
-              <button onClick={()=>setPage("signup")} style={{background:"none",border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.charcoal}}>START FREE TRIAL</button>
+              <button onClick={()=>setPage("signup")} style={{background:"none",border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.charcoal}}>EXPLORE FOR FREE</button>
             )}
             {!isTrial&&(
               <button onClick={()=>setShowCredits(true)} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark,display:"flex",alignItems:"center",gap:5}}>
@@ -3020,7 +3020,7 @@ export default function ChelgyApp() {
                 </div>
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Your Stats</div>
-                  {[{label:"Total Points",value:myPoints+" pts"},{label:"Current Level",value:getLevel(myPoints).title},{label:"Challenges Completed",value:completedChallenges.length},{label:"Membership",value:isTrial?"Free Trial":"Active Member"}].map((stat,i)=>(
+                  {[{label:"Total Points",value:myPoints+" pts"},{label:"Current Level",value:getLevel(myPoints).title},{label:"Challenges Completed",value:completedChallenges.length},{label:"Membership",value:isTrial?"Free (Explore)":"Active Member"}].map((stat,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"11px 0",borderBottom:"1px solid "+B.stone}}>
                       <span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>{stat.label}</span>
                       <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{stat.value}</span>
