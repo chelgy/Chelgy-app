@@ -9,6 +9,16 @@ export default async function handler(req, res) {
     const prompt = body.prompt;
     const inputImage = body.inputImage; // optional { mimeType, data }
 
+    // Orientation / aspect ratio — only allow values Gemini actually supports.
+    const allowedRatios = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
+    const aspectRatio = allowedRatios.includes(body.aspectRatio) ? body.aspectRatio : "1:1";
+
+    // Quality tier:
+    //   "standard" -> Nano Banana (Gemini 2.5 Flash Image), ~1K, cheapest
+    //   "2K"       -> Nano Banana Pro (Gemini 3 Pro Image), 2K, higher cost
+    //   "4K"       -> Nano Banana Pro (Gemini 3 Pro Image), 4K, highest cost
+    const quality = ["standard", "2K", "4K"].includes(body.quality) ? body.quality : "standard";
+
     if (!prompt || !String(prompt).trim()) {
       return res.status(400).json({ error: "Missing prompt" });
     }
@@ -22,14 +32,28 @@ export default async function handler(req, res) {
       ? [{ inlineData: { mimeType: inputImage.mimeType, data: inputImage.data } }, { text: prompt }]
       : [{ text: prompt }];
 
+    // Pick the model + image config based on the quality tier.
+    let model, imageConfig;
+    if (quality === "standard") {
+      model = "gemini-2.5-flash-image";
+      imageConfig = { aspectRatio: aspectRatio };
+    } else {
+      // Nano Banana Pro handles 2K and 4K via imageSize.
+      model = "gemini-3-pro-image-preview";
+      imageConfig = { aspectRatio: aspectRatio, imageSize: quality }; // "2K" or "4K"
+    }
+
     const r = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key),
+      "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+            imageConfig: imageConfig
+          }
         })
       }
     );

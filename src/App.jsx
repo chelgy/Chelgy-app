@@ -99,12 +99,12 @@ const WAVESPEED_KEY = "";
 const ELEVENLABS_KEY = ""; // moved server-side to /api/voice (Vercel env: ELEVENLABS_API_KEY)
 
 // WaveSpeed video generation — runs through the secure backend (/api/video)
-async function generateVideo(prompt, image) {
+async function generateVideo(prompt, image, opts) {
   try {
     const res = await fetch("/api/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, image })
+      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p" })
     });
     return await res.json();
   } catch { return { error: "Couldn't reach the video service." }; }
@@ -365,11 +365,11 @@ async function callClaude(prompt, maxTokens, webSearch=false) {
   } catch { return "Something went wrong. Please try again."; }
 }
 
-async function generateGeminiImage(prompt, inputImage) {
+async function generateGeminiImage(prompt, inputImage, aspectRatio, quality) {
   const res = await fetch("/api/image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, inputImage: inputImage || null }),
+    body: JSON.stringify({ prompt, inputImage: inputImage || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard" }),
   });
   const d = await res.json();
   if (!d.image) throw new Error(d.error || "No image");
@@ -748,11 +748,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
   const [iUpload,setIUpload]=useState("");
+  const [iAspect,setIAspect]=useState("1:1");
+  const [iQuality,setIQuality]=useState("standard");
   const [vType,setVType]=useState("generate");const [vTopic,setVTopic]=useState("");const [vPlat,setVPlat]=useState("TikTok");
   const [vDur,setVDur]=useState("60 seconds");const [vGoal,setVGoal]=useState("Brand awareness");
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
   const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
   const [vVidUpload,setVVidUpload]=useState("");
+  const [vOrient,setVOrient]=useState("portrait");const [vQuality,setVQuality]=useState("480p");
   const [voText,setVoText]=useState("");const [voVoice,setVoVoice]=useState("JBFqnCBsd6RMkjVDRZzb");const [voUrl,setVoUrl]=useState("");const [voLoad,setVoLoad]=useState(false);const [voErr,setVoErr]=useState("");
   const [bStage,setBStage]=useState(null);const [bNiche,setBNiche]=useState("");const [bName,setBName]=useState("");
   const [bQ,setBQ]=useState("");const [bA,setBA]=useState("");const [bLoad,setBLoad]=useState(false);
@@ -766,13 +769,30 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
   function onUploadImg(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setIUpload(r.result);r.readAsDataURL(f);}
+  async function genI(){
+    if(!iBiz.trim())return;
+    track("tool_used",{tool:"image_creator",type:iType,aspect:iAspect});
+    setILoad(true);setIErr("");setIRes(null);
+    const kind={ad:"a high-end advertising image",logo:"a clean, professional logo",flyer:"an eye-catching marketing flyer",social:"a scroll-stopping social media graphic",banner:"a polished website/social banner",product:"a premium product photo"}[iType]||"a professional marketing image";
+    let p="Create "+kind+" for a business called \""+iBiz+"\". Visual style: "+iStyle+".";
+    if(iColors.trim())p+=" Brand colors: "+iColors+".";
+    if(iExtra.trim())p+=" Additional details: "+iExtra+".";
+    p+=" Make it professional, modern, sharp, well-composed and ready to use.";
+    let inputImage=null;
+    if(iType==="ad"&&iUpload&&/^data:(.*?);base64,/.test(iUpload)){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImage={mimeType:m[1],data:m[2]};}
+    try{
+      const img=await generateGeminiImage(p,inputImage,iAspect,iQuality);
+      setIRes(img);
+    }catch(e){setIErr(e&&e.message?("Image error: "+e.message):"Couldn't create the image. Please try again.");}
+    setILoad(false);
+  }
   async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(p[vType]));setVLoad(false);}
   async function genVid(){
     if(!vTopic.trim())return;
     track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
     setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
     try{
-      const started=await generateVideo(vTopic,vVidUpload||undefined);
+      const started=await generateVideo(vTopic,vVidUpload||undefined,{orientation:vOrient,quality:vQuality});
       if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
       const url=await pollVideo(started.id);
@@ -891,7 +911,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
-          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={act(()=>{if(useCredits("image"))genI();})}>{iLoad?"CREATING IMAGE...":"CREATE IMAGE (120 credits)"}</Btn>
+          <Fl label="Orientation"><Ss value={iAspect} onChange={e=>setIAspect(e.target.value)}><option value="1:1">Square (1:1)</option><option value="4:5">Portrait (4:5)</option><option value="9:16">Tall / Story (9:16)</option><option value="16:9">Landscape (16:9)</option><option value="4:3">Standard (4:3)</option></Ss></Fl>
+          <Fl label="Quality"><Ss value={iQuality} onChange={e=>setIQuality(e.target.value)}><option value="standard">Standard — fast & economical ({CREDIT_COSTS.image} cr)</option><option value="2K">HD 2K — sharper, better text ({CREDIT_COSTS.imageHD} cr)</option><option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option></Ss></Fl>
+          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={act(()=>{const c=iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image;if(useCredits(c))genI();})}>{iLoad?"CREATING IMAGE...":("CREATE IMAGE ("+(iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image)+" credits)")}</Btn>
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
@@ -917,8 +939,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <Fl label="Duration"><Ss value={vDur} onChange={e=>setVDur(e.target.value)}>{["15 seconds","30 seconds","60 seconds","2 minutes","5 minutes","10 minutes"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
             <Fl label="Goal"><Ss value={vGoal} onChange={e=>setVGoal(e.target.value)}>{["Brand awareness","Lead generation","Sales / Conversions","Education / Value","Entertainment","Product showcase"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           </div>}
+          {vType==="generate"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <Fl label="Orientation"><Ss value={vOrient} onChange={e=>setVOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option><option value="square">Square (1:1)</option></Ss></Fl>
+            <Fl label="Quality"><Ss value={vQuality} onChange={e=>setVQuality(e.target.value)}><option value="480p">Standard — faster ({CREDIT_COSTS.video} cr)</option><option value="720p">HD 720p — sharper ({CREDIT_COSTS.videoHD} cr)</option><option value="1080p">Premium 1080p — cinematic ({CREDIT_COSTS.video1080} cr)</option></Ss></Fl>
+          </div>}
           {vType==="generate"
-            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{if(useCredits("video"))genVid();})}>{vVidLoad?"GENERATING VIDEO...":"GENERATE VIDEO (500 credits)"}</Btn>
+            ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{const c=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;if(useCredits(c))genVid();})}>{vVidLoad?"GENERATING VIDEO...":("GENERATE VIDEO ("+(vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video)+" credits)")}</Btn>
             : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={act(genV)}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
         </Card>
         {vType==="generate"
@@ -1155,7 +1181,7 @@ function CreditShop({ onClose, currentCredits, onPurchase }) {
 
         {/* Credit costs reference */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:B.stone,marginBottom:20}}>
-          {[{label:"1 Image",cost:"120 credits"},{label:"1 Video",cost:"500 credits"},{label:"1 Voiceover",cost:"150 credits"}].map((item,i)=>(
+          {[{label:"Image",cost:"120–750 cr"},{label:"Video",cost:"500–2500 cr"},{label:"Voiceover",cost:"150 cr"}].map((item,i)=>(
             <div key={i} style={{background:B.white,padding:"10px 12px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,marginBottom:3}}>{item.label}</div>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.gold}}>{item.cost}</div>
@@ -1231,8 +1257,12 @@ const ADMIN_PASSWORD = "chelochelo1";
 
 // ─── CREDIT SYSTEM ────────────────────────────────────────────────────────────
 const CREDIT_COSTS = {
-  image: 120,
-  video: 500,
+  image: 120,      // Standard — Nano Banana (Gemini 2.5 Flash Image) ~$0.039
+  imageHD: 420,    // HD 2K — Nano Banana Pro ~$0.134
+  image4K: 750,    // 4K — Nano Banana Pro ~$0.24
+  video: 500,      // Standard 480p — WAN 2.2
+  videoHD: 1000,   // HD 720p — WAN 2.2 (≈2x the standard cost)
+  video1080: 2500, // Premium 1080p — WAN 2.7 (~$0.75/clip, the priciest model)
   voiceover: 150,
 };
 
@@ -1874,7 +1904,7 @@ export default function ChelgyApp() {
   const [creditError, setCreditError] = useState("");
 
   function useCredits(type) {
-    const cost = CREDIT_COSTS[type];
+    const cost = typeof type === "number" ? type : (CREDIT_COSTS[type] || 0);
     if (credits < cost) {
       setCreditError("Not enough credits. Purchase a top-up pack to continue generating.");
       setTimeout(()=>setCreditError(""), 4000);
