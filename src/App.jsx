@@ -2222,6 +2222,10 @@ export default function ChelgyApp() {
     let cancelled = false;
     freshToken().then(tok=> tok ? getMyMember(tok, user.id) : null).then(m=>{
       if(cancelled || !m) return;
+      // Membership is decided by the database, not a browser flag. Paid/comp/admin = full access.
+      if(m.status && ["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){
+        setIsTrial(false); try{ localStorage.setItem("chelgy_member","1"); }catch{}
+      }
       if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
       if(m.business){ setMyBusiness(m.business); }
