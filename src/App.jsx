@@ -22,6 +22,65 @@ async function sbFetch(table, method="GET", body=null, id=null) {
   return text ? JSON.parse(text) : null;
 }
 
+// ─── AUTH (Supabase Auth) ─────────────────────────────────────────────────────
+const AUTH_URL = SUPABASE_URL + "/auth/v1";
+async function authSignup(email, password, name) {
+  try {
+    const res = await fetch(AUTH_URL + "/signup", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, data: { name } })
+    });
+    const data = await res.json().catch(()=>null);
+    if (!res.ok) return { error: (data && (data.msg || data.error_description || data.message)) || "Sign up failed. Please try again." };
+    return { data };
+  } catch { return { error: "Connection error. Please try again." }; }
+}
+async function authLogin(email, password) {
+  try {
+    const res = await fetch(AUTH_URL + "/token?grant_type=password", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json().catch(()=>null);
+    if (!res.ok) return { error: (data && (data.error_description || data.msg || data.message)) || "Incorrect email or password." };
+    return { data };
+  } catch { return { error: "Connection error. Please try again." }; }
+}
+async function authRecover(email) {
+  try {
+    const res = await fetch(AUTH_URL + "/recover", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    return res.ok;
+  } catch { return false; }
+}
+function saveSession(data) {
+  try {
+    const u = data.user || {};
+    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", access_token: data.access_token, refresh_token: data.refresh_token };
+    localStorage.setItem("chelgy_session", JSON.stringify(session));
+    return session;
+  } catch { return null; }
+}
+function loadSession() {
+  try { const s = localStorage.getItem("chelgy_session"); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+function clearSession() { try { localStorage.removeItem("chelgy_session"); } catch {} }
+async function patchByEmail(table, email, body) {
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/" + table + "?email=eq." + encodeURIComponent(email), {
+      method: "PATCH",
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", "Prefer": "return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 // Admin-only: read help requests through a private server function (keeps user emails non-public)
 async function fetchHelpRequests() {
   try {
@@ -463,7 +522,7 @@ const SLIDES = [
   {bg:"#000000",eyebrow:"ONE MEMBERSHIP",headline:"Everything. $100 a month.",sub:"No upsells. No paywalled tiers. Start free and explore before you commit.",items:null,isFinal:true},
 ];
 
-function Onboarding({ onTrial, onSubscribe }) {
+function Onboarding({ onTrial, onSubscribe, onLogin }) {
   const [idx,setIdx]=useState(0);
   const [fading,setFading]=useState(false);
   const s=SLIDES[idx];
@@ -500,6 +559,7 @@ function Onboarding({ onTrial, onSubscribe }) {
           <>
             <button onClick={onSubscribe} style={{width:"100%",maxWidth:340,background:"#ffffff",color:"#000",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>GET STARTED</button>
             <button onClick={onTrial} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.4)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer"}}>START FREE TRIAL</button>
+            <button onClick={onLogin} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.55)",border:"none",padding:"6px",fontSize:12,fontFamily:"sans-serif",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></button>
           </>
         ):(
           <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:B.gold,color:"#111",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
@@ -1242,6 +1302,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [dbLoading, setDbLoading] = useState(false);
   const [helpReqs, setHelpReqs] = useState([]);
   const [subsList, setSubsList] = useState([]);
+  const [membersList, setMembersList] = useState([]);
 
   useEffect(()=>{ loadFromDB(); },[]);
 
@@ -1269,6 +1330,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     }
     const subs = await sbFetch("subscribers");
     if (subs && subs.length > 0) setSubsList(subs);
+    const mems = await sbFetch("members");
+    if (mems && mems.length > 0) setMembersList(mems);
     setDbLoading(false);
   }
 
@@ -1349,7 +1412,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1413,6 +1476,38 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         )}
 
         {/* SUBSCRIBERS */}
+        {view==="members"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>Members ({membersList.length})</h2>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{const esc=v=>'"'+String(v||"").replace(/"/g,'""')+'"';const rows=["name,email,status,business,bio,signed_up",...membersList.map(m=>[esc(m.name),esc(m.email),esc(m.status),esc(m.business),esc(m.bio),esc(m.created_at?new Date(m.created_at).toLocaleString():"")].join(","))].join("\n");const blob=new Blob([rows],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="members.csv";a.click();URL.revokeObjectURL(url);}} style={{background:"#111",color:"#fff",border:"none",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>Export CSV</button>
+                <button onClick={loadFromDB} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase"}}>Refresh</button>
+              </div>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 22px"}}>Everyone who created an account with their email. "Paid" means they completed Stripe checkout; "trial" means they signed up but haven't subscribed yet.</p>
+            {membersList.length===0?(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No members yet.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:"#E8E6E1"}}>
+                {membersList.map(m=>(
+                  <div key={m.id} style={{background:"#fff",padding:"16px 20px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:4}}>
+                      <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
+                        <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#1A1A1A"}}>{m.name||"(no name)"}</span>
+                        <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:m.status==="paid"?"#1A1A1A":"#F0EEE9",color:m.status==="paid"?"#fff":"#6B6B6B"}}>{m.status||"trial"}</span>
+                      </div>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{m.created_at?new Date(m.created_at).toLocaleString():""}</div>
+                    </div>
+                    <a href={"mailto:"+m.email} style={{fontFamily:"sans-serif",fontSize:12,color:"#B8955A",textDecoration:"none"}}>{m.email}</a>
+                    {(m.business||m.bio)&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",marginTop:6,lineHeight:1.6}}>{m.business?<span><strong>Business:</strong> {m.business}</span>:null}{m.business&&m.bio?<br/>:null}{m.bio?<span>{m.bio}</span>:null}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {view==="subscribers"&&(
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -1630,7 +1725,12 @@ export default function ChelgyApp() {
   const [isTrial, setIsTrial] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [signupStep, setSignupStep] = useState(1);
-  const [signupData, setSignupData] = useState({ name:"", email:"" });
+  const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
+  const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [loginData, setLoginData] = useState({ email:"", password:"" });
+  const [resetMsg, setResetMsg] = useState("");
   const [processing, setProcessing] = useState(false);
   const [stripeError, setStripeError] = useState("");
   const [discountCode, setDiscountCode] = useState("");
@@ -1951,16 +2051,25 @@ export default function ChelgyApp() {
 
   useEffect(()=>{
     const params = new URLSearchParams(window.location.search);
-    if (params.get("payment")==="success") {
+    const isAdminUrl = window.location.search.includes("admin");
+    const isPay = params.get("payment")==="success";
+    if (isPay) {
       let n = params.get("name");
       try { if(!n) n = localStorage.getItem("chelgy_name"); } catch {}
       setMyName(n||"Member"); setIsTrial(false); setPage("app");
+      try { localStorage.setItem("chelgy_member","1"); } catch {}
+      try { let em = localStorage.getItem("chelgy_email"); if(em) patchByEmail("members", em, { status:"paid" }); } catch {}
     }
-    if (params.get("admin")===null && window.location.search.includes("admin")) {
+    if (isAdminUrl) {
       setPage("app"); setIsTrial(false); setIsAdmin(true); setAdminPanelOpen(true);
     }
-    if (window.location.search.includes("admin")) {
-      setPage("app"); setIsTrial(false); setIsAdmin(true); setAdminPanelOpen(true);
+    const s = loadSession();
+    if (s && s.email) {
+      setUser(s);
+      setMyName(s.name || s.email);
+      let member = false; try { member = localStorage.getItem("chelgy_member")==="1"; } catch {}
+      setIsTrial(!member);
+      if (!isPay && !isAdminUrl) setPage("app");
     }
   },[]);
 
@@ -1970,6 +2079,61 @@ export default function ChelgyApp() {
     setProcessing(true);
     try { localStorage.setItem("chelgy_name", signupData.name||""); localStorage.setItem("chelgy_email", signupData.email); } catch {}
     window.location.href = STRIPE_PAYMENT_LINK + "?prefilled_email=" + encodeURIComponent(signupData.email);
+  };
+
+  const doEmailSignup = async () => {
+    setAuthError("");
+    const { name, email, password } = signupData;
+    if (!name.trim()) { setAuthError("Please enter your name."); return; }
+    if (!email.includes("@")) { setAuthError("Please enter a valid email."); return; }
+    if (password.length < 6) { setAuthError("Password must be at least 6 characters."); return; }
+    setAuthLoading(true);
+    const r = await authSignup(email.trim(), password, name.trim());
+    setAuthLoading(false);
+    if (r.error) {
+      if (/registered|already/i.test(r.error)) setAuthError("That email already has an account. Try logging in instead.");
+      else setAuthError(r.error);
+      return;
+    }
+    const s = saveSession(r.data || {});
+    if (s) { setUser(s); setMyName(name.trim()||email.trim()); }
+    try { sbFetch("members","POST",{ name:name.trim(), email:email.trim(), status:"trial" }); } catch {}
+    track("signup_complete", { method: "email" });
+    setSignupStep(2);
+  };
+
+  const doLogin = async () => {
+    setAuthError("");
+    const { email, password } = loginData;
+    if (!email.includes("@") || !password) { setAuthError("Enter your email and password."); return; }
+    setAuthLoading(true);
+    const r = await authLogin(email.trim(), password);
+    setAuthLoading(false);
+    if (r.error) { setAuthError(r.error); return; }
+    const s = saveSession(r.data || {});
+    if (s) { setUser(s); setMyName(s.name || email.trim()); }
+    let member = false; try { member = localStorage.getItem("chelgy_member")==="1"; } catch {}
+    setIsTrial(!member);
+    track("login", { method: "email" });
+    setPage("app");
+  };
+
+  const doForgot = async () => {
+    setAuthError(""); setResetMsg("");
+    if (!loginData.email.includes("@")) { setAuthError("Enter your email above first, then tap Forgot password."); return; }
+    const ok = await authRecover(loginData.email.trim());
+    if (ok) setResetMsg("If an account exists for that email, a reset link is on its way. Check your inbox (and spam).");
+    else setAuthError("Couldn't send the reset email. Please try again.");
+  };
+
+  const doLogout = () => {
+    clearSession();
+    try { localStorage.removeItem("chelgy_member"); } catch {}
+    setUser(null); setMyName("You"); setIsTrial(false);
+    setLoginData({ email:"", password:"" });
+    setSignupData({ name:"", email:"", password:"" });
+    setSignupStep(1);
+    setPage("onboarding");
   };
 
   const askAI = async () => {
@@ -2038,9 +2202,31 @@ export default function ChelgyApp() {
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (page==="onboarding") return <Onboarding onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} />;
+  if (page==="onboarding") return <Onboarding onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
+  if (page==="login") return (
+    <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      <div style={{position:"fixed",inset:0,backgroundImage:"url("+HERO_IMG+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 100%)",zIndex:1}} />
+      <div style={{position:"relative",zIndex:2,flex:1,display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0 28px 48px",maxWidth:460,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
+        <img src={LOGO_B64} alt="Chelgy" style={{height:32,objectFit:"contain",filter:"invert(1)",marginBottom:36,display:"block"}} />
+        <div style={{width:24,height:1,background:"rgba(255,255,255,0.4)",marginBottom:18}} />
+        <h1 style={{fontSize:28,fontWeight:400,margin:"0 0 6px",color:"#fff"}}>Welcome back</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.5)",fontSize:13,margin:"0 0 32px",letterSpacing:"0.01em",lineHeight:1.6}}>Log in to your Chelgy account.</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+          <input type="email" value={loginData.email} onChange={e=>setLoginData(d=>({...d,email:e.target.value}))} placeholder="Email address" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
+          <input type="password" value={loginData.password} onChange={e=>setLoginData(d=>({...d,password:e.target.value}))} placeholder="Password" onKeyDown={e=>{if(e.key==="Enter")doLogin();}} style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
+          {authError&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#ff8a8a",lineHeight:1.5}}>{authError}</div>}
+          {resetMsg&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#7ed99a",lineHeight:1.5}}>{resetMsg}</div>}
+          <button onClick={doLogin} disabled={authLoading} style={{width:"100%",background:authLoading?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.92)",color:"#000",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:authLoading?"wait":"pointer"}}>{authLoading?"LOGGING IN…":"LOG IN"}</button>
+          <p onClick={doForgot} style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",textAlign:"center",margin:"4px 0 0",cursor:"pointer",textDecoration:"underline"}}>Forgot password?</p>
+        </div>
+        <p onClick={()=>{setAuthError("");setResetMsg("");setSignupStep(1);setPage("signup");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"4px 0 0",cursor:"pointer"}}>New to Chelgy? <span style={{color:"#fff",textDecoration:"underline"}}>Create an account</span></p>
+      </div>
+    </div>
+  );
+
   if (page==="signup") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* Background image with overlay */}
@@ -2062,19 +2248,19 @@ export default function ChelgyApp() {
             {/* Social auth buttons */}
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
               {/* Apple */}
-              <button onClick={()=>{setSignupData(d=>({...d,name:"Apple User",email:"apple@user.com"}));setSignupStep(2);}} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
+              <button onClick={()=>setAuthError("Apple sign-in is coming soon — sign up with email below for now.")} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
                 Continue with Apple
               </button>
 
               {/* Google */}
-              <button onClick={()=>{setSignupData(d=>({...d,name:"Google User",email:"google@user.com"}));setSignupStep(2);}} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
+              <button onClick={()=>setAuthError("Google sign-in is coming soon — sign up with email below for now.")} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
                 <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
                 Continue with Google
               </button>
 
               {/* Facebook */}
-              <button onClick={()=>{setSignupData(d=>({...d,name:"Facebook User",email:"facebook@user.com"}));setSignupStep(2);}} style={{width:"100%",background:"#1877F2",color:"#fff",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
+              <button onClick={()=>setAuthError("Facebook sign-in is coming soon — sign up with email below for now.")} style={{width:"100%",background:"#1877F2",color:"#fff",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 Continue with Facebook
               </button>
@@ -2088,11 +2274,15 @@ export default function ChelgyApp() {
             </div>
 
             {/* Email */}
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
               <input value={signupData.name} onChange={e=>setSignupData(d=>({...d,name:e.target.value}))} placeholder="Full name" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
               <input type="email" value={signupData.email} onChange={e=>setSignupData(d=>({...d,email:e.target.value}))} placeholder="Email address" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
-              <button onClick={()=>{if(signupData.name.trim()&&signupData.email.trim()){track("signup_step1_complete",{method:"email"});setSignupStep(2);}}} disabled={!signupData.name.trim()||!signupData.email.trim()} style={{width:"100%",background:signupData.name.trim()&&signupData.email.trim()?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.15)",color:signupData.name.trim()&&signupData.email.trim()?"#000":"rgba(255,255,255,0.3)",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:signupData.name.trim()&&signupData.email.trim()?"pointer":"not-allowed"}}>CONTINUE WITH EMAIL</button>
+              <input type="password" value={signupData.password} onChange={e=>setSignupData(d=>({...d,password:e.target.value}))} placeholder="Password (6+ characters)" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
+              {authError&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#ff8a8a",lineHeight:1.5}}>{authError}</div>}
+              <button onClick={doEmailSignup} disabled={authLoading} style={{width:"100%",background:authLoading?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.92)",color:"#000",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:authLoading?"wait":"pointer"}}>{authLoading?"CREATING ACCOUNT…":"CREATE ACCOUNT"}</button>
             </div>
+
+            <p onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"0 0 16px",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></p>
 
             <p style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.3)",textAlign:"center",lineHeight:1.6,margin:0}}>By continuing you agree to our Terms of Service and Privacy Policy</p>
           </div>
@@ -2792,7 +2982,7 @@ export default function ChelgyApp() {
                       <input value={profileDraft.business} onChange={e=>setProfileDraft(d=>({...d,business:e.target.value}))} placeholder="Business type" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
                       <textarea value={profileDraft.bio} onChange={e=>setProfileDraft(d=>({...d,bio:e.target.value}))} placeholder="Short bio..." rows={3} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",background:B.white}} />
                       <div style={{display:"flex",gap:9}}>
-                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);setEditingProfile(false);}}>SAVE</Btn>
+                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);setEditingProfile(false);if(user&&user.email)patchByEmail("members",user.email,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio});}}>SAVE</Btn>
                         <button onClick={()=>setEditingProfile(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                       </div>
                     </div>
@@ -2813,6 +3003,14 @@ export default function ChelgyApp() {
                   )}
                   <div style={{marginTop:18,paddingTop:16,borderTop:"1px solid "+B.stone}}>
                     <button onClick={()=>{setTab("home");setSubTab("feed");setTourStep(0);}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",width:"100%"}}>Replay App Tutorial</button>
+                    {user ? (
+                      <div style={{marginTop:10}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:6,letterSpacing:"0.02em"}}>Signed in as {user.email}</div>
+                        <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.charcoal,letterSpacing:"0.1em",textTransform:"uppercase",width:"100%"}}>Log Out</button>
+                      </div>
+                    ) : (
+                      <button onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{marginTop:10,background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.charcoal,letterSpacing:"0.1em",textTransform:"uppercase",width:"100%"}}>Log In / Create Account</button>
+                    )}
                   </div>
                 </div>
                 <div style={{background:B.white,padding:"26px"}}>
