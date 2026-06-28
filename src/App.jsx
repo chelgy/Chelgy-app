@@ -570,14 +570,14 @@ function Onboarding({ onTrial, onSubscribe, onLogin }) {
 }
 
 // ─── PAYWALL ──────────────────────────────────────────────────────────────────
-function Paywall({ onClose, onJoin }) {
+function Paywall({ onClose, onSubscribe }) {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
       <div style={{background:B.white,width:"100%",maxWidth:600,padding:"36px 28px 40px",position:"relative"}}>
         <button onClick={onClose} style={{position:"absolute",top:16,right:16,background:"none",border:"none",cursor:"pointer",color:B.mid}}><Icons.X /></button>
         <div style={{width:32,height:1,background:B.gold,marginBottom:20}} />
-        <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 10px"}}>Members Only</h2>
-        <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 22px",letterSpacing:"0.01em"}}>Subscribe to unlock everything — all strategies, all 12 AI tools, the full community, and your AI Advisor.</p>
+        <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 10px"}}>Unlock Full Membership</h2>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 22px",letterSpacing:"0.01em"}}>Subscribe for $100/month to unlock everything — all strategies, all 12 AI tools, the full community, and your AI Advisor.</p>
         <div style={{borderTop:"1px solid "+B.stone,borderBottom:"1px solid "+B.stone,padding:"16px 0",marginBottom:22}}>
           {["40+ full marketing strategies","12 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","Weekly updates and member events"].map((item,i)=>(
             <div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"5px 0",display:"flex",gap:12,letterSpacing:"0.02em"}}>
@@ -585,8 +585,8 @@ function Paywall({ onClose, onJoin }) {
             </div>
           ))}
         </div>
-        <button onClick={onJoin} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>EXPLORE FOR FREE</button>
-        <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"11px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>CONTINUE BROWSING</button>
+        <button onClick={onSubscribe} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>SUBSCRIBE — $100/MONTH</button>
+        <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"11px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>MAYBE LATER</button>
       </div>
     </div>
   );
@@ -2103,6 +2103,19 @@ export default function ChelgyApp() {
     }
   },[]);
 
+  const startUpgrade = () => {
+    let email = (user && user.email) || signupData.email || "";
+    if (!email) { try { email = localStorage.getItem("chelgy_email") || ""; } catch {} }
+    if (email && email.includes("@")) {
+      try {
+        localStorage.setItem("chelgy_email", email);
+        localStorage.setItem("chelgy_name", (user && user.name) || signupData.name || (myName!=="You"?myName:"") || "");
+      } catch {}
+      window.location.href = STRIPE_PAYMENT_LINK + "?prefilled_email=" + encodeURIComponent(email);
+    } else {
+      setPage("signup");
+    }
+  };
   const handleStripeCheckout = async () => {
     setStripeError("");
     if (!signupData.email || !signupData.email.includes("@")) { setStripeError("Please enter a valid email address first."); return; }
@@ -2369,7 +2382,7 @@ export default function ChelgyApp() {
   return (
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
 
-      {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onJoin={()=>{setShowPaywall(false);setPage("signup");}} />}
+      {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onSubscribe={()=>{setShowPaywall(false);startUpgrade();}} />}
       {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
       {showCredits&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
       {creditError&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#C0392B",color:"#fff",padding:"12px 20px",fontFamily:"sans-serif",fontSize:12,zIndex:9997,letterSpacing:"0.04em",textAlign:"center",maxWidth:340}}>{creditError}</div>}
@@ -2575,7 +2588,7 @@ export default function ChelgyApp() {
               {isTrial?(
                 <div style={{position:"relative"}}>
                   <div style={{maxHeight:180,overflow:"hidden"}}><Rich text={selectedStrategy.content} /></div>
-                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:100,background:"linear-gradient(transparent,#FFFFFF)"}} />
+                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:100,background:"linear-gradient(transparent,#FFFFFF)",pointerEvents:"none"}} />
                   <div style={{textAlign:"center",paddingTop:20}}>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:14,letterSpacing:"0.04em"}}>Subscribe to read the full strategy</div>
                     <Btn dark onClick={()=>setShowPaywall(true)}>UNLOCK FULL ACCESS</Btn>
@@ -2632,7 +2645,7 @@ export default function ChelgyApp() {
               {isTrial?(
                 <div style={{position:"relative"}}>
                   <div style={{maxHeight:160,overflow:"hidden"}}><Rich text={selectedPost.content} /></div>
-                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:90,background:"linear-gradient(transparent,#FFFFFF)"}} />
+                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:90,background:"linear-gradient(transparent,#FFFFFF)",pointerEvents:"none"}} />
                   <div style={{textAlign:"center",paddingTop:18}}>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:13,letterSpacing:"0.04em"}}>Subscribe to read the full update</div>
                     <Btn dark onClick={()=>setShowPaywall(true)}>UNLOCK FULL ACCESS</Btn>
@@ -3028,7 +3041,7 @@ export default function ChelgyApp() {
                   ))}
                   {isTrial&&(
                     <div style={{marginTop:18}}>
-                      <Btn dark full onClick={()=>setPage("signup")}>UPGRADE TO FULL MEMBERSHIP</Btn>
+                      <Btn dark full onClick={()=>setShowPaywall(true)}>UPGRADE TO FULL MEMBERSHIP</Btn>
                     </div>
                   )}
                   <div style={{marginTop:18,paddingTop:16,borderTop:"1px solid "+B.stone}}>
