@@ -49,6 +49,7 @@ export default async function handler(req, res) {
     // Build the Checkout session via Stripe's REST API (form-encoded, no SDK needed)
     const params = new URLSearchParams();
     params.append("mode", "payment");
+    params.append("allow_promotion_codes", "true");
     params.append("success_url", origin + "/?credits=success");
     params.append("cancel_url", origin + "/?credits=cancel");
     if (u.email) params.append("customer_email", u.email);
