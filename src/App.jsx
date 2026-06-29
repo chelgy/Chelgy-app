@@ -84,6 +84,7 @@ function relTime(iso){
 
 // ─── Keep the login token fresh (Supabase tokens expire ~hourly) ─────────────
 function decodeExp(token){ try { const p = JSON.parse(atob(token.split(".")[1])); return p.exp ? p.exp * 1000 : 0; } catch { return 0; } }
+function decodeJwtPayload(token){ try { return JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))); } catch { return null; } }
 async function refreshSession(){
   const s = loadSession();
   if (!s || !s.refresh_token) return null;
@@ -2729,6 +2730,25 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
 
   useEffect(()=>{
+    // ─── Returning from a Google (OAuth) sign-in? Supabase sends the session in the URL hash ───
+    const hash = window.location.hash || "";
+    if (hash.includes("access_token=")) {
+      const hp = new URLSearchParams(hash.replace(/^#/, ""));
+      const at = hp.get("access_token"); const rt = hp.get("refresh_token");
+      if (at) {
+        const payload = decodeJwtPayload(at) || {};
+        const meta = payload.user_metadata || {};
+        const sess = { id: payload.sub, email: payload.email || meta.email || "", name: meta.full_name || meta.name || ((payload.email||"").split("@")[0]) || "", access_token: at, refresh_token: rt };
+        try { localStorage.setItem("chelgy_session", JSON.stringify(sess)); } catch {}
+        setUser(sess); setMyName(sess.name || sess.email);
+        let mem=false; try{ mem = localStorage.getItem("chelgy_member")==="1"; }catch{}
+        setIsTrial(!mem);
+        setPage("app");
+        track("login", { method: "google" });
+        try { window.history.replaceState({}, "", "/"); } catch {}
+        return;
+      }
+    }
     const params = new URLSearchParams(window.location.search);
     const isAdminUrl = window.location.search.includes("admin");
     const isPay = params.get("payment")==="success";
@@ -2879,6 +2899,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setSignupStep(2);
   };
 
+  const signInWithGoogle = () => {
+    track("login_start", { method: "google" });
+    window.location.href = SUPABASE_URL + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(window.location.origin);
+  };
+
   const doLogin = async () => {
     setAuthError("");
     const { email, password } = loginData;
@@ -3007,6 +3032,20 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     </div>
   ) : null;
 
+  const googleBtn = (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,margin:"2px 0 14px"}}>
+        <div style={{flex:1,height:1,background:"rgba(255,255,255,0.15)"}} />
+        <span style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.4)",letterSpacing:"0.12em"}}>OR</span>
+        <div style={{flex:1,height:1,background:"rgba(255,255,255,0.15)"}} />
+      </div>
+      <button onClick={signInWithGoogle} style={{width:"100%",background:"#fff",color:"#111",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+        <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+  );
+
   if (page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+HERO_IMG+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
@@ -3024,7 +3063,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <button onClick={doLogin} disabled={authLoading} style={{width:"100%",background:authLoading?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.92)",color:"#000",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:authLoading?"wait":"pointer"}}>{authLoading?"LOGGING IN…":"LOG IN"}</button>
           <p onClick={doForgot} style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",textAlign:"center",margin:"4px 0 0",cursor:"pointer",textDecoration:"underline"}}>Forgot password?</p>
         </div>
-        <p onClick={()=>{setAuthError("");setResetMsg("");setSignupStep(1);setPage("signup");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"4px 0 0",cursor:"pointer"}}>New to Chelgy? <span style={{color:"#fff",textDecoration:"underline"}}>Create an account</span></p>
+        {googleBtn}
+        <p onClick={()=>{setAuthError("");setResetMsg("");setSignupStep(1);setPage("signup");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"14px 0 0",cursor:"pointer"}}>New to Chelgy? <span style={{color:"#fff",textDecoration:"underline"}}>Create an account</span></p>
         <div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.4)",textAlign:"center",marginTop:18,letterSpacing:"0.02em"}}>
           <span onClick={()=>setLegalView("terms")} style={{cursor:"pointer",textDecoration:"underline"}}>Terms</span>
           <span style={{margin:"0 8px"}}>·</span>
@@ -3089,6 +3129,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {authError&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#ff8a8a",lineHeight:1.5}}>{authError}</div>}
               <button onClick={doEmailSignup} disabled={authLoading} style={{width:"100%",background:authLoading?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.92)",color:"#000",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:authLoading?"wait":"pointer"}}>{authLoading?"CREATING ACCOUNT…":"CREATE ACCOUNT"}</button>
             </div>
+            {googleBtn}
 
             <p onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"0 0 16px",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></p>
 
