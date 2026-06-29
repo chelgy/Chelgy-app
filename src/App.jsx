@@ -2043,6 +2043,13 @@ export default function ChelgyApp() {
   const [showGreeting, setShowGreeting] = useState(false);
   const [celebrate, setCelebrate] = useState("");
   const [completions, setCompletions] = useState(()=>lsGetJSON("chelgy_completions", {}));
+  const [showJournal, setShowJournal] = useState(false);
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [jWins, setJWins] = useState("");
+  const [jStruggles, setJStruggles] = useState("");
+  const [jResp, setJResp] = useState("");
+  const [jSaving, setJSaving] = useState(false);
+  const [jTodayId, setJTodayId] = useState(null);
   const navRefs = useRef({});
   const TOUR_STEPS = [
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
@@ -2190,6 +2197,61 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
   function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); } return nd; }); }
   function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
+  // Short description of the member's business — fed to the AI so it "knows" them
+  function bizContext(){
+    const i = intake || {};
+    const parts = [];
+    if(myName && myName!=="You" && myName!=="Member") parts.push("Member name: "+myName);
+    if(i.what || myBusiness) parts.push("Business: "+(i.what||myBusiness));
+    if(i.field) parts.push("Field: "+i.field);
+    if(i.hasBiz) parts.push("Stage: "+({running:"up and running",starting:"just starting",idea:"idea stage"})[i.hasBiz]);
+    if(i.location) parts.push("Location: "+i.location);
+    if(i.goal) parts.push("Their #1 goal: "+i.goal);
+    if(i.challenge) parts.push("Biggest challenge: "+i.challenge);
+    return parts.join(". ");
+  }
+  async function openJournal(){ setShowJournal(true); await loadJournal(); }
+  async function loadJournal(){
+    const tok = await freshToken(); if(!tok || !user || !user.id) return;
+    try {
+      const res = await fetch(SUPABASE_URL+"/rest/v1/journal_entries?select=*&user_id=eq."+user.id+"&order=entry_date.desc,id.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const rows = await res.json();
+      if(!Array.isArray(rows)) return;
+      setJournalEntries(rows);
+      const todays = rows.find(r=>r.entry_date===todayStr());
+      if(todays){ setJTodayId(todays.id); setJWins(todays.wins||""); setJStruggles(todays.struggles||""); setJResp(todays.ai_response||""); }
+      else { setJTodayId(null); setJWins(""); setJStruggles(""); setJResp(""); }
+    } catch(e){}
+  }
+  async function saveJournal(){
+    if(!jWins.trim() && !jStruggles.trim()) return;
+    setJSaving(true);
+    let aiResp = "";
+    if(jStruggles.trim()){
+      const prompt =
+`You are Chelgy — a warm, encouraging business coach speaking directly to a member who is journaling today. ${bizContext()}.
+Today they wrote:
+WINS: ${jWins.trim()||"(none noted)"}
+WHAT FELT HARD / STRESSFUL: ${jStruggles.trim()}
+Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if there is one, then give one or two specific, practical suggestions for what's hard. If a Chelgy tool would genuinely help (Image Creator, Content Writer, Ad Campaign Builder, Business Audit, Grant Finder, Platform Setup Guides, AI Advisor), mention it by name. Be supportive and human, not preachy. No headings, no bullet points.`;
+      aiResp = await callClaude(prompt, 1200, false);
+    }
+    const tok = await freshToken();
+    if(tok && user && user.id){
+      try {
+        if(jTodayId){
+          await fetch(SUPABASE_URL+"/rest/v1/journal_entries?id=eq."+jTodayId, { method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ wins:jWins, struggles:jStruggles, ai_response:aiResp }) });
+        } else {
+          const res = await fetch(SUPABASE_URL+"/rest/v1/journal_entries", { method:"POST", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=representation" }, body:JSON.stringify({ user_id:user.id, entry_date:todayStr(), wins:jWins, struggles:jStruggles, ai_response:aiResp }) });
+          const rows = await res.json(); const row = Array.isArray(rows)?rows[0]:rows; if(row && row.id) setJTodayId(row.id);
+        }
+      } catch(e){}
+    }
+    setJResp(aiResp);
+    setJSaving(false);
+    if(jWins.trim()) celebrateDone();
+    loadJournal();
+  }
   // ─── Forum / community: real data from Supabase (seed posts stay as decoration) ──
   async function loadForum(){
     if(forumLoaded) return; setForumLoaded(true);
@@ -2952,6 +3014,54 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
           <span style={{color:B.gold,marginRight:8}}>✓</span>{celebrate}
         </div>
       )}
+      {showJournal&&(
+        <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
+          <div style={{maxWidth:640,margin:"0 auto",padding:"32px 24px 60px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div><div style={{width:32,height:1,background:B.gold,marginBottom:14}} /><h2 style={{fontSize:25,fontFamily:"Georgia,serif",fontWeight:400,margin:0}}>Business Journal</h2></div>
+              <button onClick={()=>setShowJournal(false)} style={{background:"none",border:"none",cursor:"pointer",color:B.mid,marginTop:4}}><Icons.X/></button>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:"6px 0 22px"}}>Log what you did and what felt hard. Chelgy weighs in on the tough stuff — and your wins fuel your weekly recap.</p>
+            <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px",marginBottom:14}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:14}}>Today · {new Date().toLocaleDateString()}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,fontWeight:700,letterSpacing:"0.02em",marginBottom:6}}>What did you accomplish today?</div>
+              <textarea value={jWins} onChange={e=>setJWins(e.target.value)} rows={3} placeholder="Even small wins count — a post, a call, a sale..." style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white,marginBottom:16,lineHeight:1.6}} />
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,fontWeight:700,letterSpacing:"0.02em",marginBottom:6}}>What felt hard or stressful?</div>
+              <textarea value={jStruggles} onChange={e=>setJStruggles(e.target.value)} rows={3} placeholder="Get it off your chest — Chelgy will help you work through it." style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white,marginBottom:16,lineHeight:1.6}} />
+              <Btn dark onClick={saveJournal} disabled={jSaving}>{jSaving?"SAVING...":"SAVE TODAY'S ENTRY"}</Btn>
+            </div>
+            {jResp&&(
+              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px",marginBottom:20}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.16em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>A note from Chelgy</div>
+                <Rich text={jResp} />
+              </div>
+            )}
+            {(()=>{ const wins=journalEntries.filter(e=>{ const diff=(Date.now()-new Date(e.entry_date+"T00:00:00"))/86400000; return diff>=0&&diff<7&&e.wins&&e.wins.trim(); }); if(!wins.length) return null; return (
+              <div style={{marginBottom:24}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:12}}>Your wins this week</div>
+                <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+                  {wins.map(e=>(<div key={e.id} style={{background:B.white,padding:"12px 16px"}}><div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:3}}>{new Date(e.entry_date+"T00:00:00").toLocaleDateString()}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>{e.wins}</div></div>))}
+                </div>
+              </div>
+            ); })()}
+            {journalEntries.filter(e=>e.entry_date!==todayStr()).length>0&&(
+              <div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:12}}>Past entries</div>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {journalEntries.filter(e=>e.entry_date!==todayStr()).map(e=>(
+                    <div key={e.id} style={{background:B.white,border:"1px solid "+B.stone,padding:"16px 18px"}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.06em",marginBottom:8}}>{new Date(e.entry_date+"T00:00:00").toLocaleDateString()}</div>
+                      {e.wins&&<div style={{marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:9,color:B.green,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Wins</span><p style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,margin:"3px 0 0",lineHeight:1.55}}>{e.wins}</p></div>}
+                      {e.struggles&&<div style={{marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Challenges</span><p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"3px 0 0",lineHeight:1.55}}>{e.struggles}</p></div>}
+                      {e.ai_response&&<div style={{background:B.offwhite,padding:"12px 14px",marginTop:8}}><span style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Chelgy</span><p style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,margin:"4px 0 0",lineHeight:1.6}}>{e.ai_response}</p></div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onSubscribe={()=>{setShowPaywall(false);startUpgrade();}} />}
       {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
       {showCredits&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
@@ -3591,6 +3701,14 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                   <span style={{color:B.gold}}><Icons.ChevronRight /></span>
                 </button>
               )}
+              <button onClick={openJournal} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                <div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Daily Reflection</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3}}>Business Journal</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>Log today's wins and what felt hard — Chelgy will help.</div>
+                </div>
+                <Icons.ChevronRight />
+              </button>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:2,background:B.stone}}>
                 <div style={{background:B.white,padding:"26px"}}>
                   {!editingProfile?(<>
