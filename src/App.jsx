@@ -447,12 +447,13 @@ async function callClaude(prompt, maxTokens, webSearch=false) {
   } catch { return "Something went wrong. Please try again."; }
 }
 
-async function generateGeminiImage(prompt, inputImage, aspectRatio, quality) {
+async function generateGeminiImage(prompt, inputImages, aspectRatio, quality) {
   const token = await freshToken();
+  const imgs = Array.isArray(inputImages) ? inputImages : (inputImages ? [inputImages] : []);
   const res = await fetch("/api/image", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: JSON.stringify({ prompt, inputImage: inputImage || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard" }),
+    body: JSON.stringify({ prompt, inputImages: imgs, inputImage: imgs[0] || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard" }),
   });
   const d = await res.json();
   if (!d.image) throw new Error(d.error || "No image");
@@ -934,7 +935,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [iType,setIType]=useState("ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
-  const [iUpload,setIUpload]=useState("");
+  const [iUploads,setIUploads]=useState([]);
   const [iAspect,setIAspect]=useState("1:1");
   const [iQuality,setIQuality]=useState("standard");
   const [vType,setVType]=useState("generate");const [vTopic,setVTopic]=useState("");const [vPlat,setVPlat]=useState("TikTok");
@@ -955,7 +956,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(ctxPre+p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
-  function onUploadImg(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setIUpload(r.result);r.readAsDataURL(f);}
+  function onUploadImg(e){const fs=e.target.files;if(!fs||!fs.length)return;const arr=Array.from(fs).slice(0,5);arr.forEach(f=>{const r=new FileReader();r.onload=()=>setIUploads(prev=>prev.length>=5?prev:[...prev,r.result]);r.readAsDataURL(f);});e.target.value="";}
   async function genI(){
     if(!iBiz.trim())return;
     track("tool_used",{tool:"image_creator",type:iType,aspect:iAspect});
@@ -964,11 +965,11 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     let p="Create "+kind+" for a business called \""+iBiz+"\". Visual style: "+iStyle+".";
     if(iColors.trim())p+=" Brand colors: "+iColors+".";
     if(iExtra.trim())p+=" Additional details: "+iExtra+".";
+    if(iUploads.length) p+=" Use the "+(iUploads.length>1?"uploaded reference photos":"uploaded reference photo")+" as the basis — keep the real product/subject accurate and build the design around "+(iUploads.length>1?"them":"it")+".";
     p+=" Make it professional, modern, sharp, well-composed and ready to use.";
-    let inputImage=null;
-    if(iType==="ad"&&iUpload&&/^data:(.*?);base64,/.test(iUpload)){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImage={mimeType:m[1],data:m[2]};}
+    const inputImages = iUploads.map(u=>{ const m=/^data:(.*?);base64,(.*)$/.exec(u||""); return m?{mimeType:m[1],data:m[2]}:null; }).filter(Boolean);
     try{
-      const r=await generateGeminiImage(p,inputImage,iAspect,iQuality);
+      const r=await generateGeminiImage(p,inputImages,iAspect,iQuality);
       setIRes(r.image);
       if(typeof r.balance==="number") onBalance(r.balance);
     }catch(e){setIErr(e&&e.message?("Image error: "+e.message):"Couldn't create the image. Please try again.");}
@@ -1059,10 +1060,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
           <Icons.ChevronLeft /> Back
         </button>
+        {!locked&&(
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.06em"}}>{credits.toLocaleString()} credits</span>
           <button onClick={onBuyCredits} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark}}>TOP UP</button>
         </div>
+        )}
       </div>
       {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
@@ -1094,12 +1097,26 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
           <Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>
-          {iType==="ad"&&<div style={{marginBottom:14}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload Product Photo (optional)</div>
-            {!iUpload
-              ? <label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"18px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>Tap to upload your product photo — the AI will turn it into high-end imagery<input type="file" accept="image/*" onChange={onUploadImg} style={{display:"none"}} /></label>
-              : <div style={{display:"flex",alignItems:"center",gap:12,border:"1px solid "+B.stone,padding:"10px",background:B.white}}><img src={iUpload} alt="Your product" style={{width:54,height:54,objectFit:"cover",flexShrink:0}} /><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,flex:1}}>Photo ready — the AI will transform this into a polished ad.</div><button onClick={()=>setIUpload("")} style={{background:"none",border:"1px solid "+B.stone,padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Remove</button></div>}
-          </div>}
+          <div style={{marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload reference photos (optional · up to 5)</div>
+            {iUploads.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
+              {iUploads.map((u,idx)=>(
+                <div key={idx} style={{position:"relative",width:64,height:64}}>
+                  <img src={u} alt={"Reference "+(idx+1)} style={{width:64,height:64,objectFit:"cover",border:"1px solid "+B.stone,display:"block"}} />
+                  <button onClick={()=>setIUploads(prev=>prev.filter((_,i)=>i!==idx))} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                </div>
+              ))}
+            </div>}
+            {iUploads.length<5&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{iUploads.length?"Add another photo":"Tap to upload photo(s) — the AI will build your design around them. You can add several (e.g. a product + your logo)."}<input type="file" accept="image/*" multiple onChange={onUploadImg} style={{display:"none"}} /></label>}
+          </div>
+          {(()=>{ const IDEAS={ad:["Bold sale announcement with a clean product hero","Minimal luxury ad with lots of white space","Lifestyle scene showing the product in use"],logo:["Elegant text-based wordmark logo","Minimal icon + business name, gold on black","Modern circular badge-style logo"],flyer:["Grand opening flyer with date and offer","Event flyer with bold headline and details","Discount promo flyer with a clear call to action"],social:["Quote graphic in brand colors","Before & after split layout","New product launch announcement post"],banner:["Website hero banner with tagline","Facebook cover banner, clean and modern","Sale banner with bold text and product"],product:["Product on a soft studio backdrop","Product flat-lay with props","Product close-up with dramatic lighting"]}; const ideas=IDEAS[iType]||IDEAS.ad; return (
+            <div style={{marginBottom:14}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Need ideas? Tap one</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                {ideas.map((idea,i)=>(<button key={i} onClick={()=>setIExtra(idea)} style={{background:B.white,border:"1px solid "+B.stone,padding:"7px 12px",fontFamily:"sans-serif",fontSize:11,color:B.charcoal,cursor:"pointer",letterSpacing:"0.01em",textAlign:"left"}}>{idea}</button>))}
+              </div>
+            </div>
+          ); })()}
           <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
           <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
@@ -3362,7 +3379,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       )}
       {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onSubscribe={()=>{setShowPaywall(false);startUpgrade();}} />}
       {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
-      {showCredits&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
+      {showCredits&&!isTrial&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
       {creditError&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#C0392B",color:"#fff",padding:"12px 20px",fontFamily:"sans-serif",fontSize:12,zIndex:9997,letterSpacing:"0.04em",textAlign:"center",maxWidth:340}}>{creditError}</div>}
 
       {/* ── HEADER ── */}
@@ -3374,7 +3391,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
           <div style={{display:"flex",alignItems:"center",gap:18}}>
             {isTrial&&(
-              <button onClick={()=>setPage("signup")} style={{background:"none",border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.charcoal}}>EXPLORE FOR FREE</button>
+              <button onClick={()=>setShowPaywall(true)} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:"#fff"}}>UPGRADE MEMBERSHIP</button>
             )}
             {!isTrial&&(
               <button onClick={()=>setShowCredits(true)} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark,display:"flex",alignItems:"center",gap:5}}>

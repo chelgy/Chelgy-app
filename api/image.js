@@ -46,6 +46,9 @@ export default async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const prompt = body.prompt;
     const inputImage = body.inputImage; // optional { mimeType, data }
+    const inputImages = Array.isArray(body.inputImages) && body.inputImages.length
+      ? body.inputImages
+      : (inputImage && inputImage.data ? [inputImage] : []);
 
     const allowedRatios = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
     const aspectRatio = allowedRatios.includes(body.aspectRatio) ? body.aspectRatio : "1:1";
@@ -66,8 +69,9 @@ export default async function handler(req, res) {
     const key = (process.env.GEMINI_API_KEY || "").trim();
     if (!key) { await refund(userId, cost, "refund:image-config"); return res.status(500).json({ error: "Image service is not configured." }); }
 
-    const parts = inputImage && inputImage.data
-      ? [{ inlineData: { mimeType: inputImage.mimeType, data: inputImage.data } }, { text: prompt }]
+    const validImgs = inputImages.filter(im => im && im.data && im.mimeType);
+    const parts = validImgs.length
+      ? [...validImgs.map(im => ({ inlineData: { mimeType: im.mimeType, data: im.data } })), { text: prompt }]
       : [{ text: prompt }];
 
     let model, imageConfig;
