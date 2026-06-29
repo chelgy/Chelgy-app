@@ -1,5 +1,4 @@
-// deploy v-google-login
-// import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
