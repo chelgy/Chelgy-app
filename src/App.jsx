@@ -722,7 +722,7 @@ function Paywall({ onClose, onSubscribe }) {
         <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 10px"}}>Unlock Full Membership</h2>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 22px",letterSpacing:"0.01em"}}>Subscribe for $100/month to unlock everything — all strategies, all 12 AI tools, the full community, and your AI Advisor.</p>
         <div style={{borderTop:"1px solid "+B.stone,borderBottom:"1px solid "+B.stone,padding:"16px 0",marginBottom:22}}>
-          {["40+ full marketing strategies","12 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","Weekly updates and member events"].map((item,i)=>(
+          {["40+ full marketing strategies","12 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","The Chelgy Edit blog and member events"].map((item,i)=>(
             <div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"5px 0",display:"flex",gap:12,letterSpacing:"0.02em"}}>
               <span style={{color:B.gold}}>—</span>{item}
             </div>
@@ -1558,7 +1558,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [editStrat, setEditStrat] = useState(null);
   const [editWeekly, setEditWeekly] = useState(null);
   const [newStrat, setNewStrat] = useState({ title:"", category:"SEO", level:"Foundational", timeToResult:"1-3 months", summary:"", content:"", imageUrl:"" });
-  const [newWeekly, setNewWeekly] = useState({ title:"", tag:"AI Update", week:"This Week", readTime:"5 min read", content:"", imageUrl:"" });
+  const [newWeekly, setNewWeekly] = useState({ title:"", tag:"Marketing", week:"This Week", readTime:"5 min read", content:"", imageUrl:"" });
   const [saved, setSaved] = useState(false);
   const [dbLoading, setDbLoading] = useState(false);
   const [helpReqs, setHelpReqs] = useState([]);
@@ -1652,7 +1652,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     if (result && result[0]) {
       const nw = {...newWeekly, id:result[0].id, comments:[]};
       setWeeklyPosts(prev=>[nw,...prev]);
-      setNewWeekly({title:"",tag:"AI Update",week:"This Week",readTime:"5 min read",content:"",imageUrl:""});
+      setNewWeekly({title:"",tag:"Marketing",week:"This Week",readTime:"5 min read",content:"",imageUrl:""});
       setEditWeekly(null); flash();
     }
     setDbLoading(false);
@@ -1660,7 +1660,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
   async function updateWeekly(p) {
     setDbLoading(true);
-    const data = { title:p.title, content:p.content, image_url:p.imageUrl||null };
+    const data = { title:p.title, tag:p.tag, content:p.content, image_url:p.imageUrl||null };
     await sbFetch("weekly_posts","PATCH",data,p.id);
     setEditWeekly(null); flash(); setDbLoading(false);
   }
@@ -1672,7 +1672,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
   const cats = ["SEO","Content Marketing","Email Marketing","Paid Advertising","Brand Strategy","Social Media","AI Marketing","Influencer Marketing","Funnel Strategy","Local Marketing"];
   const levels = ["Foundational","Intermediate","Advanced"];
-  const tags = ["AI Update","Platform Update","Strategy Drop","Tool Alert","Weekly Roundup"];
+  const tags = ["Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
 
   function flash() { setSaved(true); setTimeout(()=>setSaved(false), 2000); }
 
@@ -1695,7 +1695,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["showcase","Showcase"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1724,7 +1724,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               </div>
               <div onClick={()=>setView("weekly")} style={{background:"#fff",padding:"24px",cursor:"pointer",border:"1px solid #E8E6E1"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>Weekly Updates</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>The Chelgy Edit</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>Publish new weekly content</div>
               </div>
             </div>
@@ -1915,13 +1915,13 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {view==="weekly"&&(
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>Weekly Updates ({weeklyPosts.length})</h2>
+              <h2 style={{fontSize:20,fontWeight:400,margin:0}}>The Chelgy Edit ({weeklyPosts.length})</h2>
               <button onClick={()=>setEditWeekly("new")} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>+ NEW UPDATE</button>
             </div>
 
             {editWeekly==="new"&&(
               <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:16}}>
-                <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 20px"}}>New Weekly Update</h3>
+                <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 20px"}}>New Post</h3>
                 <Lbl>Title</Lbl><ASi value={newWeekly.title} onChange={e=>setNewWeekly(w=>({...w,title:e.target.value}))} placeholder="e.g. The AI Tools Changing Marketing This Week" />
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
                   <div><Lbl>Tag</Lbl><ASs value={newWeekly.tag} onChange={e=>setNewWeekly(w=>({...w,tag:e.target.value}))}>{tags.map(t=><option key={t}>{t}</option>)}</ASs></div>
@@ -1946,11 +1946,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   {editWeekly===p.id?(
                     <div>
                       <Lbl>Title</Lbl><ASi value={p.title} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,title:e.target.value}:x))} />
+                      <Lbl>Category</Lbl><ASs value={p.tag||"Marketing"} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,tag:e.target.value}:x))}>{tags.map(t=><option key={t}>{t}</option>)}</ASs>
                       <Lbl>Image URL (optional)</Lbl><ASi value={p.imageUrl||""} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
                       {p.imageUrl&&<img src={p.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
                       <Lbl>Content</Lbl><ASt value={p.content} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,content:e.target.value}:x))} rows={10} />
                       <div style={{display:"flex",gap:10}}>
-                        <button onClick={()=>{setEditWeekly(null);flash();}} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
+                        <button onClick={()=>updateWeekly(p)} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
                         <button onClick={()=>setEditWeekly(null)} style={{background:"none",border:"1px solid #E8E6E1",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B"}}>CANCEL</button>
                       </div>
                     </div>
@@ -2147,7 +2148,7 @@ export default function ChelgyApp() {
   const TOUR_STEPS = [
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
     { target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." },
-    { target: "learn", title: "Learn", body: "Marketing strategies and weekly updates. Tap any strategy for a step-by-step deep dive." },
+    { target: "learn", title: "Learn", body: "Marketing strategies and The Chelgy Edit blog. Tap any strategy for a step-by-step deep dive." },
     { target: "tools", title: "Tools", body: "Your AI toolkit: image creator, video studio, the new Viral Video Generator, voiceovers, content writer, Grant Finder, and the Business Builder." },
     { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
     { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
@@ -2249,7 +2250,9 @@ For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on
 - Platform Setup Guides (set up Google Business, social profiles, etc.)
 - AI Advisor (ask any marketing question anytime)
 
-Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no preamble before the first heading.`;
+Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no preamble before the first heading.
+
+End the whole plan with a final section titled "## You've got this" — 2 to 4 warm, confident sentences that make this point clearly: everything flagged in this audit can be fixed right here inside Chelgy using the tools above. They don't need to hire an agency, a designer, a copywriter, or a consultant, and they don't have to figure it out alone — Chelgy is their team. Tell them the best next step is to open their roadmap and start with today's highest-impact task. Make them feel capable and ready to start.`;
     const result = await callClaude(prompt, 6000, true);
     setPlan(result);
     try { localStorage.setItem("chelgy_plan", result); } catch(e){}
@@ -2397,6 +2400,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // Content state
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [blogCat, setBlogCat] = useState("All");
+  const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
   const [selectedForumPost, setSelectedForumPost] = useState(null);
   const [toolsView, setToolsView] = useState("hub");
   const [filterCat, setFilterCat] = useState("All");
@@ -2582,7 +2587,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // Sub-tabs per bottom tab
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
-    learn: [["strategies","Strategies"],["weekly","Weekly Updates"]],
+    learn: [["strategies","Strategies"],["weekly","The Chelgy Edit"]],
     tools: [["hub","All Tools"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
     profile: [["overview","Overview"],["stats","Stats"]],
@@ -2685,16 +2690,19 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     return ()=>{ cancelled = true; };
   },[user]);
 
-  // ─── Notify when a newer weekly update appears ───────────────────────────────
+  // ─── Notify when a genuinely NEW weekly update appears (not on every load) ───
+  const weeklyReady = useRef(false);
+  useEffect(()=>{ const t=setTimeout(()=>{ weeklyReady.current=true; }, 4000); return ()=>clearTimeout(t); },[]);
   useEffect(()=>{
     if(!appWeeklyPosts || !appWeeklyPosts.length) return;
-    const newestId = appWeeklyPosts[0].id;
-    let seen=null; try{ seen = localStorage.getItem("chelgy_lastWeeklyId"); }catch{}
-    if(seen===null){ try{ localStorage.setItem("chelgy_lastWeeklyId", String(newestId)); }catch{} return; }
-    if(String(newestId)!==seen){
-      pushNotif("New weekly update: "+cleanTitle(appWeeklyPosts[0].title));
-      try{ localStorage.setItem("chelgy_lastWeeklyId", String(newestId)); }catch{}
-    }
+    let seen=[]; try{ seen = JSON.parse(localStorage.getItem("chelgy_seenWeekly")||"[]"); }catch{ seen=[]; }
+    if(!Array.isArray(seen)) seen=[];
+    const ids = appWeeklyPosts.map(p=>String(p.id));
+    const fresh = ids.filter(id=>!seen.includes(id));
+    if(!fresh.length) return;
+    try{ localStorage.setItem("chelgy_seenWeekly", JSON.stringify([...seen, ...fresh])); }catch{}
+    // Only notify once startup has settled — startup loads (seed → database) absorb silently
+    if(weeklyReady.current){ pushNotif("New on The Chelgy Edit: "+cleanTitle(appWeeklyPosts[0].title)); }
   },[appWeeklyPosts]);
 
   // (Level-up notifications removed — the task system replaces points/levels.)
@@ -2968,7 +2976,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff"}}>Everything unlocked</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"rgba(255,255,255,0.7)"}}>$100<span style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>/mo</span></div>
               </div>
-              {["40+ marketing strategies","12 AI tools — content, images, video","Chelgy AI Advisor","Full community access","Weekly updates"].map((f,i)=>(
+              {["40+ marketing strategies","12 AI tools — content, images, video","Chelgy AI Advisor","Full community access","The Chelgy Edit"].map((f,i)=>(
                 <div key={i} style={{display:"flex",gap:10,padding:"3px 0",fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",letterSpacing:"0.01em"}}>
                   <span style={{color:"rgba(255,255,255,0.4)"}}>—</span>{f}
                 </div>
@@ -3372,10 +3380,15 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="learn"&&subTab==="weekly"&&!selectedPost&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Weekly Updates</h2>
-              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.01em"}}>Every major platform update, new tool, and emerging strategy — published every Monday.</p>
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>The Chelgy Edit</h2>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.01em"}}>Marketing, money, mindset, and more — fresh reads to grow your business and yourself.</p>
+              <div style={{display:"flex",gap:7,overflowX:"auto",paddingBottom:10,marginBottom:14,scrollbarWidth:"none"}}>
+                {BLOG_CATS.filter(c=>c==="All"||appWeeklyPosts.some(p=>p.tag===c)).map(c=>(
+                  <button key={c} onClick={()=>setBlogCat(c)} style={{flexShrink:0,padding:"7px 14px",border:"1px solid "+(blogCat===c?B.charcoal:B.stone),background:blogCat===c?B.charcoal:B.white,color:blogCat===c?"#fff":B.mid,fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",cursor:"pointer",whiteSpace:"nowrap",textTransform:"uppercase"}}>{c}</button>
+                ))}
+              </div>
               <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
-                {appWeeklyPosts.map(post=>(
+                {appWeeklyPosts.filter(p=>blogCat==="All"||p.tag===blogCat).map(post=>(
                   <div key={post.id} onClick={()=>{setSelectedPost(post);addPts(PTS.weekly);}} style={{background:B.white,padding:"20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                     <div style={{flex:1}}>
                       <Tag gold>{post.tag}</Tag>
@@ -3395,7 +3408,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="learn"&&subTab==="weekly"&&selectedPost&&(
             <div style={{paddingTop:28}}>
-              <button onClick={()=>setSelectedPost(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:22,padding:0,letterSpacing:"0.1em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Weekly</button>
+              <button onClick={()=>setSelectedPost(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:22,padding:0,letterSpacing:"0.1em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> The Chelgy Edit</button>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:10}}>
                 <Tag gold>{selectedPost.tag}</Tag>
                 <button onClick={()=>{sharePost(selectedPost);}} style={{background:"none",border:"1px solid "+B.stone,padding:"5px 12px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>{copied?"COPIED":"SHARE"}</button>
@@ -3797,9 +3810,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               ); })()}
               {plan ? (
-                <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
                   <div>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Coach</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Coach</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3}}>Your Business Plan &amp; Roadmap</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>Tap to view your personalized plan and next steps.</div>
                   </div>
@@ -3868,7 +3881,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   )}
                   <div style={{marginTop:18,paddingTop:16,borderTop:"1px solid "+B.stone}}>
-                    <button onClick={()=>{setTab("home");setSubTab("feed");setTourStep(0);}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",width:"100%"}}>Replay App Tutorial</button>
                     {user ? (
                       <div style={{marginTop:10}}>
                         <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:6,letterSpacing:"0.02em"}}>Signed in as {user.email}</div>
