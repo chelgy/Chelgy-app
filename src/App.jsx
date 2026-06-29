@@ -2290,8 +2290,8 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   function sumCompletions(days){ const now=new Date(); let total=0; for(const k of Object.keys(completions)){ const dt=new Date(k+"T00:00:00"); const diff=(now-dt)/86400000; if(diff>=0 && diff<days) total+=(completions[k]||0); } return total; }
   function computeStreak(){ let streak=0; const day=new Date(); if(!(completions[todayStr()]>0)) day.setDate(day.getDate()-1); while(completions[fmtDate(day)]>0){ streak++; day.setDate(day.getDate()-1); } return streak; }
   function celebrateDone(){ const lines=["Nice work — that's done.","Done! Momentum is everything.","One step closer. Keep going.","Checked off. You're building real progress."]; setCelebrate(lines[Math.floor(Math.random()*lines.length)]); setTimeout(()=>setCelebrate(""),2600); }
-  function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
-  function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); } return nd; }); }
+  function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); addPts(PTS.bigTask); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
+  function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); addPts(PTS.daily); } return nd; }); }
   function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
   // Short description of the member's business — fed to the AI so it "knows" them
   function bizContext(){
@@ -2321,6 +2321,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   }
   async function saveJournal(){
     if(!jWins.trim() && !jStruggles.trim()) return;
+    const wasNew = !jTodayId;
     setJSaving(true);
     let aiResp = "";
     if(jStruggles.trim()){
@@ -2345,6 +2346,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     }
     setJResp(aiResp);
     setJSaving(false);
+    if(wasNew) addPts(PTS.journal);
     if(jWins.trim()) celebrateDone();
     loadJournal();
   }
@@ -2568,7 +2570,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       return next;
     });
   };
-  const PTS = { post:10, reply:5, upvote:2, challenge:25, weekly:3, strategy:2 };
+  const PTS = { bigTask:15, daily:5, journal:8, strategy:2, weekly:3, reply:5, challenge:25 };
   const cats = ["All","SEO","Content Marketing","Email Marketing","Paid Advertising","Brand Strategy","Social Media","AI Marketing","AI Video Tools","Influencer Marketing","Funnel Strategy"];
   const levels = ["All Levels","Foundational","Intermediate","Advanced"];
 
@@ -2590,7 +2592,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     learn: [["strategies","Strategies"],["weekly","The Chelgy Edit"]],
     tools: [["hub","All Tools"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
-    profile: [["overview","Overview"],["stats","Stats"]],
+    profile: [["overview","Overview"],["stats","Progress"]],
   };
 
   function goTab(t, sub) {
@@ -3916,7 +3918,25 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="profile"&&subTab==="stats"&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 22px"}}>Level Progress</h2>
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Your Progress</h2>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.01em"}}>You earn points every time you do the work to grow your business.</p>
+              {(()=>{ const lv=getLevel(myPoints); const nl=nextLevel(myPoints); const toNext=nl?(nl.min-myPoints):0; const pct=nl?Math.max(0,Math.round(((myPoints-lv.min)/(nl.min-lv.min))*100)):100; return (
+                <div style={{background:B.charcoal,padding:"24px",marginBottom:16}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Level {lv.level} · {lv.title}</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#fff",fontWeight:400,marginBottom:0}}>{myPoints} <span style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>points</span></div>
+                  {nl?(<><div style={{height:4,background:"rgba(255,255,255,0.15)",margin:"14px 0 8px"}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.5s"}} /></div><div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)"}}>{toNext} more to Level {nl.level} · {nl.title}</div></>):(<div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:10}}>You've reached the top level. Incredible work.</div>)}
+                </div>
+              ); })()}
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"18px 20px",marginBottom:18}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase",marginBottom:12}}>How to earn points</div>
+                {[["Complete a roadmap task","+15"],["Write in your business journal","+8"],["Complete a daily task","+5"],["Post in the community","+5"],["Read a Chelgy Edit post","+3"],["Read a strategy","+2"]].map(([l,p])=>(
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid "+B.offwhite}}>
+                    <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>{l}</span>
+                    <span style={{fontFamily:"Georgia,serif",fontSize:14,color:B.gold}}>{p}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>All levels</div>
               <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
                 {LEVELS.map((lv,i)=>{
                   const active = myPoints >= lv.min && (!LEVELS[i+1] || myPoints < LEVELS[i+1].min);
