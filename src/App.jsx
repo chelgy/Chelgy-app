@@ -71,6 +71,17 @@ function loadSession() {
 }
 function clearSession() { try { localStorage.removeItem("chelgy_session"); } catch {} }
 
+// Turn a timestamp into "just now / 5m ago / 3h ago / 2d ago"
+function relTime(iso){
+  try {
+    const then=new Date(iso).getTime(); const diff=Math.max(0,Date.now()-then); const m=Math.floor(diff/60000);
+    if(m<1) return "just now"; if(m<60) return m+"m ago";
+    const h=Math.floor(m/60); if(h<24) return h+"h ago";
+    const d=Math.floor(h/24); if(d<7) return d+"d ago";
+    return new Date(iso).toLocaleDateString();
+  } catch { return ""; }
+}
+
 // ─── Keep the login token fresh (Supabase tokens expire ~hourly) ─────────────
 function decodeExp(token){ try { const p = JSON.parse(atob(token.split(".")[1])); return p.exp ? p.exp * 1000 : 0; } catch { return 0; } }
 async function refreshSession(){
@@ -1535,8 +1546,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     }
     const subs = await sbFetch("subscribers");
     if (subs && subs.length > 0) setSubsList(subs);
-    const mems = await sbFetch("members");
-    if (mems && mems.length > 0) setMembersList(mems);
+    try {
+      const tok = await freshToken();
+      const r = await fetch("/api/admin", { method:"POST", headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) }, body: JSON.stringify({ action:"list-members" }) });
+      const d = await r.json();
+      if (d && Array.isArray(d.members)) setMembersList(d.members);
+    } catch(e){}
     setDbLoading(false);
   }
 
@@ -2173,6 +2188,42 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
   function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); } return nd; }); }
   function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
+  // ─── Forum / community: real data from Supabase (seed posts stay as decoration) ──
+  async function loadForum(){
+    if(forumLoaded) return; setForumLoaded(true);
+    try {
+      const res = await fetch(SUPABASE_URL+"/rest/v1/forum_posts?select=*&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+      const rows = await res.json();
+      if(!Array.isArray(rows)||!rows.length) return;
+      let comments=[];
+      try { const cr = await fetch(SUPABASE_URL+"/rest/v1/forum_comments?select=*&order=created_at.asc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); comments = await cr.json(); } catch(e){}
+      const byPost = {};
+      if(Array.isArray(comments)) comments.forEach(c=>{ (byPost[c.post_id]=byPost[c.post_id]||[]).push({ author:c.author_name, text:c.body, time:relTime(c.created_at), cid:c.id }); });
+      const real = rows.map(r=>({ id:"db-"+r.id, dbId:r.id, real:true, cat:r.category, author:r.author_name, avatar:(r.author_name||"M")[0], time:relTime(r.created_at), pinned:false, title:r.title, body:r.body, upvotes:r.upvotes||0, replies: byPost[r.id]||[] }));
+      setForumPosts([...real, ...SEED_POSTS]);
+    } catch(e){}
+  }
+  async function loadMembers(){
+    try {
+      const res = await fetch(SUPABASE_URL+"/rest/v1/public_members?select=*", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+      const rows = await res.json();
+      if(Array.isArray(rows)) setRealMembers(rows.filter(r=>r.name&&String(r.name).trim()).map(r=>({ id:r.user_id, name:r.name, avatar:(r.name||"M")[0], business:r.business||"", bio:r.bio||"", type:"Entrepreneur", badges:["Member"] })));
+    } catch(e){}
+  }
+  async function loadServerNotifications(){
+    const tok = await freshToken(); if(!tok||!user) return;
+    try {
+      const res = await fetch(SUPABASE_URL+"/rest/v1/notifications?select=id,text&read=eq.false&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const rows = await res.json();
+      if(Array.isArray(rows)&&rows.length){
+        rows.slice(0,10).reverse().forEach(n=>pushNotif(n.text));
+        const ids = rows.map(n=>n.id).join(",");
+        await fetch(SUPABASE_URL+"/rest/v1/notifications?id=in.("+ids+")", { method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ read:true }) });
+      }
+    } catch(e){}
+  }
+  useEffect(()=>{ if(tab==="community"){ loadForum(); loadMembers(); loadServerNotifications(); } },[tab]);
+  useEffect(()=>{ if(user&&user.id) loadServerNotifications(); },[user]);
   useEffect(()=>{
     if(tourStep===null) return;
     const step=TOUR_STEPS[tourStep];
@@ -2234,6 +2285,8 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
 
   // Forum state
   const [forumPosts, setForumPosts] = useState(SEED_POSTS);
+  const [forumLoaded, setForumLoaded] = useState(false);
+  const [realMembers, setRealMembers] = useState([]);
   const [forumCat, setForumCat] = useState("all");
   const [forumReply, setForumReply] = useState("");
   const [forumReplyName, setForumReplyName] = useState("");
@@ -3319,17 +3372,17 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                     <select value={newPost.cat} onChange={e=>setNewPost(p=>({...p,cat:e.target.value}))} style={{padding:"7px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:11,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>
                       {["wins","questions","working","ai","memes","intros","life"].map(c=><option key={c} value={c}>{c}</option>)}
                     </select>
-                    <Btn dark small onClick={()=>{if(!newPost.title.trim()||!newPost.body.trim())return;setForumPosts(ps=>[{id:Date.now(),cat:newPost.cat,author:myName,avatar:myName[0]||"M",time:"Just now",title:newPost.title,body:newPost.body,upvotes:0,replies:[]},...ps]);setNewPost({title:"",body:"",cat:"questions"});setShowNewPost(false);track("forum_post_created");addPts(PTS.post);}}>POST</Btn>
+                    <Btn dark small onClick={async ()=>{if(!newPost.title.trim()||!newPost.body.trim())return;const tok=await freshToken();if(tok&&user&&user.id){try{const res=await fetch(SUPABASE_URL+"/rest/v1/forum_posts",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify({user_id:user.id,author_name:myName||"Member",category:newPost.cat,title:newPost.title,body:newPost.body})});const rows=await res.json();const row=Array.isArray(rows)?rows[0]:rows;if(row&&row.id){setForumPosts(ps=>[{id:"db-"+row.id,dbId:row.id,real:true,cat:row.category,author:row.author_name,avatar:(row.author_name||"M")[0],time:"Just now",pinned:false,title:row.title,body:row.body,upvotes:0,replies:[]},...ps]);}}catch(e){}}setNewPost({title:"",body:"",cat:"questions"});setShowNewPost(false);track("forum_post_created");}}>POST</Btn>
                     <button onClick={()=>setShowNewPost(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                   </div>
                 </div>
               )}
               <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
                 {forumPosts.filter(p=>forumCat==="all"||p.cat===forumCat).map(post=>(
-                  <div key={post.id} onClick={()=>setSelectedForumPost(post)} style={{background:B.white,padding:"16px 18px",cursor:"pointer"}}>
+                  <div key={post.id} onClick={()=>{setForumReplyName(myName||"");setSelectedForumPost(post);}} style={{background:B.white,padding:"16px 18px",cursor:"pointer"}}>
                     <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0}}>
-                        <button onClick={e=>{e.stopPropagation();if(!upvoted[post.id]){setUpvoted(u=>({...u,[post.id]:true}));setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:p.upvotes+1}:p));addPts(PTS.upvote);}}} style={{background:"none",border:"none",cursor:"pointer",color:upvoted[post.id]?B.gold:B.stone}}>
+                        <button onClick={async e=>{e.stopPropagation();if(upvoted[post.id])return;if(post.real){const tok=await freshToken();if(!tok)return;setUpvoted(u=>({...u,[post.id]:true}));try{const res=await fetch(SUPABASE_URL+"/rest/v1/rpc/upvote_post",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({p_post:post.dbId})});const cnt=await res.json();if(typeof cnt==="number")setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:cnt}:p));}catch(e){}}else{setUpvoted(u=>({...u,[post.id]:true}));setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:p.upvotes+1}:p));}}} style={{background:"none",border:"none",cursor:"pointer",color:upvoted[post.id]?B.gold:B.stone}}>
                           <Icons.ArrowUp />
                         </button>
                         <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.mid}}>{post.upvotes}</span>
@@ -3343,7 +3396,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                         <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>by {post.author} · {post.time} · {post.replies.length} replies</div>
                         {isAdmin&&<div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:8,marginTop:10}}>
                           <button onClick={()=>setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,pinned:!p.pinned}:p))} style={{background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{post.pinned?"Unpin":"Pin"}</button>
-                          <button onClick={()=>{if(window.confirm("Delete this post permanently?"))setForumPosts(ps=>ps.filter(p=>p.id!==post.id));}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete</button>
+                          <button onClick={async ()=>{if(window.confirm("Delete this post permanently?")){if(post.real){const tok=await freshToken();try{await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-post",id:post.dbId})});}catch(e){}}setForumPosts(ps=>ps.filter(p=>p.id!==post.id));}}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete</button>
                         </div>}
                       </div>
                     </div>
@@ -3361,7 +3414,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:20,letterSpacing:"0.04em"}}>by {selectedForumPost.author} · {selectedForumPost.time}</div>
               {isAdmin&&<div style={{display:"flex",gap:8,marginBottom:20}}>
                 <button onClick={()=>setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,pinned:!p.pinned}:p))} style={{background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{selectedForumPost.pinned?"Unpin":"Pin"}</button>
-                <button onClick={()=>{if(window.confirm("Delete this post permanently?")){setForumPosts(ps=>ps.filter(p=>p.id!==selectedForumPost.id));setSelectedForumPost(null);}}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete Post</button>
+                <button onClick={async ()=>{if(window.confirm("Delete this post permanently?")){if(selectedForumPost.real){const tok=await freshToken();try{await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-post",id:selectedForumPost.dbId})});}catch(e){}}setForumPosts(ps=>ps.filter(p=>p.id!==selectedForumPost.id));setSelectedForumPost(null);}}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete Post</button>
               </div>}
               <p style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.8,color:B.charcoal,margin:"0 0 28px"}}>{selectedForumPost.body}</p>
               <div style={{borderTop:"1px solid "+B.stone,paddingTop:22}}>
@@ -3373,7 +3426,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                         <span style={{fontFamily:"sans-serif",fontWeight:700,fontSize:12,letterSpacing:"0.02em"}}>{r.author}</span>
                         <div style={{display:"flex",alignItems:"center",gap:10}}>
                           <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{r.time}</span>
-                          {isAdmin&&<button onClick={()=>{const nr=selectedForumPost.replies.filter((_,idx)=>idx!==i);setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));}} style={{background:"none",border:"none",color:"#C0392B",fontSize:9,letterSpacing:"0.08em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",padding:0}}>Delete</button>}
+                          {isAdmin&&<button onClick={async ()=>{if(selectedForumPost.real&&r.cid){const tok=await freshToken();try{await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-comment",id:r.cid})});}catch(e){}}const nr=selectedForumPost.replies.filter((_,idx)=>idx!==i);setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));}} style={{background:"none",border:"none",color:"#C0392B",fontSize:9,letterSpacing:"0.08em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",padding:0}}>Delete</button>}
                         </div>
                       </div>
                       <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:0,lineHeight:1.65}}>{r.text}</p>
@@ -3389,7 +3442,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                   <div>
                     <input value={forumReplyName} onChange={e=>setForumReplyName(e.target.value)} placeholder="Your name" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:7,boxSizing:"border-box",background:B.white}} />
                     <textarea value={forumReply} onChange={e=>setForumReply(e.target.value)} placeholder="Write a reply..." rows={3} style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",marginBottom:10,boxSizing:"border-box",background:B.white}} />
-                    <Btn dark small onClick={()=>{if(!forumReply.trim()||!forumReplyName.trim())return;setSelectedForumPost(p=>({...p,replies:[...p.replies,{author:forumReplyName,text:forumReply,time:"Just now"}]}));setForumReply("");setForumReplyName("");addPts(PTS.reply);}}>POST REPLY</Btn>
+                    <Btn dark small onClick={async ()=>{if(!forumReply.trim())return;const name=(forumReplyName.trim()||myName||"Member");if(selectedForumPost.real){const tok=await freshToken();if(tok){try{await fetch(SUPABASE_URL+"/rest/v1/rpc/add_comment",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({p_post:selectedForumPost.dbId,p_body:forumReply})});}catch(e){}}}const nr=[...selectedForumPost.replies,{author:name,text:forumReply,time:"Just now"}];setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));setForumReply("");setForumReplyName("");}}>POST REPLY</Btn>
                   </div>
                 )}
               </div>
@@ -3446,7 +3499,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                 </select>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:B.stone}}>
-                {[...SEED_MEMBERS,{id:"me",name:myName,avatar:myName[0]||"M",points:myPoints,business:myBusiness,bio:myBio,type:"Entrepreneur",badges:["Member"]}].filter(m=>(dirFilter==="All"||m.type===dirFilter)&&(m.name.toLowerCase().includes(dirSearch.toLowerCase())||m.business.toLowerCase().includes(dirSearch.toLowerCase()))).map(m=>(
+                {[...realMembers.filter(r=>!(user&&r.id===user.id)),...SEED_MEMBERS,{id:"me",name:myName,avatar:myName[0]||"M",business:myBusiness,bio:myBio,type:"Entrepreneur",badges:["Member"]}].filter(m=>(dirFilter==="All"||m.type===dirFilter)&&((m.name||"").toLowerCase().includes(dirSearch.toLowerCase())||(m.business||"").toLowerCase().includes(dirSearch.toLowerCase()))).map(m=>(
                   <div key={m.id} style={{background:m.id==="me"?B.goldLight:B.white,padding:"18px"}}>
                     <div style={{display:"flex",gap:11,marginBottom:11,alignItems:"center"}}>
                       <div style={{width:38,height:38,borderRadius:"50%",background:m.id==="me"?B.charcoal:B.offwhite,border:"1px solid "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
