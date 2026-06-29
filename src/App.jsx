@@ -1463,6 +1463,7 @@ const DAILY_POOL = [
 ];
 const TOOL_LABELS = { launch:"Business Launch Package", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
   const seed = [...dateStr].reduce((a,c)=>a+c.charCodeAt(0),0);
   const pool=[...DAILY_POOL]; const picks=[];
@@ -2184,6 +2185,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   useEffect(()=>{ lsSet("chelgy_completions", completions); },[completions]);
   function logCompletion(delta){ const day=todayStr(); setCompletions(c=>{ const n={...c}; n[day]=Math.max(0,(n[day]||0)+delta); return n; }); }
   function sumCompletions(days){ const now=new Date(); let total=0; for(const k of Object.keys(completions)){ const dt=new Date(k+"T00:00:00"); const diff=(now-dt)/86400000; if(diff>=0 && diff<days) total+=(completions[k]||0); } return total; }
+  function computeStreak(){ let streak=0; const day=new Date(); if(!(completions[todayStr()]>0)) day.setDate(day.getDate()-1); while(completions[fmtDate(day)]>0){ streak++; day.setDate(day.getDate()-1); } return streak; }
   function celebrateDone(){ const lines=["Nice work — that's done.","Done! Momentum is everything.","One step closer. Keep going.","Checked off. You're building real progress."]; setCelebrate(lines[Math.floor(Math.random()*lines.length)]); setTimeout(()=>setCelebrate(""),2600); }
   function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
   function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); } return nd; }); }
@@ -3546,6 +3548,30 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
           {/* ═══ PROFILE ═══ */}
           {tab==="profile"&&subTab==="overview"&&(
             <div style={{paddingTop:28}}>
+              {(()=>{ const hr=new Date().getHours(); const greet=hr<12?"Good morning":hr<18?"Good afternoon":"Good evening"; const streak=computeStreak(); const total=bigTasks.length; const doneN=bigTasks.filter(t=>t.done).length; const pct=total?Math.round(doneN/total*100):0; const next=(bigTasks.find(t=>!t.done)||{}); return (
+                <div style={{background:B.charcoal,padding:"26px 24px",marginBottom:2}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff",fontWeight:400,marginBottom:6}}>{greet}{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:(total>0?20:0)}}>{streak>0?("You've stayed consistent for "+streak+" day"+(streak===1?"":"s")+". Keep it alive."):"Check off a task today to start your streak."}</div>
+                  {total>0&&(<>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
+                      <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:"rgba(255,255,255,0.5)",textTransform:"uppercase",fontWeight:700}}>Roadmap momentum</span>
+                      <span style={{fontFamily:"Georgia,serif",fontSize:16,color:B.gold}}>{pct}%</span>
+                    </div>
+                    <div style={{height:6,background:"rgba(255,255,255,0.14)",marginBottom:16,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.4s"}} /></div>
+                    {next.title&&(
+                      <button onClick={()=>setShowTasks(true)} style={{width:"100%",textAlign:"left",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.14)",padding:"13px 15px",cursor:"pointer"}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Next milestone</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>{next.title}<span style={{color:B.gold}}>→</span></div>
+                      </button>
+                    )}
+                    <div style={{display:"flex",gap:24,marginTop:18}}>
+                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{sumCompletions(7)}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>This week</div></div>
+                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{sumCompletions(30)}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>This month</div></div>
+                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.gold}}>{streak}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>Day streak</div></div>
+                    </div>
+                  </>)}
+                </div>
+              ); })()}
               {plan ? (
                 <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
                   <div>
@@ -3567,28 +3593,30 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
               )}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:2,background:B.stone}}>
                 <div style={{background:B.white,padding:"26px"}}>
-                  <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:18}}>
-                    <div style={{width:52,height:52,borderRadius:"50%",background:B.charcoal,border:"1px solid "+B.stone,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:22,color:B.gold}}>{(myName[0]||"Y").toUpperCase()}</span>
-                    </div>
-                    <div>
-                      <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:5}}>{myName}</div>
-                      <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,letterSpacing:"0.04em"}}>{isTrial?"Free (Explore)":"Member"}</div>
-                    </div>
-                  </div>
-                  {!editingProfile?(
-                    <div>
-                      <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 4px"}}>{myBusiness}</p>
-                      <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 16px"}}>{myBio}</p>
-                      <button onClick={()=>{setProfileDraft({name:myName,business:myBusiness,bio:myBio});setEditingProfile(true);}} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase"}}>Edit Profile</button>
-                    </div>
-                  ):(
+                  {!editingProfile?(<>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Business Profile</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:21,fontWeight:400,marginBottom:4,lineHeight:1.25}}>{((intake&&intake.what)||myBusiness)||"Your business"}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,letterSpacing:"0.03em",marginBottom:18}}>Owner: {myName} · {isTrial?"Free (Explore)":"Member"}</div>
+                    {[["Industry",(intake&&intake.field)||""],["Stage",(intake&&({running:"Up & running",starting:"Just starting",idea:"Idea stage"})[intake.hasBiz])||""],["Current goal",(intake&&intake.goal)||""],["Current focus",(bigTasks.find(t=>!t.done)||{}).title||""]].map(([k,v],i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",gap:14,padding:"10px 0",borderBottom:"1px solid "+B.stone}}>
+                        <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.08em",textTransform:"uppercase",flexShrink:0,paddingTop:1}}>{k}</span>
+                        <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:600,textAlign:"right"}}>{v||"—"}</span>
+                      </div>
+                    ))}
+                    {myBio&&<p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"14px 0 0",lineHeight:1.6}}>{myBio}</p>}
+                    <button onClick={()=>{setProfileDraft({name:myName,business:(intake&&intake.what)||myBusiness||"",bio:myBio,industry:(intake&&intake.field)||"",goal:(intake&&intake.goal)||"",stage:(intake&&intake.hasBiz)||""});setEditingProfile(true);}} style={{marginTop:16,background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase"}}>Edit Business Profile</button>
+                  </>):(
                     <div style={{display:"flex",flexDirection:"column",gap:9}}>
-                      <input value={profileDraft.name} onChange={e=>setProfileDraft(d=>({...d,name:e.target.value}))} placeholder="Your name" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
-                      <input value={profileDraft.business} onChange={e=>setProfileDraft(d=>({...d,business:e.target.value}))} placeholder="Business type" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
-                      <textarea value={profileDraft.bio} onChange={e=>setProfileDraft(d=>({...d,bio:e.target.value}))} placeholder="Short bio..." rows={3} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",background:B.white}} />
+                      <input value={profileDraft.name||""} onChange={e=>setProfileDraft(d=>({...d,name:e.target.value}))} placeholder="Your name" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
+                      <input value={profileDraft.business||""} onChange={e=>setProfileDraft(d=>({...d,business:e.target.value}))} placeholder="Business name" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
+                      <input value={profileDraft.industry||""} onChange={e=>setProfileDraft(d=>({...d,industry:e.target.value}))} placeholder="Industry" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
+                      <select value={profileDraft.stage||""} onChange={e=>setProfileDraft(d=>({...d,stage:e.target.value}))} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>
+                        <option value="">Stage…</option><option value="running">Up &amp; running</option><option value="starting">Just starting</option><option value="idea">Idea stage</option>
+                      </select>
+                      <input value={profileDraft.goal||""} onChange={e=>setProfileDraft(d=>({...d,goal:e.target.value}))} placeholder="Current goal" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
+                      <textarea value={profileDraft.bio||""} onChange={e=>setProfileDraft(d=>({...d,bio:e.target.value}))} placeholder="Short bio..." rows={3} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",background:B.white}} />
                       <div style={{display:"flex",gap:9}}>
-                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);setEditingProfile(false);if(user&&user.access_token&&user.id)patchMyMember(user.access_token,user.id,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio});}}>SAVE</Btn>
+                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);const ni={...(intake||{}),what:profileDraft.business,field:profileDraft.industry,goal:profileDraft.goal,hasBiz:profileDraft.stage};setIntake(ni);try{localStorage.setItem("chelgy_intake",JSON.stringify(ni));}catch(e){}setEditingProfile(false);if(user&&user.access_token&&user.id)patchMyMember(user.access_token,user.id,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio,intake:ni});}}>SAVE</Btn>
                         <button onClick={()=>setEditingProfile(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                       </div>
                     </div>
