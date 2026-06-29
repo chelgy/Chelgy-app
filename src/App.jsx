@@ -881,9 +881,51 @@ const Upsell = ({ variant="both" }) => {
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
+async function loadShowcaseItems(){
+  try { const res = await fetch(SUPABASE_URL+"/rest/v1/showcase_items?select=*&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); return Array.isArray(rows)?rows:[]; } catch { return []; }
+}
+function ytId(url){ const m=String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/); return m?m[1]:null; }
+function vimeoId(url){ const m=String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/); return m?m[1]:null; }
+function ShowcaseMedia({ item }){
+  const url=item.url||"";
+  if(item.tool==="video"){
+    const yt=ytId(url); const vm=vimeoId(url);
+    if(yt||vm) return (<div style={{position:"relative",paddingTop:"56.25%"}}><iframe src={yt?("https://www.youtube.com/embed/"+yt):("https://player.vimeo.com/video/"+vm)} style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div>);
+    return <video src={url} controls playsInline style={{width:"100%",display:"block",background:"#000"}} />;
+  }
+  return <img src={url} alt={item.caption||""} loading="lazy" style={{width:"100%",display:"block"}} />;
+}
+function ShowcaseGallery({ tool, items }){
+  const list=(items||[]).filter(i=>i.tool===tool);
+  if(!list.length) return null;
+  return (
+    <div style={{marginTop:30}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+        <div style={{width:18,height:1,background:B.gold}} />
+        <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.mid,fontWeight:700,textTransform:"uppercase"}}>Made with Chelgy</span>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
+        {list.map(it=>(
+          <div key={it.id} style={{background:B.white,border:"1px solid "+B.stone}}>
+            <ShowcaseMedia item={it} />
+            {(it.caption||it.prompt)&&(
+              <div style={{padding:"12px 14px"}}>
+                {it.caption&&<div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,marginBottom:it.prompt?6:0}}>{it.caption}</div>}
+                {it.prompt&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5}}><span style={{color:B.goldDark,fontWeight:700}}>Prompt: </span>{it.prompt}</div>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="" }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
+  const [showcase, setShowcase] = useState([]);
+  useEffect(()=>{ loadShowcaseItems().then(setShowcase); },[]);
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
@@ -1286,6 +1328,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
         </div>
       )}
+      {(tool==="images"||tool==="video")&&<ShowcaseGallery tool={tool==="images"?"image":"video"} items={showcase} />}
     </div>
   );
 }
@@ -1521,6 +1564,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [helpReqs, setHelpReqs] = useState([]);
   const [subsList, setSubsList] = useState([]);
   const [membersList, setMembersList] = useState([]);
+  const [showcaseList, setShowcaseList] = useState([]);
+  const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
 
   useEffect(()=>{ loadFromDB(); },[]);
 
@@ -1554,6 +1599,22 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const d = await r.json();
       if (d && Array.isArray(d.members)) setMembersList(d.members);
     } catch(e){}
+    setShowcaseList(await loadShowcaseItems());
+    setDbLoading(false);
+  }
+  async function addShowcase(){
+    if(!scForm.url.trim()) return;
+    setDbLoading(true);
+    try{ const tok=await freshToken(); await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"showcase-add",tool:scForm.tool,url:scForm.url,caption:scForm.caption,prompt:scForm.prompt})}); }catch(e){}
+    setScForm(f=>({tool:f.tool,url:"",caption:"",prompt:""}));
+    setShowcaseList(await loadShowcaseItems());
+    setDbLoading(false);
+  }
+  async function delShowcase(id){
+    if(!window.confirm("Remove this showcase example?")) return;
+    setDbLoading(true);
+    try{ const tok=await freshToken(); await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"showcase-delete",id})}); }catch(e){}
+    setShowcaseList(await loadShowcaseItems());
     setDbLoading(false);
   }
 
@@ -1634,7 +1695,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","Weekly Updates"],["showcase","Showcase"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1698,6 +1759,37 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         )}
 
         {/* SUBSCRIBERS */}
+        {view==="showcase"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>"Made with Chelgy" Showcase</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 20px",lineHeight:1.6}}>Add example images and videos so members can see what each tool can do. Paste an image URL, an mp4 link, or a YouTube/Vimeo link. Tip: make something in your own Image or Video tool, then copy that result's link here.</p>
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px",marginBottom:24}}>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                {[["image","Image Creator"],["video","Video Studio"]].map(([v,l])=>(<button key={v} onClick={()=>setScForm(f=>({...f,tool:v}))} style={{padding:"8px 14px",border:"1px solid "+(scForm.tool===v?"#111":"#E8E6E1"),background:scForm.tool===v?"#111":"#fff",color:scForm.tool===v?"#fff":"#111",fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{l}</button>))}
+              </div>
+              <input value={scForm.url} onChange={e=>setScForm(f=>({...f,url:e.target.value}))} placeholder={scForm.tool==="video"?"Video URL (mp4, YouTube, or Vimeo)":"Image URL"} style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:10,boxSizing:"border-box",background:"#fff"}} />
+              <input value={scForm.caption} onChange={e=>setScForm(f=>({...f,caption:e.target.value}))} placeholder="Caption (e.g. Gold logo for a candle brand)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:10,boxSizing:"border-box",background:"#fff"}} />
+              <textarea value={scForm.prompt} onChange={e=>setScForm(f=>({...f,prompt:e.target.value}))} placeholder="The prompt used to create it (shown to members)" rows={2} style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:12,boxSizing:"border-box",background:"#fff",resize:"vertical"}} />
+              <button onClick={addShowcase} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>Add Example</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
+              {showcaseList.map(it=>(
+                <div key={it.id} style={{background:"#fff",border:"1px solid #E8E6E1"}}>
+                  <ShowcaseMedia item={it} />
+                  <div style={{padding:"10px 12px"}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{it.tool==="video"?"Video Studio":"Image Creator"}</div>
+                    {it.caption&&<div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,marginBottom:3}}>{it.caption}</div>}
+                    {it.prompt&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",lineHeight:1.5,marginBottom:8}}>Prompt: {it.prompt}</div>}
+                    <button onClick={()=>delShowcase(it.id)} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
+                  </div>
+                </div>
+              ))}
+              {showcaseList.length===0&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>No examples yet. Add one above.</div>}
+            </div>
+          </div>
+        )}
+
         {view==="members"&&(
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>

@@ -59,6 +59,24 @@ export default async function handler(req, res) {
       await svc("forum_comments?id=eq." + id, { method: "DELETE" });
       return res.status(200).json({ ok: true });
     }
+    if (action === "showcase-add") {
+      const tool = body.tool === "video" ? "video" : "image";
+      const url = String(body.url || "").trim();
+      if (!url) return res.status(400).json({ error: "Missing url" });
+      const r = await svc("showcase_items", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ tool, url, caption: String(body.caption || ""), prompt: String(body.prompt || "") })
+      });
+      const rows = await r.json();
+      return res.status(200).json({ item: Array.isArray(rows) ? rows[0] : rows });
+    }
+    if (action === "showcase-delete") {
+      const id = parseInt(body.id, 10);
+      if (!id) return res.status(400).json({ error: "Missing id" });
+      await svc("showcase_items?id=eq." + id, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
     return res.status(400).json({ error: "Unknown action" });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
