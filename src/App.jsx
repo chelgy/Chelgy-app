@@ -1998,6 +1998,125 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   );
 }
 
+const LEGAL_EFFECTIVE = "June 28, 2026";
+const LEGAL_CONTACT = "chelgyapp@gmail.com";
+const LEGAL_ENTITY = "Chelgy LLC";
+const LEGAL_STATE = "Florida, United States";
+
+const TERMS_MD = `**Effective date: ${LEGAL_EFFECTIVE}**
+
+Welcome to ${LEGAL_ENTITY} ("Chelgy," "we," "us," or "our"). These Terms & Conditions ("Terms") govern your access to and use of the Chelgy website, app, and services (together, the "Service"). By creating an account or using the Service, you agree to these Terms. If you do not agree, please do not use the Service.
+
+## 1. Who can use Chelgy
+You must be at least 18 years old and able to enter into a binding contract to use the Service. By using Chelgy, you confirm that you meet these requirements and that the information you provide is accurate.
+
+## 2. Your account
+You are responsible for keeping your login details secure and for all activity that happens under your account. Please let us know right away if you believe someone has accessed your account without permission. You may not share your account or transfer it to anyone else.
+
+## 3. Membership, billing, and cancellation
+Chelgy is offered as a paid monthly membership. By subscribing, you authorize us and our payment processor (Stripe) to charge your payment method the membership fee on a recurring monthly basis until you cancel.
+
+- Your membership renews automatically each month unless you cancel before the renewal date.
+- You can cancel at any time; your access continues until the end of the current billing period.
+- Except where required by law, membership fees already paid are non-refundable. Cancelling stops future charges but does not refund the current period.
+- We may change pricing with reasonable advance notice. Continued use after a price change means you accept the new price.
+
+## 4. Credits and AI tools
+Membership includes credits that can be used with Chelgy's AI tools (such as image, video, and voiceover generation). Credits:
+
+- Have no cash value and cannot be exchanged, transferred, or redeemed for money.
+- Are consumed when you generate content, and are generally non-refundable once used.
+- May be purchased in additional packs. Purchased credits are also non-refundable except where required by law.
+
+If a generation clearly fails due to a technical error on our side, we may, at our discretion, restore the credits used.
+
+## 5. AI-generated content
+Chelgy uses third-party artificial intelligence to help you create content. Because AI is involved, you understand and agree that:
+
+- Results vary and may contain errors, inaccuracies, or content that does not meet your expectations. You are responsible for reviewing anything you create before using it.
+- Chelgy's strategies, audits, plans, and advice are provided for general informational and educational purposes only. They are not legal, financial, tax, medical, or other professional advice. You should consult a qualified professional before making important business decisions.
+- You are solely responsible for how you use the content you generate, including making sure it is accurate, lawful, and does not infringe anyone else's rights.
+
+## 6. Content you create
+As between you and Chelgy, you own the content you create with the Service, subject to the terms of the underlying AI providers. You grant us a limited license to store, process, and display your content as needed to operate and improve the Service. You are responsible for the content you submit and create, and you agree not to use the Service to create content that is illegal, harmful, deceptive, infringing, or abusive.
+
+## 7. Acceptable use
+You agree not to: break any law; infringe anyone's intellectual property or privacy; attempt to hack, overload, reverse-engineer, or disrupt the Service; resell or redistribute the Service without permission; use the AI tools to create harmful, hateful, fraudulent, or sexually exploitative content; or scrape or copy the Service's content for a competing product.
+
+## 8. Our intellectual property
+The Chelgy platform, including its design, strategies, written content, branding, and software, is owned by us and protected by law. We grant you a personal, limited, non-transferable right to use the Service while your membership is active. You may not copy, republish, or resell our materials without our written permission.
+
+## 9. Third-party services
+The Service relies on third parties to function, including Stripe (payments), Supabase and Vercel (hosting and database), and AI providers for content generation. Your use of those features may also be subject to the third parties' own terms. We are not responsible for third-party services we do not control.
+
+## 10. Disclaimers
+The Service is provided "as is" and "as available," without warranties of any kind, whether express or implied. We do not guarantee that the Service will be uninterrupted, error-free, or that it will produce any particular business result. Marketing and business outcomes depend on many factors outside our control.
+
+## 11. Limitation of liability
+To the fullest extent permitted by law, Chelgy and its owners will not be liable for any indirect, incidental, special, or consequential damages, or for lost profits or revenue, arising from your use of the Service. Our total liability for any claim relating to the Service will not exceed the amount you paid us in the three months before the claim arose.
+
+## 12. Indemnification
+You agree to defend and hold harmless Chelgy from any claims, losses, or expenses arising from your use of the Service, your content, or your violation of these Terms.
+
+## 13. Termination
+You may stop using the Service and cancel at any time. We may suspend or end your access if you violate these Terms or use the Service in a way that could harm Chelgy or other users. Sections that by their nature should survive termination (such as payment obligations, disclaimers, and limitation of liability) will continue to apply.
+
+## 14. Changes to these Terms
+We may update these Terms from time to time. If we make material changes, we'll take reasonable steps to let you know. Continuing to use the Service after changes take effect means you accept the updated Terms.
+
+## 15. Governing law
+These Terms are governed by the laws of ${LEGAL_STATE}, without regard to conflict-of-law rules. Any disputes will be handled in the courts located there, unless applicable law requires otherwise.
+
+## 16. Contact
+Questions about these Terms? Reach us at ${LEGAL_CONTACT}.`;
+
+const PRIVACY_MD = `**Effective date: ${LEGAL_EFFECTIVE}**
+
+This Privacy Policy explains what information ${LEGAL_ENTITY} ("Chelgy," "we," "us") collects, how we use it, and the choices you have. By using Chelgy, you agree to this policy.
+
+## Information we collect
+**Information you give us.** When you create an account, we collect your name and email address. When you fill out your business profile, intake, journal, or other features, we collect the details you choose to share (such as your business name, industry, goals, and notes).
+
+**Payment information.** Payments are processed by Stripe. We do not store your full card number on our servers — Stripe handles that securely. We do receive limited information such as your subscription status and the result of a payment.
+
+**Content you create.** We store the prompts you enter and the content you generate (images, videos, voiceovers, text, and journal entries) so the Service can work and show them back to you.
+
+**Usage information.** Like most apps, we automatically collect basic technical and usage data (such as device and browser type, pages visited, and actions taken) to keep the Service running and improve it. We use analytics tools (Google Analytics and Mixpanel) for this.
+
+## How we use your information
+We use your information to: provide and operate the Service; process your membership and payments; personalize your experience and the advice our AI tools give you; respond to your questions and provide support; keep the Service safe and prevent abuse; and understand how the Service is used so we can improve it.
+
+## How AI features use your information
+When you use an AI feature, the relevant prompt and necessary context (which may include details from your business profile) are sent to our AI providers to generate your result. We share only what's needed to produce the output you requested.
+
+## Who we share information with
+We do not sell your personal information. We share information only with service providers that help us run Chelgy, and only as needed, including:
+
+- **Stripe** — to process payments.
+- **Supabase and Vercel** — to host the app and store your data securely.
+- **AI providers** — to generate the content you request.
+- **Google Analytics and Mixpanel** — to understand usage.
+
+We may also disclose information if required by law, or to protect the rights, safety, and security of Chelgy and its users.
+
+## How your information is protected
+Your data is stored with reputable providers and protected by security measures including encryption in transit and access controls that limit your data to your own account. No system is perfectly secure, but we work to protect your information and to limit who can access it.
+
+## How long we keep your information
+We keep your information for as long as your account is active or as needed to provide the Service. If you close your account, we will delete or anonymize your personal information within a reasonable period, unless we are required to keep it longer by law.
+
+## Your choices and rights
+You can review and update much of your information directly in the app. You may request a copy of your personal information or ask us to delete your account and associated data by contacting us at ${LEGAL_CONTACT}. Depending on where you live, you may have additional rights under local privacy laws, and we will honor those rights where they apply.
+
+## Children
+Chelgy is intended for adults (18+) and is not directed to children. We do not knowingly collect information from anyone under 18. If you believe a child has given us information, please contact us and we will delete it.
+
+## Changes to this policy
+We may update this Privacy Policy from time to time. If we make material changes, we'll take reasonable steps to let you know. The "effective date" at the top shows when it was last updated.
+
+## Contact
+Questions about your privacy or this policy? Email us at ${LEGAL_CONTACT}.`;
+
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
@@ -2402,6 +2521,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // Content state
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [legalView, setLegalView] = useState(null);
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
   const [selectedForumPost, setSelectedForumPost] = useState(null);
@@ -2870,6 +2990,23 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (page==="onboarding") return <Onboarding onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
+  const legalOverlay = legalView ? (
+    <div style={{position:"fixed",inset:0,background:B.cream||"#FAF8F5",zIndex:99999,overflowY:"auto"}}>
+      <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px 80px"}}>
+        <div style={{position:"sticky",top:0,background:(B.cream||"#FAF8F5"),paddingTop:22,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid "+B.stone,marginBottom:24}}>
+          <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid}}>{legalView==="terms"?"Terms & Conditions":"Privacy Policy"}</span>
+          <button onClick={()=>setLegalView(null)} style={{background:"none",border:"1px solid "+B.stone,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.charcoal,padding:"7px 14px"}}>Close</button>
+        </div>
+        <h1 style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:400,margin:"0 0 20px",color:B.charcoal}}>{legalView==="terms"?"Terms & Conditions":"Privacy Policy"}</h1>
+        <div style={{fontFamily:"sans-serif"}}><Rich text={legalView==="terms"?TERMS_MD:PRIVACY_MD} /></div>
+        <div style={{marginTop:32,paddingTop:20,borderTop:"1px solid "+B.stone,display:"flex",gap:16}}>
+          <button onClick={()=>setLegalView(legalView==="terms"?"privacy":"terms")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.gold,letterSpacing:"0.04em",padding:0,textDecoration:"underline"}}>{legalView==="terms"?"Read our Privacy Policy":"Read our Terms & Conditions"}</button>
+          <button onClick={()=>setLegalView(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em",padding:0,textDecoration:"underline"}}>Close</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+HERO_IMG+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
@@ -2888,7 +3025,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <p onClick={doForgot} style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",textAlign:"center",margin:"4px 0 0",cursor:"pointer",textDecoration:"underline"}}>Forgot password?</p>
         </div>
         <p onClick={()=>{setAuthError("");setResetMsg("");setSignupStep(1);setPage("signup");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"4px 0 0",cursor:"pointer"}}>New to Chelgy? <span style={{color:"#fff",textDecoration:"underline"}}>Create an account</span></p>
+        <div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.4)",textAlign:"center",marginTop:18,letterSpacing:"0.02em"}}>
+          <span onClick={()=>setLegalView("terms")} style={{cursor:"pointer",textDecoration:"underline"}}>Terms</span>
+          <span style={{margin:"0 8px"}}>·</span>
+          <span onClick={()=>setLegalView("privacy")} style={{cursor:"pointer",textDecoration:"underline"}}>Privacy Policy</span>
+        </div>
       </div>
+      {legalOverlay}
     </div>
   );
 
@@ -2949,7 +3092,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
             <p onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"0 0 16px",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></p>
 
-            <p style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.3)",textAlign:"center",lineHeight:1.6,margin:0}}>By continuing you agree to our Terms of Service and Privacy Policy</p>
+            <p style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.3)",textAlign:"center",lineHeight:1.6,margin:0}}>By continuing you agree to our <span onClick={()=>setLegalView("terms")} style={{cursor:"pointer",textDecoration:"underline",color:"rgba(255,255,255,0.55)"}}>Terms of Service</span> and <span onClick={()=>setLegalView("privacy")} style={{cursor:"pointer",textDecoration:"underline",color:"rgba(255,255,255,0.55)"}}>Privacy Policy</span></p>
           </div>
         )}
 
@@ -2994,6 +3137,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         )}
       </div>
+      {legalOverlay}
     </div>
   );
 
@@ -3003,6 +3147,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   return (
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
+      {legalOverlay}
 
       {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />}
       {showPlan&&(
@@ -3891,6 +4036,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     ) : (
                       <button onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{marginTop:10,background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.charcoal,letterSpacing:"0.1em",textTransform:"uppercase",width:"100%"}}>Log In / Create Account</button>
                     )}
+                    <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,textAlign:"center",marginTop:16,letterSpacing:"0.02em"}}>
+                      <span onClick={()=>setLegalView("terms")} style={{cursor:"pointer",textDecoration:"underline"}}>Terms &amp; Conditions</span>
+                      <span style={{margin:"0 8px"}}>·</span>
+                      <span onClick={()=>setLegalView("privacy")} style={{cursor:"pointer",textDecoration:"underline"}}>Privacy Policy</span>
+                    </div>
                   </div>
                 </div>
                 <div style={{background:B.white,padding:"26px"}}>
