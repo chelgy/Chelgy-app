@@ -881,8 +881,9 @@ const Upsell = ({ variant="both" }) => {
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{} }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="" }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
+  const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   const [cType,setCType]=useState("instagram");
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
@@ -909,7 +910,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [adBiz,setAdBiz]=useState("");const [adProduct,setAdProduct]=useState("");const [adCity,setAdCity]=useState("");const [adPlat,setAdPlat]=useState("Facebook & Instagram");const [adBudget,setAdBudget]=useState("");const [adGoal,setAdGoal]=useState("Sales / conversions");const [adRes,setAdRes]=useState("");const [adLoad,setAdLoad]=useState(false);
   const [auBiz,setAuBiz]=useState("");const [auSite,setAuSite]=useState("");const [auComp,setAuComp]=useState("");const [auRes,setAuRes]=useState("");const [auLoad,setAuLoad]=useState(false);
 
-  async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(p[cType]));setCLoad(false);}
+  async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(ctxPre+p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
   function onUploadImg(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setIUpload(r.result);r.readAsDataURL(f);}
   async function genI(){
@@ -930,7 +931,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){setIErr(e&&e.message?("Image error: "+e.message):"Couldn't create the image. Please try again.");}
     setILoad(false);
   }
-  async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(p[vType]));setVLoad(false);}
+  async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(ctxPre+p[vType]));setVLoad(false);}
   async function genVid(){
     if(!vTopic.trim())return;
     track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
@@ -973,13 +974,13 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       setTimeout(()=>URL.revokeObjectURL(u),1500);
     }catch(e){ window.open(vVidUrl,"_blank"); }
   }
-  async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude("You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
+  async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude(ctxPre+"You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
   async function genViral(){
     if(!vbBiz.trim())return;
     track("tool_used",{tool:"viral_video",platform:vbPlat});
     setVbLoad(true);setVbRes("");
     const p="You are a viral short-form video strategist who studies what makes "+vbPlat+" videos blow up. A business owner needs viral video ideas they can actually shoot.\n\nBusiness: "+vbBiz+"\n"+(vbIdea.trim()?("Their idea / what they want to make: "+vbIdea+"\n"):"")+"Platform: "+vbPlat+"\n\nGive a complete, ready-to-use plan in clean markdown with EXACTLY these sections:\n\n## 3 Viral Video Ideas\nFor each: a punchy title, the concept in 1-2 sentences, and one line on WHY it could go viral (the trend, emotion, or psychology it taps).\n\n## Recommended Format\nWhich idea to start with and why, the ideal length, and the style (talking head, voiceover + b-roll, text-on-screen, trending sound, etc).\n\n## Scroll-Stopping Hook\n2-3 hook options for the first 3 seconds — the exact words to say or show.\n\n## Full Script\nA ready-to-shoot script for the recommended idea with [scene/time] cues, what to say, and on-screen text. Natural and punchy.\n\n## Caption\nA ready-to-post caption: hook line, value, call to action.\n\n## Hashtags\n8-12 relevant hashtags mixing broad and niche.\n\nBe specific to their actual business — no generic filler. Make it doable for a solo creator.";
-    setVbRes(await callClaude(p,4000));
+    setVbRes(await callClaude(ctxPre+p,4000));
     setVbLoad(false);
   }
   async function genGrants(){
@@ -987,7 +988,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"grants"});
     setGrLoad(true);setGrRes("");
     const p="You are a small-business grants researcher. Use web search to find REAL, currently-available grants, funds, and programs this business owner may qualify for. Search by their location and business type — include federal, state/provincial, local, and private/corporate small-business grants, plus any tied to their situation (women-owned, minority-owned, veteran-owned, rural, startup, etc).\n\nBusiness: "+grBiz+"\nLocation: "+(grLoc.trim()||"not specified — note that adding a location gives better results")+"\n"+(grDetails.trim()?("About the owner/situation: "+grDetails+"\n"):"")+"\n\nReturn a clear markdown list of 5-10 specific grants or programs. For EACH: the grant name, who runs it, a one-line description, key eligibility, typical award amount if known, and where to apply (official website or how to find it). Group by type (Federal / State / Local / Private / Identity-based) where helpful.\n\nEnd with a short '## Before You Apply' note: grant programs, deadlines, and eligibility change often, so confirm every detail on the official site first, and never pay a fee to apply for a free government grant.\n\nBe specific and real — name verifiable programs, not vague advice.";
-    setGrRes(await callClaude(p,5000,true));
+    setGrRes(await callClaude(ctxPre+p,5000,true));
     setGrLoad(false);
   }
   async function genAd(){
@@ -995,7 +996,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"ad_builder",platform:adPlat});
     setAdLoad(true);setAdRes("");
     const p="You are an expert paid-ads strategist who runs profitable Facebook, Instagram, and TikTok campaigns. Build a complete, ready-to-launch ad plan for this business.\n\nBusiness: "+adBiz+"\n"+(adProduct.trim()?("Product/service to promote: "+adProduct+"\n"):"")+(adCity.trim()?("Location/market: "+adCity+"\n"):"")+"Platform(s): "+adPlat+"\nGoal: "+adGoal+"\n"+(adBudget.trim()?("Budget: "+adBudget+"\n"):"")+"\nReturn a clear markdown plan with EXACTLY these sections:\n\n## Best Platform & Why\nWhich platform/placement to start with for this business and goal.\n\n## Ad Copy (ready to paste)\nGive 2 variations. For each: Primary Text, Headline, and Description, written to convert.\n\n## Creative Direction\nWhat the image or video should show, including a strong hook for the first 3 seconds if video.\n\n## Audience Targeting\nBe specific: location/radius, age range, gender, and a detailed list of interests, behaviors, and demographics to target. Note whether to use a broad or detailed-targeting approach and why.\n\n## Budget & Bidding\nSuggested daily budget to start, campaign objective to choose, and how long to run before judging results.\n\n## Spy on What's Working\nTell them to open the Meta Ad Library (facebook.com/ads/library), search their top competitors and their niche, and study the ads that have been running the longest (long-running ads are usually profitable). List 3 specific things to look for.\n\nBe specific to their actual business and city — no generic filler.";
-    setAdRes(await callClaude(p,4500));
+    setAdRes(await callClaude(ctxPre+p,4500));
     setAdLoad(false);
   }
   async function genAudit(){
@@ -1003,7 +1004,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     track("tool_used",{tool:"business_audit"});
     setAuLoad(true);setAuRes("");
     const p="You are a marketing consultant doing an outside-in audit of a business using only what is publicly visible online. Use web search to look up this business and its competitors, then give an honest, specific assessment.\n\nBusiness: "+(auBiz.trim()||"(see website)")+"\n"+(auSite.trim()?("Website: "+auSite+"\n"):"")+(auComp.trim()?("Known competitors to include: "+auComp+"\n"):"")+"\nSearch for the business's website, social media profiles, Google/Yelp reviews, and overall online presence. Also find 2-4 competitors (use any the user named, and fill in others you find).\n\nReturn a clear markdown report with EXACTLY these sections:\n\n## What's Working\nWhat they're already doing well online.\n\n## What Needs Work (Prioritized)\nThe biggest gaps and fixes, ranked most-to-least important. Cover website quality/clarity, SEO and Google visibility, social media presence and consistency, reviews/reputation, and anything else notable. Be specific and actionable.\n\n## Competitor Comparison\nA clear comparison vs the competitors you found. What are the competitors doing better, and why are they showing up where this business isn't? Use a short markdown table if helpful.\n\n## Your 5 Next Moves\nThe 5 highest-impact actions to take first, in order.\n\nBe honest and specific. If you couldn't find certain info online, say so and note that having a stronger online presence is itself part of the fix. Remind them this is based on public information.";
-    setAuRes(await callClaude(p,5500,true));
+    setAuRes(await callClaude(ctxPre+p,5500,true));
     setAuLoad(false);
   }
 
@@ -2378,6 +2379,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [aiQ, setAiQ] = useState("");
   const [aiA, setAiA] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [advisorMsgs, setAdvisorMsgs] = useState([]);
 
   // ─── BUSINESS LAUNCH PACKAGE ─────────────────────────────────────────────
   const [launchStep, setLaunchStep] = useState(1);
@@ -2575,6 +2577,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
+      if(Array.isArray(m.advisor) && m.advisor.length){ setAdvisorMsgs(m.advisor); }
       if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
       if(m.business){ setMyBusiness(m.business); }
@@ -2691,11 +2694,19 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const askAI = async () => {
     track("ai_advisor_used", { question_length: aiQ.length });
     if (isTrial) { setShowPaywall(true); return; }
-    if (!aiQ.trim()) return;
-    setAiLoading(true); setAiA("");
-    setAiA(await callClaude("You are the Chelgy Marketing Advisor — sharp, direct, deeply knowledgeable. Practical specific actionable advice. No fluff. Short paragraphs. Bold key points. Question: "+aiQ));
+    if (!aiQ.trim() || aiLoading) return;
+    const q = aiQ.trim();
+    const newMsgs = [...advisorMsgs, { role:"user", content:q }];
+    setAdvisorMsgs(newMsgs);
+    setAiQ("");
+    setAiLoading(true);
+    const history = newMsgs.slice(-10).map(m=>(m.role==="user"?"Member: ":"Advisor: ")+m.content).join("\n\n");
+    const prompt = "You are the Chelgy Marketing Advisor — sharp, direct, deeply knowledgeable. Practical, specific, actionable advice. No fluff. Short paragraphs. Bold key points."+(bizContext()?(" You are advising this specific business owner: "+bizContext()+"."):"")+" Continue the conversation naturally, remembering what was said earlier.\n\n"+history+"\n\nAdvisor:";
+    const ans = await callClaude(prompt);
+    setAdvisorMsgs(m=>[...m, { role:"advisor", content:ans }]);
     setAiLoading(false);
   };
+  useEffect(()=>{ if(advisorMsgs.length && user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { advisor: advisorMsgs.slice(-40) }); },[advisorMsgs]);
 
   const addComment = (postId) => {
     if (!commentText.trim()||!commentName.trim()) return;
@@ -2941,7 +2952,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {dailies.map(t=>(
                 <div key={t.id}>
                   <div style={{display:"flex",gap:10,alignItems:"center",fontFamily:"sans-serif",fontSize:13,color:dailyDone[t.id]?B.mid:B.charcoal}}>
-                    <span style={{color:dailyDone[t.id]?B.green:B.stone}}>{dailyDone[t.id]?"✓":"○"}</span>
+                    <span style={{color:dailyDone[t.id]?B.green:B.gold}}>{dailyDone[t.id]?"✓":"○"}</span>
                     <span style={{textDecoration:dailyDone[t.id]?"line-through":"none"}}>{t.title}</span>
                   </div>
                   {t.tool&&!dailyDone[t.id]&&<button onClick={()=>openTool(t.tool)} style={{marginTop:7,marginLeft:24,background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"5px 11px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.06em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[t.tool].toUpperCase()} →</button>}
@@ -2978,7 +2989,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 {bigTasks.map(t=>(
                   <div key={t.id} style={{background:t.done?B.offwhite:B.white,padding:"16px 18px"}}>
                     <div onClick={()=>toggleBigTask(t.id)} style={{display:"flex",gap:13,alignItems:"flex-start",cursor:"pointer"}}>
-                      <span style={{color:t.done?B.green:B.stone,fontSize:18,lineHeight:1,marginTop:1}}>{t.done?"✓":"○"}</span>
+                      <span style={{color:t.done?B.green:B.gold,fontSize:18,lineHeight:1,marginTop:1}}>{t.done?"✓":"○"}</span>
                       <div style={{flex:1}}>
                         <div style={{fontFamily:"sans-serif",fontWeight:700,fontSize:13,color:t.done?B.mid:B.charcoal,textDecoration:t.done?"line-through":"none",marginBottom:3}}>{t.title}</div>
                         {t.detail&&<div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.5}}>{t.detail}</div>}
@@ -2998,7 +3009,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {dailies.map(t=>(
                 <div key={t.id} style={{background:dailyDone[t.id]?B.offwhite:B.white,padding:"14px 18px"}}>
                   <div onClick={()=>toggleDaily(t.id)} style={{display:"flex",gap:13,alignItems:"center",cursor:"pointer"}}>
-                    <span style={{color:dailyDone[t.id]?B.green:B.stone,fontSize:18}}>{dailyDone[t.id]?"✓":"○"}</span>
+                    <span style={{color:dailyDone[t.id]?B.green:B.gold,fontSize:18}}>{dailyDone[t.id]?"✓":"○"}</span>
                     <span style={{flex:1,fontFamily:"sans-serif",fontSize:13,color:dailyDone[t.id]?B.mid:B.charcoal,textDecoration:dailyDone[t.id]?"line-through":"none"}}>{t.title}</span>
                   </div>
                   {t.tool&&!dailyDone[t.id]&&<button onClick={()=>openTool(t.tool)} style={{marginTop:10,marginLeft:31,background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"6px 12px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[t.tool].toUpperCase()} →</button>}
@@ -3361,7 +3372,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} />
+              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} />
             </div>
           )}
 
@@ -3633,25 +3644,36 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="community"&&subTab==="advisor"&&(
             <div style={{paddingTop:28,maxWidth:640}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Chelgy AI Advisor</h2>
-              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Ask anything about marketing, strategy, tools, or your business.</p>
-              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"20px",marginBottom:14}}>
-                {isTrial&&(
-                  <div style={{background:B.goldLight,padding:"10px 14px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>
-                    AI Advisor is available to members.{" "}
-                    <button onClick={()=>setShowPaywall(true)} style={{background:"none",border:"none",color:B.goldDark,fontWeight:700,cursor:"pointer",padding:0,fontSize:11,textDecoration:"underline"}}>Subscribe to unlock</button>
-                  </div>
-                )}
-                <textarea value={aiQ} onChange={e=>setAiQ(e.target.value)} rows={4} placeholder="e.g. What is the best way to market a service business with a small budget?" style={{width:"100%",padding:"12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",marginBottom:14,boxSizing:"border-box",lineHeight:1.65,background:B.white}} />
-                <Btn dark onClick={askAI} disabled={aiLoading}>{aiLoading?"THINKING...":"GET ADVICE"}</Btn>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <h2 style={{fontSize:22,fontWeight:400,margin:0}}>Chelgy AI Advisor</h2>
+                {advisorMsgs.length>0&&<button onClick={()=>{setAdvisorMsgs([]);if(user&&user.access_token&&user.id)patchMyMember(user.access_token,user.id,{advisor:[]});}} style={{background:"none",border:"none",color:B.mid,fontSize:10,letterSpacing:"0.08em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>Clear chat</button>}
               </div>
-              {aiLoading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"24px",textAlign:"center",fontFamily:"sans-serif",fontSize:11,color:B.mid,letterSpacing:"0.06em"}}>Thinking...</div>}
-              {aiA&&!aiLoading&&(
-                <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px"}}>
-                  <div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:14,textTransform:"uppercase"}}>Chelgy AI Advisor</div>
-                  <Rich text={aiA} />
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Ask anything about marketing, strategy, tools, or your business. Chelgy remembers your conversation.</p>
+              {isTrial&&(
+                <div style={{background:B.goldLight,padding:"10px 14px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>
+                  AI Advisor is available to members.{" "}
+                  <button onClick={()=>setShowPaywall(true)} style={{background:"none",border:"none",color:B.goldDark,fontWeight:700,cursor:"pointer",padding:0,fontSize:11,textDecoration:"underline"}}>Subscribe to unlock</button>
                 </div>
               )}
+              {advisorMsgs.length>0&&(
+                <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+                  {advisorMsgs.map((m,i)=>(
+                    m.role==="user"?(
+                      <div key={i} style={{alignSelf:"flex-end",maxWidth:"85%",background:B.charcoal,color:"#fff",padding:"11px 15px",fontFamily:"sans-serif",fontSize:13,lineHeight:1.55}}>{m.content}</div>
+                    ):(
+                      <div key={i} style={{alignSelf:"flex-start",maxWidth:"94%",background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px"}}>
+                        <div style={{fontSize:8,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:10,textTransform:"uppercase"}}>Chelgy</div>
+                        <Rich text={m.content} />
+                      </div>
+                    )
+                  ))}
+                </div>
+              )}
+              {aiLoading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"18px",textAlign:"center",fontFamily:"sans-serif",fontSize:11,color:B.mid,letterSpacing:"0.06em",marginBottom:16}}>Thinking...</div>}
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"16px"}}>
+                <textarea value={aiQ} onChange={e=>setAiQ(e.target.value)} rows={3} placeholder={advisorMsgs.length?"Ask a follow-up...":"e.g. What should I post this week to get more customers?"} style={{width:"100%",padding:"12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",marginBottom:12,boxSizing:"border-box",lineHeight:1.65,background:B.white}} />
+                <Btn dark onClick={askAI} disabled={aiLoading}>{aiLoading?"THINKING...":(advisorMsgs.length?"SEND":"GET ADVICE")}</Btn>
+              </div>
             </div>
           )}
 
