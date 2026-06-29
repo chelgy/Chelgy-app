@@ -2026,6 +2026,7 @@ export default function ChelgyApp() {
   const [showTasks, setShowTasks] = useState(false);
   const [showGreeting, setShowGreeting] = useState(false);
   const [celebrate, setCelebrate] = useState("");
+  const [completions, setCompletions] = useState(()=>lsGetJSON("chelgy_completions", {}));
   const navRefs = useRef({});
   const TOUR_STEPS = [
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
@@ -2052,8 +2053,32 @@ export default function ChelgyApp() {
     let last=null; try{ last=localStorage.getItem("chelgy_last_greeting"); }catch(e){}
     if(last!==todayStr()){ setShowGreeting(true); try{ localStorage.setItem("chelgy_last_greeting", todayStr()); }catch(e){} }
   },[page,isAdmin,showIntake]);
+  // ─── Phase 4: weekly & monthly check-ins + gentle nudges ─────────────────────
+  useEffect(()=>{
+    if (page!=="app" || isAdmin) return;
+    let intakeDone=false; try{ intakeDone=!!localStorage.getItem("chelgy_intake_done"); }catch(e){}
+    if(!intakeDone) return;
+    const now=Date.now();
+    let lw=0; try{ lw=parseInt(localStorage.getItem("chelgy_last_weekly")||"0",10); }catch(e){}
+    if(now - lw >= 7*86400000){
+      if(lw!==0){ const n=sumCompletions(7); pushNotif("Weekly check-in: you completed "+n+" task"+(n===1?"":"s")+" this week. "+(n>0?"That's real progress — keep the momentum going.":"A fresh week to build momentum — start with today's highest-impact task.")); }
+      try{ localStorage.setItem("chelgy_last_weekly", String(now)); }catch(e){}
+    }
+    let lm=0; try{ lm=parseInt(localStorage.getItem("chelgy_last_monthly")||"0",10); }catch(e){}
+    if(now - lm >= 30*86400000){
+      if(lm!==0){ const n=sumCompletions(30); pushNotif("Monthly recap: "+n+" task"+(n===1?"":"s")+" completed in the last 30 days. Look how far you've come."); }
+      try{ localStorage.setItem("chelgy_last_monthly", String(now)); }catch(e){}
+    }
+    // Gentle nudge if returning after a few days away with roadmap tasks left
+    let lastSeen=0; try{ lastSeen=parseInt(localStorage.getItem("chelgy_last_seen")||"0",10); }catch(e){}
+    if(lastSeen!==0 && now - lastSeen >= 3*86400000){
+      const left=bigTasks.filter(t=>!t.done).length;
+      if(left>0) pushNotif("Welcome back — you have "+left+" task"+(left===1?"":"s")+" waiting. Let's pick up where you left off.");
+    }
+    try{ localStorage.setItem("chelgy_last_seen", String(now)); }catch(e){}
+  },[page,isAdmin]);
   function completeIntake(d){
-    try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_tour_done","1"); } catch(e){}
+    try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_tour_done","1"); localStorage.setItem("chelgy_last_greeting", todayStr()); } catch(e){}
     setIntake(d);
     if(d.what && (!myBusiness)) setMyBusiness(d.what);
     if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { intake: d });
@@ -2141,9 +2166,12 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   // Persist task progress
   useEffect(()=>{ lsSet("chelgy_tasks", bigTasks); if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { tasks: bigTasks }); },[bigTasks]);
   useEffect(()=>{ lsSet("chelgy_daily_done", dailyDone); },[dailyDone]);
+  useEffect(()=>{ lsSet("chelgy_completions", completions); },[completions]);
+  function logCompletion(delta){ const day=todayStr(); setCompletions(c=>{ const n={...c}; n[day]=Math.max(0,(n[day]||0)+delta); return n; }); }
+  function sumCompletions(days){ const now=new Date(); let total=0; for(const k of Object.keys(completions)){ const dt=new Date(k+"T00:00:00"); const diff=(now-dt)/86400000; if(diff>=0 && diff<days) total+=(completions[k]||0); } return total; }
   function celebrateDone(){ const lines=["Nice work — that's done.","Done! Momentum is everything.","One step closer. Keep going.","Checked off. You're building real progress."]; setCelebrate(lines[Math.floor(Math.random()*lines.length)]); setTimeout(()=>setCelebrate(""),2600); }
-  function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd) celebrateDone(); return {...t,done:nd}; } return t; })); }
-  function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; } else { nd[id]=true; celebrateDone(); } return nd; }); }
+  function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
+  function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); } return nd; }); }
   function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
   useEffect(()=>{
     if(tourStep===null) return;
@@ -2746,7 +2774,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   return (
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
 
-      {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");}catch(e){} setShowIntake(false);}} />}
+      {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />}
       {showPlan&&(
         <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
           <div style={{maxWidth:640,margin:"0 auto",padding:"32px 24px 60px"}}>
@@ -2792,11 +2820,14 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
               </div>
             )}
             <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",marginBottom:12}}>Today's Quick Wins</div>
-            <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:24}}>
+            <div style={{display:"flex",flexDirection:"column",gap:13,marginBottom:24}}>
               {dailies.map(t=>(
-                <div key={t.id} style={{display:"flex",gap:10,alignItems:"center",fontFamily:"sans-serif",fontSize:13,color:dailyDone[t.id]?B.mid:B.charcoal}}>
-                  <span style={{color:dailyDone[t.id]?B.green:B.stone}}>{dailyDone[t.id]?"✓":"○"}</span>
-                  <span style={{textDecoration:dailyDone[t.id]?"line-through":"none"}}>{t.title}</span>
+                <div key={t.id}>
+                  <div style={{display:"flex",gap:10,alignItems:"center",fontFamily:"sans-serif",fontSize:13,color:dailyDone[t.id]?B.mid:B.charcoal}}>
+                    <span style={{color:dailyDone[t.id]?B.green:B.stone}}>{dailyDone[t.id]?"✓":"○"}</span>
+                    <span style={{textDecoration:dailyDone[t.id]?"line-through":"none"}}>{t.title}</span>
+                  </div>
+                  {t.tool&&!dailyDone[t.id]&&<button onClick={()=>openTool(t.tool)} style={{marginTop:7,marginLeft:24,background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"5px 11px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.06em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[t.tool].toUpperCase()} →</button>}
                 </div>
               ))}
             </div>
@@ -2811,6 +2842,16 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div><div style={{width:32,height:1,background:B.gold,marginBottom:14}} /><h2 style={{fontSize:25,fontFamily:"Georgia,serif",fontWeight:400,margin:0}}>Your Tasks</h2></div>
               <button onClick={()=>setShowTasks(false)} style={{background:"none",border:"none",cursor:"pointer",color:B.mid,marginTop:4}}><Icons.X/></button>
+            </div>
+            <div style={{display:"flex",gap:2,background:B.stone,marginTop:16,marginBottom:4}}>
+              <div style={{flex:1,background:B.white,padding:"14px 16px"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:5}}>This Week</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400}}>{sumCompletions(7)} <span style={{fontSize:11,color:B.mid,fontFamily:"sans-serif"}}>done</span></div>
+              </div>
+              <div style={{flex:1,background:B.white,padding:"14px 16px"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:5}}>This Month</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400}}>{sumCompletions(30)} <span style={{fontSize:11,color:B.mid,fontFamily:"sans-serif"}}>done</span></div>
+              </div>
             </div>
             <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",margin:"22px 0 10px"}}>From Your Roadmap</div>
             {bigTasks.length===0 ? (
@@ -2931,26 +2972,6 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                   <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
                 </div>
               </div>
-              {/* Your plan / build-plan card */}
-              {plan ? (
-                <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
-                  <div>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Coach</div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3}}>Your Business Plan &amp; Roadmap</div>
-                    <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>Tap to view your personalized plan and next steps.</div>
-                  </div>
-                  <Icons.ChevronRight />
-                </button>
-              ) : (
-                <button onClick={()=>setShowIntake(true)} style={{width:"100%",textAlign:"left",background:B.charcoal,border:"none",padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
-                  <div>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3,color:"#fff"}}>Build your business plan &amp; roadmap</div>
-                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",letterSpacing:"0.01em"}}>Answer a few questions and Chelgy builds your personalized plan.</div>
-                  </div>
-                  <span style={{color:B.gold}}><Icons.ChevronRight /></span>
-                </button>
-              )}
               {/* Points card + quick actions */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2}}>
                 <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
@@ -3472,6 +3493,25 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
           {/* ═══ PROFILE ═══ */}
           {tab==="profile"&&subTab==="overview"&&(
             <div style={{paddingTop:28}}>
+              {plan ? (
+                <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                  <div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Coach</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3}}>Your Business Plan &amp; Roadmap</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>Tap to view your personalized plan and next steps.</div>
+                  </div>
+                  <Icons.ChevronRight />
+                </button>
+              ) : (
+                <button onClick={()=>setShowIntake(true)} style={{width:"100%",textAlign:"left",background:B.charcoal,border:"none",padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                  <div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:3,color:"#fff"}}>Build your business plan &amp; roadmap</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",letterSpacing:"0.01em"}}>Answer a few questions and Chelgy builds your personalized plan.</div>
+                  </div>
+                  <span style={{color:B.gold}}><Icons.ChevronRight /></span>
+                </button>
+              )}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:2,background:B.stone}}>
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:18}}>
@@ -3503,7 +3543,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
                 </div>
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Your Stats</div>
-                  {[{label:"Total Points",value:myPoints+" pts"},{label:"Current Level",value:getLevel(myPoints).title},{label:"Challenges Completed",value:completedChallenges.length},{label:"Membership",value:isTrial?"Free (Explore)":"Active Member"}].map((stat,i)=>(
+                  {[{label:"Roadmap tasks done",value:bigTasks.filter(t=>t.done).length+" of "+bigTasks.length},{label:"Business plan",value:plan?"Ready":"Not built yet"},{label:"Membership",value:isTrial?"Free (Explore)":"Active Member"}].map((stat,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"11px 0",borderBottom:"1px solid "+B.stone}}>
                       <span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.01em"}}>{stat.label}</span>
                       <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{stat.value}</span>
