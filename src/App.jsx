@@ -1600,6 +1600,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [helpReqs, setHelpReqs] = useState([]);
   const [subsList, setSubsList] = useState([]);
   const [membersList, setMembersList] = useState([]);
+  const [inquiriesList, setInquiriesList] = useState([]);
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
   const [heroForm, setHeroForm] = useState({ hero_image:"", home_hero:"" });
@@ -1627,7 +1628,19 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       setMarketerApps(apps=>apps.map(a=>a.user_id===userId?{...a,marketer_status:status}:a));
     }catch(e){}
   }
+  async function loadInquiries(){
+    try{
+      const tok=await freshToken();
+      if(!tok){ return; }
+      const res=await fetch("/api/admin-inquiries",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
+      if(res.ok){
+        const d=await res.json();
+        setInquiriesList(d.inquiries||[]);
+      }
+    }catch(e){ console.error("Load inquiries error:",e); }
+  }
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
+  useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ loadAppSettings().then(s=>setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" })); },[]);
   async function saveHeroImages(){
     setDbLoading(true);
@@ -1770,7 +1783,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1893,6 +1906,113 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 </div>
               </div>
             ); })}
+          </div>
+        )}
+
+        {view==="pricing"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Chelgy Marketer Pricing</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>All marketers offer standardized service tiers. View approved marketers and their revenue potential.</p>
+            
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
+              <div style={{background:"#fff",padding:"22px"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Service Tiers</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>4</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Foundation, Growth, Premium, Special</div>
+              </div>
+              <div style={{background:"#fff",padding:"22px"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Monthly Range</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$500–$3.5K</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Contract to month-to-month</div>
+              </div>
+              <div style={{background:"#fff",padding:"22px"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>One-Time Projects</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$5,000</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Chelgy Special (build from scratch)</div>
+              </div>
+            </div>
+
+            <h3 style={{fontSize:16,fontWeight:400,margin:"0 0 16px"}}>Approved Marketers ({membersList.filter(m=>m.marketer_status==="approved").length})</h3>
+            <div style={{overflowX:"auto",background:"#fff",border:"1px solid #E8E6E1"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead style={{background:"#F9F7F2"}}>
+                  <tr>
+                    <th style={{padding:"12px 16px",textAlign:"left",fontWeight:700,borderBottom:"1px solid #E8E6E1",fontFamily:"sans-serif"}}>Marketer</th>
+                    <th style={{padding:"12px 16px",textAlign:"left",fontWeight:700,borderBottom:"1px solid #E8E6E1",fontFamily:"sans-serif"}}>Status</th>
+                    <th style={{padding:"12px 16px",textAlign:"center",fontWeight:700,borderBottom:"1px solid #E8E6E1",fontFamily:"sans-serif"}}>Potential Monthly</th>
+                    <th style={{padding:"12px 16px",textAlign:"center",fontWeight:700,borderBottom:"1px solid #E8E6E1",fontFamily:"sans-serif"}}>Annual Contract Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {membersList.filter(m=>m.marketer_status==="approved").map((m,i)=>{
+                    const minMo = 500 + 1200 + 2500; // Foundation min + Growth min + Premium min
+                    const maxMo = 800 + 1500 + 3500; // Month-to-month max + Special
+                    return (
+                      <tr key={i} style={{borderBottom:"1px solid #E8E6E1"}}>
+                        <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.name||"(unnamed)"}</td>
+                        <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.status==="paid"?"Paid":"Pending"}</td>
+                        <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",fontWeight:600,color:"#B8955A"}}>${minMo.toLocaleString()}–${maxMo.toLocaleString()}</td>
+                        <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",color:"#999"}}>$50K–$70K</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{background:"#FFF8E1",border:"1px solid #E8D4B0",padding:16,marginTop:24,borderRadius:4}}>
+              <div style={{fontFamily:"sans-serif",fontSize:12,lineHeight:1.6,color:"#666"}}>
+                <p style={{margin:"0 0 12px"}}><strong>💡 Revenue Model:</strong> Each marketer keeps 100% of their service fees. Chelgy takes 0% commission — they pay Chelgy $100/mo membership instead.</p>
+                <p style={{margin:"0 0 12px"}}><strong>Ad Spend:</strong> Separate from service fees. Clients pay ad platforms directly; marketers manage and charge management fees.</p>
+                <p style={{margin:0}}><strong>Payouts:</strong> Marketers receive payments directly from clients or via invoicing platform (not through Chelgy).</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view==="inquiries"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Client Inquiries</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Review inquiries from marketers. Approve to activate the contract, deny to skip.</p>
+            <button onClick={loadInquiries} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
+
+            {inquiriesList.length===0?(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No inquiries yet.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {inquiriesList.map(inquiry=>(
+                  <div key={inquiry.id} style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:16}}>
+                      <div>
+                        <h3 style={{fontFamily:"Georgia,serif",fontSize:18,color:"#111",margin:"0 0 6px"}}>{inquiry.client_name}</h3>
+                        <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0"}}>{inquiry.business_type||"Business"} • {inquiry.service_tier.charAt(0).toUpperCase()+inquiry.service_tier.slice(1)}</p>
+                      </div>
+                      <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"4px 10px",background:inquiry.status==="submitted"?"#FFF8E1":inquiry.status==="approved"?"#E8F5E9":"#FFEBEE",color:inquiry.status==="submitted"?"#F57F17":inquiry.status==="approved"?"#2E7D32":"#C62828"}}>{inquiry.status.toUpperCase()}</span>
+                    </div>
+
+                    <div style={{background:"#F9F7F2",padding:"12px 14px",marginBottom:14,borderRadius:3}}>
+                      <p style={{fontFamily:"sans-serif",fontSize:10,margin:"0 0 4px",color:"#6B6B6B"}}><strong>Marketer:</strong> {inquiry.marketer?.name||"(name)"}</p>
+                      <p style={{fontFamily:"sans-serif",fontSize:10,margin:"0",color:"#6B6B6B"}}><strong>Submitted:</strong> {new Date(inquiry.created_at).toLocaleString()}</p>
+                    </div>
+
+                    {inquiry.notes&&(
+                      <div style={{background:"#FFFBF0",padding:"12px 14px",marginBottom:14,borderRadius:3,borderLeft:"3px solid #B8955A"}}>
+                        <p style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",margin:"0"}}><strong>Notes:</strong> {inquiry.notes}</p>
+                      </div>
+                    )}
+
+                    {inquiry.status==="submitted"&&(
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={async()=>{const tok=await freshToken();const res=await fetch("/api/admin-inquiries",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"approve"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"#111",color:"#fff",border:"none",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✓ Approve</button>
+                        <button onClick={async()=>{if(!confirm("Deny this inquiry?")) return;const tok=await freshToken();const res=await fetch("/api/admin-inquiries",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"deny"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✗ Deny</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2499,6 +2619,27 @@ const MARKETER_PRICING = [
     effort:"25-30 hrs/week",
     marketRevenue:{monthToMonth:"$3,500/mo", contract:"$2,500/mo × 12"},
     note:"* Ad spend ($1,000-3,000+/month) is separate, billed directly to client"
+  },
+  { id:"special", name:"CHELGY SPECIAL / Business Builder",
+    projectPrice:5000, paymentModel:"One-time project",
+    description:"Build a complete business from scratch — brand, website, marketing foundation, and launch strategy.",
+    includes:[
+      "Deep-dive business strategy consultation",
+      "Brand identity & visual design (logo, colors, fonts, brand guide)",
+      "Professional website build & setup (5-10 pages, mobile-optimized, SEO-ready)",
+      "Google Business Profile & local SEO optimization",
+      "Complete content creation (about, services, homepage copy, blog foundation)",
+      "Social media profiles setup & initial content calendar (3 months)",
+      "Email list setup & welcome sequence",
+      "Initial paid ads strategy & first campaign setup ($1,000 ad credit included*)",
+      "Analytics dashboard setup & reporting framework",
+      "60-day launch support & strategy calls (2-3 calls/month)",
+      "Deliverables package (brand guide, website assets, content calendar, marketing roadmap)"
+    ],
+    effort:"60-80 hours over 30-60 days",
+    marketRevenue:"$5,000 one-time",
+    ideal:"Entrepreneurs, startups, service pros launching first business",
+    note:"* $1,000 ad spend separate; marketer manages initial campaign. Additional ad spend billed to client. After launch, can transition to Foundation/Growth/Premium retainer."
   }
 ];
 
@@ -2571,6 +2712,11 @@ export default function ChelgyApp() {
   const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
+  const [pricingTiers, setPricingTiers] = useState({foundation:true,growth:true,premium:true,special:true});
+  const [contractsList, setContractsList] = useState([]);
+  const [inquiryForm, setInquiryForm] = useState({clientName:"",businessType:"",serviceTier:"foundation",pricingModel:"contract",notes:""});
+  const [inquiryLoading, setInquiryLoading] = useState(false);
+  const [inquiryErr, setInquiryErr] = useState("");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email:"", password:"" });
@@ -3452,6 +3598,49 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setDvLoading(false);
   }
 
+  async function submitClientInquiry(){
+    setInquiryErr("");
+    if(!inquiryForm.clientName.trim()){ setInquiryErr("Enter client name"); return; }
+    if(!inquiryForm.serviceTier){ setInquiryErr("Select a service tier"); return; }
+    
+    setInquiryLoading(true);
+    const res = await fetch("/api/submit-inquiry", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": user?.id || ""
+      },
+      body: JSON.stringify({
+        clientName: inquiryForm.clientName.trim(),
+        businessType: inquiryForm.businessType.trim() || null,
+        serviceTier: inquiryForm.serviceTier,
+        pricingModel: inquiryForm.pricingModel,
+        notes: inquiryForm.notes.trim() || null
+      })
+    });
+    setInquiryLoading(false);
+    
+    if(res.ok){
+      setInquiryForm({clientName:"",businessType:"",serviceTier:"foundation",pricingModel:"contract",notes:""});
+      loadMarketerContracts();
+      setInquiryErr("✅ Inquiry submitted! Chelsea will contact them soon.");
+    } else {
+      setInquiryErr("Failed to submit inquiry. Try again.");
+    }
+  }
+
+  async function loadMarketerContracts(){
+    const res = await fetch("/api/marketer-contracts", {
+      headers: { "x-user-id": user?.id || "" }
+    });
+    if(res.ok){
+      const d = await res.json();
+      setContractsList(d.contracts || []);
+    }
+  }
+
+  useEffect(()=>{ if(isTeamSpace && marketerStatus==="approved") loadMarketerContracts(); },[isTeamSpace, marketerStatus]);
+
   const doForgot = async () => {
     setAuthError(""); setResetMsg("");
     if (!loginData.email.includes("@")) { setAuthError("Enter your email above first, then tap Forgot password."); return; }
@@ -3611,6 +3800,37 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
           <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Let's build your client-acquisition plan</h1>
           <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Answer a few quick questions and Chelgy builds you an aggressive 30-day sprint to land your first clients — with daily targets, scripts, and exactly how to use your tools to close deals.</p>
+          
+          {/* Pricing overview */}
+          <div style={{background:"rgba(255,215,0,0.05)",border:"1px solid "+B.gold,padding:20,marginBottom:24,borderRadius:4}}>
+            <div style={{fontFamily:"sans-serif",fontSize:10,color:B.gold,letterSpacing:"0.12em",fontWeight:700,textTransform:"uppercase",marginBottom:12}}>📊 What You'll Be Selling</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6,margin:"0 0 14px"}}>As a Chelgy Marketer, you offer standardized service packages to clients. Every marketer offers the same tiers at the same pricing:</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>
+              <div style={{background:"#fff",padding:12,borderRadius:3}}>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Foundation</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$500–$800/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Social, SEO basics, consulting</div>
+              </div>
+              <div style={{background:"#fff",padding:12,borderRadius:3}}>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Growth</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$1,200–$1,500/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Full strategy, content, ads</div>
+              </div>
+              <div style={{background:"#fff",padding:12,borderRadius:3}}>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Premium</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$2,500–$3,500/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Complete takeover, dedicated</div>
+              </div>
+              <div style={{background:"#fff",padding:12,borderRadius:3}}>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Chelgy Special</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$5,000 one-time</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Build business from scratch</div>
+              </div>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,margin:"12px 0 0",lineHeight:1.5}}>💡 <strong>Ad spend is separate</strong> — clients pay Facebook/Google directly. You manage it and charge your service fee on top.</p>
+          </div>
+
+          {/* Form */}
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
             {[["niches","Any kinds of businesses you'd enjoy working with? (optional)","e.g. restaurants, gyms, salons — or leave blank to keep it wide open","input"],["location","Where are you based?","e.g. Tampa, FL — for in-person outreach (you can market for businesses anywhere!)","input"],["income","Monthly income goal","e.g. $3,000/mo","input"],["hours","Hours you can put in per week","e.g. 15 hours","input"],["experience","Your experience level","Beginner is totally fine — we teach you","input"]].map(([k,label,ph])=>(
               <div key={k} style={{marginBottom:14}}>
@@ -3873,6 +4093,16 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Step-by-step playbooks for any business type.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
+            <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Special packages.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>View →</span>
+            </button>
+            <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Inquiries</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelsea, track approved contracts & earnings.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
+            </button>
             {[
               ["Campaign Checklists","Never forget a step — Facebook Ads, SEO, launch & more."]
             ].map(([t,d])=>(
@@ -3887,7 +4117,190 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
           <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <strong>Tools</strong> tab. Use them to create work for your clients.</div>
         </div>, false, true);
-  };
+      }
+
+      // Pricing & Services
+      if (marketerView==="pricing") {
+        const tierList = [
+          MARKETER_PRICING[0], // Foundation
+          MARKETER_PRICING[1], // Growth
+          MARKETER_PRICING[2], // Premium
+          MARKETER_PRICING[3]  // Special
+        ];
+        return teamWrap(
+          <div style={{maxWidth:900}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:28}}>
+              <h2 style={{color:"#fff",fontSize:22,fontWeight:400,margin:0}}>Your Service Packages</h2>
+              <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.12em",fontWeight:700,textTransform:"uppercase"}}>Chelgy Standard Pricing</span>
+            </div>
+            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:12,lineHeight:1.6,marginBottom:28}}>Every Chelgy Marketer offers the same service tiers and pricing. Customize your service by choosing which packages to emphasize with your clients.</p>
+            
+            {/* Pricing grid */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:32}}>
+              {tierList.map(tier=>(
+                <div key={tier.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid "+B.gold,padding:24}}>
+                  <div style={{marginBottom:20}}>
+                    <h3 style={{color:"#fff",fontSize:16,fontWeight:600,margin:"0 0 6px"}}>{tier.name}</h3>
+                    <p style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",margin:0}}>{tier.description}</p>
+                  </div>
+                  
+                  {/* Pricing */}
+                  {tier.projectPrice ? (
+                    <div style={{background:"rgba(255,215,0,0.1)",padding:12,marginBottom:16,borderRadius:4}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.6)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Project Price</div>
+                      <div style={{fontSize:24,fontWeight:700,color:B.gold}}>${tier.projectPrice.toLocaleString()}</div>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.5)",marginTop:4}}>One-time engagement</div>
+                    </div>
+                  ) : (
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                      <div style={{background:"rgba(255,215,0,0.1)",padding:12,borderRadius:4}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Month-to-Month</div>
+                        <div style={{fontSize:20,fontWeight:700,color:B.gold}}>${tier.monthToMonth}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",marginTop:3}}>per month</div>
+                      </div>
+                      <div style={{background:"rgba(255,215,0,0.08)",padding:12,borderRadius:4,border:"1px solid "+B.goldDark}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Annual Contract</div>
+                        <div style={{fontSize:20,fontWeight:700,color:B.gold}}>${tier.contract}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",marginTop:3}}>× 12 months</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Includes */}
+                  <div style={{marginBottom:16}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.gold,marginBottom:10,fontWeight:600}}>Includes</div>
+                    <ul style={{listStyle:"none",padding:0,margin:0}}>
+                      {tier.includes.slice(0,4).map((inc,i)=>(
+                        <li key={i} style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.75)",lineHeight:1.4,marginBottom:6}}>✓ {inc}</li>
+                      ))}
+                      {tier.includes.length>4&&<li style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:8}}>+ {tier.includes.length-4} more items</li>}
+                    </ul>
+                  </div>
+                  
+                  {/* Effort & revenue */}
+                  {tier.effort && <div style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.5)",lineHeight:1.5,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.1)"}}>
+                    <div><strong>Effort:</strong> {tier.effort}</div>
+                    <div style={{marginTop:4}}><strong>Your Revenue:</strong> {typeof tier.marketRevenue==="string"?tier.marketRevenue:tier.marketRevenue.monthToMonth+" or "+tier.marketRevenue.contract}</div>
+                  </div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Notes */}
+            <div style={{background:"rgba(255,215,0,0.08)",padding:16,border:"1px solid "+B.gold,borderRadius:4}}>
+              <p style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)",margin:0,lineHeight:1.6}}>💡 <strong>How to use this:</strong> Share these packages with your clients. You manage everything — from strategy to execution using Chelgy tools. Ad spend is always separate and billed directly to the client.</p>
+            </div>
+          </div>, false, true);
+      }
+
+      // Client Contracts & Inquiries
+      if (marketerView==="contracts") {
+        const getTierPrice = (tier, model) => {
+          const t = MARKETER_PRICING.find(x=>x.id===tier);
+          if(!t) return 0;
+          const fullPrice = model==="contract" ? t.contract : t.monthToMonth;
+          return Math.round(fullPrice * 0.5); // 50% marketer commission
+        };
+        
+        return teamWrap(
+          <div style={{paddingBottom:60}}>
+            {topBar}
+            <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
+            <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Client Inquiries & Contracts</h1>
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Submit client opportunities to Chelsea. Once she approves, you'll see them here and can begin work.</p>
+
+            {/* Submit Inquiry Form */}
+            <div style={{background:B.white,border:"1px solid "+B.stone,padding:24,marginBottom:28}}>
+              <h2 style={{fontSize:18,fontWeight:400,margin:"0 0 20px",color:B.charcoal}}>Submit a Client Inquiry</h2>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                <div>
+                  <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Client Name *</label>
+                  <input value={inquiryForm.clientName} onChange={e=>setInquiryForm(f=>({...f,clientName:e.target.value}))} placeholder="e.g. Sarah's Salon" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                </div>
+                <div>
+                  <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Business Type</label>
+                  <input value={inquiryForm.businessType} onChange={e=>setInquiryForm(f=>({...f,businessType:e.target.value}))} placeholder="e.g. Salon, Restaurant, E-commerce" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                <div>
+                  <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Service Tier *</label>
+                  <select value={inquiryForm.serviceTier} onChange={e=>setInquiryForm(f=>({...f,serviceTier:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}}>
+                    <option value="foundation">Foundation ($500–$800/mo)</option>
+                    <option value="growth">Growth ($1,200–$1,500/mo)</option>
+                    <option value="premium">Premium ($2,500–$3,500/mo)</option>
+                    <option value="special">Chelgy Special ($5,000 one-time)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Pricing Model *</label>
+                  <select value={inquiryForm.pricingModel} onChange={e=>setInquiryForm(f=>({...f,pricingModel:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}}>
+                    <option value="contract">Annual Contract</option>
+                    <option value="month-to-month">Month-to-Month</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Notes (optional)</label>
+                <textarea value={inquiryForm.notes} onChange={e=>setInquiryForm(f=>({...f,notes:e.target.value}))} placeholder="Any context for Chelsea? (e.g., warm referral, budget notes, timeline)" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",minHeight:80,fontFamily:"sans-serif"}} />
+              </div>
+              {inquiryErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:inquiryErr.includes("✅")?B.gold:B.red,marginBottom:12}}>{inquiryErr}</div>}
+              <button onClick={submitClientInquiry} disabled={inquiryLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:inquiryLoading?"default":"pointer",textTransform:"uppercase"}}>{inquiryLoading?"Submitting...":"Submit Inquiry"}</button>
+            </div>
+
+            {/* Active Contracts */}
+            <h2 style={{fontSize:18,fontWeight:400,margin:"0 0 16px",color:B.charcoal}}>Your Approved Contracts</h2>
+            {contractsList.filter(c=>c.status==="approved").length===0 ? (
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:24,textAlign:"center"}}>
+                <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:0}}>No approved contracts yet. Submit inquiries above and Chelsea will get them rolling!</p>
+              </div>
+            ) : (
+              <div style={{display:"grid",gap:14}}>
+                {contractsList.filter(c=>c.status==="approved").map(c=>{
+                  const mkCommission = getTierPrice(c.service_tier, c.pricing_model);
+                  const fullPrice = MARKETER_PRICING.find(x=>x.id===c.service_tier);
+                  const price = c.pricing_model==="contract" ? fullPrice.contract : fullPrice.monthToMonth;
+                  return (
+                    <div key={c.id} style={{background:B.white,border:"1px solid "+B.stone,padding:20}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:12}}>
+                        <div>
+                          <h3 style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,margin:"0 0 4px"}}>{c.client_name}</h3>
+                          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>{c.business_type||"Business"} • {c.service_tier.charAt(0).toUpperCase()+c.service_tier.slice(1)} • {c.pricing_model==="contract"?"Annual Contract":"Month-to-Month"}</p>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Your Earnings</div>
+                          <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:B.charcoal}}>${mkCommission}</div>
+                          <p style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,margin:"4px 0 0"}}>{c.pricing_model==="contract"?"/mo × 12":"per month"}</p>
+                        </div>
+                      </div>
+                      {c.notes&&<p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"12px 0 0",paddingTop:12,borderTop:"1px solid "+B.stone}}><strong>Notes:</strong> {c.notes}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pending Inquiries */}
+            {contractsList.filter(c=>c.status==="submitted").length>0&&(
+              <div style={{marginTop:32}}>
+                <h2 style={{fontSize:18,fontWeight:400,margin:"0 0 16px",color:B.charcoal}}>Pending Review</h2>
+                <div style={{display:"grid",gap:14}}>
+                  {contractsList.filter(c=>c.status==="submitted").map(c=>(
+                    <div key={c.id} style={{background:"rgba(255,215,0,0.05)",border:"1px solid "+B.gold,padding:16,borderRadius:4}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <h3 style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,margin:"0 0 4px"}}>{c.client_name}</h3>
+                          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>Submitted {new Date(c.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>⏳ Awaiting Chelsea</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>, false, true);
+      }
   if (isTeamSpace) {
 
     // Not logged in → team account auth (their own account)
