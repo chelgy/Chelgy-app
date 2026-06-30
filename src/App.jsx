@@ -2461,6 +2461,8 @@ export default function ChelgyApp() {
   const [dvResult, setDvResult] = useState("");
   const [dvLoading, setDvLoading] = useState(false);
   const [dvCopied, setDvCopied] = useState(false);
+  const [clientId, setClientId] = useState(null);       // selected client id, or "new"
+  const [clientDraft, setClientDraft] = useState(null); // the client being edited
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email:"", password:"" });
@@ -3309,6 +3311,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     saveMarketerData({ ...marketerData, coach: next });
   }
 
+  const clientsList = () => (marketerData && Array.isArray(marketerData.clients)) ? marketerData.clients : [];
+  const newClient = () => { setClientDraft({ id:"c"+Date.now(), name:"", business:"", industry:"", contact:"", website:"", colors:"", fonts:"", logins:"", goals:"", notes:"", status:"Lead" }); setClientId("new"); };
+  const openClient = (c) => { setClientDraft({ ...c }); setClientId(c.id); };
+  const saveClient = () => {
+    if(!clientDraft || !(clientDraft.business||clientDraft.name).trim()) { setTeamErr("Give the client at least a name."); return; }
+    setTeamErr("");
+    const list = clientsList();
+    const exists = list.some(c=>c.id===clientDraft.id);
+    const next = exists ? list.map(c=>c.id===clientDraft.id?clientDraft:c) : [...list, clientDraft];
+    saveMarketerData({ ...marketerData, clients: next });
+    setClientId(null); setClientDraft(null);
+  };
+  const deleteClient = (id) => { saveMarketerData({ ...marketerData, clients: clientsList().filter(c=>c.id!==id) }); setClientId(null); setClientDraft(null); };
+  const useClientFor = (mode) => {
+    if(clientDraft){ const list=clientsList(); const exists=list.some(c=>c.id===clientDraft.id); const next=exists?list.map(c=>c.id===clientDraft.id?clientDraft:c):[...list,clientDraft]; saveMarketerData({ ...marketerData, clients: next }); }
+    const label = (clientDraft&&(clientDraft.business||clientDraft.name))||"this client";
+    setClientId(null); setClientDraft(null);
+    if(mode==="deliverable"){ setDvForm(f=>({ ...f, client: label })); setMarketerView("deliverables"); }
+    else { setMkCoachInput("I just landed "+label+(clientDraft&&clientDraft.industry?(", a "+clientDraft.industry):"")+" — build their 30-day launch plan."); setMarketerView("coach"); }
+  };
+
   async function genDeliverable(){
     const t = DELIVERABLE_TYPES.find(x=>x.id===dvType);
     if(!t) return;
@@ -3549,6 +3572,89 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         </div>, false);
 
+      // ── Client Workspace (mini-CRM) ──
+      if (marketerView==="clients") {
+        const list = clientsList();
+        if (clientId && clientDraft) {
+          const set = (k,v)=>setClientDraft(d=>({...d,[k]:v}));
+          const F = ({k,label,ph,type}) => (
+            <div style={{marginBottom:14}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
+              {type==="textarea"
+                ? <textarea value={clientDraft[k]||""} onChange={e=>set(k,e.target.value)} placeholder={ph} rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical"}} />
+                : <input value={clientDraft[k]||""} onChange={e=>set(k,e.target.value)} placeholder={ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />}
+            </div>
+          );
+          return teamWrap(
+            <div style={{paddingBottom:50}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+                <button onClick={()=>{setClientId(null);setClientDraft(null);setTeamErr("");}} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Clients</button>
+                <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+              </div>
+              <h1 style={{fontSize:23,fontWeight:400,margin:"0 0 16px",color:B.charcoal}}>{clientId==="new"?"New client":(clientDraft.business||clientDraft.name||"Client")}</h1>
+              <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+                {["Lead","Active","Paused","Past"].map(s=>(
+                  <button key={s} onClick={()=>set("status",s)} style={{background:clientDraft.status===s?B.charcoal:B.white,color:clientDraft.status===s?"#fff":B.charcoal,border:"1px solid "+(clientDraft.status===s?B.charcoal:B.stone),padding:"6px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>{s}</button>
+                ))}
+              </div>
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
+                <F k="business" label="Business name" ph="e.g. Bella's Bistro" />
+                <F k="name" label="Contact person" ph="e.g. Bella Romano" />
+                <F k="industry" label="Industry" ph="e.g. Restaurant" />
+                <F k="contact" label="Email / phone" ph="e.g. bella@bistro.com · (555) 123-4567" />
+                <F k="website" label="Website / social" ph="e.g. bellasbistro.com, @bellasbistro" />
+                <F k="colors" label="Brand colors" ph="e.g. Deep red, cream, gold" />
+                <F k="fonts" label="Brand fonts" ph="e.g. Playfair Display + Lato" />
+                <F k="goals" label="Their goals" ph="e.g. More weekend reservations, grow Instagram" type="textarea" />
+                <F k="logins" label="Logins / access (keep it safe)" ph="e.g. IG handle, who has the Google account" type="textarea" />
+                <F k="notes" label="Notes" ph="Anything you want to remember about this client" type="textarea" />
+                {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={saveClient} style={{flex:1,background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Save Client</button>
+                  {clientId!=="new"&&<button onClick={()=>deleteClient(clientDraft.id)} style={{background:"none",color:B.red,border:"1px solid #E0B4B4",padding:"13px 16px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete</button>}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:14}}>
+                <button onClick={()=>useClientFor("deliverable")} style={{background:B.white,border:"1px solid "+B.gold,padding:"14px",cursor:"pointer",textAlign:"left"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,marginBottom:3}}>Create a deliverable →</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Proposal, invoice, contract for this client</div>
+                </button>
+                <button onClick={()=>useClientFor("coach")} style={{background:B.white,border:"1px solid "+B.gold,padding:"14px",cursor:"pointer",textAlign:"left"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,marginBottom:3}}>Ask your coach →</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Get a launch plan for this client</div>
+                </button>
+              </div>
+            </div>, false);
+        }
+        return teamWrap(
+          <div style={{paddingBottom:50}}>
+            {topBar}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:16}}>
+              <div>
+                <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
+                <h1 style={{fontSize:24,fontWeight:400,margin:0,color:B.charcoal}}>Your Clients</h1>
+              </div>
+              <button onClick={newClient} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Add Client</button>
+            </div>
+            {list.length===0
+              ? <div style={{background:B.white,border:"1px solid "+B.stone,padding:"36px 24px",textAlign:"center"}}>
+                  <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>No clients yet. Add your first one to keep their brand, goals, logins, and notes all in one place.</p>
+                  <button onClick={newClient} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Add Your First Client</button>
+                </div>
+              : <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+                  {list.map(c=>(
+                    <button key={c.id} onClick={()=>openClient(c)} style={{textAlign:"left",background:B.white,border:"none",padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                      <div>
+                        <div style={{fontFamily:"Georgia,serif",fontSize:17,color:B.charcoal,marginBottom:2}}>{c.business||c.name||"Client"}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{[c.industry,c.name&&c.business?c.name:""].filter(Boolean).join(" · ")||"—"}</div>
+                      </div>
+                      <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",padding:"4px 9px",color:c.status==="Active"?"#2E7D32":c.status==="Paused"?B.goldDark:c.status==="Past"?B.mid:B.gold,border:"1px solid "+(c.status==="Active"?"#2E7D32":c.status==="Paused"?B.goldDark:c.status==="Past"?B.stone:B.gold)}}>{c.status||"Lead"}</span>
+                    </button>
+                  ))}
+                </div>}
+          </div>, false);
+      }
+
       // ── Deliverables ──
       if (marketerView==="deliverables") { const dt = DELIVERABLE_TYPES.find(x=>x.id===dvType)||DELIVERABLE_TYPES[0]; return teamWrap(
         <div style={{paddingBottom:50}}>
@@ -3620,8 +3726,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Proposals, invoices, contracts & reports — generated, customized, downloaded.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
+            <button onClick={()=>{setClientId(null);setClientDraft(null);setMarketerView("clients");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Workspace</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>A mini-CRM for each client: brand, logins, notes & goals.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
             {[
-              ["Client Workspace","A mini-CRM for each client: brand, logins, notes, goals & files."],
               ["SOP Library","Step-by-step playbooks: \"New restaurant? Start here.\""],
               ["Campaign Checklists","Never forget a step — Facebook Ads, SEO, launch & more."]
             ].map(([t,d])=>(

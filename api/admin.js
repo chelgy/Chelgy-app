@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
     if (action === "marketer-list") {
-      const r = await svc("members?select=user_id,email,status,marketer_status,marketer_info&marketer_status=not.is.null&order=marketer_status.asc");
+      const r = await svc("members?select=user_id,status,marketer_status,marketer_info&marketer_status=not.is.null&order=marketer_status.asc");
       const rows = await r.json();
       return res.status(200).json({ marketers: Array.isArray(rows) ? rows : [] });
     }
