@@ -4278,6 +4278,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
       // ── Campaign Checklists ──
       if (marketerView==="checklists") {
+       try {
         const pct = (cl)=>{ const done=Object.keys((checklistDone&&checklistDone[cl.id])||{}).length; return cl.steps.length?Math.round(done/cl.steps.length*100):0; };
         if (checklistId) {
           const cl = CAMPAIGN_CHECKLISTS.find(c=>c.id===checklistId);
@@ -4335,6 +4336,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ); })}
             </div>
           </div>, false, true);
+       } catch(e){ return teamWrap(<div style={{padding:"20px",fontFamily:"sans-serif"}}><div style={{color:B.red,fontWeight:700,marginBottom:8}}>Campaign Checklists error:</div><pre style={{whiteSpace:"pre-wrap",fontSize:11,color:B.charcoal,lineHeight:1.5}}>{String((e&&e.stack)||(e&&e.message)||e)}</pre></div>, false, true); }
       }
 
 
@@ -4395,7 +4397,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </button>
             <button onClick={()=>setMarketerView("pitches")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Sales Pitches & Promo</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land clients and promote the Business Builder.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land marketing and business-building clients.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
           </div>
