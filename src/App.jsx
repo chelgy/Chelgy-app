@@ -2348,6 +2348,55 @@ const GUIDE_CHAPTERS = [
 *Inside Chelgy: the Ad Builder writes your ad copy, and the Image Creator + Video Studio make the creative that stops the scroll.*` },
 ];
 
+function downloadTextFile(name, text){
+  try{ const blob=new Blob([text],{type:"text/plain;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),1500); }catch(e){}
+}
+const DELIVERABLE_TYPES = [
+  { id:"proposal", label:"Proposal", blurb:"Win the client with a polished pitch.",
+    fields:[
+      {k:"client",label:"Client business name",ph:"e.g. Bella's Bistro"},
+      {k:"about",label:"About the client / their situation",ph:"e.g. New Italian spot, weak social media, no Google profile",type:"textarea"},
+      {k:"services",label:"Services you'll provide",ph:"e.g. Social media management, Google Business setup, monthly content",type:"textarea"},
+      {k:"price",label:"Your pricing",ph:"e.g. $1,200/mo"}
+    ],
+    prompt:(f,who)=>"Write a polished, persuasive marketing services PROPOSAL from \""+who+"\" (an independent marketing consultant) to the client \""+(f.client||"the client")+"\". Client situation: "+(f.about||"a business that needs marketing help")+". Services to propose: "+(f.services||"marketing services")+". Pricing: "+(f.price||"to be discussed")+". Structure it professionally with: a warm intro, the client's challenge, your proposed solution and deliverables, why work with you, simple pricing, a timeline, and a clear next step to get started. Confident, clear, and client-ready. Use markdown headings. No preamble before the first heading."
+  },
+  { id:"invoice", label:"Invoice", blurb:"Get paid, professionally.",
+    fields:[
+      {k:"client",label:"Bill to (client)",ph:"e.g. Bella's Bistro"},
+      {k:"items",label:"Services & amounts",ph:"e.g. Social media management — $800\nGoogle Business setup — $400",type:"textarea"},
+      {k:"total",label:"Total due",ph:"e.g. $1,200"},
+      {k:"due",label:"Payment terms / due date",ph:"e.g. Net 15 · due July 15, 2026"},
+      {k:"num",label:"Invoice # (optional)",ph:"e.g. 001"}
+    ],
+    prompt:(f,who)=>"Create a clean, professional INVOICE from \""+who+"\" to \""+(f.client||"the client")+"\". Invoice number: "+(f.num||"001")+". Line items (service — amount): "+(f.items||"")+". Total due: "+(f.total||"")+". Payment terms / due: "+(f.due||"Net 15")+". Format it as a proper invoice: a header with From and Bill To, today's date, an itemized list with amounts, a clear subtotal and total, payment terms, and a short thank-you. Use markdown. No preamble before the first heading."
+  },
+  { id:"contract", label:"Contract", blurb:"Protect the relationship with clear terms.",
+    fields:[
+      {k:"client",label:"Client business name",ph:"e.g. Bella's Bistro"},
+      {k:"services",label:"Scope of work",ph:"e.g. Monthly social media management and ad campaigns",type:"textarea"},
+      {k:"price",label:"Payment terms",ph:"e.g. $1,200/mo, due on the 1st"},
+      {k:"term",label:"Length / term",ph:"e.g. 3-month minimum, then month-to-month"}
+    ],
+    prompt:(f,who)=>"Draft a clear, professional MARKETING SERVICES AGREEMENT (contract) between \""+who+"\" (the \"Marketer,\" an independent contractor) and \""+(f.client||"the Client")+"\" (the \"Client\"). Scope of work: "+(f.services||"")+". Payment terms: "+(f.price||"")+". Term: "+(f.term||"")+". Include standard sections: Parties, Scope of Services, Term and Termination, Fees and Payment, Client Responsibilities, Ownership of Work, Confidentiality, Independent Contractor status, and signature lines for both parties. Use plain, readable language. End with a brief line noting this is a template and both parties should review it before signing. Use markdown. No preamble before the first heading."
+  },
+  { id:"report", label:"Report", blurb:"Show clients the value you deliver.",
+    fields:[
+      {k:"client",label:"Client business name",ph:"e.g. Bella's Bistro"},
+      {k:"period",label:"Reporting period",ph:"e.g. June 2026"},
+      {k:"results",label:"What you did + any results / metrics",ph:"e.g. 12 posts, grew IG 200→450 followers, ran $300 ad → 18 bookings",type:"textarea"}
+    ],
+    prompt:(f,who)=>"Write a polished monthly MARKETING REPORT from \""+who+"\" for the client \""+(f.client||"the client")+"\" for the period "+(f.period||"this month")+". Work done and results: "+(f.results||"")+". Structure it as a client-friendly report: a short executive summary, what was done this month, key results and metrics (impressive but honest), what's working, and the plan for next month. Encouraging, professional, and easy for a busy owner to skim. Use markdown. No preamble before the first heading."
+  },
+  { id:"onboarding", label:"Onboarding", blurb:"Start every client off organized.",
+    fields:[
+      {k:"client",label:"Client business name",ph:"e.g. Bella's Bistro"},
+      {k:"type",label:"Their industry",ph:"e.g. restaurant, salon, e-commerce"}
+    ],
+    prompt:(f,who)=>"Create a warm CLIENT ONBOARDING document from \""+who+"\" for a new client \""+(f.client||"the client")+"\" in the "+(f.type||"")+" industry. Include a friendly welcome, what happens next (the onboarding steps), and a clear onboarding questionnaire collecting everything needed to start their marketing: brand assets (logo, colors, fonts), account access/logins needed, goals, target customer, competitors, brand voice, content preferences, and key dates. Make it easy to fill out. Use markdown. No preamble before the first heading."
+  }
+];
+
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
@@ -2407,6 +2456,11 @@ export default function ChelgyApp() {
   const [mkCoachMsgs, setMkCoachMsgs] = useState([]);
   const [mkCoachInput, setMkCoachInput] = useState("");
   const [mkCoachLoading, setMkCoachLoading] = useState(false);
+  const [dvType, setDvType] = useState("proposal");
+  const [dvForm, setDvForm] = useState({});
+  const [dvResult, setDvResult] = useState("");
+  const [dvLoading, setDvLoading] = useState(false);
+  const [dvCopied, setDvCopied] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email:"", password:"" });
@@ -3255,6 +3309,17 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     saveMarketerData({ ...marketerData, coach: next });
   }
 
+  async function genDeliverable(){
+    const t = DELIVERABLE_TYPES.find(x=>x.id===dvType);
+    if(!t) return;
+    setDvLoading(true); setDvResult("");
+    const who = myName && myName!=="You" ? myName : "Your Marketing";
+    let out = "";
+    try { out = await callClaude(t.prompt(dvForm, who), 4000); } catch(e){ out = ""; }
+    setDvResult(out || "Couldn't generate that just now — please try again.");
+    setDvLoading(false);
+  }
+
   const doForgot = async () => {
     setAuthError(""); setResetMsg("");
     if (!loginData.email.includes("@")) { setAuthError("Enter your email above first, then tap Forgot password."); return; }
@@ -3270,6 +3335,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setLoginData({ email:"", password:"" });
     setSignupData({ name:"", email:"", password:"" });
     setSignupStep(1);
+    setMarketerStatus(null); setMarketerView("home"); setMarketerData({}); setMkCoachMsgs([]);
+    setTeamAuth({ name:"", email:"", password:"" }); setTeamMode("signup"); setTeamErr("");
     setPage("onboarding");
   };
 
@@ -3347,7 +3414,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (page==="onboarding") return <Onboarding heroImg={heroImg} onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
+  if (!isTeamSpace && page==="onboarding") return <Onboarding heroImg={heroImg} onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
   const legalOverlay = legalView ? (
@@ -3407,9 +3474,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <button onClick={teamMode==="signup"?doTeamSignup:doTeamLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#000",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
         <div style={{textAlign:"center",marginTop:18}}>
           <button onClick={()=>{setTeamErr("");setTeamMode(teamMode==="signup"?"login":"signup");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.02em"}}>{teamMode==="signup"?"Already have a marketer account? Log in":"New here? Create a marketer account"}</button>
-        </div>
-        <div style={{textAlign:"center",marginTop:28}}>
-          <a href="https://chelgy.app" style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.35)",letterSpacing:"0.04em",textDecoration:"none"}}>← Looking for the membership? Go to chelgy.app</a>
         </div>
       </div>, true);
 
@@ -3485,6 +3549,42 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         </div>, false);
 
+      // ── Deliverables ──
+      if (marketerView==="deliverables") { const dt = DELIVERABLE_TYPES.find(x=>x.id===dvType)||DELIVERABLE_TYPES[0]; return teamWrap(
+        <div style={{paddingBottom:50}}>
+          {topBar}
+          <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
+          <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Deliverables</h1>
+          <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Generate client-ready documents in seconds. Pick a type, fill in the details, and download or copy it.</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:18}}>
+            {DELIVERABLE_TYPES.map(t=>(
+              <button key={t.id} onClick={()=>{setDvType(t.id);setDvResult("");}} style={{background:dvType===t.id?B.charcoal:B.white,color:dvType===t.id?"#fff":B.charcoal,border:"1px solid "+(dvType===t.id?B.charcoal:B.stone),padding:"8px 14px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer"}}>{t.label}</button>
+            ))}
+          </div>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px",marginBottom:14}}>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 16px",fontStyle:"italic"}}>{dt.blurb}</p>
+            {dt.fields.map(fd=>(
+              <div key={fd.k} style={{marginBottom:14}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>{fd.label}</div>
+                {fd.type==="textarea"
+                  ? <textarea value={dvForm[fd.k]||""} onChange={e=>setDvForm(f=>({...f,[fd.k]:e.target.value}))} placeholder={fd.ph} rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical"}} />
+                  : <input value={dvForm[fd.k]||""} onChange={e=>setDvForm(f=>({...f,[fd.k]:e.target.value}))} placeholder={fd.ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />}
+              </div>
+            ))}
+            <button onClick={genDeliverable} disabled={dvLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:dvLoading?"default":"pointer",textTransform:"uppercase"}}>{dvLoading?"Generating...":"Generate "+dt.label}</button>
+          </div>
+          {dvResult&&!dvLoading&&(
+            <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px 24px"}}>
+              <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:6}}>
+                <button onClick={()=>{try{navigator.clipboard.writeText(dvResult);setDvCopied(true);setTimeout(()=>setDvCopied(false),2000);}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>{dvCopied?"Copied ✓":"Copy"}</button>
+                <button onClick={()=>downloadTextFile(dvType+"-"+((dvForm.client||"client").toLowerCase().replace(/[^a-z0-9]+/g,"-"))+".txt", dvResult)} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Download</button>
+              </div>
+              <div style={{fontFamily:"sans-serif"}}><Rich text={dvResult} /></div>
+            </div>
+          )}
+        </div>, false);
+      }
+
       // ── Home / dashboard ──
       return teamWrap(
         <div style={{paddingBottom:60}}>
@@ -3515,8 +3615,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </button>
               </div>}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:2,background:B.stone}}>
+            <button onClick={()=>setMarketerView("deliverables")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Deliverables</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Proposals, invoices, contracts & reports — generated, customized, downloaded.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
             {[
-              ["Deliverables","Proposals, invoices, contracts & reports — generated, customized, downloaded."],
               ["Client Workspace","A mini-CRM for each client: brand, logins, notes, goals & files."],
               ["SOP Library","Step-by-step playbooks: \"New restaurant? Start here.\""],
               ["Campaign Checklists","Never forget a step — Facebook Ads, SEO, launch & more."]
@@ -3583,7 +3687,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       </div>, false);
   }
 
-  if (page==="login") return (
+  if (!isTeamSpace && page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
       <div style={{position:"fixed",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 100%)",zIndex:1}} />
@@ -3612,7 +3716,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     </div>
   );
 
-  if (page==="signup") return (
+  if (!isTeamSpace && page==="signup") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* Background image with overlay */}
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
