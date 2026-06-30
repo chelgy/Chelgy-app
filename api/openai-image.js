@@ -57,6 +57,34 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+
+    // ── Prompt Writer mode: expand a plain idea into a detailed image prompt (ChatGPT) ──
+    if (body.mode === "prompt") {
+      const idea = String(body.idea || "").trim();
+      if (!idea) return res.status(400).json({ error: "Tell me what you want to make first." });
+      const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+      const userId = await getUserId(token);
+      if (!userId) return res.status(401).json({ error: "Please log in again." });
+      const key = (process.env.OPENAI_API_KEY || "").trim();
+      if (!key) return res.status(500).json({ error: "Prompt service is not configured." });
+      const kindHint = body.imageType ? ("This is for a " + String(body.imageType) + ". ") : "";
+      const sys = "You are an expert at writing prompts for AI image generators. Turn the user's rough idea into ONE vivid, detailed image-generation prompt of 2-4 sentences. Cover subject, composition, lighting, style, mood, colors, and background. Output ONLY the prompt text — no preamble, no quotes, no explanation, no labels.";
+      try {
+        const r = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "system", content: sys }, { role: "user", content: kindHint + "Idea: " + idea }], max_tokens: 320, temperature: 0.85 })
+        });
+        const d = await r.json();
+        if (!r.ok) return res.status(r.status).json({ error: (d && d.error && d.error.message) || "Prompt service error." });
+        const text = d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+        if (!text || !String(text).trim()) return res.status(502).json({ error: "No prompt was returned. Try again." });
+        return res.status(200).json({ prompt: String(text).trim() });
+      } catch (e) {
+        return res.status(502).json({ error: "Prompt service unreachable. Try again." });
+      }
+    }
+
     const prompt = body.prompt;
     const inputImage = body.inputImage; // optional { mimeType, data }
     const inputImages = Array.isArray(body.inputImages) && body.inputImages.length

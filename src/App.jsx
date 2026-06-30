@@ -459,6 +459,17 @@ async function generateOpenAIImage(prompt, inputImages, aspectRatio, quality) {
   if (!d.image) throw new Error(d.error || "No image");
   return d; // { image, balance }
 }
+async function writeImagePrompt(idea, imageType) {
+  const token = await freshToken();
+  const res = await fetch("/api/openai-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    body: JSON.stringify({ mode: "prompt", idea, imageType: imageType || "" }),
+  });
+  const d = await res.json();
+  if (!d.prompt) throw new Error(d.error || "Couldn't write a prompt.");
+  return d.prompt;
+}
 async function generateGeminiImage(prompt, inputImages, aspectRatio, quality) {
   const token = await freshToken();
   const imgs = Array.isArray(inputImages) ? inputImages : (inputImages ? [inputImages] : []);
@@ -950,6 +961,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [iType,setIType]=useState("ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
+  const [ipwIdea,setIpwIdea]=useState("");const [ipwLoad,setIpwLoad]=useState(false);const [ipwErr,setIpwErr]=useState("");
   const [iUploads,setIUploads]=useState([]);
   const [iAspect,setIAspect]=useState("1:1");
   const [iQuality,setIQuality]=useState("standard");
@@ -972,12 +984,25 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(ctxPre+p[cType]));setCLoad(false);}
   async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
   function onUploadImg(e){const fs=e.target.files;if(!fs||!fs.length)return;const arr=Array.from(fs).slice(0,5);arr.forEach(f=>{const r=new FileReader();r.onload=()=>setIUploads(prev=>prev.length>=5?prev:[...prev,r.result]);r.readAsDataURL(f);});e.target.value="";}
+  async function runPromptWriter(){
+    if(!ipwIdea.trim()||ipwLoad)return;
+    setIpwLoad(true);setIpwErr("");
+    try{
+      const out = await writeImagePrompt(ipwIdea.trim(), {ad:"advertising image",logo:"logo",flyer:"flyer",social:"social media graphic",banner:"banner",product:"product photo"}[iType]||"marketing image");
+      setIExtra(out);
+      setIpwIdea("");
+    }catch(e){ setIpwErr(e&&e.message?e.message:"Couldn't write a prompt. Try again."); }
+    setIpwLoad(false);
+  }
   async function genI(){
-    if(!iBiz.trim())return;
+    const needsBiz = !["ad","product"].includes(iType);
+    if(needsBiz && !iBiz.trim())return;
     track("tool_used",{tool:"image_creator",type:iType,aspect:iAspect});
     setILoad(true);setIErr("");setIRes(null);
     const kind={ad:"a high-end advertising image",logo:"a clean, professional logo",flyer:"an eye-catching marketing flyer",social:"a scroll-stopping social media graphic",banner:"a polished website/social banner",product:"a premium product photo"}[iType]||"a professional marketing image";
-    let p="Create "+kind+" for a business called \""+iBiz+"\". Visual style: "+iStyle+".";
+    let p="Create "+kind;
+    if(iBiz.trim())p+=" for a business called \""+iBiz+"\"";
+    p+=". Visual style: "+iStyle+".";
     if(iColors.trim())p+=" Brand colors: "+iColors+".";
     if(iExtra.trim())p+=" Additional details: "+iExtra+".";
     if(iUploads.length) p+=" Use the "+(iUploads.length>1?"uploaded reference photos":"uploaded reference photo")+" as the basis — keep the real product/subject accurate and build the design around "+(iUploads.length>1?"them":"it")+".";
@@ -1114,7 +1139,16 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
-          <Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>
+          {!["ad","product"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
+          <div style={{border:"1px solid "+B.gold,background:B.goldLight,padding:"14px 16px",marginBottom:16}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.goldDark,marginBottom:7,textTransform:"uppercase"}}>✨ AI Prompt Writer · powered by ChatGPT</div>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and ChatGPT will turn it into a detailed image prompt for you — it drops straight into Additional Details below.</p>
+            <St value={ipwIdea} onChange={e=>setIpwIdea(e.target.value)} placeholder="e.g. a cozy coffee shop ad for a fall pumpkin latte special" rows={2} />
+            <div style={{display:"flex",alignItems:"center",gap:10,marginTop:8}}>
+              <button onClick={runPromptWriter} disabled={ipwLoad||!ipwIdea.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:(ipwLoad||!ipwIdea.trim())?"default":"pointer",textTransform:"uppercase",opacity:(ipwLoad||!ipwIdea.trim())?0.5:1}}>{ipwLoad?"Writing...":"Write My Prompt"}</button>
+              {ipwErr&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.red}}>{ipwErr}</span>}
+            </div>
+          </div>
           <div style={{marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload reference photos (optional · up to 5)</div>
             {iUploads.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
@@ -1140,7 +1174,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
           <Fl label="Orientation"><Ss value={iAspect} onChange={e=>setIAspect(e.target.value)}><option value="1:1">Square (1:1)</option><option value="4:5">Portrait (4:5)</option><option value="9:16">Tall / Story (9:16)</option><option value="16:9">Landscape (16:9)</option><option value="4:3">Standard (4:3)</option></Ss></Fl>
           <Fl label="Quality"><Ss value={iQuality} onChange={e=>setIQuality(e.target.value)}><option value="standard">Standard — fast & economical ({CREDIT_COSTS.image} cr)</option><option value="2K">HD 2K — sharper, better text ({CREDIT_COSTS.imageHD} cr)</option><option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option></Ss></Fl>
-          <Btn dark disabled={iLoad||!iBiz.trim()} onClick={act(()=>{const c=iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image;if(useCredits(c))genI();})}>{iLoad?"CREATING IMAGE...":("CREATE IMAGE ("+(iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image)+" credits)")}</Btn>
+          <Btn dark disabled={iLoad||(!["ad","product"].includes(iType)&&!iBiz.trim())} onClick={act(()=>{const c=iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image;if(useCredits(c))genI();})}>{iLoad?"CREATING IMAGE...":("CREATE IMAGE ("+(iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image)+" credits)")}</Btn>
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
