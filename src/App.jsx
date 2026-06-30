@@ -1601,6 +1601,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [subsList, setSubsList] = useState([]);
   const [membersList, setMembersList] = useState([]);
   const [inquiriesList, setInquiriesList] = useState([]);
+  const [deliverablesList, setDeliverablesList] = useState([]);
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
   const [heroForm, setHeroForm] = useState({ hero_image:"", home_hero:"" });
@@ -1639,8 +1640,20 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       }
     }catch(e){ console.error("Load inquiries error:",e); }
   }
+  async function loadDeliverables(){
+    try{
+      const tok=await freshToken();
+      if(!tok){ return; }
+      const res=await fetch("/api/contracts?action=deliverable-list",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
+      if(res.ok){
+        const d=await res.json();
+        setDeliverablesList(d.deliverables||[]);
+      }
+    }catch(e){ console.error("Load deliverables error:",e); }
+  }
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
+  useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
   useEffect(()=>{ loadAppSettings().then(s=>setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" })); },[]);
   async function saveHeroImages(){
     setDbLoading(true);
@@ -1783,7 +1796,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1794,7 +1807,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {view==="home"&&(
           <div>
             <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
-            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back, Chelsea.</h1>
+            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back.</h1>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Your Chelgy admin dashboard.</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
               {[{label:"Total Strategies",value:strategies.length},{label:"Weekly Posts",value:weeklyPosts.length},{label:"Status",value:"Live"},{label:"Membership",value:"$100/mo"}].map((stat,i)=>(
@@ -2009,6 +2022,37 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                         <button onClick={async()=>{if(!confirm("Deny this inquiry?")) return;const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"deny"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✗ Deny</button>
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {view==="deliverables"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Deliverables</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Documents your marketers generated and sent in for review.</p>
+            <button onClick={loadDeliverables} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
+
+            {deliverablesList.length===0?(
+              <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No deliverables submitted yet.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {deliverablesList.map(d=>(
+                  <div key={d.id} style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:14}}>
+                      <div>
+                        <h3 style={{fontFamily:"Georgia,serif",fontSize:18,color:"#111",margin:"0 0 6px"}}>{d.dv_label||d.dv_type}</h3>
+                        <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0"}}>{d.client_name?("For "+d.client_name+" • "):""}{d.marketer?.name||"Marketer"}</p>
+                      </div>
+                      <span style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",whiteSpace:"nowrap"}}>{new Date(d.created_at).toLocaleString()}</span>
+                    </div>
+                    <details>
+                      <summary style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#B8955A",cursor:"pointer",marginBottom:8}}>View document</summary>
+                      <div style={{background:"#F9F7F2",padding:"14px 16px",marginTop:10,fontFamily:"sans-serif",fontSize:12,color:"#333",lineHeight:1.6,whiteSpace:"pre-wrap",maxHeight:360,overflowY:"auto"}}>{d.content}</div>
+                    </details>
                   </div>
                 ))}
               </div>
@@ -2709,6 +2753,8 @@ export default function ChelgyApp() {
   const [dvResult, setDvResult] = useState("");
   const [dvLoading, setDvLoading] = useState(false);
   const [dvCopied, setDvCopied] = useState(false);
+  const [dvSubmitting, setDvSubmitting] = useState(false);
+  const [dvSubmitMsg, setDvSubmitMsg] = useState("");
   const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
@@ -3598,6 +3644,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setDvLoading(false);
   }
 
+  async function submitDeliverable(){
+    if(!dvResult || dvLoading) return;
+    const t = DELIVERABLE_TYPES.find(x=>x.id===dvType);
+    setDvSubmitting(true); setDvSubmitMsg("");
+    try {
+      const res = await fetch("/api/contracts?action=deliverable-submit", {
+        method: "POST",
+        headers: { "Content-Type":"application/json", "x-user-id": user?.id || "" },
+        body: JSON.stringify({
+          dvType: dvType,
+          dvLabel: t ? t.label : dvType,
+          clientName: (dvForm.client || dvForm.clientName || "").trim() || null,
+          content: dvResult
+        })
+      });
+      if(res.ok){ setDvSubmitMsg("✅ Sent to Chelgy for review."); }
+      else { setDvSubmitMsg("Couldn't send just now — try again."); }
+    } catch(e){ setDvSubmitMsg("Couldn't send just now — try again."); }
+    setDvSubmitting(false);
+  }
+
   async function submitClientInquiry(){
     setInquiryErr("");
     if(!inquiryForm.clientName.trim()){ setInquiryErr("Enter client name"); return; }
@@ -3623,7 +3690,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if(res.ok){
       setInquiryForm({clientName:"",businessType:"",serviceTier:"foundation",pricingModel:"contract",notes:""});
       loadMarketerContracts();
-      setInquiryErr("✅ Inquiry submitted! Chelsea will contact them soon.");
+      setInquiryErr("✅ Inquiry submitted! Chelgy will contact them soon.");
     } else {
       setInquiryErr("Failed to submit inquiry. Try again.");
     }
@@ -3994,7 +4061,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:6}}>
                 <button onClick={()=>{try{navigator.clipboard.writeText(dvResult);setDvCopied(true);setTimeout(()=>setDvCopied(false),2000);}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>{dvCopied?"Copied ✓":"Copy"}</button>
                 <button onClick={()=>downloadTextFile(dvType+"-"+((dvForm.client||"client").toLowerCase().replace(/[^a-z0-9]+/g,"-"))+".txt", dvResult)} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Download</button>
+                <button onClick={submitDeliverable} disabled={dvSubmitting} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:dvSubmitting?"default":"pointer",color:"#fff",textTransform:"uppercase",fontWeight:700}}>{dvSubmitting?"Sending...":"Send to Chelgy"}</button>
               </div>
+              {dvSubmitMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:dvSubmitMsg.startsWith("✅")?B.green:"#C0392B",textAlign:"right",marginBottom:6}}>{dvSubmitMsg}</div>}
               <div style={{fontFamily:"sans-serif"}}><Rich text={dvResult} /></div>
             </div>
           )}
@@ -4103,7 +4172,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </button>
             <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Inquiries</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelsea, track approved contracts & earnings.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelgy, track approved contracts & earnings.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
             </button>
             {[
@@ -4210,7 +4279,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {topBar}
             <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
             <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Client Inquiries & Contracts</h1>
-            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Submit client opportunities to Chelsea. Once she approves, you'll see them here and can begin work.</p>
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Submit client opportunities to Chelgy. Once approved, you'll see them here and can begin work.</p>
 
             {/* Submit Inquiry Form */}
             <div style={{background:B.white,border:"1px solid "+B.stone,padding:24,marginBottom:28}}>
@@ -4245,7 +4314,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
               <div style={{marginBottom:14}}>
                 <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Notes (optional)</label>
-                <textarea value={inquiryForm.notes} onChange={e=>setInquiryForm(f=>({...f,notes:e.target.value}))} placeholder="Any context for Chelsea? (e.g., warm referral, budget notes, timeline)" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",minHeight:80,fontFamily:"sans-serif"}} />
+                <textarea value={inquiryForm.notes} onChange={e=>setInquiryForm(f=>({...f,notes:e.target.value}))} placeholder="Any context for Chelgy? (e.g., warm referral, budget notes, timeline)" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",minHeight:80,fontFamily:"sans-serif"}} />
               </div>
               {inquiryErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:inquiryErr.includes("✅")?B.gold:B.red,marginBottom:12}}>{inquiryErr}</div>}
               <button onClick={submitClientInquiry} disabled={inquiryLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:inquiryLoading?"default":"pointer",textTransform:"uppercase"}}>{inquiryLoading?"Submitting...":"Submit Inquiry"}</button>
@@ -4255,7 +4324,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <h2 style={{fontSize:18,fontWeight:400,margin:"0 0 16px",color:B.charcoal}}>Your Approved Contracts</h2>
             {contractsList.filter(c=>c.status==="approved").length===0 ? (
               <div style={{background:B.white,border:"1px solid "+B.stone,padding:24,textAlign:"center"}}>
-                <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:0}}>No approved contracts yet. Submit inquiries above and Chelsea will get them rolling!</p>
+                <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:0}}>No approved contracts yet. Submit inquiries above and Chelgy will get them rolling!</p>
               </div>
             ) : (
               <div style={{display:"grid",gap:14}}>
@@ -4295,7 +4364,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                           <h3 style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,margin:"0 0 4px"}}>{c.client_name}</h3>
                           <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>Submitted {new Date(c.created_at).toLocaleDateString()}</p>
                         </div>
-                        <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>⏳ Awaiting Chelsea</span>
+                        <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>⏳ Awaiting Review</span>
                       </div>
                     </div>
                   ))}

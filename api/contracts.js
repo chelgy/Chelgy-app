@@ -45,8 +45,29 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, contracts: contracts || [] });
     }
 
+    // ── Marketer submits a generated deliverable for review ────────────
+    if (action === 'deliverable-submit') {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+      const { dvType, dvLabel, clientName, content } = req.body;
+      if (!content) return res.status(400).json({ error: 'Missing content' });
+
+      const { data, error } = await supabase
+        .from('marketer_deliverables')
+        .insert([{
+          marketer_id: userId,
+          dv_type: dvType || null,
+          dv_label: dvLabel || null,
+          client_name: clientName || null,
+          content: content,
+          status: 'submitted'
+        }])
+        .select();
+      if (error) throw error;
+      return res.status(200).json({ success: true, deliverable: data[0] });
+    }
+
     // ── Admin-only actions: verify is_admin first ──────────────────────
-    if (action === 'admin-list' || action === 'admin-update') {
+    if (action === 'admin-list' || action === 'admin-update' || action === 'deliverable-list') {
       const { data: adminCheck, error: adminError } = await supabase
         .from('members')
         .select('is_admin')
@@ -63,6 +84,17 @@ export default async function handler(req, res) {
           .order('created_at', { ascending: false });
         if (error) throw error;
         return res.status(200).json({ success: true, inquiries: inquiries || [] });
+      }
+
+      // Admin lists every submitted deliverable
+      if (action === 'deliverable-list') {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const { data: deliverables, error } = await supabase
+          .from('marketer_deliverables')
+          .select('*, marketer:marketer_id(id, name, email)')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return res.status(200).json({ success: true, deliverables: deliverables || [] });
       }
 
       // Admin approves or denies an inquiry
