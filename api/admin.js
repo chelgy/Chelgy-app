@@ -87,6 +87,22 @@ export default async function handler(req, res) {
       });
       return res.status(200).json({ ok: true });
     }
+    if (action === "marketer-list") {
+      const r = await svc("members?select=user_id,email,status,marketer_status,marketer_info&marketer_status=not.is.null&order=marketer_status.asc");
+      const rows = await r.json();
+      return res.status(200).json({ marketers: Array.isArray(rows) ? rows : [] });
+    }
+    if (action === "marketer-set") {
+      const targetId = body.user_id;
+      const status = body.status;
+      if (!targetId || !["pending", "approved", "denied"].includes(status)) return res.status(400).json({ error: "Bad request" });
+      await svc("members?user_id=eq." + encodeURIComponent(targetId), {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ marketer_status: status })
+      });
+      return res.status(200).json({ ok: true });
+    }
     return res.status(400).json({ error: "Unknown action" });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });

@@ -1604,6 +1604,26 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
   const [heroForm, setHeroForm] = useState({ hero_image:"", home_hero:"" });
   const [heroSaved, setHeroSaved] = useState(false);
+  const [marketerApps, setMarketerApps] = useState([]);
+  const [marketerLoading, setMarketerLoading] = useState(false);
+  async function loadMarketers(){
+    setMarketerLoading(true);
+    try{
+      const tok=await freshToken();
+      const res=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"marketer-list"})});
+      const d=await res.json();
+      setMarketerApps(Array.isArray(d.marketers)?d.marketers:[]);
+    }catch(e){}
+    setMarketerLoading(false);
+  }
+  async function setMarketer(userId,status){
+    try{
+      const tok=await freshToken();
+      await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"marketer-set",user_id:userId,status})});
+      setMarketerApps(apps=>apps.map(a=>a.user_id===userId?{...a,marketer_status:status}:a));
+    }catch(e){}
+  }
+  useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ loadAppSettings().then(s=>setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" })); },[]);
   async function saveHeroImages(){
     setDbLoading(true);
@@ -1745,7 +1765,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
               {label.toUpperCase()}
             </button>
@@ -1837,6 +1857,35 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               ))}
               {showcaseList.length===0&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>No examples yet. Add one above.</div>}
             </div>
+          </div>
+        )}
+
+        {view==="marketers"&&(
+          <div>
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Applications</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.6}}>People who applied to become Chelgy Marketers. Approve to unlock their workspace at the team site.</p>
+            {marketerLoading&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>Loading...</div>}
+            {!marketerLoading&&marketerApps.length===0&&<div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>No applications yet.</div>}
+            {marketerApps.map(a=>{ const info=a.marketer_info||{}; return (
+              <div key={a.user_id} style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px",marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:10,flexWrap:"wrap"}}>
+                  <div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:17}}>{info.name||"(no name)"}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>{a.email||info.email||""}{info.location?(" · "+info.location):""}{info.phone?(" · "+info.phone):""}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,color:"#B8955A",fontWeight:700,letterSpacing:"0.04em",marginTop:4}}>{info.start==="now"?"Wants to start paid now ($100/mo)":"Free until first client"}</div>
+                  </div>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",padding:"4px 10px",color:a.marketer_status==="approved"?"#2E7D32":a.marketer_status==="denied"?"#C0392B":"#B8955A",border:"1px solid "+(a.marketer_status==="approved"?"#2E7D32":a.marketer_status==="denied"?"#C0392B":"#B8955A")}}>{a.marketer_status}</span>
+                </div>
+                {info.experience&&<div style={{marginBottom:8}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:3}}>Experience</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#333",lineHeight:1.55}}>{info.experience}</div></div>}
+                {info.why&&<div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:3}}>Why join</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#333",lineHeight:1.55}}>{info.why}</div></div>}
+                <div style={{display:"flex",gap:8}}>
+                  {a.marketer_status!=="approved"&&<button onClick={()=>setMarketer(a.user_id,"approved")} style={{background:"#111",color:"#fff",border:"none",padding:"9px 18px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Approve</button>}
+                  {a.marketer_status!=="denied"&&<button onClick={()=>setMarketer(a.user_id,"denied")} style={{background:"none",color:"#C0392B",border:"1px solid #E0B4B4",padding:"9px 18px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Deny</button>}
+                  {a.marketer_status!=="pending"&&<button onClick={()=>setMarketer(a.user_id,"pending")} style={{background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"9px 18px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Reset</button>}
+                </div>
+              </div>
+            ); })}
           </div>
         )}
 
@@ -2343,6 +2392,21 @@ export default function ChelgyApp() {
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
+  const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
+  const [marketerStatus, setMarketerStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
+  const [teamMode, setTeamMode] = useState("signup"); // 'signup' | 'login'
+  const [teamAuth, setTeamAuth] = useState({ name:"", email:"", password:"" });
+  const [teamErr, setTeamErr] = useState("");
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [applyForm, setApplyForm] = useState({ name:"", phone:"", location:"", experience:"", why:"", start:"later" });
+  const [applying, setApplying] = useState(false);
+  const [marketerView, setMarketerView] = useState("home");
+  const [marketerData, setMarketerData] = useState({}); // { goals, plan, coach: [] }
+  const [mkGoals, setMkGoals] = useState({ niches:"", income:"", clients:"5", hours:"", location:"", experience:"" });
+  const [mkPlanLoading, setMkPlanLoading] = useState(false);
+  const [mkCoachMsgs, setMkCoachMsgs] = useState([]);
+  const [mkCoachInput, setMkCoachInput] = useState("");
+  const [mkCoachLoading, setMkCoachLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email:"", password:"" });
@@ -3005,6 +3069,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
       if(Array.isArray(m.advisor) && m.advisor.length){ setAdvisorMsgs(m.advisor); }
+      if(m.marketer_status){ setMarketerStatus(m.marketer_status); }
+      if(m.marketer_data && typeof m.marketer_data === "object"){ setMarketerData(m.marketer_data); if(Array.isArray(m.marketer_data.coach)) setMkCoachMsgs(m.marketer_data.coach); if(m.marketer_data.goals) setMkGoals(g=>({ ...g, ...m.marketer_data.goals })); }
+      if(m.marketer_info && typeof m.marketer_info === "object"){ setMkGoals(g=>({ ...g, location: g.location||m.marketer_info.location||"", experience: g.experience||m.marketer_info.experience||"" })); }
       if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
       if(m.business){ setMyBusiness(m.business); }
@@ -3111,6 +3178,82 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     track("login", { method: "email" });
     setPage("app");
   };
+
+  const doTeamSignup = async () => {
+    setTeamErr("");
+    const { name, email, password } = teamAuth;
+    if (!name.trim()) { setTeamErr("Please enter your name."); return; }
+    if (!email.includes("@") || password.length < 6) { setTeamErr("Enter a valid email and a password (6+ characters)."); return; }
+    setTeamLoading(true);
+    const r = await authSignup(email.trim(), password, name.trim());
+    setTeamLoading(false);
+    if (r.error) { setTeamErr(/registered|already/i.test(r.error) ? "That email already has an account — switch to Log in." : r.error); return; }
+    const s = saveSession(r.data || {});
+    if (s) { setUser(s); setMyName(name.trim()); }
+    setApplyForm(f=>({ ...f, name: name.trim() }));
+    track("marketer_signup");
+  };
+  const doTeamLogin = async () => {
+    setTeamErr("");
+    const { email, password } = teamAuth;
+    if (!email.includes("@") || !password) { setTeamErr("Enter your email and password."); return; }
+    setTeamLoading(true);
+    const r = await authLogin(email.trim(), password);
+    setTeamLoading(false);
+    if (r.error) { setTeamErr(r.error); return; }
+    const s = saveSession(r.data || {});
+    if (s) { setUser(s); setMyName(s.name || email.trim()); }
+    track("marketer_login");
+  };
+  const applyMarketer = async () => {
+    setTeamErr("");
+    if (!applyForm.name.trim() || !applyForm.why.trim()) { setTeamErr("Please fill in at least your name and why you'd like to join."); return; }
+    setApplying(true);
+    try {
+      const tok = await freshToken();
+      const res = await fetch("/api/marketer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) },
+        body: JSON.stringify({ action: "apply", info: applyForm })
+      });
+      const d = await res.json();
+      if (d && d.ok) { setMarketerStatus("pending"); track("marketer_applied"); }
+      else setTeamErr((d && d.error) || "Couldn't submit your application. Please try again.");
+    } catch { setTeamErr("Connection error. Please try again."); }
+    setApplying(false);
+  };
+
+  async function saveMarketerData(next){
+    setMarketerData(next);
+    try{ const tok=await freshToken(); if(tok&&user&&user.id) patchMyMember(tok, user.id, { marketer_data: next }); }catch{}
+  }
+  async function genMarketerPlan(){
+    if(!mkGoals.niches.trim()){ setTeamErr("Tell us at least which niche(s) you want to serve."); return; }
+    setTeamErr(""); setMkPlanLoading(true);
+    const g = mkGoals;
+    const prompt = "You are an elite, no-fluff client-acquisition coach for a brand-new freelance marketer who works under the Chelgy agency. Build them an AGGRESSIVE, motivating 30-day sprint to land their first "+(g.clients||"5")+" paying marketing clients. This person uses Chelgy's all-in-one toolkit (AI content writer, image creator, video studio, ad builder, business audit, voiceover) to create work and run client campaigns.\n\nTHEIR PROFILE:\n- Niche(s) they want to serve: "+g.niches+"\n- Location/market: "+(g.location||"their local area + online")+"\n- Monthly income goal: "+(g.income||"strong part-time income")+"\n- Target number of first clients: "+(g.clients||"5")+" in 30 days\n- Time available: "+(g.hours||"part-time")+" per week\n- Experience level: "+(g.experience||"beginner — teach the fundamentals")+"\n\nWrite it as an aggressive but achievable battle plan in markdown with EXACTLY these sections:\n\n## The Mission\n1-2 punchy lines: land "+(g.clients||"5")+" clients in 30 days, and what that means for their income.\n\n## Who You're Going After\nThe exact types of businesses in their niche/area to target, where to find them (specific platforms, directories, in-person spots), and how to spot a business that badly needs marketing help.\n\n## Your Daily Numbers\nThe non-negotiable daily activity (e.g. X outreach messages/calls/visits a day) that mathematically gets them to "+(g.clients||"5")+" clients. Make the math clear and motivating.\n\n## The 30-Day Sprint\nWeek 1, Week 2, Week 3, Week 4 — each with specific, aggressive daily/weekly actions. Front-load outreach and sample creation.\n\n## Your Outreach Scripts\n2-3 ready-to-send scripts (DM, email, and a cold-call/in-person opener) tailored to their niche. Short, natural, high-converting.\n\n## Win With Chelgy\nHow to use the Chelgy tools to create free sample work (a sample ad, social post, or mini audit) that closes deals — turning 'maybe' into 'yes'.\n\n## Pricing & Closing\nWhat to charge a first client, how to present it, and how to handle the 'I need to think about it' objection.\n\nBe specific to their niche and location, aggressive, and motivating. Speak directly to them as 'you'. No preamble before the first heading.";
+    let result = "";
+    try { result = await callClaude(prompt, 6000, true); } catch(e){ result = ""; }
+    if(!result){ setMkPlanLoading(false); setTeamErr("Couldn't build your plan — please try again."); return; }
+    await saveMarketerData({ ...marketerData, goals: g, plan: result });
+    setMkPlanLoading(false);
+    setMarketerView("roadmap");
+  }
+  async function sendMkCoach(q){
+    const text = (q||mkCoachInput).trim();
+    if(!text || mkCoachLoading) return;
+    const msgs = [...mkCoachMsgs, { role:"user", content:text }];
+    setMkCoachMsgs(msgs); setMkCoachInput(""); setMkCoachLoading(true);
+    const g = marketerData.goals || mkGoals;
+    const ctx = "You are the Chelgy AI Marketing Coach — a sharp, encouraging mentor for an independent contractor marketer working under the Chelgy agency. They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Their goals — niche: "+(g.niches||"general")+", market: "+(g.location||"local + online")+", target: "+(g.clients||"5")+" clients, income goal: "+(g.income||"n/a")+", experience: "+(g.experience||"beginner")+". Coach them aggressively and practically on landing AND serving clients. Keep replies tight and actionable. IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step.";
+    const convo = msgs.map(m=>(m.role==="user"?"Marketer: ":"Coach: ")+m.content).join("\n\n");
+    let reply = "";
+    try { reply = await callClaude(ctx+"\n\n"+convo+"\n\nCoach:", 2000, false); } catch(e){ reply = ""; }
+    if(!reply) reply = "Sorry — I had trouble responding just then. Try asking again in a moment.";
+    const next = [...msgs, { role:"assistant", content:reply }];
+    setMkCoachMsgs(next); setMkCoachLoading(false);
+    saveMarketerData({ ...marketerData, coach: next });
+  }
 
   const doForgot = async () => {
     setAuthError(""); setResetMsg("");
@@ -3237,6 +3380,208 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       </button>
     </div>
   );
+
+  if (isTeamSpace) {
+    const teamWrap = (children, dark=true) => (
+      <div style={{fontFamily:"Georgia,serif",background:dark?"#000":B.offwhite,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 20px"}}>
+        <div style={{width:"100%",maxWidth:520,paddingTop:54}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <img src={LOGO_B64} alt="Chelgy" style={{height:24,objectFit:"contain",filter:dark?"none":"invert(1)"}} />
+            <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.22em",color:B.gold,fontWeight:700,textTransform:"uppercase"}}>Marketers</span>
+          </div>
+          {children}
+        </div>
+      </div>
+    );
+
+    // Not logged in → team account auth (their own account)
+    if (!user) return teamWrap(
+      <div style={{paddingTop:30}}>
+        <div style={{width:28,height:1,background:B.gold,marginBottom:18}} />
+        <h1 style={{color:"#fff",fontSize:30,fontWeight:400,margin:"0 0 10px",lineHeight:1.15}}>{teamMode==="signup"?"Become a Chelgy Marketer":"Welcome back, marketer"}</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:"0 0 26px"}}>{teamMode==="signup"?"Create your marketer account to apply. Land your own clients, run their marketing with Chelgy's tools, and earn commission.":"Log in to your Chelgy Marketer account."}</p>
+        {teamMode==="signup"&&<input value={teamAuth.name} onChange={e=>setTeamAuth(a=>({...a,name:e.target.value}))} placeholder="Your name" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />}
+        <input value={teamAuth.email} onChange={e=>setTeamAuth(a=>({...a,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
+        <input value={teamAuth.password} onChange={e=>setTeamAuth(a=>({...a,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"13px 15px",marginBottom:16,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
+        {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#FCA5A5",marginBottom:14}}>{teamErr}</div>}
+        <button onClick={teamMode==="signup"?doTeamSignup:doTeamLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#000",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
+        <div style={{textAlign:"center",marginTop:18}}>
+          <button onClick={()=>{setTeamErr("");setTeamMode(teamMode==="signup"?"login":"signup");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.02em"}}>{teamMode==="signup"?"Already have a marketer account? Log in":"New here? Create a marketer account"}</button>
+        </div>
+        <div style={{textAlign:"center",marginTop:28}}>
+          <a href="https://chelgy.app" style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.35)",letterSpacing:"0.04em",textDecoration:"none"}}>← Looking for the membership? Go to chelgy.app</a>
+        </div>
+      </div>, true);
+
+    // Approved → the Marketer space (shell; Deliverables, CRM, etc. build on top of this)
+    if (marketerStatus==="approved") {
+      const hasPlan = !!(marketerData && marketerData.plan);
+      const topBar = (
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+          {marketerView!=="home"
+            ? <button onClick={()=>setMarketerView("home")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Workspace</button>
+            : <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:700}}>Chelgy Certified Marketer</span>}
+          <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+        </div>
+      );
+
+      // ── Onboarding: set goals → generate the aggressive plan ──
+      if (marketerView==="onboard") return teamWrap(
+        <div style={{paddingBottom:60}}>
+          {topBar}
+          <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
+          <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Let's build your client-acquisition plan</h1>
+          <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Answer a few quick questions and Chelgy builds you an aggressive 30-day sprint to land your first clients — with daily targets, scripts, and exactly how to use your tools to close deals.</p>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
+            {[["niches","Which niche(s) do you want to serve?","e.g. restaurants, salons, real estate agents, e-commerce","input"],["location","Your market / area","e.g. Tampa, FL + online","input"],["income","Monthly income goal","e.g. $3,000/mo","input"],["clients","How many clients in your first 30 days?","e.g. 5","input"],["hours","Hours you can put in per week","e.g. 15 hours","input"],["experience","Your experience level","Beginner is totally fine — we teach you","input"]].map(([k,label,ph])=>(
+              <div key={k} style={{marginBottom:14}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
+                <input value={mkGoals[k]} onChange={e=>setMkGoals(g=>({...g,[k]:e.target.value}))} placeholder={ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+              </div>
+            ))}
+            {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
+            <button onClick={genMarketerPlan} disabled={mkPlanLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPlanLoading?"default":"pointer",textTransform:"uppercase"}}>{mkPlanLoading?"Building your plan...":"Build My 30-Day Plan"}</button>
+          </div>
+        </div>, false);
+
+      // ── The roadmap ──
+      if (marketerView==="roadmap") return teamWrap(
+        <div style={{paddingBottom:60}}>
+          {topBar}
+          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Your 30-Day Sprint</div>
+          <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 18px",color:B.charcoal}}>Land your first {(marketerData.goals&&marketerData.goals.clients)||"5"} clients</h1>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 24px"}}><Rich text={marketerData.plan||""} /></div>
+          <div style={{display:"flex",gap:8,marginTop:16}}>
+            <button onClick={()=>setMarketerView("coach")} style={{flex:1,background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Ask Your Coach</button>
+            <button onClick={()=>setMarketerView("onboard")} style={{flex:1,background:"none",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Rebuild Plan</button>
+          </div>
+        </div>, false);
+
+      // ── AI Marketing Coach ──
+      if (marketerView==="coach") return teamWrap(
+        <div style={{paddingBottom:40}}>
+          {topBar}
+          <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
+          <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Your AI Marketing Coach</h1>
+          <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Ask anything about landing or serving clients. Just signed someone? Tell me — I'll hand you their launch plan.</p>
+          {mkCoachMsgs.length===0&&(
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
+              {["I just landed a client — build their launch plan","Where do I find clients in my niche?","Help me handle 'it's too expensive'","What should I charge my first client?"].map((s,i)=>(
+                <button key={i} onClick={()=>sendMkCoach(s)} style={{background:B.white,border:"1px solid "+B.stone,padding:"9px 13px",fontFamily:"sans-serif",fontSize:11,color:B.charcoal,cursor:"pointer",textAlign:"left"}}>{s}</button>
+              ))}
+            </div>
+          )}
+          <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:14}}>
+            {mkCoachMsgs.map((m,i)=>(
+              <div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",maxWidth:"88%",background:m.role==="user"?B.charcoal:B.white,color:m.role==="user"?"#fff":B.charcoal,border:m.role==="user"?"none":"1px solid "+B.stone,padding:"12px 15px"}}>
+                {m.role==="user"?<span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.5}}>{m.content}</span>:<div style={{fontFamily:"sans-serif"}}><Rich text={m.content} /></div>}
+              </div>
+            ))}
+            {mkCoachLoading&&<div style={{alignSelf:"flex-start",fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"8px 4px"}}>Coach is thinking...</div>}
+          </div>
+          <div style={{display:"flex",gap:8,position:"sticky",bottom:14,background:B.offwhite,paddingTop:8}}>
+            <input value={mkCoachInput} onChange={e=>setMkCoachInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")sendMkCoach();}} placeholder="Ask your coach anything..." style={{flex:1,padding:"13px 15px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+            <button onClick={()=>sendMkCoach()} disabled={mkCoachLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 20px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send</button>
+          </div>
+        </div>, false);
+
+      // ── Home / dashboard ──
+      return teamWrap(
+        <div style={{paddingBottom:60}}>
+          {topBar}
+          <div style={{background:B.charcoal,padding:"28px 26px",marginBottom:18}}>
+            <h1 style={{color:"#fff",fontSize:25,fontWeight:400,margin:"0 0 8px"}}>Welcome to your workspace, {myName}.</h1>
+            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:0}}>Your home base for landing clients and running their marketing.</p>
+          </div>
+          {!hasPlan
+            ? <button onClick={()=>setMarketerView("onboard")} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.gold,padding:"22px",marginBottom:14,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                <div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:3}}>Build your 30-day plan to land 5 clients</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Answer a few questions and Chelgy builds your aggressive client-acquisition sprint.</div>
+                </div>
+                <span style={{color:B.gold}}><Icons.ChevronRight /></span>
+              </button>
+            : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:14}}>
+                <button onClick={()=>setMarketerView("roadmap")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Plan</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>30-Day Client Sprint</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>View your roadmap →</div>
+                </button>
+                <button onClick={()=>setMarketerView("coach")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>24/7</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>AI Marketing Coach</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Ask anything →</div>
+                </button>
+              </div>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:2,background:B.stone}}>
+            {[
+              ["Deliverables","Proposals, invoices, contracts & reports — generated, customized, downloaded."],
+              ["Client Workspace","A mini-CRM for each client: brand, logins, notes, goals & files."],
+              ["SOP Library","Step-by-step playbooks: \"New restaurant? Start here.\""],
+              ["Campaign Checklists","Never forget a step — Facebook Ads, SEO, launch & more."]
+            ].map(([t,d])=>(
+              <div key={t} style={{background:B.white,padding:"20px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <span style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal}}>{t}</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:B.gold,fontWeight:700,textTransform:"uppercase",border:"1px solid "+B.gold,padding:"2px 6px"}}>Soon</span>
+                </div>
+                <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:0}}>{d}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>You also have every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — at <a href="https://chelgy.app" style={{color:B.goldDark,fontWeight:700}}>chelgy.app</a> with your membership.</div>
+        </div>, false);
+    }
+
+    // Pending review
+    if (marketerStatus==="pending") return teamWrap(
+      <div style={{paddingTop:40,textAlign:"center"}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>Application Received</div>
+        <h1 style={{color:"#fff",fontSize:28,fontWeight:400,margin:"0 0 12px"}}>You're in the queue 🎉</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.7,margin:"0 auto 28px",maxWidth:380}}>Thanks for applying to become a Chelgy Marketer. We're reviewing your application — you'll get access to your workspace here as soon as you're approved.</p>
+        <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.7)",padding:"10px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+      </div>, true);
+
+    // Denied
+    if (marketerStatus==="denied") return teamWrap(
+      <div style={{paddingTop:40,textAlign:"center"}}>
+        <h1 style={{color:"#fff",fontSize:26,fontWeight:400,margin:"0 0 12px"}}>Thank you for applying</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.7,margin:"0 auto 28px",maxWidth:380}}>We're not able to move forward with your marketer application right now. You're always welcome as a Chelgy member at chelgy.app.</p>
+        <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.7)",padding:"10px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+      </div>, true);
+
+    // Logged in, hasn't applied yet → the application form
+    return teamWrap(
+      <div style={{paddingBottom:60}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+          <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+        </div>
+        <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
+        <h1 style={{fontSize:28,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Apply to become a Chelgy Marketer</h1>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.65,margin:"0 0 24px"}}>Tell us a little about you. As an independent contractor you'll land your own clients, use Chelgy's tools and teachings to do their marketing, and earn commission. Choose how you'd like to start below.</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:22}}>
+          {[["now","Start now — $100/mo","Begin your membership today so you can use every tool to build sample work and a portfolio that wins clients."],["later","Free for now","Join free and start your $100/mo membership only once you've landed your first client."]].map(([val,title,desc])=>(
+            <button key={val} onClick={()=>setApplyForm(f=>({...f,start:val}))} style={{textAlign:"left",background:applyForm.start===val?B.charcoal:B.white,border:"1px solid "+(applyForm.start===val?B.charcoal:B.stone),padding:"14px 15px",cursor:"pointer"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.02em",color:applyForm.start===val?"#fff":B.charcoal,marginBottom:5}}>{title}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:11,lineHeight:1.5,color:applyForm.start===val?"rgba(255,255,255,0.7)":B.mid}}>{desc}</div>
+            </button>
+          ))}
+        </div>
+        <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
+          {[["name","Your full name","input"],["phone","Phone (optional)","input"],["location","City / area","input"],["experience","Any marketing or sales experience? (it's okay if none — we teach you)","textarea"],["why","Why do you want to be a Chelgy Marketer?","textarea"]].map(([k,label,type])=>(
+            <div key={k} style={{marginBottom:14}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
+              {type==="textarea"
+                ? <textarea value={applyForm[k]} onChange={e=>setApplyForm(f=>({...f,[k]:e.target.value}))} rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical"}} />
+                : <input value={applyForm[k]} onChange={e=>setApplyForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />}
+            </div>
+          ))}
+          {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
+          <button onClick={applyMarketer} disabled={applying} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:applying?"default":"pointer",textTransform:"uppercase"}}>{applying?"Submitting...":"Submit Application"}</button>
+        </div>
+      </div>, false);
+  }
 
   if (page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
