@@ -4279,7 +4279,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       // ── Campaign Checklists ──
       if (marketerView==="checklists") {
        try {
-        const pct = (cl)=>{ const done=Object.keys((checklistDone&&checklistDone[cl.id])||{}).length; return cl.steps.length?Math.round(done/cl.steps.length*100):0; };
+        const pct = (cl)=>{ const steps=(cl&&cl.steps)||[]; const done=Object.keys((cl&&checklistDone&&checklistDone[cl.id])||{}).length; return steps.length?Math.round(done/steps.length*100):0; };
         if (checklistId) {
           const cl = CAMPAIGN_CHECKLISTS.find(c=>c.id===checklistId);
           if(!cl) return teamWrap(<div style={{paddingBottom:60}}>{topBar}<p style={{fontFamily:"sans-serif",color:B.mid}}>Checklist not found.</p></div>, false, true);
@@ -4297,12 +4297,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h1 style={{fontSize:24,fontWeight:400,margin:"6px 0 6px",color:B.charcoal}}>{cl.title}</h1>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 18px"}}>{cl.blurb}</p>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-                <span style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",fontWeight:700}}>{doneCount} of {cl.steps.length} done</span>
+                <span style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",fontWeight:700}}>{doneCount} of {(cl.steps||[]).length} done</span>
                 <span style={{fontFamily:"Georgia,serif",fontSize:18,color:percent===100?B.green:B.gold}}>{percent}%</span>
               </div>
               <div style={{height:3,background:B.stone,marginBottom:22}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold,transition:"width 0.3s"}} /></div>
               <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
-                {cl.steps.map((step,i)=>{
+                {(cl.steps||[]).map((step,i)=>{
                   const checked = !!doneMap[i];
                   return (
                     <button key={i} onClick={()=>toggleChecklistStep(cl.id,i)} style={{textAlign:"left",background:B.white,border:"none",padding:"16px 18px",cursor:"pointer",display:"flex",gap:14,alignItems:"flex-start"}}>
@@ -4322,13 +4322,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Campaign Checklists</h1>
             <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Step-by-step playbooks so you never miss a step. Tap one to start, and check off steps as you go — your progress saves automatically.</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
-              {CAMPAIGN_CHECKLISTS.map(cl=>{ const percent=pct(cl); return (
+              {(CAMPAIGN_CHECKLISTS||[]).filter(Boolean).map(cl=>{ const percent=pct(cl); return (
                 <button key={cl.id} onClick={()=>setChecklistId(cl.id)} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
                   <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700}}>{cl.category}</span>
                   <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,margin:"6px 0 6px"}}>{cl.title}</div>
                   <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 12px"}}>{cl.blurb}</p>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontFamily:"sans-serif",fontSize:10,color:percent===100?B.green:B.mid,fontWeight:700,letterSpacing:"0.04em"}}>{percent===100?"✓ Complete":(percent>0?percent+"% done":cl.steps.length+" steps")}</span>
+                    <span style={{fontFamily:"sans-serif",fontSize:10,color:percent===100?B.green:B.mid,fontWeight:700,letterSpacing:"0.04em"}}>{percent===100?"✓ Complete":(percent>0?percent+"% done":(cl.steps||[]).length+" steps")}</span>
                     <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>{percent>0&&percent<100?"Continue →":"Open →"}</span>
                   </div>
                   {percent>0&&<div style={{height:2,background:B.stone,marginTop:10}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold}} /></div>}
