@@ -1606,14 +1606,17 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [heroSaved, setHeroSaved] = useState(false);
   const [marketerApps, setMarketerApps] = useState([]);
   const [marketerLoading, setMarketerLoading] = useState(false);
+  const [marketerErr, setMarketerErr] = useState("");
   async function loadMarketers(){
-    setMarketerLoading(true);
+    setMarketerLoading(true); setMarketerErr("");
     try{
       const tok=await freshToken();
-      const res=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"marketer-list"})});
+      if(!tok){ setMarketerErr("You're not logged in with a session token. Log in with your admin account (not the /?admin shortcut alone), then reopen this tab."); setMarketerLoading(false); return; }
+      const res=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify({action:"marketer-list"})});
       const d=await res.json();
-      setMarketerApps(Array.isArray(d.marketers)?d.marketers:[]);
-    }catch(e){}
+      if(!res.ok){ setMarketerErr((d&&d.error)?(d.error+" (status "+res.status+")"):("Error "+res.status)); setMarketerApps([]); }
+      else { setMarketerApps(Array.isArray(d.marketers)?d.marketers:[]); }
+    }catch(e){ setMarketerErr("Network error: "+(e&&e.message?e.message:"unknown")); }
     setMarketerLoading(false);
   }
   async function setMarketer(userId,status){
@@ -1865,8 +1868,10 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Applications</h2>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.6}}>People who applied to become Chelgy Marketers. Approve to unlock their workspace at the team site.</p>
+            <button onClick={loadMarketers} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:14}}>↻ Refresh</button>
+            {marketerErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"14px 16px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",lineHeight:1.6,marginBottom:12}}>{marketerErr}</div>}
             {marketerLoading&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>Loading...</div>}
-            {!marketerLoading&&marketerApps.length===0&&<div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>No applications yet.</div>}
+            {!marketerLoading&&!marketerErr&&marketerApps.length===0&&<div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>No applications yet.</div>}
             {marketerApps.map(a=>{ const info=a.marketer_info||{}; return (
               <div key={a.user_id} style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px",marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:10,flexWrap:"wrap"}}>
