@@ -2405,6 +2405,104 @@ const DELIVERABLE_TYPES = [
   }
 ];
 
+const SOP_LIBRARY = [
+  { id:"restaurant", name:"Restaurant / Cafe / Bar", steps:[
+    {phase:"Week 1: Foundation",tasks:["Claim & optimize Google Business Profile (top priority for local discovery)","Set up business Instagram & Facebook","Create 5-10 food photography shots using your phone or with client's help","Write 3 months of content ideas (seasonal specials, behind-the-scenes, staff spotlights)"]},
+    {phase:"Week 2: Social Presence",tasks:["Launch Instagram with 10-15 initial posts (use Image Maker for graphics)","Start posting 3x/week (lunch/dinner promos, menu highlights, event announcements)","Engage with local food bloggers & followers (like, comment, follow-back)","Create a simple weekly special graphic template in Image Maker"]},
+    {phase:"Week 3: Ads & Awareness",tasks:["Run a $200-300 Facebook/Instagram ads campaign targeting locals (food interest, nearby location)","Focus on: 'Try our specials' or 'Book your next date night here'","Create 2-3 ad variations using Image Maker (test what resonates)","Monitor clicks & replies daily"]},
+    {phase:"Week 4: Retention & Referral",tasks:["Create an Instagram Story highlight for 'Menu' & 'Reviews'","Respond to every comment & DM within 24 hours","Ask happy customers for Google reviews (in-person or text link)","Plan next month's content calendar with the client"]},
+    {tools:"Image Maker (food graphics, ads), Content Writer (captions, email promos), Video Studio (short reels of specials)"}
+  ]},
+  { id:"salon", name:"Salon / Spa / Beauty", steps:[
+    {phase:"Week 1: Foundation",tasks:["Claim & optimize Google Business Profile (client reviews are gold)","Set up Instagram & TikTok (beauty content performs best here)","Shoot 20-30 before/after photos of services","Map out service offerings for content (haircuts, color, treatments)"]},
+    {phase:"Week 2: Visual Content",tasks:["Post 4-5 before/after transformations on Instagram","Launch TikTok with short clips (color transitions, styling tips)","Create 'Meet the Team' posts showcasing stylists/therapists","Engage with beauty hashtags (#hairoftheweek, #salonlife, etc.)"]},
+    {phase:"Week 3: Lead Gen & Booking",tasks:["Run Instagram/Facebook ads targeting 'women, 25-55, interested in beauty' in area","Promote: Free consultations, first-time discounts, or signature services ($300-500 budget)","Create simple booking link in bio (Calendly or Acuity integration)","Post client testimonials (ask for permission, use Image Maker for quotes)"]},
+    {phase:"Week 4: Loyalty & Repeat",tasks:["Create a 'Referral' post (reward for bringing friends)","Launch monthly email: new services, staff spotlights, seasonal specials","Ask Google for 5-star reviews from repeat clients","Plan: Seasonal campaigns (back-to-school, holidays, wedding season)"]},
+    {tools:"Image Maker (before/afters, testimonial graphics), Video Studio (short reels), Content Writer (captions, email newsletters)"}
+  ]},
+  { id:"ecommerce", name:"E-commerce / Shop / Dropshipping", steps:[
+    {phase:"Week 1: Inventory & Pitch",tasks:["Photograph 10-15 best-selling products (lifestyle shots + close-ups)","Write 2-3 product benefit statements (what problem do they solve?)","Choose your 'hero product' — the one that converts best","Set up a simple email list (Mailchimp or equivalent)"]},
+    {phase:"Week 2: Social Proof",tasks:["Post 8-10 product showcases on Instagram & TikTok","Create carousel ads showing: product, benefit, testimonial, CTA","Share customer reviews as quotes (Image Maker for graphics)","Respond to every comment & DM within 24 hours (builds trust)"]},
+    {phase:"Week 3: Conversion Ads",tasks:["Run $500-800 in ads targeting: age/gender, shopping interests, lookalike audiences","Test 3 ad angles: problem-solution, lifestyle, social proof, FOMO (limited time)","Use Video Studio for short product demos or unboxing","Track which products convert best (cost per purchase)"]},
+    {phase:"Week 4: Retention",tasks:["Email past buyers: thank you + upsell/new product","Create a 'Loyalty' post (points, VIP tier, birthday discount)","Run retargeting ads to people who visited but didn't buy","Plan: Seasonal promotions (holidays, back-to-school, summer)"]},
+    {tools:"Image Maker (product mockups, ads), Video Studio (demos, unboxing, testimonials), Content Writer (email campaigns, product descriptions)"}
+  ]},
+  { id:"realestate", name:"Real Estate / Realtor", steps:[
+    {phase:"Week 1: Listings",tasks:["Photograph/video-tour 5-10 current listings","Write compelling property descriptions (neighborhood highlights, features, price)","Create 5-property carousel showcasing variety (townhome, condo, house, etc.)","Set up Instagram Reels specifically for property tours"]},
+    {phase:"Week 2: Local Authority",tasks:["Post 2x/week: neighborhood spotlights, market tips ('Affordability Index'), client testimonials","Share just-sold announcements with photos & price (builds credibility)","Engage with local business/school posts (build community presence)","Create a 'First-Time Buyer' guide using Content Writer"]},
+    {phase:"Week 3: Lead Generation",tasks:["Run ads targeting: 'people interested in real estate, moving, nearby locations' ($400-600)","Ad angles: 'Sell your home faster,' 'First-time buyer tips,' 'Luxury homes in [area]'","Create simple lead magnet (PDF: neighborhood guide, market report)","Use Video Studio for property tours (3-5 min walk-throughs)"]},
+    {phase:"Week 4: Nurture",tasks:["Email warm leads monthly (market update, new listings, open houses)","Host or promote open house events on Instagram Stories","Ask closed clients for testimonials + referrals","Plan: Seasonal content (spring market surge, winter bargains, relocation guides)"]},
+    {tools:"Video Studio (property tours, neighborhood walks), Image Maker (market stats, testimonials), Content Writer (listings, buyer guides, email)"}
+  ]},
+  { id:"fitness", name:"Gym / Fitness / Personal Training", steps:[
+    {phase:"Week 1: Community",tasks:["Shoot 15-20 photos/videos of members working out (ask permission)","Film 3-5 short workout clips (30 sec demos of popular classes)","Write class descriptions & trainer bios","Create a 'Success Stories' template for member transformations"]},
+    {phase:"Week 2: Motivation & Engagement",tasks:["Post 4-5x/week: member wins, class highlights, motivational quotes","Launch a 'Challenge' (30-day abs, strength, cardio — track with hashtag)","Share trainer spotlights & member testimonials","Engage with fitness hashtags (#FitnessMotivation, #WorkoutOfTheDay)"]},
+    {phase:"Week 3: Trial & Conversions",tasks:["Run ads targeting: fitness interests, nearby location, age range ($300-500)","Offer: Free trial class, first month 50% off, personal training consultation","Create urgency: 'New Year New You,' 'Spring Challenge starts soon'","Use Video Studio for workout previews & trainer intros"]},
+    {phase:"Week 4: Retention & Referral",tasks:["Launch referral program: free month for every friend who joins","Email members monthly: new classes, nutrition tips, member spotlight","Post member transformations (with permission) as proof of results","Plan: Seasonal campaigns (New Year, summer body, holiday reset)"]},
+    {tools:"Video Studio (workout clips, trainer intros, member testimonials), Image Maker (challenge graphics, motivational quotes), Content Writer (class descriptions, email newsletters)"}
+  ]},
+  { id:"local-service", name:"Local Service / Plumber / Electrician / Contractor", steps:[
+    {phase:"Week 1: Google & Trust",tasks:["Optimize Google Business Profile with 20+ photos of work","Write detailed service descriptions (emergency availability, areas served, guarantees)","Shoot 10-15 before/after project photos","Create a simple 'How it works' explainer (call → quote → service → guarantee)"]},
+    {phase:"Week 2: Credibility",tasks:["Post 3x/week: before/afters, customer testimonials, licensing info, years in business","Create 'FAQ' post (common questions: cost, time, warranty)","Share 'Pro Tips' (how to know when you need service X)","Engage locally: reply to every lead, follow local business accounts"]},
+    {phase:"Week 3: Lead Ads",tasks:["Run Google Ads + Facebook targeting: homeowners, nearby area, emergency repair keywords ($400-600)","Create ads: 'Emergency repairs 24/7,' 'Free quote in 24 hours,' 'Licensed & Insured'","Use Video Studio for quick service explainers or testimonials","Track which services get most clicks (prioritize in next campaigns)"]},
+    {phase:"Week 4: Nurture & Repeat",tasks:["Email/text past clients: maintenance reminder, seasonal check-up offer, referral bonus","Post maintenance tips (how to avoid expensive repairs)","Ask happy customers for Google reviews immediately after job","Plan: Seasonal focus (HVAC in summer/winter, gutter cleaning in fall)"]},
+    {tools:"Image Maker (before/afters, service infographics), Video Studio (service demos, testimonials), Content Writer (service descriptions, email campaigns)"}
+  ]},
+];
+
+const MARKETER_PRICING = [
+  { id:"foundation", name:"FOUNDATION / Local Presence", 
+    monthToMonth:800, contract:500, minContract:12,
+    description:"Perfect for local service businesses and startups just getting online.",
+    includes:[
+      "Initial Consultation & Growth Strategy",
+      "Google Business Profile setup & optimization",
+      "Social Media Management (2-3 posts/week)",
+      "Basic content creation (service descriptions, bios)",
+      "Monthly review & reporting"
+    ],
+    effort:"8-10 hrs/week",
+    marketRevenue:{monthToMonth:"$800/mo", contract:"$500/mo × 12"}
+  },
+  { id:"growth", name:"GROWTH / Accelerator",
+    monthToMonth:1500, contract:1200, minContract:12,
+    description:"For growing businesses ready to scale locally and online.",
+    includes:[
+      "Everything in Foundation +",
+      "Website audit or build/redesign",
+      "SEO strategy & keyword research",
+      "Blogging (1-2 articles/month)",
+      "Facebook/Instagram Ads setup & management",
+      "Email marketing (2-3 campaigns/month)",
+      "Quarterly strategy review",
+      "Analytics dashboard & monthly reporting"
+    ],
+    effort:"15-18 hrs/week",
+    marketRevenue:{monthToMonth:"$1,500/mo", contract:"$1,200/mo × 12"},
+    note:"* Ad spend ($300-500+/month) is separate, billed directly to client"
+  },
+  { id:"premium", name:"PREMIUM / Full-Service",
+    monthToMonth:3500, contract:2500, minContract:12,
+    description:"Complete marketing takeover for serious growth and revenue scaling.",
+    includes:[
+      "Everything in Growth +",
+      "Advanced SEO & technical optimization",
+      "Content creation (4-6 blog posts/month)",
+      "Ad Scaling & Performance Optimization",
+      "Lead Generation Systems (custom funnels, landing pages)",
+      "Direct Outreach Campaigns (email, DM, cold outreach)",
+      "Reputation management (review strategy, monitoring)",
+      "Dedicated account manager",
+      "Bi-weekly strategy calls",
+      "Weekly performance reports"
+    ],
+    effort:"25-30 hrs/week",
+    marketRevenue:{monthToMonth:"$3,500/mo", contract:"$2,500/mo × 12"},
+    note:"* Ad spend ($1,000-3,000+/month) is separate, billed directly to client"
+  }
+];
+
+
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
@@ -2470,6 +2568,7 @@ export default function ChelgyApp() {
   const [dvResult, setDvResult] = useState("");
   const [dvLoading, setDvLoading] = useState(false);
   const [dvCopied, setDvCopied] = useState(false);
+  const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
   const [authError, setAuthError] = useState("");
@@ -3097,7 +3196,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   },[]);
 
   // ─── Persist everything locally so nothing resets on refresh ─────────────────
-  useEffect(()=>{ if(isTeamSpace && marketerStatus==="approved"){ setPage("app"); setIsTrial(!isPaid); } },[isTeamSpace, marketerStatus, isPaid]);
+  useEffect(()=>{ if(isTeamSpace && marketerStatus==="approved"){ setPage("app"); if(!isPaid) setIsTrial(true); else setIsTrial(false); } },[isTeamSpace, marketerStatus, isPaid]);
   useEffect(()=>{ lsSet("chelgy_credits", credits); },[credits]);
   useEffect(()=>{ lsSet("chelgy_points", myPoints); },[myPoints]);
   useEffect(()=>{ lsSet("chelgy_completed", completedChallenges); },[completedChallenges]);
@@ -3682,6 +3781,53 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>, false, true);
       }
 
+      // ── SOP Library: Business playbooks ──
+      if (marketerView==="sops") {
+        if (sopId) {
+          const sop = SOP_LIBRARY.find(s => s.id === sopId);
+          if (!sop) return teamWrap(<div>SOP not found</div>, false);
+          return teamWrap(
+            <div style={{paddingBottom:50}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+                <button onClick={()=>setSopId(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Library</button>
+                <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+              </div>
+              <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>{sop.name}</h1>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 24px"}}>A 4-week step-by-step playbook to get your client's marketing off the ground.</p>
+              {sop.steps.map((week, idx) => (
+                <div key={idx} style={{background:B.white,border:"1px solid "+B.stone,padding:"20px",marginBottom:14}}>
+                  <h2 style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,margin:"0 0 14px"}}>{week.phase}</h2>
+                  <ul style={{margin:0,paddingLeft:20,color:B.charcoal,fontFamily:"sans-serif",fontSize:13,lineHeight:1.7}}>
+                    {week.tasks.map((task, i) => (
+                      <li key={i} style={{marginBottom:8}}>{task}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              {sop.tools && (
+                <div style={{background:B.goldLight,padding:"16px 18px",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>
+                  <strong>Tools to use:</strong> {sop.tools}
+                </div>
+              )}
+            </div>, false);
+        }
+        return teamWrap(
+          <div style={{paddingBottom:50}}>
+            {topBar}
+            <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
+            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>SOP Library</h1>
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Step-by-step playbooks for different business types. "New restaurant? Click here."</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:B.stone}}>
+              {SOP_LIBRARY.map(sop => (
+                <button key={sop.id} onClick={()=>setSopId(sop.id)} style={{textAlign:"left",background:B.white,border:"none",padding:"18px 20px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>{sop.name}</div>
+                  <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:0}}>4-week strategy tailored to {sop.name.toLowerCase()}</p>
+                </button>
+              ))}
+            </div>
+          </div>, false);
+      }
+
       // ── Home / dashboard ──
       return teamWrap(
         <div style={{paddingBottom:60}}>
@@ -3722,8 +3868,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>A mini-CRM for each client: brand, logins, notes & goals.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
+            <button onClick={()=>{setSopId(null);setMarketerView("sops");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>SOP Library</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Step-by-step playbooks for any business type.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
             {[
-              ["SOP Library","Step-by-step playbooks: \"New restaurant? Start here.\""],
               ["Campaign Checklists","Never forget a step — Facebook Ads, SEO, launch & more."]
             ].map(([t,d])=>(
               <div key={t} style={{background:B.white,padding:"20px"}}>
@@ -3757,6 +3907,16 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       </div>, true);
 
     // Approved → the Marketer space (shell; Deliverables, CRM, etc. build on top of this)
+
+    // Approved but not paid → show pricing & upgrade
+    if (marketerStatus==="approved" && !isPaid) return teamWrap(
+      <div style={{paddingTop:40,textAlign:"center"}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>Welcome, Chelgy Marketer</div>
+        <h1 style={{color:"#fff",fontSize:28,fontWeight:400,margin:"0 0 12px"}}>Ready to start?</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.7,margin:"0 auto 28px",maxWidth:400}}>You're approved to become a Chelgy Marketer. Start your $100/mo membership to access your workspace, tools, and everything you need to land clients.</p>
+        <button onClick={()=>{setShowPaywall(true);}} style={{background:B.gold,color:B.charcoal,border:"none",padding:"13px 24px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginBottom:14}}>Start Membership Now</button>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.4)",fontSize:11,lineHeight:1.6,margin:"0"}}>Full workspace access • All marketing tools • AI coach & deliverables • Client CRM</p>
+      </div>, true);
 
     // Pending review
     if (marketerStatus==="pending") return teamWrap(
