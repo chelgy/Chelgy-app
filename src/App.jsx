@@ -190,7 +190,7 @@ async function generateVideo(prompt, image, opts) {
 }
 
 async function pollVideo(taskId) {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 240; i++) {            // up to ~12 min — 4K Max multi-shot can be slow
     await new Promise(r => setTimeout(r, 3000));
     try {
       const res = await fetch("/api/video-result", {
@@ -199,6 +199,7 @@ async function pollVideo(taskId) {
         body: JSON.stringify({ id: taskId })
       });
       const data = await res.json();
+      if (data.output) return data.output;                 // finished — we have the video
       if (data.status === "completed") return data.output || null;
       if (data.status === "failed") return null;
     } catch {}
@@ -1037,7 +1038,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const started=await generateVideo(vTopic,vVidUpload||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
       if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       if(typeof started.balance==="number") onBalance(started.balance);
-      setVVidStatus("Creating your video — this usually takes 1 to 3 minutes. You can leave this tab open.");
+      setVVidStatus("Creating your video — usually 1 to 3 minutes, but the 4K models can take up to 10. Keep this tab open.");
       const url=await pollVideo(started.id);
       if(!url){setVVidErr("The video didn't finish in time. Your credits were refunded.");if(typeof started.balance==="number") onBalance(started.balance+vidCost());setVVidLoad(false);setVVidStatus("");return;}
       setVVidUrl(url);setVVidStatus("");
@@ -2739,23 +2740,28 @@ const CAMPAIGN_CHECKLISTS = [
 ];
 const MARKETER_PITCHES = {
   services: [
-    { id:"svc-dm", title:"Cold DM / first message", body:"Hi [Name]! I came across [Business] and love what you're doing. I help local businesses like yours grow with done-for-you marketing — content, ads, and a real strategy, all handled for you. Would you be open to a quick 10-minute call this week to see if it's a fit? No pressure either way!" },
-    { id:"svc-why", title:"Why work with me (value pitch)", body:"Most business owners are too busy running their business to also run their marketing — and doing both halfway is worse than doing one well. I take marketing completely off your plate: I build the strategy, create the content and ads, and manage it month to month, all powered by Chelgy's professional toolkit. You stay focused on your customers while your marketing runs like clockwork." },
-    { id:"svc-tiers", title:"Explaining the packages", body:"I keep it simple with a few levels. Foundation gets your essentials running — profile, content, and a plan. Growth adds consistent content and paid ads to bring in new customers. Premium is full-service: everything handled, optimized, and reported on every month. We'll pick the one that matches where you are now, and you can move up anytime." },
-    { id:"svc-elevator", title:"15-second elevator pitch", body:"I'm a marketer who helps small businesses get more customers without lifting a finger — I handle the content, the ads, and the strategy for a flat monthly rate. Think of me as your marketing department, minus the salary." },
+    { id:"dm-ig", title:"Instagram / social DM — first touch", body:"Hey [Name]! Just came across [Business] and your [product/service] genuinely caught my eye 👀 I help brands like yours look way more premium — elevated, magazine-quality content and marketing that makes you the high-end choice in your space (because you are). I'd love to send over a couple of ideas made just for you — no strings. Mind if I do?" },
+    { id:"dm-followup", title:"Social DM — follow-up (no reply yet)", body:"Hey [Name], one quick thought and I'll leave you to it — most businesses in [industry] post content that's *fine*, and fine blends in. The brands that win look expensive. That's exactly what I do: higher-end visuals, sharper messaging, and polish that makes people trust you before they ever message you. Want me to show you what that'd look like for [Business]? Free to take a peek, zero pressure." },
+    { id:"msg-dm-warm", title:"Message — quality/luxury angle", body:"Hi [Name]! Real talk: your [product/service] looks great, but your marketing isn't matching how good you actually are yet. I create premium, done-for-you content — the kind with real time and care behind it, not the rushed stuff everyone else posts. When your brand looks high-end, customers assume your product is too, and they happily pay more for it. Can I send you a free sample piece so you can see the difference?" },
+    { id:"call-cold", title:"Phone call — cold script", body:"\"Hi, is this [Name]? Hi [Name], it's [Your Name] — I'll be quick, I know you're busy. I help [industry] businesses look genuinely premium — the kind of polished, high-end presence that makes customers pick you over the cheaper option. I pulled up [Business] and spotted a few things I could elevate fast. I'm not selling anything today — I'd just love 10 minutes to show you what it could look like. Are you free Thursday, or would early next week be better?\"" },
+    { id:"call-voicemail", title:"Phone call — voicemail", body:"\"Hi [Name], it's [Your Name]. I help [industry] businesses look premium and attract higher-paying customers through elevated marketing and content. I had a couple of specific ideas for [Business] I'd love to share — no pressure at all. Give me a quick call back at [number] when you get a sec, or I'll try you again [day]. Thanks [Name]!\"" },
+    { id:"walkin", title:"Walking into a business — in person", body:"\"Hi! Is the owner around? — Great to meet you, [Name], I'm [Your Name]. I'll be quick, I know you're slammed. I help local businesses look more premium — higher-quality photos, content, and marketing that makes you stand out from everyone doing the bare minimum. I actually looked up your page before I walked in and had a few ideas. Could I grab your email and send a free sample of what I'd do for [Business]? No obligation — if you love it, we talk; if not, no worries at all.\"" },
+    { id:"value-luxury", title:"The luxury value pitch (use anywhere)", body:"Here's the honest difference: most marketing out there is fast, cheap, and forgettable. I do the opposite. I put real time and care into every piece — elevated visuals, refined messaging, the small details that make a brand look expensive. When your marketing looks high-end, customers assume your product is too — and they'll happily pay more for it. You're not paying me to post; you're paying me to make [Business] look like the premium choice in your market." },
+    { id:"close", title:"Soft close / next step", body:"Love that you're into it! Here's how it works: I'll put together a couple of premium sample pieces for [Business] so you can see the quality firsthand — then we hop on a quick call, I walk you through a simple plan, and if it feels right, we start. No pressure, no lock-in. What's the best email to send your samples to?" },
   ],
   builder: [
-    { id:"bld-start", title:"Start-your-own-business pitch", body:"Ever wanted to start your own business but didn't know step one? Chelgy's Business Builder walks you through the entire thing — registering the business, building your brand, getting set up online, and landing your first customers — with a 24/7 AI coach guiding you the whole way. It's like having a business mentor in your pocket for a fraction of the cost of a consultant." },
-    { id:"bld-idea", title:"For someone with an idea", body:"You've got the idea — Chelgy gives you the roadmap. The Business Builder turns 'someday' into a stage-by-stage plan: what to do first, what to skip, and how to actually launch. No guesswork, no expensive consultant. Want me to set you up?" },
-    { id:"bld-side", title:"Side-hustle / extra income angle", body:"Want a second stream of income but feel overwhelmed by where to begin? The Chelgy Business Builder gives you a clear, guided path to launch a real business on the side — with an AI coach answering your questions any time, day or night. You bring the drive; it brings the plan." },
+    { id:"bld-cold", title:"Cold pitch — to an aspiring entrepreneur", body:"Hey [Name]! Ever thought about starting your own business but didn't know where to begin? That's exactly what I do — I build people a real, professional business from the ground up: the branding, the online setup, and the marketing to land your first customers, all done for you and done to a high standard. If you've got the drive, I'll build you something you're proud of. Want to chat about your idea?" },
+    { id:"bld-idea", title:"For someone with an idea", body:"You've got the idea — I'll build the business around it. I handle the whole launch: a polished brand, your website or online presence, your social setup, and the marketing to bring in your first customers. No piecing it together yourself or hiring five different people — one premium build, done right. Want me to put together a plan for [their idea]?" },
+    { id:"bld-premium", title:"The premium done-for-you angle", body:"Most people who try to start a business end up with something that looks DIY — and customers can tell. I build businesses that look established and high-end from day one: real branding, a professional presence, and marketing that makes you look like you've been around for years. You bring the vision; I make it look the part. That polish is the difference between 'side project' and 'real business.'" },
+    { id:"bld-sidehustle", title:"Side-hustle / extra income angle", body:"Want to start something on the side but don't have time to figure it all out? I'll build the whole thing for you — brand, online setup, and marketing — so you can launch a real business without quitting your day job or learning ten new tools. You focus on the part you love; I handle the rest. Want to hear how it works?" },
   ],
   ads: [
-    { id:"ad-craigslist", title:"Craigslist ad", body:"START YOUR OWN BUSINESS — STEP-BY-STEP, WITH A 24/7 COACH\n\nAlways wanted to be your own boss? We'll walk you through launching a real business from scratch — registration, branding, getting online, and landing your first customers. Guided plans plus an AI coach available any time. Perfect for beginners and side-hustlers. Message me to get started." },
-    { id:"ad-fbgroup", title:"Facebook group post", body:"Hey everyone 👋 For anyone here who's wanted to start their own business but feels stuck on where to begin — I help people launch using a guided system that covers every step (registering, branding, getting online, first customers) plus a 24/7 AI coach for your questions. Happy to answer anything in the comments or DMs!" },
-    { id:"ad-influencer", title:"Influencer outreach DM", body:"Hi [Name]! I love your content around [their niche]. I work with a platform that helps people start their own business with guided, step-by-step plans and an AI coach. I think your audience would genuinely love it — would you be open to a collab sharing 'start your own business, built by Chelgy' with a special link? Happy to make it worth your while." },
-    { id:"ad-flyer", title:"Local flyer / bulletin board", body:"WANT TO START YOUR OWN BUSINESS?\nWe make it simple — a step-by-step plan and a 24/7 coach to guide you from idea to open. No experience needed.\nScan the code or call/text [your number] to begin." },
-    { id:"ad-reddit", title:"Reddit / forum reply", body:"If you're serious about starting but overwhelmed, the thing that helps most is following a structured plan instead of random videos. There's a guided Business Builder that lays out each stage (legal setup, branding, going live, first sales) and has an AI coach you can ask anything. Happy to share details if it's useful." },
-    { id:"ad-tiktok", title:"TikTok / Reels hook idea", body:"Hook: 'POV: you finally start the business you've been talking about for 3 years.' Then show the Business Builder walking through the steps, the AI coach answering a real question, and end with 'built by Chelgy — link in bio.' Keep it under 20 seconds, fast cuts, trending audio." },
+    { id:"where-list", title:"Where to post to find clients", body:"Best places to find both marketing and business-building clients:\n• Facebook Groups — local business, entrepreneur & small-business groups\n• Craigslist — \"services\" and \"small biz ads\" sections\n• Nextdoor — local owners in your area\n• Reddit — r/smallbusiness, r/entrepreneur, r/[your city]\n• Instagram & TikTok — DM local businesses with weak pages\n• Facebook Marketplace — under Services\n• Alignable & local networking groups\n• In person — walk into businesses with outdated branding" },
+    { id:"ad-craig-mkt", title:"Craigslist ad — marketing services", body:"PREMIUM MARKETING FOR LOCAL BUSINESSES — DONE FOR YOU\n\nIs your business better than your marketing makes it look? I create high-end content, social media, and ads that make you the obvious choice in your market — not the cheap option. Professional quality, real care, handled for you every month. Message me for a free sample of what I'd do for your business." },
+    { id:"ad-craig-build", title:"Craigslist ad — build a business", body:"WANT TO START YOUR OWN BUSINESS? I'LL BUILD IT FOR YOU\n\nAlways wanted to be your own boss but didn't know where to start? I build businesses from scratch — branding, online setup, and the marketing to land your first customers — all done for you, all to a premium standard. You bring the idea; I make it real. Message me to talk through yours." },
+    { id:"ad-fbgroup", title:"Facebook group post", body:"Hey everyone 👋 For any local business owners here — if your marketing doesn't match how good your business actually is, that's what I fix. I do premium, done-for-you content and ads that make you look like the high-end choice. And if anyone's been wanting to *start* a business, I build those from scratch too. Happy to send a free sample or answer questions in the comments!" },
+    { id:"ad-reddit", title:"Reddit / forum reply", body:"If your marketing looks DIY, customers notice — and it quietly costs you sales. I help businesses look genuinely premium with done-for-you content and ads, and I also build businesses from the ground up for people just starting out. Not spamming — happy to share a free sample or just give honest advice if it helps." },
+    { id:"ad-dm-local", title:"Instagram / TikTok DM to a local business", body:"Hi [Name]! Came across [Business] — your [product/service] looks great, but your page isn't doing it justice yet. I create premium content and marketing that makes local businesses look high-end (and attract customers who pay for quality). Can I send you one free sample piece so you can see the difference? No pressure at all 🙌" },
   ],
 };
 const MARKETER_PRICING = [
@@ -2900,7 +2906,7 @@ export default function ChelgyApp() {
   const [dvSubmitting, setDvSubmitting] = useState(false);
   const [dvSubmitMsg, setDvSubmitMsg] = useState("");
   const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
-  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist  const [checklistDone, setChecklistDone] = useState(()=>{ try { return JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); } catch { return {}; } });
+  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist  const [checklistDone, setChecklistDone] = useState(()=>{ try { const v=JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); return (v && typeof v==="object" && !Array.isArray(v)) ? v : {}; } catch { return {}; } });
   const [pitchCopied, setPitchCopied] = useState("");
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
@@ -4263,20 +4269,20 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {topBar}
             <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Sales Pitches & Promo</h1>
-            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 22px"}}>Ready-to-use scripts for landing clients and promoting the Chelgy Business Builder. Tap Copy, then paste and tweak the [brackets] with real details.</p>
-            <Section title="Pitch Chelgy Services" blurb="Use these to land marketing clients for your packages." items={MARKETER_PITCHES.services} />
-            <Section title="Pitch the Business Builder" blurb="Sell the 'start your own business' product to people who want to launch something of their own." items={MARKETER_PITCHES.builder} />
-            <Section title="Advertise the Business Builder" blurb="Ready-made ads and outreach to find people who want to start a business." items={MARKETER_PITCHES.ads} />
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 22px"}}>Ready-to-use scripts for landing clients — whether you're marketing their business or building one for them. Tap Copy, then paste and tweak the [brackets] with real details.</p>
+            <Section title="Client Outreach Scripts" blurb="High-converting messages to land clients — DMs, phone calls, walk-ins. Your edge: a more premium, higher-quality look than anyone doing the bare minimum." items={MARKETER_PITCHES.services} />
+            <Section title="Pitch Business-Building Services" blurb="For offering to build or launch a whole business for someone — branding, setup, and marketing, done for them at a premium standard." items={MARKETER_PITCHES.builder} />
+            <Section title="Where to Find Clients" blurb="Ready-to-post ads plus the best places to find both marketing and business-building clients." items={MARKETER_PITCHES.ads} />
           </div>, false, true);
       }
 
       // ── Campaign Checklists ──
       if (marketerView==="checklists") {
-        const pct = (cl)=>{ const done=Object.keys(checklistDone[cl.id]||{}).length; return cl.steps.length?Math.round(done/cl.steps.length*100):0; };
+        const pct = (cl)=>{ const done=Object.keys((checklistDone&&checklistDone[cl.id])||{}).length; return cl.steps.length?Math.round(done/cl.steps.length*100):0; };
         if (checklistId) {
           const cl = CAMPAIGN_CHECKLISTS.find(c=>c.id===checklistId);
           if(!cl) return teamWrap(<div style={{paddingBottom:60}}>{topBar}<p style={{fontFamily:"sans-serif",color:B.mid}}>Checklist not found.</p></div>, false, true);
-          const doneMap = checklistDone[cl.id]||{};
+          const doneMap = (checklistDone&&checklistDone[cl.id])||{};
           const doneCount = Object.keys(doneMap).length;
           const percent = pct(cl);
           return teamWrap(
