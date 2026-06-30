@@ -2614,6 +2614,86 @@ const SOP_LIBRARY = [
   ]},
 ];
 
+const CAMPAIGN_CHECKLISTS = [
+  {
+    id:"fb-ads", category:"Paid Ads", title:"Facebook & Instagram Ad Launch",
+    blurb:"Everything to take a Meta ad campaign from idea to live, without missing a setup step.",
+    steps:[
+      "Confirm the client's goal: leads, sales, or awareness — pick ONE primary objective.",
+      "Install/verify the Meta Pixel (or Conversions API) on the client's site.",
+      "Define the target audience: location, age, interests, and any custom/lookalike audiences.",
+      "Set the campaign budget and daily/lifetime spend with the client in writing.",
+      "Create 3–5 creative variations (mix of image, video, and carousel).",
+      "Write 2–3 hooks per creative — the first line stops the scroll.",
+      "Add a clear call-to-action and the correct landing page link with UTM tags.",
+      "Set up the campaign structure: 1 campaign → 2–3 ad sets → multiple ads.",
+      "Double-check tracking fires correctly before spending (use Pixel Helper).",
+      "Launch, then check performance at 48 hours and again at 7 days before changing anything."
+    ]
+  },
+  {
+    id:"local-seo", category:"SEO", title:"Local SEO Setup",
+    blurb:"Get a local business showing up in Google Maps and 'near me' searches.",
+    steps:[
+      "Claim and verify the Google Business Profile.",
+      "Fill every field: name, exact category, hours, phone, website, service area.",
+      "Add 10+ high-quality photos and set a strong cover image.",
+      "Write a keyword-rich business description (what they do + where).",
+      "Make sure name, address, and phone (NAP) match exactly across the website and all listings.",
+      "Add the business to Yelp, Apple Maps, and 3–5 relevant directories.",
+      "Set up a simple review request flow (a direct link texted/emailed to happy customers).",
+      "Add location keywords to the website's title tags and main headings.",
+      "Publish one Google Post per week to keep the profile active.",
+      "Re-check rankings after 30 days and adjust."
+    ]
+  },
+  {
+    id:"onboarding", category:"Client Ops", title:"New Client Onboarding",
+    blurb:"Start every new client the same professional way so nothing slips.",
+    steps:[
+      "Send and get back a signed agreement and the first invoice paid.",
+      "Collect brand assets: logo, colors, fonts, and any existing photos.",
+      "Get access to their accounts (Meta, Google, website) — use a shared password manager.",
+      "Run an intake call: goals, target customer, competitors, what's worked before.",
+      "Set expectations: what you'll deliver, how often, and how you'll communicate.",
+      "Build their Client Workspace in Chelgy with notes and goals.",
+      "Generate a 30-day plan with the AI Coach.",
+      "Schedule the recurring check-in (weekly or biweekly).",
+      "Send a friendly 'here's what happens next' welcome message."
+    ]
+  },
+  {
+    id:"launch", category:"Launch", title:"Product / Service Launch",
+    blurb:"A two-week runway to launch something new with momentum.",
+    steps:[
+      "Define the offer, price, and the one main benefit in a single sentence.",
+      "Build the landing or sales page and test it on mobile.",
+      "Set up the way people pay or book, and test the full flow yourself.",
+      "Create a teaser content series for the week before launch.",
+      "Write the launch-day posts for every platform the client uses.",
+      "Prepare an email/SMS announcement to their existing list.",
+      "Line up 2–3 pieces of social proof (testimonials, before/after, reviews).",
+      "Plan a limited-time launch incentive (bonus or discount with a deadline).",
+      "Launch, post everywhere the same day, and reply to every comment fast.",
+      "Send a follow-up to anyone who showed interest but didn't buy."
+    ]
+  },
+  {
+    id:"content", category:"Content", title:"Monthly Content Calendar",
+    blurb:"Plan a full month of content in one sitting so the client is never scrambling.",
+    steps:[
+      "Pick 3–4 content themes for the month tied to the client's goals.",
+      "Decide how many posts per week per platform (be realistic).",
+      "Map a mix: educational, behind-the-scenes, social proof, and promotional.",
+      "Batch-generate captions and graphics in the Tools tab.",
+      "Plan at least 4 short-form videos (Reels/TikTok) — these reach the most people.",
+      "Write all captions with one clear call-to-action each.",
+      "Schedule everything in the client's scheduler (or hand off a posting calendar).",
+      "Leave 2–3 open slots for timely/trending posts.",
+      "Review last month's top posts and do more of what worked."
+    ]
+  },
+];
 const MARKETER_PRICING = [
   { id:"foundation", name:"FOUNDATION / Local Presence", 
     monthToMonth:800, contract:500, minContract:12,
@@ -2756,6 +2836,8 @@ export default function ChelgyApp() {
   const [dvSubmitting, setDvSubmitting] = useState(false);
   const [dvSubmitMsg, setDvSubmitMsg] = useState("");
   const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
+  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist
+  const [checklistDone, setChecklistDone] = useState(()=>{ try { return JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); } catch { return {}; } });
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
   const [pricingTiers, setPricingTiers] = useState({foundation:true,growth:true,premium:true,special:true});
@@ -3665,6 +3747,23 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setDvSubmitting(false);
   }
 
+  function toggleChecklistStep(clId, idx){
+    setChecklistDone(prev=>{
+      const cur = { ...(prev[clId]||{}) };
+      if(cur[idx]) delete cur[idx]; else cur[idx]=true;
+      const next = { ...prev, [clId]:cur };
+      try { localStorage.setItem("chelgy_checklist_progress", JSON.stringify(next)); } catch(e){}
+      return next;
+    });
+  }
+  function resetChecklist(clId){
+    setChecklistDone(prev=>{
+      const next = { ...prev }; delete next[clId];
+      try { localStorage.setItem("chelgy_checklist_progress", JSON.stringify(next)); } catch(e){}
+      return next;
+    });
+  }
+
   async function submitClientInquiry(){
     setInquiryErr("");
     if(!inquiryForm.clientName.trim()){ setInquiryErr("Enter client name"); return; }
@@ -4070,55 +4169,68 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>, false, true);
       }
 
-      // ── SOP Library: Business playbooks ──
-      if (marketerView==="sops") {
-        if (sopId) {
-          const sop = SOP_LIBRARY.find(s => s.id === sopId);
-          if (!sop) return teamWrap(<div>SOP not found</div>, false);
+
+      // ── Campaign Checklists ──
+      if (marketerView==="checklists") {
+        const pct = (cl)=>{ const done=Object.keys(checklistDone[cl.id]||{}).length; return cl.steps.length?Math.round(done/cl.steps.length*100):0; };
+        if (checklistId) {
+          const cl = CAMPAIGN_CHECKLISTS.find(c=>c.id===checklistId);
+          if(!cl) return teamWrap(<div style={{paddingBottom:60}}>{topBar}<p style={{fontFamily:"sans-serif",color:B.mid}}>Checklist not found.</p></div>, false, true);
+          const doneMap = checklistDone[cl.id]||{};
+          const doneCount = Object.keys(doneMap).length;
+          const percent = pct(cl);
           return teamWrap(
-            <div style={{paddingBottom:50}}>
+            <div style={{paddingBottom:60}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-                <button onClick={()=>setSopId(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Library</button>
-                <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+                <button onClick={()=>setChecklistId(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> All Checklists</button>
+                {doneCount>0&&<button onClick={()=>resetChecklist(cl.id)} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Reset</button>}
               </div>
-              <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>{sop.name}</h1>
-              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 24px"}}>A 4-week step-by-step playbook to get your client's marketing off the ground.</p>
-              {sop.steps.filter(w => w && w.tasks).map((week, idx) => (
-                <div key={idx} style={{background:B.white,border:"1px solid "+B.stone,padding:"20px",marginBottom:14}}>
-                  <h2 style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,margin:"0 0 14px"}}>{week.phase}</h2>
-                  <ul style={{margin:0,paddingLeft:20,color:B.charcoal,fontFamily:"sans-serif",fontSize:13,lineHeight:1.7}}>
-                    {week.tasks.map((task, i) => (
-                      <li key={i} style={{marginBottom:8}}>{task}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              {(() => {
-                const toolsText = sop.tools || (sop.steps.find(s => s && s.tools) || {}).tools;
-                return toolsText ? (
-                  <div style={{background:B.goldLight,padding:"16px 18px",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>
-                    <strong>Tools to use:</strong> {toolsText}
-                  </div>
-                ) : null;
-              })()}
-            </div>, false);
+              <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
+              <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700}}>{cl.category}</span>
+              <h1 style={{fontSize:24,fontWeight:400,margin:"6px 0 6px",color:B.charcoal}}>{cl.title}</h1>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 18px"}}>{cl.blurb}</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                <span style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",fontWeight:700}}>{doneCount} of {cl.steps.length} done</span>
+                <span style={{fontFamily:"Georgia,serif",fontSize:18,color:percent===100?B.green:B.gold}}>{percent}%</span>
+              </div>
+              <div style={{height:3,background:B.stone,marginBottom:22}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold,transition:"width 0.3s"}} /></div>
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+                {cl.steps.map((step,i)=>{
+                  const checked = !!doneMap[i];
+                  return (
+                    <button key={i} onClick={()=>toggleChecklistStep(cl.id,i)} style={{textAlign:"left",background:B.white,border:"none",padding:"16px 18px",cursor:"pointer",display:"flex",gap:14,alignItems:"flex-start"}}>
+                      <span style={{flexShrink:0,width:20,height:20,borderRadius:"50%",border:"2px solid "+(checked?B.green:B.stone),background:checked?B.green:"transparent",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,marginTop:1}}>{checked?"✓":""}</span>
+                      <span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.55,color:checked?B.mid:B.charcoal,textDecoration:checked?"line-through":"none"}}>{step}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {percent===100&&<div style={{background:"#E8F5EE",border:"1px solid "+B.green,padding:"14px 16px",marginTop:16,fontFamily:"sans-serif",fontSize:12,color:B.green,fontWeight:700,textAlign:"center"}}>✓ Complete — nice work.</div>}
+            </div>, false, true);
         }
         return teamWrap(
-          <div style={{paddingBottom:50}}>
+          <div style={{paddingBottom:60}}>
             {topBar}
-            <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
-            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>SOP Library</h1>
-            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Step-by-step playbooks for different business types. "New restaurant? Click here."</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:B.stone}}>
-              {SOP_LIBRARY.map(sop => (
-                <button key={sop.id} onClick={()=>setSopId(sop.id)} style={{textAlign:"left",background:B.white,border:"none",padding:"18px 20px",cursor:"pointer"}}>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>{sop.name}</div>
-                  <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:0}}>4-week strategy tailored to {sop.name.toLowerCase()}</p>
+            <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
+            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Campaign Checklists</h1>
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Step-by-step playbooks so you never miss a step. Tap one to start, and check off steps as you go — your progress saves automatically.</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
+              {CAMPAIGN_CHECKLISTS.map(cl=>{ const percent=pct(cl); return (
+                <button key={cl.id} onClick={()=>setChecklistId(cl.id)} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700}}>{cl.category}</span>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,margin:"6px 0 6px"}}>{cl.title}</div>
+                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 12px"}}>{cl.blurb}</p>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontFamily:"sans-serif",fontSize:10,color:percent===100?B.green:B.mid,fontWeight:700,letterSpacing:"0.04em"}}>{percent===100?"✓ Complete":(percent>0?percent+"% done":cl.steps.length+" steps")}</span>
+                    <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>{percent>0&&percent<100?"Continue →":"Open →"}</span>
+                  </div>
+                  {percent>0&&<div style={{height:2,background:B.stone,marginTop:10}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold}} /></div>}
                 </button>
-              ))}
+              ); })}
             </div>
-          </div>, false);
+          </div>, false, true);
       }
+
 
       // ── Home / dashboard ──
       return teamWrap(
@@ -4160,11 +4272,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>A mini-CRM for each client: brand, logins, notes & goals.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
-            <button onClick={()=>{setSopId(null);setMarketerView("sops");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>SOP Library</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Step-by-step playbooks for any business type.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
-            </button>
             <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Special packages.</p>
@@ -4175,19 +4282,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelgy, track approved contracts & earnings.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
             </button>
-            {[
-              ["Campaign Checklists","Never forget a step — Facebook Ads, SEO, launch & more."]
-            ].map(([t,d])=>(
-              <div key={t} style={{background:B.white,padding:"20px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                  <span style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal}}>{t}</span>
-                  <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:B.gold,fontWeight:700,textTransform:"uppercase",border:"1px solid "+B.gold,padding:"2px 6px"}}>Soon</span>
-                </div>
-                <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:0}}>{d}</p>
-              </div>
-            ))}
+            <button onClick={()=>{setChecklistId(null);setMarketerView("checklists");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Campaign Checklists</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Never forget a step — Facebook Ads, SEO, launch & more.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
           </div>
-          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <strong>Tools</strong> tab. Use them to create work for your clients.</div>
+          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
         </div>, false, true);
       }
 
@@ -4201,66 +4302,66 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         ];
         return teamWrap(
           <div style={{maxWidth:900}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:28}}>
-              <h2 style={{color:"#fff",fontSize:22,fontWeight:400,margin:0}}>Your Service Packages</h2>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+              <h2 style={{color:B.charcoal,fontSize:22,fontWeight:400,margin:0}}>Your Service Packages</h2>
               <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.12em",fontWeight:700,textTransform:"uppercase"}}>Chelgy Standard Pricing</span>
             </div>
-            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:12,lineHeight:1.6,marginBottom:28}}>Every Chelgy Marketer offers the same service tiers and pricing. Customize your service by choosing which packages to emphasize with your clients.</p>
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,marginBottom:24}}>Every Chelgy Marketer offers the same service tiers and pricing. Customize your service by choosing which packages to emphasize with your clients.</p>
             
             {/* Pricing grid */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:32}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:28}}>
               {tierList.map(tier=>(
-                <div key={tier.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid "+B.gold,padding:24}}>
-                  <div style={{marginBottom:20}}>
-                    <h3 style={{color:"#fff",fontSize:16,fontWeight:600,margin:"0 0 6px"}}>{tier.name}</h3>
-                    <p style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",margin:0}}>{tier.description}</p>
+                <div key={tier.id} style={{background:B.white,border:"1px solid "+B.gold,padding:22}}>
+                  <div style={{marginBottom:18}}>
+                    <h3 style={{color:B.charcoal,fontSize:15,fontWeight:600,margin:"0 0 6px"}}>{tier.name}</h3>
+                    <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>{tier.description}</p>
                   </div>
                   
                   {/* Pricing */}
                   {tier.projectPrice ? (
-                    <div style={{background:"rgba(255,215,0,0.1)",padding:12,marginBottom:16,borderRadius:4}}>
-                      <div style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.6)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Project Price</div>
-                      <div style={{fontSize:24,fontWeight:700,color:B.gold}}>${tier.projectPrice.toLocaleString()}</div>
-                      <div style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.5)",marginTop:4}}>One-time engagement</div>
+                    <div style={{background:"#FAF3E0",padding:12,marginBottom:16,borderRadius:4}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Project Price</div>
+                      <div style={{fontSize:24,fontWeight:700,color:B.goldDark}}>${tier.projectPrice.toLocaleString()}</div>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:4}}>One-time engagement</div>
                     </div>
                   ) : (
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-                      <div style={{background:"rgba(255,215,0,0.1)",padding:12,borderRadius:4}}>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Month-to-Month</div>
-                        <div style={{fontSize:20,fontWeight:700,color:B.gold}}>${tier.monthToMonth}</div>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",marginTop:3}}>per month</div>
+                      <div style={{background:"#FAF3E0",padding:12,borderRadius:4}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Month-to-Month</div>
+                        <div style={{fontSize:20,fontWeight:700,color:B.goldDark}}>${tier.monthToMonth}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:3}}>per month</div>
                       </div>
-                      <div style={{background:"rgba(255,215,0,0.08)",padding:12,borderRadius:4,border:"1px solid "+B.goldDark}}>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Annual Contract</div>
-                        <div style={{fontSize:20,fontWeight:700,color:B.gold}}>${tier.contract}</div>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",marginTop:3}}>× 12 months</div>
+                      <div style={{background:"#FAF3E0",padding:12,borderRadius:4,border:"1px solid "+B.goldDark}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Annual Contract</div>
+                        <div style={{fontSize:20,fontWeight:700,color:B.goldDark}}>${tier.contract}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:3}}>× 12 months</div>
                       </div>
                     </div>
                   )}
                   
                   {/* Includes */}
                   <div style={{marginBottom:16}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.gold,marginBottom:10,fontWeight:600}}>Includes</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.gold,marginBottom:10,fontWeight:700}}>Includes</div>
                     <ul style={{listStyle:"none",padding:0,margin:0}}>
-                      {tier.includes.slice(0,4).map((inc,i)=>(
-                        <li key={i} style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.75)",lineHeight:1.4,marginBottom:6}}>✓ {inc}</li>
+                      {(tier.includes||[]).slice(0,4).map((inc,i)=>(
+                        <li key={i} style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,lineHeight:1.4,marginBottom:6}}>✓ {inc}</li>
                       ))}
-                      {tier.includes.length>4&&<li style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:8}}>+ {tier.includes.length-4} more items</li>}
+                      {(tier.includes||[]).length>4&&<li style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8}}>+ {tier.includes.length-4} more items</li>}
                     </ul>
                   </div>
                   
                   {/* Effort & revenue */}
-                  {tier.effort && <div style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.5)",lineHeight:1.5,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.1)"}}>
+                  {tier.effort && <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,lineHeight:1.5,paddingTop:12,borderTop:"1px solid "+B.stone}}>
                     <div><strong>Effort:</strong> {tier.effort}</div>
-                    <div style={{marginTop:4}}><strong>Your Revenue:</strong> {typeof tier.marketRevenue==="string"?tier.marketRevenue:tier.marketRevenue.monthToMonth+" or "+tier.marketRevenue.contract}</div>
+                    <div style={{marginTop:4}}><strong>Your Revenue:</strong> {typeof tier.marketRevenue==="string"?tier.marketRevenue:(tier.marketRevenue?(tier.marketRevenue.monthToMonth+" or "+tier.marketRevenue.contract):"")}</div>
                   </div>}
                 </div>
               ))}
             </div>
 
             {/* Notes */}
-            <div style={{background:"rgba(255,215,0,0.08)",padding:16,border:"1px solid "+B.gold,borderRadius:4}}>
-              <p style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)",margin:0,lineHeight:1.6}}>💡 <strong>How to use this:</strong> Share these packages with your clients. You manage everything — from strategy to execution using Chelgy tools. Ad spend is always separate and billed directly to the client.</p>
+            <div style={{background:"#FAF3E0",padding:16,border:"1px solid "+B.gold,borderRadius:4}}>
+              <p style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,margin:0,lineHeight:1.6}}>💡 <strong>How to use this:</strong> Share these packages with your clients. You manage everything — from strategy to execution using Chelgy tools. Ad spend is always separate and billed directly to the client.</p>
             </div>
           </div>, false, true);
       }
@@ -4330,14 +4431,14 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{display:"grid",gap:14}}>
                 {contractsList.filter(c=>c.status==="approved").map(c=>{
                   const mkCommission = getTierPrice(c.service_tier, c.pricing_model);
-                  const fullPrice = MARKETER_PRICING.find(x=>x.id===c.service_tier);
+                  const fullPrice = MARKETER_PRICING.find(x=>x.id===c.service_tier) || {};
                   const price = c.pricing_model==="contract" ? fullPrice.contract : fullPrice.monthToMonth;
                   return (
                     <div key={c.id} style={{background:B.white,border:"1px solid "+B.stone,padding:20}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:12}}>
                         <div>
                           <h3 style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,margin:"0 0 4px"}}>{c.client_name}</h3>
-                          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>{c.business_type||"Business"} • {c.service_tier.charAt(0).toUpperCase()+c.service_tier.slice(1)} • {c.pricing_model==="contract"?"Annual Contract":"Month-to-Month"}</p>
+                          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>{c.business_type||"Business"} • {(c.service_tier||"").charAt(0).toUpperCase()+(c.service_tier||"").slice(1)} • {c.pricing_model==="contract"?"Annual Contract":"Month-to-Month"}</p>
                         </div>
                         <div style={{textAlign:"right"}}>
                           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Your Earnings</div>
@@ -4593,7 +4694,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   return (
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
-      <div style={{position:"fixed",bottom:4,right:6,zIndex:2147483647,background:"rgba(0,0,0,0.65)",color:"#fff",fontFamily:"monospace",fontSize:10,padding:"2px 6px",borderRadius:3,pointerEvents:"none"}}>build v3 · {new Date().toISOString().slice(0,16)}</div>
       {legalOverlay}
 
       {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />}
