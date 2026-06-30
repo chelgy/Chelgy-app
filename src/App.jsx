@@ -1607,6 +1607,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [marketerApps, setMarketerApps] = useState([]);
   const [marketerLoading, setMarketerLoading] = useState(false);
   const [marketerErr, setMarketerErr] = useState("");
+  const [adminDataErr, setAdminDataErr] = useState("");
   async function loadMarketers(){
     setMarketerLoading(true); setMarketerErr("");
     try{
@@ -1670,7 +1671,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const tok = await freshToken();
       const r = await fetch("/api/admin", { method:"POST", headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) }, body: JSON.stringify({ action:"list-members" }) });
       const d = await r.json();
-      if (d && Array.isArray(d.members)) setMembersList(d.members);
+      if (r.ok && d && Array.isArray(d.members)) { setMembersList(d.members); setAdminDataErr(""); }
+      else if (!r.ok) { setAdminDataErr(((d&&d.error)||("Error "+r.status))+" — log in with your admin account, then reopen the panel. (Your data is safe.)"); }
     } catch(e){}
     setShowcaseList(await loadShowcaseItems());
     setDbLoading(false);
@@ -1904,6 +1906,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               </div>
             </div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 22px"}}>Everyone who created an account with their email. "Paid" means they completed Stripe checkout; "trial" means they signed up but haven't subscribed yet.</p>
+            {adminDataErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"14px 16px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",lineHeight:1.6,marginBottom:14}}>{adminDataErr}</div>}
             {membersList.length===0?(
               <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No members yet.</div>
             ):(
@@ -2442,6 +2445,7 @@ export default function ChelgyApp() {
     })();
   },[]);
   const [isTrial, setIsTrial] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
@@ -3093,6 +3097,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   },[]);
 
   // ─── Persist everything locally so nothing resets on refresh ─────────────────
+  useEffect(()=>{ if(isTeamSpace && marketerStatus==="approved"){ setPage("app"); setIsTrial(!isPaid); } },[isTeamSpace, marketerStatus, isPaid]);
   useEffect(()=>{ lsSet("chelgy_credits", credits); },[credits]);
   useEffect(()=>{ lsSet("chelgy_points", myPoints); },[myPoints]);
   useEffect(()=>{ lsSet("chelgy_completed", completedChallenges); },[completedChallenges]);
@@ -3124,8 +3129,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(cancelled || !m) return;
       // Membership is decided by the database, not a browser flag. Paid/comp/admin = full access.
       if(m.status && ["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){
-        setIsTrial(false); try{ localStorage.setItem("chelgy_member","1"); }catch{}
-      }
+        setIsTrial(false); setIsPaid(true); try{ localStorage.setItem("chelgy_member","1"); }catch{}
+      } else { setIsPaid(false); }
       if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
@@ -3292,7 +3297,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if(!mkGoals.niches.trim()){ setTeamErr("Tell us at least which niche(s) you want to serve."); return; }
     setTeamErr(""); setMkPlanLoading(true);
     const g = mkGoals;
-    const prompt = "You are an elite, no-fluff client-acquisition coach for a brand-new freelance marketer who works under the Chelgy agency. Build them an AGGRESSIVE, motivating 30-day sprint to land their first paying marketing clients — as many as they can. Do NOT cap their potential or name a small target; push them to aim high and land every client they're capable of. This person uses Chelgy's all-in-one toolkit (AI content writer, image creator, video studio, ad builder, business audit, voiceover) to create work and run client campaigns.\n\nTHEIR PROFILE:\n- Niche(s) they want to serve: "+g.niches+"\n- Location/market: "+(g.location||"their local area + online")+"\n- Monthly income goal: "+(g.income||"strong, growing income")+"\n- Time available: "+(g.hours||"part-time")+" per week\n- Experience level: "+(g.experience||"beginner — teach the fundamentals")+"\n\nWrite it as an aggressive but achievable battle plan in markdown with EXACTLY these sections:\n\n## The Mission\n1-2 punchy lines: land their first clients fast and build momentum, and what that means for their income — frame it as the start of something they can scale as far as they want.\n\n## Who You're Going After\nThe exact types of businesses in their niche/area to target, where to find them (specific platforms, directories, in-person spots), and how to spot a business that badly needs marketing help.\n\n## Your Daily Numbers\nThe non-negotiable daily activity (e.g. X outreach messages/calls/visits a day) that builds fast momentum toward landing clients. Make it clear and motivating — the more they do, the more they land.\n\n## The 30-Day Sprint\nWeek 1, Week 2, Week 3, Week 4 — each with specific, aggressive daily/weekly actions. Front-load outreach and sample creation.\n\n## Your Outreach Scripts\n2-3 ready-to-send scripts (DM, email, and a cold-call/in-person opener) tailored to their niche. Short, natural, high-converting.\n\n## Win With Chelgy\nHow to use the Chelgy tools to create free sample work (a sample ad, social post, or mini audit) that closes deals — turning 'maybe' into 'yes'.\n\n## Pricing & Closing\nWhat to charge a first client, how to present it, and how to handle the 'I need to think about it' objection.\n\nBe specific to their niche and location, aggressive, and motivating. Speak directly to them as 'you'. No preamble before the first heading.";
+    const prompt = "You are a warm, encouraging, and genuinely motivating client-acquisition coach for a brand-new freelance marketer who works under the Chelgy agency. Build them an ambitious but friendly 30-day game plan to land their first paying marketing clients — as many as they can. Be encouraging and supportive in tone (like a coach who truly believes in them), while still pushing them to aim high. Do NOT cap their potential or name a small target. This person uses Chelgy's all-in-one toolkit (AI content writer, image creator, video studio, ad builder, business audit, voiceover) to create work and run client campaigns.\n\nIMPORTANT FREEDOM: This marketer is NOT limited to any one niche or any one city. They can work with ANY type of business, in ANY industry, ANYWHERE in the world — almost all of this work is done online (social media, ads, content, email), so the entire world is their market. Make this abundantly clear and exciting in the plan. Their city is only a BONUS for optional in-person outreach (walking into local shops, local networking) — never the limit. The business types they listed are just personal interests/starting points, not a cap. Constantly encourage them to reach out to any business anywhere they think could use marketing help — the fewer limits, the more income.\n\nTHEIR PROFILE:\n- Business types they're personally interested in (just a starting point — NOT a limit): "+(g.niches||"open to any business")+"\n- Where they're based (use ONLY for optional local/in-person ideas — they can serve clients worldwide online): "+(g.location||"flexible — online and worldwide")+"\n- Monthly income goal: "+(g.income||"strong, growing income")+"\n- Time available: "+(g.hours||"part-time")+" per week\n- Experience level: "+(g.experience||"beginner — teach the fundamentals")+"\n\nWrite it as an ambitious but warm and achievable game plan in markdown with EXACTLY these sections:\n\n## Your Goal\n1-2 encouraging lines: land their first clients and build momentum, and what that means for their income — frame it as the exciting start of something they can grow worldwide, as far as they want.\n\n## Who To Reach Out To\nMake it clear they can reach out to ANY business, ANY industry, ANYWHERE — local shops in their city, businesses across the country, and companies around the world online. Give a wide, exciting range of business types and where to find them online (social platforms, directories, marketplaces, communities) AND a few local/in-person ideas using their city as a bonus. Encourage them to trust their gut: if a business looks like it could use better marketing, reach out. Emphasize that going wide = more income.\n\n## Your Outreach Approach\nIMPORTANT: Do NOT prescribe a specific number of contacts per day or per week. Instead, encourage them to reach out to as many businesses as they genuinely can each day — but warn them clearly to protect their accounts: never blast identical copy-pasted messages, personalize each one, vary the wording, space outreach out across the day, and use a healthy mix of channels (DMs, email, calls, in-person) so platforms don't flag or ban them for spam. Set a realistic, kind expectation: most people won't reply, and that is completely normal — it's a numbers game, so the secret is consistent, genuine, personalized volume over time, not a magic quota. Reassure them that a low response rate is expected and not a reflection of their worth.\n\n## Your First 30 Days\nWeek 1, Week 2, Week 3, Week 4 — each with specific, encouraging actions. Front-load outreach and sample creation. Keep it motivating and doable.\n\n## Your Outreach Scripts\n2-3 ready-to-send scripts (DM, email, and a friendly call/in-person opener) that work for any business anywhere. Short, warm, natural, and personalizable — remind them to tweak each one so it never looks mass-sent.\n\n## Win With Chelgy\nHow to use the Chelgy tools to create free sample work (a sample ad, social post, or mini audit) that wins clients over — turning a 'maybe' into a 'yes'.\n\n## Pricing & Closing\nWhat to charge a first client, how to present it warmly and confidently, and how to handle the 'I need to think about it' response.\n\nBe specific where helpful, ambitious, and above all encouraging and friendly. Speak directly to them as 'you'. No preamble before the first heading.";
     let result = "";
     try { result = await callClaude(prompt, 6000, true); } catch(e){ result = ""; }
     if(!result){ setMkPlanLoading(false); setTeamErr("Couldn't build your plan — please try again."); return; }
@@ -3306,7 +3311,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const msgs = [...mkCoachMsgs, { role:"user", content:text }];
     setMkCoachMsgs(msgs); setMkCoachInput(""); setMkCoachLoading(true);
     const g = marketerData.goals || mkGoals;
-    const ctx = "You are the Chelgy AI Marketing Coach — a sharp, encouraging mentor for an independent contractor marketer working under the Chelgy agency. They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Their goals — niche: "+(g.niches||"general")+", market: "+(g.location||"local + online")+", income goal: "+(g.income||"n/a")+", experience: "+(g.experience||"beginner")+". Coach them aggressively and practically on landing AND serving as many clients as they can — never cap their potential. Keep replies tight and actionable. IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step.";
+    const ctx = "You are the Chelgy AI Marketing Coach — a warm, encouraging, and genuinely supportive mentor for an independent contractor marketer working under the Chelgy agency. They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Some context — business types they're interested in (just a starting point, NOT a limit): "+(g.niches||"open to any business")+"; where they're based (only relevant for optional in-person outreach): "+(g.location||"flexible")+"; income goal: "+(g.income||"n/a")+"; experience: "+(g.experience||"beginner")+". IMPORTANT: This marketer is NOT limited to any niche or city — they can market for ANY business, ANY industry, ANYWHERE in the world, since most of the work is online. Their city is only a bonus for optional in-person outreach. Always encourage them to reach out to any business anywhere they think could use marketing help; the fewer limits, the more income. Coach them with warmth and encouragement while still pushing them to be ambitious and land as many clients as they can — never cap their potential. Keep replies tight, friendly, and actionable. When it comes to outreach, do NOT prescribe a rigid number of contacts per day; instead encourage as much genuine, personalized outreach as they can do safely — warn them to vary their messages and avoid spammy copy-paste blasts so their accounts don't get flagged or banned, and gently set the expectation that most people won't respond (that's normal — it's a numbers game, and consistency wins). IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), celebrate it warmly, then immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step.";
     const convo = msgs.map(m=>(m.role==="user"?"Marketer: ":"Coach: ")+m.content).join("\n\n");
     let reply = "";
     try { reply = await callClaude(ctx+"\n\n"+convo+"\n\nCoach:", 2000, false); } catch(e){ reply = ""; }
@@ -3476,37 +3481,20 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     </div>
   );
 
-  if (isTeamSpace) {
-    const teamWrap = (children, dark=true) => (
-      <div style={{fontFamily:"Georgia,serif",background:dark?"#000":B.offwhite,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 20px"}}>
-        <div style={{width:"100%",maxWidth:520,paddingTop:54}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <img src={LOGO_B64} alt="Chelgy" style={{height:24,objectFit:"contain",filter:dark?"none":"invert(1)"}} />
-            <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.22em",color:B.gold,fontWeight:700,textTransform:"uppercase"}}>Marketers</span>
-          </div>
-          {children}
+  const teamWrap = (children, dark=true, embedded=false) => embedded ? (
+    <div style={{maxWidth:680,margin:"0 auto"}}>{children}</div>
+  ) : (
+    <div style={{fontFamily:"Georgia,serif",background:dark?"#000":B.offwhite,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 20px"}}>
+      <div style={{width:"100%",maxWidth:520,paddingTop:54}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <img src={LOGO_B64} alt="Chelgy" style={{height:24,objectFit:"contain",filter:dark?"none":"invert(1)"}} />
+          <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.22em",color:B.gold,fontWeight:700,textTransform:"uppercase"}}>Marketers</span>
         </div>
+        {children}
       </div>
-    );
-
-    // Not logged in → team account auth (their own account)
-    if (!user) return teamWrap(
-      <div style={{paddingTop:30}}>
-        <div style={{width:28,height:1,background:B.gold,marginBottom:18}} />
-        <h1 style={{color:"#fff",fontSize:30,fontWeight:400,margin:"0 0 10px",lineHeight:1.15}}>{teamMode==="signup"?"Become a Chelgy Marketer":"Welcome back, marketer"}</h1>
-        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:"0 0 26px"}}>{teamMode==="signup"?"Create your marketer account to apply. Land your own clients, run their marketing with Chelgy's tools, and earn commission.":"Log in to your Chelgy Marketer account."}</p>
-        {teamMode==="signup"&&<input value={teamAuth.name} onChange={e=>setTeamAuth(a=>({...a,name:e.target.value}))} placeholder="Your name" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />}
-        <input value={teamAuth.email} onChange={e=>setTeamAuth(a=>({...a,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
-        <input value={teamAuth.password} onChange={e=>setTeamAuth(a=>({...a,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"13px 15px",marginBottom:16,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
-        {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#FCA5A5",marginBottom:14}}>{teamErr}</div>}
-        <button onClick={teamMode==="signup"?doTeamSignup:doTeamLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#000",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
-        <div style={{textAlign:"center",marginTop:18}}>
-          <button onClick={()=>{setTeamErr("");setTeamMode(teamMode==="signup"?"login":"signup");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.02em"}}>{teamMode==="signup"?"Already have a marketer account? Log in":"New here? Create a marketer account"}</button>
-        </div>
-      </div>, true);
-
-    // Approved → the Marketer space (shell; Deliverables, CRM, etc. build on top of this)
-    if (marketerStatus==="approved") {
+    </div>
+  );
+  const renderMarketerHub = () => {
       const hasPlan = !!(marketerData && marketerData.plan);
       const topBar = (
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
@@ -3525,7 +3513,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Let's build your client-acquisition plan</h1>
           <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Answer a few quick questions and Chelgy builds you an aggressive 30-day sprint to land your first clients — with daily targets, scripts, and exactly how to use your tools to close deals.</p>
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
-            {[["niches","Which niche(s) do you want to serve?","e.g. restaurants, salons, real estate agents, e-commerce","input"],["location","Your market / area","e.g. Tampa, FL + online","input"],["income","Monthly income goal","e.g. $3,000/mo","input"],["hours","Hours you can put in per week","e.g. 15 hours","input"],["experience","Your experience level","Beginner is totally fine — we teach you","input"]].map(([k,label,ph])=>(
+            {[["niches","Any kinds of businesses you'd enjoy working with? (optional)","e.g. restaurants, gyms, salons — or leave blank to keep it wide open","input"],["location","Where are you based?","e.g. Tampa, FL — for in-person outreach (you can market for businesses anywhere!)","input"],["income","Monthly income goal","e.g. $3,000/mo","input"],["hours","Hours you can put in per week","e.g. 15 hours","input"],["experience","Your experience level","Beginner is totally fine — we teach you","input"]].map(([k,label,ph])=>(
               <div key={k} style={{marginBottom:14}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
                 <input value={mkGoals[k]} onChange={e=>setMkGoals(g=>({...g,[k]:e.target.value}))} placeholder={ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
@@ -3534,9 +3522,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
             <button onClick={genMarketerPlan} disabled={mkPlanLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPlanLoading?"default":"pointer",textTransform:"uppercase"}}>{mkPlanLoading?"Building your plan...":"Build My 30-Day Plan"}</button>
           </div>
-        </div>, false);
+        </div>, false, true);
 
-      // ── The roadmap ──
       if (marketerView==="roadmap") return teamWrap(
         <div style={{paddingBottom:60}}>
           {topBar}
@@ -3547,9 +3534,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <button onClick={()=>setMarketerView("coach")} style={{flex:1,background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Ask Your Coach</button>
             <button onClick={()=>setMarketerView("onboard")} style={{flex:1,background:"none",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Rebuild Plan</button>
           </div>
-        </div>, false);
+        </div>, false, true);
 
-      // ── AI Marketing Coach ──
       if (marketerView==="coach") return teamWrap(
         <div style={{paddingBottom:40}}>
           {topBar}
@@ -3575,7 +3561,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <input value={mkCoachInput} onChange={e=>setMkCoachInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")sendMkCoach();}} placeholder="Ask your coach anything..." style={{flex:1,padding:"13px 15px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
             <button onClick={()=>sendMkCoach()} disabled={mkCoachLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 20px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send</button>
           </div>
-        </div>, false);
+        </div>, false, true);
 
       // ── Client Workspace (mini-CRM) ──
       if (marketerView==="clients") {
@@ -3629,7 +3615,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Get a launch plan for this client</div>
                 </button>
               </div>
-            </div>, false);
+            </div>, false, true);
         }
         return teamWrap(
           <div style={{paddingBottom:50}}>
@@ -3657,7 +3643,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </button>
                   ))}
                 </div>}
-          </div>, false);
+          </div>, false, true);
       }
 
       // ── Deliverables ──
@@ -3693,7 +3679,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{fontFamily:"sans-serif"}}><Rich text={dvResult} /></div>
             </div>
           )}
-        </div>, false);
+        </div>, false, true);
       }
 
       // ── Home / dashboard ──
@@ -3709,7 +3695,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:3}}>Build your 30-day plan to land your first clients</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Answer a few questions and Chelgy builds your aggressive client-acquisition sprint.</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Answer a few questions and Chelgy builds your personalized client-acquisition plan.</div>
                 </div>
                 <span style={{color:B.gold}}><Icons.ChevronRight /></span>
               </button>
@@ -3749,9 +3735,28 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
             ))}
           </div>
-          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>You also have every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — at <a href="https://chelgy.app" style={{color:B.goldDark,fontWeight:700}}>chelgy.app</a> with your membership.</div>
-        </div>, false);
-    }
+          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <strong>Tools</strong> tab. Use them to create work for your clients.</div>
+        </div>, false, true);
+  };
+  if (isTeamSpace) {
+
+    // Not logged in → team account auth (their own account)
+    if (!user) return teamWrap(
+      <div style={{paddingTop:30}}>
+        <div style={{width:28,height:1,background:B.gold,marginBottom:18}} />
+        <h1 style={{color:"#fff",fontSize:30,fontWeight:400,margin:"0 0 10px",lineHeight:1.15}}>{teamMode==="signup"?"Become a Chelgy Marketer":"Welcome back, marketer"}</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:"0 0 26px"}}>{teamMode==="signup"?"Create your marketer account to apply. Land your own clients, run their marketing with Chelgy's tools, and earn commission.":"Log in to your Chelgy Marketer account."}</p>
+        {teamMode==="signup"&&<input value={teamAuth.name} onChange={e=>setTeamAuth(a=>({...a,name:e.target.value}))} placeholder="Your name" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />}
+        <input value={teamAuth.email} onChange={e=>setTeamAuth(a=>({...a,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
+        <input value={teamAuth.password} onChange={e=>setTeamAuth(a=>({...a,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"13px 15px",marginBottom:16,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
+        {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#FCA5A5",marginBottom:14}}>{teamErr}</div>}
+        <button onClick={teamMode==="signup"?doTeamSignup:doTeamLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#000",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
+        <div style={{textAlign:"center",marginTop:18}}>
+          <button onClick={()=>{setTeamErr("");setTeamMode(teamMode==="signup"?"login":"signup");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.02em"}}>{teamMode==="signup"?"Already have a marketer account? Log in":"New here? Create a marketer account"}</button>
+        </div>
+      </div>, true);
+
+    // Approved → the Marketer space (shell; Deliverables, CRM, etc. build on top of this)
 
     // Pending review
     if (marketerStatus==="pending") return teamWrap(
@@ -3770,8 +3775,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.7)",padding:"10px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
       </div>, true);
 
-    // Logged in, hasn't applied yet → the application form
-    return teamWrap(
+    // Logged in, not yet approved → application form (approved marketers fall through to the full app)
+    if (marketerStatus!=="approved") return teamWrap(
       <div style={{paddingBottom:60}}>
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
           <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
@@ -4161,7 +4166,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         {/* ── TOP SUBCATEGORY BAR (hides on scroll) ── */}
         <div style={{borderTop:"1px solid "+B.stone,height:TOP_H,overflow:"hidden",transition:"height 0.25s ease, opacity 0.25s ease",opacity:topVisible?1:0,maxHeight:topVisible?TOP_H:0}}>
           <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",maxWidth:1400,margin:"0 auto",padding:"0 12px",height:TOP_H,alignItems:"center",gap:2}}>
-            {(subTabs[tab]||[]).map(([id,label])=>(
+            {((isTeamSpace&&marketerStatus==="approved"&&tab==="profile")?[]:(subTabs[tab]||[])).map(([id,label])=>(
               <button key={id} onClick={()=>{setSubTab(id);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"none",borderBottom:subTab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:subTab===id?700:400,color:subTab===id?B.charcoal:B.mid,padding:"0 12px",height:"100%",whiteSpace:"nowrap",flexShrink:0}}>
                 {label}
               </button>
@@ -4764,7 +4769,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           )}
 
           {/* ═══ PROFILE ═══ */}
-          {tab==="profile"&&subTab==="overview"&&(
+          {tab==="profile"&&isTeamSpace&&marketerStatus==="approved"&&(
+            <div style={{paddingTop:24,paddingLeft:20,paddingRight:20}}>{renderMarketerHub()}</div>
+          )}
+          {tab==="profile"&&!(isTeamSpace&&marketerStatus==="approved")&&subTab==="overview"&&(
             <div style={{paddingTop:28}}>
               {(()=>{ const hr=new Date().getHours(); const greet=hr<12?"Good morning":hr<18?"Good afternoon":"Good evening"; const streak=computeStreak(); const total=bigTasks.length; const doneN=bigTasks.filter(t=>t.done).length; const pct=total?Math.round(doneN/total*100):0; const next=(bigTasks.find(t=>!t.done)||{}); return (
                 <div style={{background:B.charcoal,padding:"26px 24px",marginBottom:2}}>
@@ -4899,7 +4907,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {tab==="profile"&&subTab==="stats"&&(
+          {tab==="profile"&&!(isTeamSpace&&marketerStatus==="approved")&&subTab==="stats"&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Your Progress</h2>
