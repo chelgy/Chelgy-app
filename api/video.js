@@ -130,10 +130,10 @@ export default async function handler(req, res) {
       // 4K Max — Seedance 2.0 (native audio included; duration is a string)
       if (imageUrl) {
         modelPath = "bytedance/seedance-2.0/image-to-video";
-        input = { prompt, image: imageUrl, resolution: "4K", aspect_ratio: ASPECTS[orientation], duration: String(duration) };
+        input = { prompt, image: imageUrl, resolution: "4k", aspect_ratio: ASPECTS[orientation], duration: String(duration) };
       } else {
         modelPath = "bytedance/seedance-2.0/text-to-video";
-        input = { prompt, resolution: "4K", aspect_ratio: ASPECTS[orientation], duration: String(duration) };
+        input = { prompt, resolution: "4k", aspect_ratio: ASPECTS[orientation], duration: String(duration) };
       }
     } else if (quality === "kling4k") {
       // 4K Ultra — Kling 3.0 4K (sound included, doesn't change price)
