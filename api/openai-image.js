@@ -67,8 +67,11 @@ export default async function handler(req, res) {
       if (!userId) return res.status(401).json({ error: "Please log in again." });
       const key = (process.env.OPENAI_API_KEY || "").trim();
       if (!key) return res.status(500).json({ error: "Prompt service is not configured." });
+      const target = body.target === "video" ? "video" : "image";
       const kindHint = body.imageType ? ("This is for a " + String(body.imageType) + ". ") : "";
-      const sys = "You are an expert at writing prompts for AI image generators. Turn the user's rough idea into ONE vivid, detailed image-generation prompt of 2-4 sentences. Cover subject, composition, lighting, style, mood, colors, and background. Output ONLY the prompt text — no preamble, no quotes, no explanation, no labels.";
+      const sys = target === "video"
+        ? "You are an expert at writing prompts for AI video generators. Turn the user's rough idea into ONE vivid, detailed video prompt of 2-4 sentences. Cover the subject, the action and motion, camera movement, lighting, style, mood, and setting. Output ONLY the prompt text — no preamble, no quotes, no explanation, no labels."
+        : "You are an expert at writing prompts for AI image generators. Turn the user's rough idea into ONE vivid, detailed image-generation prompt of 2-4 sentences. Cover subject, composition, lighting, style, mood, colors, and background. Output ONLY the prompt text — no preamble, no quotes, no explanation, no labels.";
       try {
         const r = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",

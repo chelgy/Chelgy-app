@@ -459,12 +459,12 @@ async function generateOpenAIImage(prompt, inputImages, aspectRatio, quality) {
   if (!d.image) throw new Error(d.error || "No image");
   return d; // { image, balance }
 }
-async function writeImagePrompt(idea, imageType) {
+async function writeImagePrompt(idea, imageType, target) {
   const token = await freshToken();
   const res = await fetch("/api/openai-image", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: JSON.stringify({ mode: "prompt", idea, imageType: imageType || "" }),
+    body: JSON.stringify({ mode: "prompt", idea, imageType: imageType || "", target: target || "image" }),
   });
   const d = await res.json();
   if (!d.prompt) throw new Error(d.error || "Couldn't write a prompt.");
@@ -966,6 +966,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [iAspect,setIAspect]=useState("1:1");
   const [iQuality,setIQuality]=useState("standard");
   const [vType,setVType]=useState("generate");const [vTopic,setVTopic]=useState("");const [vPlat,setVPlat]=useState("TikTok");
+  const [vpwIdea,setVpwIdea]=useState("");const [vpwLoad,setVpwLoad]=useState(false);const [vpwErr,setVpwErr]=useState("");
   const [vDur,setVDur]=useState("60 seconds");const [vGoal,setVGoal]=useState("Brand awareness");
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
   const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
@@ -994,6 +995,16 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){ setIpwErr(e&&e.message?e.message:"Couldn't write a prompt. Try again."); }
     setIpwLoad(false);
   }
+  async function runVideoPromptWriter(){
+    if(!vpwIdea.trim()||vpwLoad)return;
+    setVpwLoad(true);setVpwErr("");
+    try{
+      const out = await writeImagePrompt(vpwIdea.trim(), "short marketing video", "video");
+      setVTopic(out);
+      setVpwIdea("");
+    }catch(e){ setVpwErr(e&&e.message?e.message:"Couldn't write a prompt. Try again."); }
+    setVpwLoad(false);
+  }
   async function genI(){
     const needsBiz = !["ad","product"].includes(iType);
     if(needsBiz && !iBiz.trim())return;
@@ -1002,9 +1013,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     const kind={ad:"a high-end advertising image",logo:"a clean, professional logo",flyer:"an eye-catching marketing flyer",social:"a scroll-stopping social media graphic",banner:"a polished website/social banner",product:"a premium product photo"}[iType]||"a professional marketing image";
     let p="Create "+kind;
     if(iBiz.trim())p+=" for a business called \""+iBiz+"\"";
-    p+=". Visual style: "+iStyle+".";
-    if(iColors.trim())p+=" Brand colors: "+iColors+".";
-    if(iExtra.trim())p+=" Additional details: "+iExtra+".";
+    p+=".";
+    if(iExtra.trim())p+=" "+iExtra.trim();
     if(iUploads.length) p+=" Use the "+(iUploads.length>1?"uploaded reference photos":"uploaded reference photo")+" as the basis — keep the real product/subject accurate and build the design around "+(iUploads.length>1?"them":"it")+".";
     p+=" Make it professional, modern, sharp, well-composed and ready to use.";
     const inputImages = iUploads.map(u=>{ const m=/^data:(.*?);base64,(.*)$/.exec(u||""); return m?{mimeType:m[1],data:m[2]}:null; }).filter(Boolean);
@@ -1140,15 +1150,16 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
           {!["ad","product"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
-          <div style={{border:"1px solid "+B.gold,background:B.goldLight,padding:"14px 16px",marginBottom:16}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.goldDark,marginBottom:7,textTransform:"uppercase"}}>✨ AI Prompt Writer · powered by ChatGPT</div>
-            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and ChatGPT will turn it into a detailed image prompt for you — it drops straight into Additional Details below.</p>
+          <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.charcoal,marginBottom:7,textTransform:"uppercase"}}>✨ AI Prompt Writer</div>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and AI will turn it into a detailed prompt you can edit below.</p>
             <St value={ipwIdea} onChange={e=>setIpwIdea(e.target.value)} placeholder="e.g. a cozy coffee shop ad for a fall pumpkin latte special" rows={2} />
             <div style={{display:"flex",alignItems:"center",gap:10,marginTop:8}}>
               <button onClick={runPromptWriter} disabled={ipwLoad||!ipwIdea.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:(ipwLoad||!ipwIdea.trim())?"default":"pointer",textTransform:"uppercase",opacity:(ipwLoad||!ipwIdea.trim())?0.5:1}}>{ipwLoad?"Writing...":"Write My Prompt"}</button>
               {ipwErr&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.red}}>{ipwErr}</span>}
             </div>
           </div>
+          <Fl label="Your image prompt — edit anything you like"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="Your AI-written prompt appears here — or write your own. Describe the subject, style, colors, lighting, and mood." rows={4} /></Fl>
           <div style={{marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload reference photos (optional · up to 5)</div>
             {iUploads.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
@@ -1161,20 +1172,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>}
             {iUploads.length<5&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{iUploads.length?"Add another photo":"Tap to upload photo(s) — the AI will build your design around them. You can add several (e.g. a product + your logo)."}<input type="file" accept="image/*" multiple onChange={onUploadImg} style={{display:"none"}} /></label>}
           </div>
-          {(()=>{ const IDEAS={ad:["Bold sale announcement with a clean product hero","Minimal luxury ad with lots of white space","Lifestyle scene showing the product in use"],logo:["Elegant text-based wordmark logo","Minimal icon + business name, gold on black","Modern circular badge-style logo"],flyer:["Grand opening flyer with date and offer","Event flyer with bold headline and details","Discount promo flyer with a clear call to action"],social:["Quote graphic in brand colors","Before & after split layout","New product launch announcement post"],banner:["Website hero banner with tagline","Facebook cover banner, clean and modern","Sale banner with bold text and product"],product:["Product on a soft studio backdrop","Product flat-lay with props","Product close-up with dramatic lighting"]}; const ideas=IDEAS[iType]||IDEAS.ad; return (
-            <div style={{marginBottom:14}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Need ideas? Tap one</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-                {ideas.map((idea,i)=>(<button key={i} onClick={()=>setIExtra(idea)} style={{background:B.white,border:"1px solid "+B.stone,padding:"7px 12px",fontFamily:"sans-serif",fontSize:11,color:B.charcoal,cursor:"pointer",letterSpacing:"0.01em",textAlign:"left"}}>{idea}</button>))}
-              </div>
-            </div>
-          ); })()}
-          <Fl label="Visual Style"><Ss value={iStyle} onChange={e=>setIStyle(e.target.value)}>{["Modern & Minimal","Luxury & Premium","Bold & Energetic","Warm & Friendly","Professional & Corporate","Creative & Artistic","Dark & Dramatic"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
-          <Fl label="Brand Colors (optional)"><Si value={iColors} onChange={e=>setIColors(e.target.value)} placeholder="e.g. Navy blue and gold, black and white..." /></Fl>
-          <Fl label="Additional Details (optional)"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="e.g. Include a coffee cup icon, promote our summer sale..." rows={2} /></Fl>
           <Fl label="Orientation"><Ss value={iAspect} onChange={e=>setIAspect(e.target.value)}><option value="1:1">Square (1:1)</option><option value="4:5">Portrait (4:5)</option><option value="9:16">Tall / Story (9:16)</option><option value="16:9">Landscape (16:9)</option><option value="4:3">Standard (4:3)</option></Ss></Fl>
           <Fl label="Quality"><Ss value={iQuality} onChange={e=>setIQuality(e.target.value)}><option value="standard">Standard — fast & economical ({CREDIT_COSTS.image} cr)</option><option value="2K">HD 2K — sharper, better text ({CREDIT_COSTS.imageHD} cr)</option><option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option></Ss></Fl>
-          <Btn dark disabled={iLoad||(!["ad","product"].includes(iType)&&!iBiz.trim())} onClick={act(()=>{const c=iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image;if(useCredits(c))genI();})}>{iLoad?"CREATING IMAGE...":("CREATE IMAGE ("+(iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image)+" credits)")}</Btn>
+          <Btn dark disabled={iLoad||(!iBiz.trim()&&!iExtra.trim())} onClick={act(()=>{const c=iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image;if(useCredits(c))genI();})}>{iLoad?"CREATING IMAGE...":("CREATE IMAGE ("+(iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image)+" credits)")}</Btn>
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
@@ -1188,6 +1188,15 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {[["generate","Generate Video"],["script","Video Script"],["storyboard","Storyboard"],["prompt","AI Prompts"]].map(([id,l])=><Tb key={id} label={l} active={vType===id} onClick={()=>setVType(id)} />)}
         </div>
         <Card style={{padding:"22px",marginBottom:14}}>
+          {vType==="generate"&&<div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.charcoal,marginBottom:7,textTransform:"uppercase"}}>✨ AI Prompt Writer</div>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and AI will turn it into a detailed video prompt you can edit below.</p>
+            <St value={vpwIdea} onChange={e=>setVpwIdea(e.target.value)} placeholder="e.g. a fun 15-second reel showing my bakery's new cupcakes" rows={2} />
+            <div style={{display:"flex",alignItems:"center",gap:10,marginTop:8}}>
+              <button onClick={runVideoPromptWriter} disabled={vpwLoad||!vpwIdea.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:(vpwLoad||!vpwIdea.trim())?"default":"pointer",textTransform:"uppercase",opacity:(vpwLoad||!vpwIdea.trim())?0.5:1}}>{vpwLoad?"Writing...":"Write My Prompt"}</button>
+              {vpwErr&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.red}}>{vpwErr}</span>}
+            </div>
+          </div>}
           <Fl label={vType==="generate"?"Describe the video you want":"Video Topic / Goal"}><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder={vType==="generate"?"e.g. Slowly rotate the product with soft studio lighting and a clean background...":"e.g. Why your business needs email marketing..."} rows={3} /></Fl>
           {vType==="generate"&&<div style={{marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Product Reference Photo (optional)</div>
@@ -2728,6 +2737,27 @@ const CAMPAIGN_CHECKLISTS = [
     ]
   },
 ];
+const MARKETER_PITCHES = {
+  services: [
+    { id:"svc-dm", title:"Cold DM / first message", body:"Hi [Name]! I came across [Business] and love what you're doing. I help local businesses like yours grow with done-for-you marketing — content, ads, and a real strategy, all handled for you. Would you be open to a quick 10-minute call this week to see if it's a fit? No pressure either way!" },
+    { id:"svc-why", title:"Why work with me (value pitch)", body:"Most business owners are too busy running their business to also run their marketing — and doing both halfway is worse than doing one well. I take marketing completely off your plate: I build the strategy, create the content and ads, and manage it month to month, all powered by Chelgy's professional toolkit. You stay focused on your customers while your marketing runs like clockwork." },
+    { id:"svc-tiers", title:"Explaining the packages", body:"I keep it simple with a few levels. Foundation gets your essentials running — profile, content, and a plan. Growth adds consistent content and paid ads to bring in new customers. Premium is full-service: everything handled, optimized, and reported on every month. We'll pick the one that matches where you are now, and you can move up anytime." },
+    { id:"svc-elevator", title:"15-second elevator pitch", body:"I'm a marketer who helps small businesses get more customers without lifting a finger — I handle the content, the ads, and the strategy for a flat monthly rate. Think of me as your marketing department, minus the salary." },
+  ],
+  builder: [
+    { id:"bld-start", title:"Start-your-own-business pitch", body:"Ever wanted to start your own business but didn't know step one? Chelgy's Business Builder walks you through the entire thing — registering the business, building your brand, getting set up online, and landing your first customers — with a 24/7 AI coach guiding you the whole way. It's like having a business mentor in your pocket for a fraction of the cost of a consultant." },
+    { id:"bld-idea", title:"For someone with an idea", body:"You've got the idea — Chelgy gives you the roadmap. The Business Builder turns 'someday' into a stage-by-stage plan: what to do first, what to skip, and how to actually launch. No guesswork, no expensive consultant. Want me to set you up?" },
+    { id:"bld-side", title:"Side-hustle / extra income angle", body:"Want a second stream of income but feel overwhelmed by where to begin? The Chelgy Business Builder gives you a clear, guided path to launch a real business on the side — with an AI coach answering your questions any time, day or night. You bring the drive; it brings the plan." },
+  ],
+  ads: [
+    { id:"ad-craigslist", title:"Craigslist ad", body:"START YOUR OWN BUSINESS — STEP-BY-STEP, WITH A 24/7 COACH\n\nAlways wanted to be your own boss? We'll walk you through launching a real business from scratch — registration, branding, getting online, and landing your first customers. Guided plans plus an AI coach available any time. Perfect for beginners and side-hustlers. Message me to get started." },
+    { id:"ad-fbgroup", title:"Facebook group post", body:"Hey everyone 👋 For anyone here who's wanted to start their own business but feels stuck on where to begin — I help people launch using a guided system that covers every step (registering, branding, getting online, first customers) plus a 24/7 AI coach for your questions. Happy to answer anything in the comments or DMs!" },
+    { id:"ad-influencer", title:"Influencer outreach DM", body:"Hi [Name]! I love your content around [their niche]. I work with a platform that helps people start their own business with guided, step-by-step plans and an AI coach. I think your audience would genuinely love it — would you be open to a collab sharing 'start your own business, built by Chelgy' with a special link? Happy to make it worth your while." },
+    { id:"ad-flyer", title:"Local flyer / bulletin board", body:"WANT TO START YOUR OWN BUSINESS?\nWe make it simple — a step-by-step plan and a 24/7 coach to guide you from idea to open. No experience needed.\nScan the code or call/text [your number] to begin." },
+    { id:"ad-reddit", title:"Reddit / forum reply", body:"If you're serious about starting but overwhelmed, the thing that helps most is following a structured plan instead of random videos. There's a guided Business Builder that lays out each stage (legal setup, branding, going live, first sales) and has an AI coach you can ask anything. Happy to share details if it's useful." },
+    { id:"ad-tiktok", title:"TikTok / Reels hook idea", body:"Hook: 'POV: you finally start the business you've been talking about for 3 years.' Then show the Business Builder walking through the steps, the AI coach answering a real question, and end with 'built by Chelgy — link in bio.' Keep it under 20 seconds, fast cuts, trending audio." },
+  ],
+};
 const MARKETER_PRICING = [
   { id:"foundation", name:"FOUNDATION / Local Presence", 
     monthToMonth:800, contract:500, minContract:12,
@@ -2870,8 +2900,8 @@ export default function ChelgyApp() {
   const [dvSubmitting, setDvSubmitting] = useState(false);
   const [dvSubmitMsg, setDvSubmitMsg] = useState("");
   const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
-  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist
-  const [checklistDone, setChecklistDone] = useState(()=>{ try { return JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); } catch { return {}; } });
+  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist  const [checklistDone, setChecklistDone] = useState(()=>{ try { return JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); } catch { return {}; } });
+  const [pitchCopied, setPitchCopied] = useState("");
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
   const [pricingTiers, setPricingTiers] = useState({foundation:true,growth:true,premium:true,special:true});
@@ -3797,6 +3827,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       return next;
     });
   }
+  function copyPitch(id, text){
+    try { if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text); } } catch(e){}
+    setPitchCopied(id);
+    setTimeout(()=>setPitchCopied(c=>c===id?"":c), 1500);
+  }
 
   async function submitClientInquiry(){
     setInquiryErr("");
@@ -4204,6 +4239,37 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       }
 
 
+      // ── Sales Pitches & Promo ──
+      if (marketerView==="pitches") {
+        const Section = ({title, blurb, items})=>(
+          <div style={{marginBottom:28}}>
+            <h2 style={{fontSize:18,fontWeight:400,margin:"0 0 4px",color:B.charcoal}}>{title}</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 14px"}}>{blurb}</p>
+            <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+              {items.map(it=>(
+                <div key={it.id} style={{background:B.white,padding:"16px 18px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:8}}>
+                    <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.gold}}>{it.title}</span>
+                    <button onClick={()=>copyPitch(it.id,it.body)} style={{flexShrink:0,background:pitchCopied===it.id?B.green:"none",border:"1px solid "+(pitchCopied===it.id?B.green:B.stone),color:pitchCopied===it.id?"#fff":B.mid,padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{pitchCopied===it.id?"Copied ✓":"Copy"}</button>
+                  </div>
+                  <p style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.6,margin:0,whiteSpace:"pre-wrap"}}>{it.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        return teamWrap(
+          <div style={{paddingBottom:60}}>
+            {topBar}
+            <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
+            <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Sales Pitches & Promo</h1>
+            <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 22px"}}>Ready-to-use scripts for landing clients and promoting the Chelgy Business Builder. Tap Copy, then paste and tweak the [brackets] with real details.</p>
+            <Section title="Pitch Chelgy Services" blurb="Use these to land marketing clients for your packages." items={MARKETER_PITCHES.services} />
+            <Section title="Pitch the Business Builder" blurb="Sell the 'start your own business' product to people who want to launch something of their own." items={MARKETER_PITCHES.builder} />
+            <Section title="Advertise the Business Builder" blurb="Ready-made ads and outreach to find people who want to start a business." items={MARKETER_PITCHES.ads} />
+          </div>, false, true);
+      }
+
       // ── Campaign Checklists ──
       if (marketerView==="checklists") {
         const pct = (cl)=>{ const done=Object.keys(checklistDone[cl.id]||{}).length; return cl.steps.length?Math.round(done/cl.steps.length*100):0; };
@@ -4319,6 +4385,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <button onClick={()=>{setChecklistId(null);setMarketerView("checklists");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Campaign Checklists</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Never forget a step — Facebook Ads, SEO, launch & more.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
+            <button onClick={()=>setMarketerView("pitches")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Sales Pitches & Promo</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land clients and promote the Business Builder.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
           </div>
