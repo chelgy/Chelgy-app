@@ -667,13 +667,13 @@ function IntakeFlow({ name, onComplete, onSkip }) {
   );
 }
 
-function Onboarding({ onTrial, onSubscribe, onLogin }) {
+function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
   const [idx,setIdx]=useState(0);
   const [fading,setFading]=useState(false);
   const s=SLIDES[idx];
   function next(){setFading(true);setTimeout(()=>{setIdx(i=>i+1);setFading(false);},220);}
   return (
-    <div style={{position:"fixed",inset:0,display:"flex",flexDirection:"column",overflow:"hidden",background:idx===0?"#000":s.bg,backgroundImage:idx===0?"url("+HERO_IMG+")":"none",backgroundSize:"cover",backgroundPosition:"center top",transition:"background 0.5s"}}>
+    <div style={{position:"fixed",inset:0,display:"flex",flexDirection:"column",overflow:"hidden",background:idx===0?"#000":s.bg,backgroundImage:idx===0?"url("+(heroImg||HERO_IMG)+")":"none",backgroundSize:"cover",backgroundPosition:"center top",transition:"background 0.5s"}}>
       {idx===0&&<div style={{position:"absolute",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.75) 35%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.0) 100%)"}} />}
       <div style={{display:"flex",justifyContent:"flex-end",padding:"20px 24px 0",position:"relative",zIndex:2}}>
         {!s.isFinal&&<button onClick={onSubscribe} style={{background:"none",border:"none",color:"rgba(255,255,255,0.35)",fontFamily:"sans-serif",fontSize:13,cursor:"pointer",letterSpacing:"0.06em"}}>Skip</button>}
@@ -883,6 +883,9 @@ const Upsell = ({ variant="both" }) => {
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
+async function loadAppSettings(){
+  try { const res = await fetch(SUPABASE_URL+"/rest/v1/app_settings?select=key,value", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); const o={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ o[r.key]=r.value; }); return o; } catch { return {}; }
+}
 async function loadShowcaseItems(){
   try { const res = await fetch(SUPABASE_URL+"/rest/v1/showcase_items?select=*&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); return Array.isArray(rows)?rows:[]; } catch { return []; }
 }
@@ -1584,6 +1587,20 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [membersList, setMembersList] = useState([]);
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
+  const [heroForm, setHeroForm] = useState({ hero_image:"", home_hero:"" });
+  const [heroSaved, setHeroSaved] = useState(false);
+  useEffect(()=>{ loadAppSettings().then(s=>setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" })); },[]);
+  async function saveHeroImages(){
+    setDbLoading(true);
+    try{
+      const tok=await freshToken();
+      const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"hero_image",value:heroForm.hero_image.trim()})});
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"home_hero",value:heroForm.home_hero.trim()})});
+      setHeroSaved(true); setTimeout(()=>setHeroSaved(false),2500);
+    }catch(e){}
+    setDbLoading(false);
+  }
 
   useEffect(()=>{ loadFromDB(); },[]);
 
@@ -1998,6 +2015,15 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 22px"}}>Settings</h2>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Hero Images</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Paste an image URL to change the main background photos. Leave blank to keep the built-in default. Tip: you can make one in your Image Creator and paste its link here.</p>
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Login & Onboarding background</div>
+              <input value={heroForm.hero_image} onChange={e=>setHeroForm(f=>({...f,hero_image:e.target.value}))} placeholder="https://... (image URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:16,boxSizing:"border-box",background:"#fff"}} />
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Home page hero</div>
+              <input value={heroForm.home_hero} onChange={e=>setHeroForm(f=>({...f,home_hero:e.target.value}))} placeholder="https://... (image URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:16,boxSizing:"border-box",background:"#fff"}} />
+              <button onClick={saveHeroImages} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{heroSaved?"Saved ✓":"Save Hero Images"}</button>
+            </div>
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>App Info</div>
               {[{label:"App Name",value:"Chelgy"},{label:"Membership Price",value:"$100/month"},{label:"Stripe Status",value:"Connected"},{label:"AI Advisor",value:"Active (Claude)"},{label:"Image AI",value:"Active (Nano Banana 2)"}].map((item,i)=>(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"11px 0",borderBottom:"1px solid #E8E6E1"}}>
@@ -2134,6 +2160,129 @@ We may update this Privacy Policy from time to time. If we make material changes
 
 ## Contact
 Questions about your privacy or this policy? Email us at ${LEGAL_CONTACT}.`;
+
+const GUIDE_CHAPTERS = [
+  { id:"trust", num:1, title:"Building a Business That People Trust", sub:"Branding, identity, clarity & your website foundation",
+    content:`Before marketing can bring people to your business, your business has to be ready to receive them. Attention is only valuable if people trust what they see when they arrive — and trust is built through identity, clarity, first impressions, and a strong website.
+
+**Branding is not just a logo.** It's the overall feeling your business gives. It quietly answers: Is this real? Is this professional? Can I trust them with my money? Good branding makes people feel safe; bad branding makes them hesitate. Customers decide in seconds, so a clean, consistent look earns the chance to be considered at all.
+
+**1. Identity — who you are.** Write your business in one sentence: *"I help [type of person] get [result] through [service or product]."* Then pick 3–5 words for how the brand should feel (e.g. luxury, feminine, polished, trustworthy). Make your name, visuals, and wording all support that same identity.
+
+**2. Clarity — be understood fast.** Clear beats clever. A stranger should instantly know what you do, who it's for, and what to do next. Replace vague lines like "Elevated beauty solutions" with "Luxury wig installs and braid services in Tampa." Keep menus and layouts simple.
+
+**3. First impressions.** Your logo, colors, images, layout, fonts, and spacing all create a feeling before anyone reads a word. The goal isn't to look like a huge corporation — it's to look clear, intentional, clean, consistent, and believable.
+
+**4. Your website (your digital storefront).** Use Squarespace if you're service-based (salons, studios, consultants, portfolios). Use Shopify if you sell physical products. Choose a clean template, not the fanciest one. Your homepage should answer: What is this? Who's it for? What can I do here? Why trust it? — with a strong headline, a supporting line, a clear call to action, good images, and proof.
+
+**A simple beginner brand kit:** one logo, one main font, one accent font, one main color, one or two supporting colors, and a clear visual style. Pick one direction and stay consistent.
+
+**Action plan:** Write your one-sentence identity → choose 3–5 brand words → pick one visual direction → make a clean logo → build a homepage with a clear headline, image, proof, and CTA → keep everything consistent.
+
+*Inside Chelgy: use the Image Creator for your logo, flyers, and social graphics, and the Business Launch Package to map out your whole site and brand.*` },
+  { id:"presence", num:2, title:"Building Your Online Presence + Platform Stacking", sub:"Be findable from every direction",
+    content:`After building a business people trust, the next step is making sure you can actually be found. Most businesses limit their growth by relying on a single platform. Customers aren't all in one place — some search Google, some scroll Instagram or TikTok, some check Yelp before booking.
+
+**Think of platforms as doors.** Each one is a separate way in. One might bring 5 customers, another 8, another 10 — individually small, but together they create a steady, stable flow. This is also how your SEO strengthens: the more places your business appears, the more credible and findable it looks to search engines.
+
+**Core platforms (your foundation):** Google Business Profile (huge for getting found locally), Instagram (visual trust), Facebook (local credibility), TikTok (fast exposure), and your website (which ties everything together).
+
+**Search & intent platforms:** Yelp is strong for local services. **Discovery platforms:** Pinterest and YouTube help people find you without searching directly.
+
+**Niche platforms (often overlooked):** platforms built for your exact business — StyleSeat/Booksy for hair, Vagaro/GlossGenius for beauty, Thumbtack/Angi for home services, Etsy/Amazon for products. People there are ready to book and buy. Find yours by Googling "best platforms for [your service]."
+
+**How to manage it all:** set everything up first with consistent branding and complete info, then post regularly, then maintain. You don't need to be perfect everywhere — you need to be present.
+
+**Action plan:** List every relevant platform → create/claim your profiles → add your logo, description, and services → keep branding consistent → show up regularly.
+
+*Inside Chelgy: the Platform Setup Guides walk you through claiming each profile step by step.*` },
+  { id:"seo", num:3, title:"SEO — Getting Found When People Search", sub:"Meet customers at the moment they're looking",
+    content:`Unlike social media, where you interrupt people, SEO lets you meet people at the exact moment they're searching for a solution. Someone typing "hair braider near me" or "best marketing course for beginners" already has intent. SEO helps your business show up for them.
+
+**SEO has four parts:**
+
+**1. Keywords** — the words people actually type. Start with "[service or product] + [location or detail]" (e.g. "knotless braids Tampa"). Use Google's autocomplete and the related searches at the bottom of results. Group them by topic.
+
+**2. Website SEO** — make each important page about one clear topic. Put your main keyword naturally in the page title, headline, and description. Rename image files from "IMG_8274.jpg" to "knotless-braids-tampa.jpg." Keep navigation clean.
+
+**3. Local SEO** — fully complete your Google Business Profile, keep your name/phone/address identical across every platform, mention your location naturally on your site, and ask happy customers for reviews.
+
+**4. Content SEO** — answer the questions customers ask before they buy ("How long do knotless braids last?"). Turn each question into a helpful blog post, then link it to your services.
+
+**Using ChatGPT for SEO:** it's a great assistant for brainstorming keywords, drafting descriptions, outlining pages, and rewriting vague copy — but always review and personalize. Write for people first, search engines second.
+
+**Action plan:** List what customers would search → one main keyword per page → tighten your titles and descriptions → complete your Google Business Profile → turn customer questions into blog posts → link content back to your offers.
+
+*Inside Chelgy: the Content Writer drafts SEO titles, meta descriptions, and blog posts, and the Business Audit checks how findable you are now.*` },
+  { id:"physical", num:4, title:"Physical Marketing", sub:"Be seen in the real world too",
+    content:`In a world focused online, it's easy to forget people still move through real spaces every day. A flyer handed to someone, a card picked up in a store, or a recommendation in person carries a different kind of trust — and reaches people who aren't actively searching yet.
+
+**Four foundations:** Visibility (put your business where people pass by), Access (make it easy to take your info), Partnerships (work with other businesses to share customers), and Consistency (show up repeatedly so people remember you).
+
+**Visibility:** flyers, business cards in stores, lawn signs, car magnets or wraps, bus benches, local print ads. Repetition matters more than perfection — seeing your business several times builds recognition.
+
+**Access:** every card or flyer should have your name, what you do, phone/email, website or social, and a short clear description. QR codes that link to your site or Instagram make it effortless. Keep designs clean (Canva works great); cheap, cluttered materials lower trust.
+
+**Partnerships (underrated and powerful):** team up with complementary — not competing — businesses that already serve your audience. Leave cards in each other's stores, recommend each other, bundle offers, or offer a referral commission. You tap into traffic and trust that already exists.
+
+**The combo effect:** physical marketing often leads people into your online presence — someone sees your flyer, Googles you, then books. Online brings attention; physical reinforces it.
+
+**Action plan:** Make a clean business card → print cards/flyers → place them where your customers go → reach out to 3–5 local businesses for partnerships → consider a car magnet or local signage → stay consistent.` },
+  { id:"content", num:5, title:"Social Media Content Creation", sub:"The bridge between visibility and the sale",
+    content:`Content creation isn't random posting or chasing trends. It's consistently showing your business, value, and results so people understand what you offer, trust what you do, and feel confident choosing you. Most customers observe before they buy — they watch your page, see your consistency, and slowly become comfortable.
+
+**Four foundations of strong content:**
+
+**Clarity** — each post should make it obvious what you do. Give every post a purpose; keep visuals aligned with your brand.
+
+**Consistency** — posting once isn't enough. Aim for 3–5 times per week to start. Batch-create content so it's sustainable. Consistency matters more than perfection.
+
+**Quality** — clear images, good lighting, clean editing, cohesive colors. Tools like Canva (graphics) help you look polished without design experience.
+
+**Value** — give people a reason to care: show results, teach something, inspire, or show a transformation.
+
+**Types of content to rotate:** Showcase (your work), Educational (teach something simple), Lifestyle (your brand's vibe), and Proof (results, testimonials, before-and-afters).
+
+**The simple workflow:** pick a category → capture or create it → edit it clean → write a clear caption → post → repeat. Over time, those posts compound into growth, because people buy what they see, recognize, and trust.
+
+**Action plan:** Create 5 pieces of content → use Canva for visuals → choose a posting schedule → post consistently.
+
+*Inside Chelgy: the Content Writer drafts captions and hooks, the Image Creator makes your graphics, and the Video Studio + Viral Video Generator handle short-form video.*` },
+  { id:"outreach", num:6, title:"Direct Outreach Marketing", sub:"Email, DMs, texts & calls — go to the customer",
+    content:`Most marketing is passive: you post and wait to be found. Direct outreach is active — you go directly to the people most likely to need what you offer. It's one of the fastest ways to start conversations and generate income, especially when you're new or want to grow quickly.
+
+**The mindset that makes it work:** not everyone will respond, and that's normal. If you message 100 people, you might get 5–10 responses, and a few become customers. You're not being rejected by everyone — you're filtering for the right few. In higher-ticket work (photography, marketing, beauty, consulting), one client can make a real difference.
+
+**Four foundations:** Targeting (reach the right people), Clarity (communicate your offer simply), Consistency (reach out regularly), and Resilience (don't stop when people don't respond).
+
+**Targeting:** define your ideal customer, find them on Instagram, TikTok, LinkedIn, or Google, look for signs they need you (low-quality content, inconsistent branding, new businesses), and collect their contact info into an outreach list.
+
+**Clarity — keep messages short and natural.** A simple structure: greeting → short compliment or observation → what you offer → simple invitation. Example: *"Hi, I came across your page and really liked your content. I help brands grow their presence through high-quality content and marketing. If you're ever looking to elevate your content, I'd love to work with you."*
+
+**Consistency & resilience:** set a daily number (10–20 messages), track who you contacted and who responded, and follow up — many people reply on the second message. The next message could be the one that works.
+
+**Action plan:** Define your target customer → find 50–100 contacts → write a simple message → send daily → track responses → follow up → stay consistent.` },
+  { id:"ads", num:7, title:"Paid Advertising Fundamentals", sub:"Amplify what's already working",
+    content:`Paid advertising is not meant to fix a broken business — it's meant to amplify a working one. Run ads too early, before your branding is clear and your content converts, and you'll waste money. But once your business looks trustworthy and your offers are clear, ads place you directly in front of large numbers of the right people.
+
+**Why ads work:** they combine attention (placing you in front of people), targeting (choosing who sees you), and consistency (running even when you're not posting).
+
+**The smartest way to run ads:** don't create ads from scratch and guess. Put money behind content that's already performing organically. If a post is already getting likes, comments, shares, and saves, people already like it — turn that into your ad. This means better performance, lower cost, and more conversions.
+
+**Budget:** you don't need a lot. $5–$20/day is a real start. Strong content with a small budget beats weak content with a big one. Give ads at least 7 days before judging — the platform needs time to learn.
+
+**The four big platforms, in brief:**
+- **Facebook / Instagram:** good ads feel like content, not commercials. The creative (your first 1–3 seconds) matters most — it has to make someone stop. Then clear copy, then simple targeting (let the platform optimize).
+- **Google:** you capture people who are *already searching*. Win with specific, high-intent keywords ("knotless braids Tampa," not "hair"), an ad that matches the search, and a landing page that matches the ad.
+- **TikTok:** it rewards content that feels native and real, not polished. Hook in the first 1–3 seconds, show value fast, end with a clear call to action.
+- **Yelp:** reaches high-intent local customers comparing options. Your profile *is* your landing page — strong photos, clear services, and lots of reviews do the heavy lifting.
+
+**The most important rule:** never run ads to a weak offer or page. Ads amplify what already exists.
+
+**Action plan:** Review your content → find your best-performing posts → promote one → set a small daily budget → monitor real results (calls, bookings, sales — not just clicks) → adjust and scale slowly.
+
+*Inside Chelgy: the Ad Builder writes your ad copy, and the Image Creator + Video Studio make the creative that stops the scroll.*` },
+];
 
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
@@ -2372,6 +2521,9 @@ ${!isIdea ? "## How you compare\nName 2-3 real competitors in their field/area a
 ## Your roadmap
 A numbered, stage-by-stage list of the highest-impact moves to get from where they are now to their #1 goal (${d.goal||"their goal"}). Be specific to their field and location, and pace it for ${d.hours||"their available"} hours per week.
 
+## How Chelgy fixes all of this
+Before listing tools, write 2 to 4 warm, confident sentences that make this point clearly: everything flagged in this audit can be fixed right here inside Chelgy. They don't need to hire an agency, a designer, a copywriter, or a consultant, and they don't have to do it alone — Chelgy is their team. Make them feel capable and ready to start.
+
 ## Your Chelgy toolkit
 For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on how to use it for that step. Only use tools from this list:
 - Business Launch Package (full website copy, brand strategy, social plan, launch roadmap)
@@ -2387,9 +2539,7 @@ For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on
 - Platform Setup Guides (set up Google Business, social profiles, etc.)
 - AI Advisor (ask any marketing question anytime)
 
-Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no preamble before the first heading.
-
-End the whole plan with a final section titled "## You've got this" — 2 to 4 warm, confident sentences that make this point clearly: everything flagged in this audit can be fixed right here inside Chelgy using the tools above. They don't need to hire an agency, a designer, a copywriter, or a consultant, and they don't have to figure it out alone — Chelgy is their team. Tell them the best next step is to open their roadmap and start with today's highest-impact task. Make them feel capable and ready to start.`;
+Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no preamble before the first heading. End right after the toolkit — the best next step is for them to open their roadmap and start with today's highest-impact task.`;
     const result = await callClaude(prompt, 6000, true);
     setPlan(result);
     try { localStorage.setItem("chelgy_plan", result); } catch(e){}
@@ -2540,6 +2690,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
   const [legalView, setLegalView] = useState(null);
+  const [guideChapter, setGuideChapter] = useState(null);
+  const [heroImg, setHeroImg] = useState(HERO_IMG);
+  const [homeHero, setHomeHero] = useState(HOME_HERO);
+  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); }); },[]);
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
   const [selectedForumPost, setSelectedForumPost] = useState(null);
@@ -2653,7 +2807,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       "- About section (3 paragraphs, warm and authentic)\n" +
       "- Services section (list each service with a name, one-line description, and price if provided)\n" +
       "- Testimonial placeholders (3 sample testimonials they can customize)\n" +
-      "- Call to action copy (compelling button text and surrounding copy)\n\n" +
+      "- Call to action copy (compelling button text and surrounding copy)\n" +
+      "- Recommended setup: under a '### Where to build your site' subheading, recommend the best website platform for THIS specific business — Squarespace if they're service-based (salons, studios, consultants, portfolios), Shopify if they sell physical products, with Wix as a simpler alternative — and explain the pick in one line. Then recommend where to buy their domain (Namecheap or GoDaddy), suggest setting up a professional email at their domain (e.g. hello@theirbusiness.com via Google Workspace), and mention Canva for a quick logo if needed. Keep it practical and specific to their business.\n\n" +
       "[BRAND STRATEGY]\n" +
       "- Brand positioning statement (one paragraph)\n" +
       "- Brand voice (5 adjectives with explanations)\n" +
@@ -2674,7 +2829,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       "- Week 3: Launch (specific tasks)\n" +
       "- Week 4: Growth (specific tasks)\n" +
       "- First 3 months milestones\n" +
-      "- Key metrics to track\n\n" +
+      "- Key metrics to track\n" +
+      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
       "Make everything specific to THIS business. No generic advice. Real, usable copy they can implement immediately."
 
     const result = await callClaude(prompt, 8000);
@@ -2727,7 +2883,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // Sub-tabs per bottom tab
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
-    learn: [["strategies","Strategies"],["weekly","The Chelgy Edit"]],
+    learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
     tools: [["hub","All Tools"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"],["members","Members"]],
     profile: [["overview","Overview"],["stats","Progress"]],
@@ -2920,6 +3076,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     track("login_start", { method: "google" });
     window.location.href = SUPABASE_URL + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(window.location.origin);
   };
+  const signInWithFacebook = () => {
+    track("login_start", { method: "facebook" });
+    window.location.href = SUPABASE_URL + "/auth/v1/authorize?provider=facebook&redirect_to=" + encodeURIComponent(window.location.origin);
+  };
 
   const doLogin = async () => {
     setAuthError("");
@@ -3029,7 +3189,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (page==="onboarding") return <Onboarding onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
+  if (page==="onboarding") return <Onboarding heroImg={heroImg} onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
   const legalOverlay = legalView ? (
@@ -3065,7 +3225,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   if (page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      <div style={{position:"fixed",inset:0,backgroundImage:"url("+HERO_IMG+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
+      <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
       <div style={{position:"fixed",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 100%)",zIndex:1}} />
       <div style={{position:"relative",zIndex:2,flex:1,display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0 28px 48px",maxWidth:460,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
         <img src={LOGO_B64} alt="Chelgy" style={{height:32,objectFit:"contain",filter:"invert(1)",marginBottom:36,display:"block"}} />
@@ -3095,7 +3255,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (page==="signup") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* Background image with overlay */}
-      <div style={{position:"fixed",inset:0,backgroundImage:"url("+HERO_IMG+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
+      <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
       <div style={{position:"fixed",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 100%)",zIndex:1}} />
 
       {/* Content */}
@@ -3125,7 +3285,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </button>
 
               {/* Facebook */}
-              <button onClick={()=>setAuthError("Facebook sign-in is coming soon — sign up with email below for now.")} style={{width:"100%",background:"#1877F2",color:"#fff",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
+              <button onClick={signInWithFacebook} style={{width:"100%",background:"#1877F2",color:"#fff",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 Continue with Facebook
               </button>
@@ -3226,7 +3386,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{marginTop:30,display:"flex",flexDirection:"column",gap:10}}>
                 <Btn dark full onClick={()=>{setShowPlan(false);if(!aiQ.trim())setAiQ("Walk me through the first step of my roadmap and exactly how to do it.");goTab("community","advisor");}}>ASK THE ADVISOR ABOUT THIS</Btn>
                 <Btn outline full onClick={()=>{setShowPlan(false);setShowIntake(true);}}>REBUILD MY PLAN</Btn>
-                <Btn full onClick={()=>setShowPlan(false)}>CLOSE</Btn>
+                <Btn full onClick={()=>setShowPlan(false)}>RETURN TO APP</Btn>
               </div>
             </>)}
           </div>
@@ -3440,7 +3600,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{paddingTop:28}}>
               {/* Hero card */}
               <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+HOME_HERO+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
+                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
               <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0.12) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)"}} />
                 <div style={{position:"relative"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
@@ -3578,6 +3738,44 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <Upsell variant="course" />
                 </>
               )}
+            </div>
+          )}
+
+          {tab==="learn"&&subTab==="guide"&&!guideChapter&&(
+            <div style={{paddingTop:28,maxWidth:680}}>
+              <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>The Marketing Guide</h2>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em",lineHeight:1.6}}>The complete Chelgy playbook — everything that actually brings in customers, from building a business people trust to scaling with paid ads. Read it in order, or jump to what you need.</p>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+                {GUIDE_CHAPTERS.map(ch=>(
+                  <button key={ch.id} onClick={()=>{setGuideChapter(ch);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{width:"100%",textAlign:"left",background:B.white,border:"none",padding:"18px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16}}>
+                    <span style={{fontFamily:"Georgia,serif",fontSize:22,color:B.gold,fontWeight:400,minWidth:28}}>{ch.num}</span>
+                    <span style={{flex:1}}>
+                      <span style={{display:"block",fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>{ch.title}</span>
+                      <span style={{display:"block",fontFamily:"sans-serif",fontSize:11,color:B.mid,letterSpacing:"0.01em"}}>{ch.sub}</span>
+                    </span>
+                    <span style={{color:B.mid}}><Icons.ChevronRight /></span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab==="learn"&&subTab==="guide"&&guideChapter&&(
+            <div style={{paddingTop:28,maxWidth:680}}>
+              <button onClick={()=>setGuideChapter(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6,marginBottom:20}}><Icons.ChevronLeft /> The Marketing Guide</button>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Chapter {guideChapter.num}</div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:28,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>{guideChapter.title}</h1>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,margin:"0 0 24px",letterSpacing:"0.01em"}}>{guideChapter.sub}</p>
+              <div style={{fontFamily:"sans-serif"}}><Rich text={guideChapter.content} /></div>
+              <div style={{marginTop:30,paddingTop:20,borderTop:"1px solid "+B.stone,display:"flex",justifyContent:"space-between",gap:12}}>
+                {GUIDE_CHAPTERS[guideChapter.num-2]
+                  ? <button onClick={()=>{setGuideChapter(GUIDE_CHAPTERS[guideChapter.num-2]);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:B.charcoal,letterSpacing:"0.04em"}}>← Previous</button>
+                  : <span />}
+                {GUIDE_CHAPTERS[guideChapter.num]
+                  ? <button onClick={()=>{setGuideChapter(GUIDE_CHAPTERS[guideChapter.num]);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.charcoal,border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:"#fff",letterSpacing:"0.04em"}}>Next chapter →</button>
+                  : <button onClick={()=>setGuideChapter(null)} style={{background:B.charcoal,border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:"#fff",letterSpacing:"0.04em"}}>Finish ✓</button>}
+              </div>
             </div>
           )}
 

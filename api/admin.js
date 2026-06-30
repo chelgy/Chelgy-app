@@ -77,6 +77,16 @@ export default async function handler(req, res) {
       await svc("showcase_items?id=eq." + id, { method: "DELETE" });
       return res.status(200).json({ ok: true });
     }
+    if (action === "settings-set") {
+      const k = String(body.key || "").trim();
+      if (!k) return res.status(400).json({ error: "Missing key" });
+      await svc("app_settings", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify({ key: k, value: String(body.value || ""), updated_at: new Date().toISOString() })
+      });
+      return res.status(200).json({ ok: true });
+    }
     return res.status(400).json({ error: "Unknown action" });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
