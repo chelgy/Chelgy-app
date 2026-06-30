@@ -1632,7 +1632,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{
       const tok=await freshToken();
       if(!tok){ return; }
-      const res=await fetch("/api/admin-inquiries",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
+      const res=await fetch("/api/contracts?action=admin-list",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
       if(res.ok){
         const d=await res.json();
         setInquiriesList(d.inquiries||[]);
@@ -2005,8 +2005,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
                     {inquiry.status==="submitted"&&(
                       <div style={{display:"flex",gap:8}}>
-                        <button onClick={async()=>{const tok=await freshToken();const res=await fetch("/api/admin-inquiries",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"approve"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"#111",color:"#fff",border:"none",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✓ Approve</button>
-                        <button onClick={async()=>{if(!confirm("Deny this inquiry?")) return;const tok=await freshToken();const res=await fetch("/api/admin-inquiries",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"deny"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✗ Deny</button>
+                        <button onClick={async()=>{const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"approve"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"#111",color:"#fff",border:"none",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✓ Approve</button>
+                        <button onClick={async()=>{if(!confirm("Deny this inquiry?")) return;const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"deny"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✗ Deny</button>
                       </div>
                     )}
                   </div>
@@ -3604,7 +3604,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if(!inquiryForm.serviceTier){ setInquiryErr("Select a service tier"); return; }
     
     setInquiryLoading(true);
-    const res = await fetch("/api/submit-inquiry", {
+    const res = await fetch("/api/contracts?action=submit", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -3630,7 +3630,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
 
   async function loadMarketerContracts(){
-    const res = await fetch("/api/marketer-contracts", {
+    const res = await fetch("/api/contracts?action=list", {
       headers: { "x-user-id": user?.id || "" }
     });
     if(res.ok){
@@ -4524,6 +4524,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   return (
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
+      <div style={{position:"fixed",bottom:4,right:6,zIndex:2147483647,background:"rgba(0,0,0,0.65)",color:"#fff",fontFamily:"monospace",fontSize:10,padding:"2px 6px",borderRadius:3,pointerEvents:"none"}}>build v3 · {new Date().toISOString().slice(0,16)}</div>
       {legalOverlay}
 
       {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />}
