@@ -971,7 +971,17 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [vDur,setVDur]=useState("60 seconds");const [vGoal,setVGoal]=useState("Brand awareness");
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
   const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
-  const [vVidUpload,setVVidUpload]=useState("");
+  const [vVidPhotos,setVVidPhotos]=useState([]);
+  const [vStyle,setVStyle]=useState("");
+  const VIDEO_STYLES=[
+    {id:"apple",label:"Luxury Apple Ad",suffix:"in the style of a premium Apple product commercial — ultra-clean minimalist set, dramatic studio lighting, glossy reflections, slow elegant camera moves, shallow depth of field, sleek and high-end"},
+    {id:"vogue",label:"Vogue Editorial",suffix:"in the style of a high-fashion Vogue editorial — luxurious and glamorous, cinematic fashion lighting, elegant styling, sophisticated color grading, aspirational and editorial"},
+    {id:"cinematic",label:"Cinematic Film",suffix:"with a cinematic film look — dramatic lighting, filmic color grading, shallow depth of field, sweeping camera movement, moody atmosphere and high production value"},
+    {id:"luxe",label:"Elegant Luxury",suffix:"with an elegant luxury aesthetic — rich textures, warm gold and cream tones, soft glowing light, refined slow motion, an expensive and premium feel"},
+    {id:"cartoon",label:"Animated / Cartoon",suffix:"in a playful animated cartoon style — bold vibrant colors, smooth stylized animation, fun, lively and expressive"},
+    {id:"ugc",label:"Authentic UGC",suffix:"in an authentic user-generated-content style — handheld phone footage, natural lighting, relatable and casual, a real-person feel, native to social media"},
+    {id:"retro",label:"Retro / Vintage",suffix:"with a retro vintage aesthetic — warm film grain, a nostalgic color palette, analog textures, classic and timeless"},
+  ];
   const [vOrient,setVOrient]=useState("portrait");const [vQuality,setVQuality]=useState("480p");const [vDuration,setVDuration]=useState("5");const [vAudio,setVAudio]=useState(true);
   const [voText,setVoText]=useState("");const [voVoice,setVoVoice]=useState("JBFqnCBsd6RMkjVDRZzb");const [voUrl,setVoUrl]=useState("");const [voLoad,setVoLoad]=useState(false);const [voErr,setVoErr]=useState("");
   const [bStage,setBStage]=useState(null);const [bNiche,setBNiche]=useState("");const [bName,setBName]=useState("");
@@ -1032,10 +1042,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(ctxPre+p[vType]));setVLoad(false);}
   async function genVid(){
     if(!vTopic.trim())return;
-    track("tool_used",{tool:"video_generator",mode:vVidUpload?"image":"text"});
+    track("tool_used",{tool:"video_generator",mode:vVidPhotos.length?"image":"text"});
     setVVidLoad(true);setVVidUrl("");setVVidErr("");setVVidStatus("Starting the video engine...");
     try{
-      const started=await generateVideo(vTopic,vVidUpload||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
+      const styleSuffix=(VIDEO_STYLES.find(s=>s.id===vStyle)||{}).suffix||"";
+      const styledPrompt=vTopic.trim()+(styleSuffix?(", "+styleSuffix):"");
+      const started=await generateVideo(styledPrompt,vVidPhotos[0]||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
       if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
       if(typeof started.balance==="number") onBalance(started.balance);
       setVVidStatus("Creating your video — usually 1 to 3 minutes, but the 4K models can take up to 10. Keep this tab open.");
@@ -1045,7 +1057,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){setVVidErr("Something went wrong while generating the video. Please try again.");}
     setVVidLoad(false);
   }
-  function onUploadVid(e){const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>setVVidUpload(r.result);r.readAsDataURL(f);}
+  function onUploadVid(e){const files=Array.from((e.target&&e.target.files)||[]);files.forEach(f=>{const r=new FileReader();r.onload=()=>setVVidPhotos(p=>p.length>=3?p:[...p,r.result]);r.readAsDataURL(f);});if(e.target)e.target.value="";}
   function durOptionsFor(q){if(q==="veo")return [4,6,8];if(q==="kling4k"||q==="seedance4k"||q==="1080p")return [5,10,15];return [5,10];}
   function vidCost(){const d=Number(vDuration);if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality==="seedance4k")return CREDIT_COSTS.seedanceSec*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
   async function genVoice(){
@@ -1200,10 +1212,27 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>}
           <Fl label={vType==="generate"?"Describe the video you want":"Video Topic / Goal"}><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder={vType==="generate"?"e.g. Slowly rotate the product with soft studio lighting and a clean background...":"e.g. Why your business needs email marketing..."} rows={3} /></Fl>
           {vType==="generate"&&<div style={{marginBottom:14}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Product Reference Photo (optional)</div>
-            {!vVidUpload
-              ? <label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"18px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>Tap to upload a product photo — the AI will animate it into a video<input type="file" accept="image/*" onChange={onUploadVid} style={{display:"none"}} /></label>
-              : <div style={{display:"flex",alignItems:"center",gap:12,border:"1px solid "+B.stone,padding:"10px",background:B.white}}><img src={vVidUpload} alt="Your product" style={{width:54,height:54,objectFit:"cover",flexShrink:0}} /><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,flex:1}}>Photo ready — the AI will bring this product to life in your video.</div><button onClick={()=>setVVidUpload("")} style={{background:"none",border:"1px solid "+B.stone,padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Remove</button></div>}
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Product Reference Photos (optional · up to 3)</div>
+            {vVidPhotos.length>0&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:vVidPhotos.length<3?10:0}}>
+              {vVidPhotos.map((src,i)=>(
+                <div key={i} style={{position:"relative",border:"1px solid "+(i===0?B.gold:B.stone),padding:3,background:B.white}}>
+                  <img src={src} alt={"Product "+(i+1)} style={{width:66,height:66,objectFit:"cover",display:"block"}} />
+                  {i===0&&<span style={{position:"absolute",bottom:3,left:3,right:3,background:"rgba(0,0,0,0.6)",color:"#fff",fontSize:8,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.06em",textAlign:"center",padding:"1px 0",textTransform:"uppercase"}}>Featured</span>}
+                  <button onClick={()=>setVVidPhotos(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
+                </div>
+              ))}
+            </div>}
+            {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{vVidPhotos.length===0?"Tap to upload a product photo — the AI will animate it into a video":"Add another photo"}<input type="file" accept="image/*" multiple onChange={onUploadVid} style={{display:"none"}} /></label>}
+            {vVidPhotos.length>1&&<div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>The <strong>Featured</strong> photo is the one brought to life in the video. Remove it to feature the next one.</div>}
+          </div>}
+          {vType==="generate"&&<div style={{marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Video Style (optional)</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {VIDEO_STYLES.map(s=>(
+                <button key={s.id} onClick={()=>setVStyle(v=>v===s.id?"":s.id)} style={{background:vStyle===s.id?B.charcoal:B.white,color:vStyle===s.id?"#fff":B.charcoal,border:"1px solid "+(vStyle===s.id?B.charcoal:B.stone),padding:"8px 14px",fontFamily:"sans-serif",fontSize:11,fontWeight:600,cursor:"pointer",letterSpacing:"0.02em"}}>{s.label}</button>
+              ))}
+            </div>
+            {vStyle&&<div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6}}>Tap again to turn the style off.</div>}
           </div>}
           {vType!=="generate"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
             <Fl label="Platform"><Ss value={vPlat} onChange={e=>setVPlat(e.target.value)}>{["TikTok","Instagram Reels","YouTube Shorts","YouTube","LinkedIn","Facebook"].map(o=><option key={o}>{o}</option>)}</Ss></Fl>
