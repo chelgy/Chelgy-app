@@ -2853,6 +2853,29 @@ const MARKETER_PITCHES = {
     { id:"ad-dm-local", title:"Instagram / TikTok DM to a local business", body:"Hi [Name]! Came across [Business] — your [product/service] looks great, but your page isn't doing it justice yet. I create premium content and marketing that makes local businesses look high-end (and attract customers who pay for quality). Can I send you one free sample piece so you can see the difference? No pressure at all 🙌" },
   ],
 };
+const CLIENT_ACQUISITION = [
+  { id:"free-sample", title:"Lead With a Free Sample", category:"Direct Outreach", level:"Foundational", timeToResult:"2-5 days", summary:"Win clients by handing them proof before you ever ask for money \u2014 a free piece of work they can't unsee.", content:"## Why it works\nPeople don't buy promises, they buy proof. When a business owner sees a polished sample made *specifically for them*, the conversation shifts from \"should I hire someone?\" to \"I want THIS.\"\n\n## How to do it\n1. Pick a business with weak marketing but a good product.\n2. Use Chelgy's Image Maker or Video Studio to create ONE stunning sample \u2014 a social post, a short reel, or a mock ad using their brand.\n3. Send it with a short note: \"Made this for [Business] \u2014 no charge, just wanted to show what's possible. Want a couple more?\"\n4. When they react, book a quick call and present a simple package.\n\n## Pro tips\n- Quality over quantity \u2014 one jaw-dropping sample beats five average ones.\n- Always tie it to their business by name; generic samples get ignored.\n- Keep the ask soft; let the work do the selling." },
+  { id:"cold-dm", title:"The Cold DM That Gets Replies", category:"Direct Outreach", level:"Foundational", timeToResult:"1-2 weeks", summary:"A personalized, low-pressure direct message formula that opens conversations instead of getting ignored.", content:"## The formula\n**Compliment \u2192 Insight \u2192 Soft ask.**\n\n1. **Compliment** something specific and real about their business.\n2. **Insight** \u2014 name one thing you'd elevate (not a harsh critique).\n3. **Soft ask** \u2014 offer a free sample or idea, zero pressure.\n\n## Example\n\"Hey [Name]! Just found [Business] and your [product] genuinely stood out. One thing \u2014 your page could look way more premium with the right visuals, which makes people happy to pay more. Mind if I send a free sample I made for you?\"\n\n## Rules that keep you unbanned\n- Never copy-paste identical messages \u2014 vary the wording every time.\n- Personalize the first line for each business.\n- Space messages out across the day and mix channels (DM, email, in person).\n- Most won't reply \u2014 that's normal. Consistency wins." },
+  { id:"walk-in", title:"The Local Walk-In", category:"Local & In-Person", level:"Foundational", timeToResult:"Same day", summary:"Walk into local businesses with a sample in hand \u2014 the highest-conversion, lowest-competition channel there is.", content:"## Why local in-person wins\nAlmost nobody does it, so you stand out instantly. Owners can see you're real, and trust builds in seconds instead of weeks.\n\n## The approach\n1. Scout 5-10 nearby businesses with dated or thin marketing.\n2. Before you go, make a quick sample for each (a mock post or flyer).\n3. Walk in at a slow hour: \"Hi, is the owner around? I help local businesses look more premium \u2014 I actually made something for you, can I show you?\"\n4. Show the sample, grab their email, promise to send more.\n5. Follow up the next day.\n\n## Tips\n- Dress the part \u2014 you're selling premium.\n- Keep it under two minutes; respect their time.\n- Leave something physical (a printed sample or card)." },
+  { id:"email-outreach", title:"Email Outreach at Scale (Safely)", category:"Direct Outreach", level:"Intermediate", timeToResult:"2-4 weeks", summary:"Reach dozens of prospects a day with personalized emails without landing in spam or getting flagged.", content:"## Build the list\n- Pull local businesses from Google Maps, directories, and Instagram.\n- Capture name, business, email, and one personal detail each.\n\n## Write emails that get opened\n- Subject: short, specific, curiosity-driven (\"A quick idea for [Business]\").\n- First line: personalized to them (never generic).\n- Body: one insight + a free sample offer.\n- Close: one simple question (\"Worth a quick look?\").\n\n## Stay deliverable\n1. Send in small batches, not blasts.\n2. Vary wording between emails.\n3. Warm up a new sending address slowly.\n4. Always include an easy opt-out.\n\n## Follow up\n80% of replies come from follow-ups. Send 2-3 spaced a few days apart." },
+  { id:"referral-engine", title:"Build a Referral Engine", category:"Referrals", level:"Foundational", timeToResult:"Ongoing", summary:"Turn every happy client into a source of new ones with a simple, repeatable referral ask.", content:"## The mindset\nYour happiest clients know other owners just like them. One great result can quietly turn into three new clients.\n\n## The system\n1. Do genuinely great work and get a visible win.\n2. At the high point (a great result), ask: \"So glad this is working! Do you know one other business owner who'd want results like this?\"\n3. Make it easy \u2014 offer to reach out on their behalf, or give them a sample to forward.\n4. Reward referrals (a free month, a discount, or a thank-you gift).\n\n## Tips\n- Ask when they're happiest, not at random.\n- Be specific: \"one other owner\" beats \"anyone.\"\n- Always thank and update the referrer." },
+  { id:"partnerships", title:"Partner With Complementary Businesses", category:"Partnerships", level:"Intermediate", timeToResult:"2-4 weeks", summary:"Team up with businesses that serve your ideal clients but don't compete with you \u2014 instant access to warm leads.", content:"## Who to partner with\nAnyone who already has the trust of businesses you want: web designers, photographers, accountants, business coaches, printers, POS/website vendors.\n\n## The pitch\n\"You serve [audience], I make them look premium online. Let's send each other clients \u2014 I'll pay a referral fee for anyone who signs.\"\n\n## How to structure it\n1. Offer a referral commission or a reciprocal deal.\n2. Give partners a simple one-liner and a sample to share.\n3. Stay top of mind \u2014 check in monthly.\n\n## Tips\n- One good partner can feed you clients for years.\n- Make partners look good to their own clients \u2014 that's the real currency." },
+  { id:"personal-brand", title:"Become the Local Marketing Face", category:"Positioning", level:"Intermediate", timeToResult:"1-3 months", summary:"Build a personal brand so prospects come to you already sold \u2014 your content does the selling 24/7.", content:"## The play\nLaunch a 'Marketing Specialist' account on TikTok/Instagram/YouTube Shorts and post consistently. By week 2-3, inbound DMs start rolling in.\n\n## Content pillars\n- **Tips** \u2014 quick marketing wins for local businesses.\n- **Proof** \u2014 client before/afters and results.\n- **Behind the scenes** \u2014 using your tools to create work.\n- **Story** \u2014 your journey, relatable and human.\n\n## Video ideas\n1. \"3 ways [niche] businesses lose customers (and the fix)\"\n2. \"I got a [business] X new customers in 30 days \u2014 here's how\"\n3. \"Stop doing this on Instagram, it's costing you sales\"\n\n## Tips\n- Use Chelgy's Video Studio and Image Maker to produce fast.\n- Consistency beats perfection \u2014 post, learn, repeat." },
+  { id:"audit-magnet", title:"The Free Audit Magnet", category:"Content & Inbound", level:"Intermediate", timeToResult:"2-3 weeks", summary:"Offer a free marketing audit as your lead magnet \u2014 it delivers value, shows expertise, and reveals what to sell.", content:"## Why it works\nA free audit feels generous and low-risk, positions you as the expert, and hands you a natural reason to recommend your services.\n\n## How to run it\n1. Offer: \"Free 5-point marketing audit for [niche] businesses.\"\n2. Use Chelgy's Business Audit tool to generate a professional breakdown.\n3. Deliver it warmly \u2014 highlight quick wins AND bigger opportunities.\n4. End with: \"Want me to handle these for you? Here's what that looks like.\"\n\n## Where to promote\n- DMs, Facebook groups, your content, and in person.\n\n## Tips\n- Always give real value even if they don't buy \u2014 it builds reputation.\n- Point out 1-2 things they can fix themselves; it builds trust." },
+  { id:"fb-groups", title:"Facebook Group Authority", category:"Social Selling", level:"Foundational", timeToResult:"2-4 weeks", summary:"Become the helpful marketing expert inside local business and entrepreneur groups \u2014 leads come to you.", content:"## The strategy\nDon't spam \u2014 help. Answer marketing questions genuinely, share quick tips, and people will DM you to hire you.\n\n## Steps\n1. Join local business, entrepreneur, and small-biz groups.\n2. Each day, answer 2-3 marketing questions with real, useful advice.\n3. Occasionally share a win or free tip (follow group rules).\n4. Let your helpfulness build a reputation; interested owners will reach out.\n\n## Tips\n- Never hard-pitch in comments \u2014 it gets you removed.\n- Offer a free sample or audit via DM when someone shows interest.\n- Consistency makes you 'the marketing person' in that group." },
+  { id:"case-study", title:"The Case Study Flywheel", category:"Content & Inbound", level:"Intermediate", timeToResult:"1-2 months", summary:"Turn every client result into a proof asset that lands the next client \u2014 and the next.", content:"## Why proof compounds\nEach documented result makes the next sale easier. Prospects believe results, not claims.\n\n## Build one\n1. Capture the before state (screenshots, numbers).\n2. Do the work and track what changed (followers, leads, sales, bookings).\n3. Write it up: challenge \u2192 what you did \u2192 results.\n4. Turn it into a graphic or short video with Chelgy's tools.\n\n## Use it everywhere\n- In pitches and proposals.\n- On your personal brand content.\n- As social proof in DMs (\"Here's what I did for a similar business\").\n\n## Tips\n- Even small wins count \u2014 'grew IG 200 to 600 in a month' sells.\n- Get a one-line testimonial while they're happy." },
+  { id:"niche-down", title:"Niche Down to Stand Out", category:"Positioning", level:"Foundational", timeToResult:"2-4 weeks", summary:"Specializing in one type of business makes you the obvious choice and lets you charge more.", content:"## The counterintuitive truth\n'I do marketing for everyone' is forgettable. 'I make salons fully booked' is magnetic. Niching makes referrals, content, and closing all easier.\n\n## How to pick\n1. Choose a niche you find interesting and that can pay (salons, gyms, restaurants, clinics, contractors).\n2. Learn its language and pain points.\n3. Build samples and case studies specific to it.\n4. Position everything around that niche.\n\n## Tips\n- You can still take other clients \u2014 this is just your headline.\n- A niche makes your outreach 10x more relevant.\n- Once you dominate one niche, add another." },
+  { id:"ads-for-self", title:"Run Ads to Get Clients", category:"Paid Ads", level:"Advanced", timeToResult:"2-4 weeks", summary:"Once you have proof and a budget, paid ads turn dollars into booked calls predictably.", content:"## When you're ready\nUse this after you have a case study or two and a clear offer. Ads amplify what already works.\n\n## The setup\n1. Offer: a free audit or a specific result (\"more customers for your [niche] business\").\n2. Target local business owners by interest and location.\n3. Send them to a simple form or DM.\n4. Use Chelgy's Ad Builder to create the copy and creative.\n\n## Manage it\n- Start small ($5-20/day), test 2-3 angles, scale the winner.\n- Track cost per booked call, not just clicks.\n\n## Tips\n- Your own ads are also proof you can run theirs.\n- Retarget people who engaged but didn't reply." },
+  { id:"reactivation", title:"The Reactivation Play", category:"Retention", level:"Foundational", timeToResult:"1 week", summary:"Your fastest new revenue isn't a new client \u2014 it's re-engaging past or paused ones.", content:"## Why it's the easiest win\nPast clients already trust you. A single friendly message can restart a paying relationship.\n\n## The message\n\"Hey [Name]! Been thinking about [Business] \u2014 I've got a couple of fresh ideas that could bring in more customers this month. Want me to send them over?\"\n\n## Steps\n1. List every past or paused client.\n2. Send a warm, personal check-in with a specific idea.\n3. Offer a small new project or a return to a monthly plan.\n\n## Tips\n- Lead with a fresh idea, not 'want to work again?'\n- Timing matters \u2014 reach out around their busy season." },
+  { id:"upsell", title:"Upsell to Higher Tiers", category:"Retention", level:"Intermediate", timeToResult:"Ongoing", summary:"Grow revenue per client by moving happy clients up from Foundation to Growth to Premium.", content:"## The principle\nIt's far easier to grow an existing client than find a new one. As you deliver results, the case for more services makes itself.\n\n## How to upsell\n1. Deliver a clear win on their current tier.\n2. Show the next opportunity: \"Your social is working \u2014 imagine what ads + email would do.\"\n3. Frame it around results and revenue, not features.\n4. Make the upgrade easy and specific.\n\n## Tips\n- Upsell after a win, never after a miss.\n- Tie the higher tier to a goal they care about.\n- Use a mini case study from their own account as proof." },
+  { id:"before-after", title:"The Before/After Post", category:"Social Selling", level:"Foundational", timeToResult:"1-2 weeks", summary:"Nothing sells marketing like a visible transformation \u2014 make before/afters your signature content.", content:"## Why it converts\nBefore/afters are undeniable proof. They stop the scroll and make prospects imagine their own transformation.\n\n## What to show\n- A tired old post vs. a premium new one.\n- Follower or engagement growth.\n- A dull profile vs. a polished, on-brand one.\n\n## How to make them\n1. Screenshot the 'before'.\n2. Create the 'after' with Chelgy's Image Maker.\n3. Pair them in a single graphic or short video.\n4. Caption with the result and a soft CTA.\n\n## Tips\n- Get client permission, or use your own samples.\n- Post consistently \u2014 this is your proof engine." },
+  { id:"cold-call", title:"Cold Calling Without the Cringe", category:"Direct Outreach", level:"Intermediate", timeToResult:"1-2 weeks", summary:"A warm, respectful phone approach that books meetings \u2014 most competitors won't pick up the phone, so you'll stand out.", content:"## Reframe the call\nYou're not selling \u2014 you're offering to help and show something valuable. That mindset removes the pressure.\n\n## The script\n\"Hi [Name], it's [You] \u2014 I'll be quick. I help [niche] businesses look premium and attract higher-paying customers. I pulled up [Business] and had a couple of specific ideas. Not selling anything today \u2014 could I show you for 10 minutes Thursday?\"\n\n## Steps\n1. Research each business first (one specific observation).\n2. Call at a calm hour.\n3. Book the meeting, don't close on the call.\n4. Leave a strong voicemail if no answer.\n\n## Tips\n- Smile \u2014 it comes through.\n- Keep it under two minutes.\n- Follow up by email with a sample." },
+  { id:"linkedin", title:"LinkedIn for B2B Clients", category:"Social Selling", level:"Intermediate", timeToResult:"3-6 weeks", summary:"For higher-budget B2B and professional-service clients, LinkedIn is a goldmine of decision-makers.", content:"## Who's here\nAgency owners, consultants, clinics, B2B founders \u2014 clients with bigger budgets and longer contracts.\n\n## The approach\n1. Optimize your profile to speak to their outcome, not your title.\n2. Post 2-3x/week: marketing insights, results, short tips.\n3. Connect with target owners and open with value, not a pitch.\n4. Move warm conversations to a call.\n\n## Message opener\n\"Hi [Name], love what [Company] is doing. I help businesses like yours turn their marketing into a steady lead source \u2014 happy to share a quick idea if useful.\"\n\n## Tips\n- Consistency + genuine comments build inbound over time.\n- Share client results (with permission) as proof." },
+  { id:"event-play", title:"The Grand Opening & Event Play", category:"Local & In-Person", level:"Intermediate", timeToResult:"2-4 weeks", summary:"New openings, launches, and local events are businesses at their most ready to spend on marketing.", content:"## Why timing matters\nA business opening or launching NEEDS visibility now and has budget allocated. You're solving an urgent problem.\n\n## How to find them\n- Watch 'coming soon' signs, permits, and local news.\n- Follow local business and chamber-of-commerce pages.\n- Network at markets and community events.\n\n## The pitch\n\"Congrats on the opening! The first 90 days set the tone \u2014 I can make sure your launch actually gets seen. Want a quick plan?\"\n\n## Tips\n- Offer a launch package (social + ads + content).\n- Move fast; these deals close on urgency.\n- One great launch becomes a referral goldmine." },
+  { id:"guarantee", title:"The Guarantee-Backed Offer", category:"Positioning", level:"Advanced", timeToResult:"2-4 weeks", summary:"Remove the client's risk with a bold, specific guarantee and closing gets dramatically easier.", content:"## Why guarantees close\nMost hesitation is fear of wasting money. A guarantee flips the risk onto you \u2014 which signals confidence and makes 'yes' easy.\n\n## Examples\n- \"If you're not happy with the first month, it's free.\"\n- \"I'll deliver [specific result] in 60 days or I keep working free until I do.\"\n\n## How to do it safely\n1. Only guarantee what your process reliably delivers.\n2. Be specific about the terms.\n3. Set clear client responsibilities (access, approvals).\n\n## Tips\n- A guarantee is a sales tool AND a quality standard.\n- Track results so your guarantee stays profitable." },
+  { id:"content-ladder", title:"The Content Ladder", category:"Content & Inbound", level:"Advanced", timeToResult:"1-3 months", summary:"Build a system where free content attracts strangers and naturally leads them to hire you.", content:"## The ladder\n1. **Free content** (tips, reels) attracts attention.\n2. **Lead magnet** (free audit or guide) captures interested people.\n3. **Nurture** (DMs, email) builds trust.\n4. **Offer** converts them into paying clients.\n\n## Build it\n- Post consistent value on one platform.\n- Offer a free audit/guide in your bio and captions.\n- Follow up warmly with everyone who opts in.\n- Present your packages when trust is high.\n\n## Tips\n- Use Chelgy's tools to produce content fast.\n- One strong platform beats being everywhere.\n- The ladder compounds \u2014 inbound grows every month." },
+];
+
 const MARKETER_PRICING = [
   { id:"foundation", name:"FOUNDATION / Local Presence", 
     monthToMonth:800, contract:650, minContract:12,
@@ -3088,7 +3111,9 @@ export default function ChelgyApp() {
   const [subTab, setSubTab] = useState("feed"); // varies per tab
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
-  const [mkLearnCat, setMkLearnCat] = useState(null);
+  const [mkStrat, setMkStrat] = useState(null);
+  const [mkSearch, setMkSearch] = useState("");
+  const [mkCat, setMkCat] = useState("All");
   async function refreshLibrary(){ setLibLoading(true); const items=await loadLibrary(user); setLibraryItems(items); setLibLoading(false); }
 
   // Guided tour
@@ -5140,7 +5165,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         {/* ── TOP SUBCATEGORY BAR (hides on scroll) ── */}
         <div style={{borderTop:"1px solid "+B.stone,height:TOP_H,overflow:"hidden",transition:"height 0.25s ease, opacity 0.25s ease",opacity:topVisible?1:0,maxHeight:topVisible?TOP_H:0}}>
           <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",maxWidth:1400,margin:"0 auto",padding:"0 12px",height:TOP_H,alignItems:"center",gap:2}}>
-            {((isTeamSpace&&marketerStatus==="approved"&&(tab==="profile"||tab==="home"||tab==="learn"||tab==="community"))?[]:(subTabs[tab]||[])).map(([id,label])=>(
+            {((isTeamSpace&&marketerStatus==="approved"&&(tab==="profile"||tab==="home"||tab==="learn"))?[]:(subTabs[tab]||[])).map(([id,label])=>(
               <button key={id} onClick={()=>{setSubTab(id);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"none",borderBottom:subTab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:subTab===id?700:400,color:subTab===id?B.charcoal:B.mid,padding:"0 12px",height:"100%",whiteSpace:"nowrap",flexShrink:0}}>
                 {label}
               </button>
@@ -5155,84 +5180,108 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {/* ═══ HOME ═══ */}
           {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&(
-            <div style={{paddingTop:24,paddingLeft:20,paddingRight:20}}>{renderMarketerHub()}</div>
-          )}
-
-          {/* ═══ MARKETER LEARN ═══ */}
-          {tab==="learn"&&isTeamSpace&&marketerStatus==="approved"&&(
-            <div style={{paddingTop:24,paddingLeft:20,paddingRight:20,maxWidth:1100,margin:"0 auto"}}>
-              <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Marketer Training</h2>
-              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",lineHeight:1.6}}>Everything you need to land clients and run their marketing like a pro. Start with a client playbook, then use the tools and scripts to deliver.</p>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:26}}>
-                <button onClick={()=>{ setMarketerView("pitches"); goTab("profile"); }} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"16px",cursor:"pointer"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase",marginBottom:6}}>Sales Scripts →</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5}}>Ready-to-send outreach DMs, call scripts & ads to win clients.</div>
-                </button>
-                <button onClick={()=>{ setMarketerView("coach"); goTab("profile"); }} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"16px",cursor:"pointer"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase",marginBottom:6}}>AI Coach →</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5}}>Ask anything about landing clients, pricing, or running campaigns.</div>
-                </button>
+            <div style={{paddingTop:28}}>
+              {/* Hero card — featured client-acquisition strategy */}
+              <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:360}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
+                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.15) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)"}} />
+                <div style={{position:"relative"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+                    <div style={{width:24,height:1,background:"rgba(255,255,255,0.5)"}} />
+                    <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.2em",color:"rgba(255,255,255,0.6)",fontWeight:700}}>FEATURED STRATEGY</span>
+                  </div>
+                  <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(24px,4vw,38px)",fontWeight:400,color:"#fff",margin:"0 0 14px",lineHeight:1.2}}>{CLIENT_ACQUISITION[0].title}</h1>
+                  <p style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.6)",margin:"0 0 24px",lineHeight:1.7,maxWidth:520}}>{CLIENT_ACQUISITION[0].summary}</p>
+                  <button onClick={()=>{setMkStrat(CLIENT_ACQUISITION[0]);goTab("learn");}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
+                </div>
               </div>
-
-              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.mid,textTransform:"uppercase",marginBottom:12}}>Client Playbooks — 30-day plans by industry</div>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {SOP_LIBRARY.map(sop=>(
-                  <div key={sop.id} style={{background:B.white,border:"1px solid "+B.stone}}>
-                    <button onClick={()=>setMkLearnCat(c=>c===sop.id?null:sop.id)} style={{width:"100%",textAlign:"left",background:"none",border:"none",padding:"16px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal}}>{sop.name}</span>
-                      <span style={{fontFamily:"sans-serif",fontSize:18,color:B.gold}}>{mkLearnCat===sop.id?"−":"+"}</span>
+              {/* Workspace + quick actions */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2}}>
+                <button onClick={()=>{setMarketerView("home");goTab("profile");}} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Your Workspace</div>
+                  <div style={{fontSize:26,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:4,color:B.charcoal}}>Dashboard</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:14}}>Clients, deliverables, roadmap & pricing</div>
+                  <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.04em",fontWeight:700}}>Open workspace →</span>
+                </button>
+                <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase"}}>Quick Actions</div>
+                  {[["Add a client","clients"],["Sales scripts","pitches"],["Ask the AI Coach","coach"],["Send a client to Chelgy","contracts"]].map(([l,v])=>(
+                    <button key={l} onClick={()=>{setMarketerView(v);goTab("profile");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:B.offwhite,border:"none",padding:"10px 12px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",textAlign:"left",color:B.charcoal,marginBottom:6,letterSpacing:"0.02em"}}>
+                      {l} <Icons.ChevronRight />
                     </button>
-                    {mkLearnCat===sop.id&&(
-                      <div style={{padding:"0 16px 16px"}}>
-                        {(sop.steps||[]).map((ph,i)=>(
-                          <div key={i} style={{marginBottom:14}}>
-                            {ph.phase&&<div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.goldDark,letterSpacing:"0.06em",marginBottom:6,textTransform:"uppercase"}}>{ph.phase}</div>}
-                            {ph.tasks&&<ul style={{margin:0,paddingLeft:18}}>{ph.tasks.map((t,j)=>(<li key={j} style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7}}>{t}</li>))}</ul>}
-                            {ph.tools&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,marginTop:8,lineHeight:1.5}}><strong>Chelgy tools:</strong> {ph.tools}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+              {/* Toolkit promo */}
+              <div style={{background:B.charcoal,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
+                <div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.gold,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
+                  <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Ads · Audits · Voiceover</div>
+                </div>
+                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#111",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+              </div>
+              {/* Latest client-acquisition strategies */}
+              <div style={{paddingTop:20}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase"}}>Ways To Land Clients</div>
+                  <button onClick={()=>{setMkStrat(null);goTab("learn");}} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.gold,letterSpacing:"0.08em"}}>View all</button>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
+                  {CLIENT_ACQUISITION.slice(1,5).map(s=>(
+                    <div key={s.id} onClick={()=>{setMkStrat(s);goTab("learn");}} style={{background:B.white,padding:"18px",cursor:"pointer"}}>
+                      <Tag gold>{s.level}</Tag>
+                      <h3 style={{fontSize:14,fontWeight:400,margin:"10px 0 6px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{s.title}</h3>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>{s.category}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {/* ═══ MARKETER COMMUNITY ═══ */}
-          {tab==="community"&&isTeamSpace&&marketerStatus==="approved"&&(
-            <div style={{paddingTop:24,paddingLeft:20,paddingRight:20,maxWidth:1100,margin:"0 auto"}}>
+          {/* ═══ MARKETER LEARN — Client Acquisition ═══ */}
+          {tab==="learn"&&isTeamSpace&&marketerStatus==="approved"&&!mkStrat&&(
+            <div style={{paddingTop:28,paddingLeft:20,paddingRight:20}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Marketer Community</h2>
-              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",lineHeight:1.6}}>You're part of a team of Chelgy marketers, all building their own client base. Here's where to find clients and how to grow — with more community features on the way.</p>
-
-              <div style={{background:"rgba(255,215,0,0.06)",border:"1px solid "+B.gold,padding:18,marginBottom:20,borderRadius:4}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.goldDark,textTransform:"uppercase",marginBottom:10}}>📍 Where to Find Clients</div>
-                {(() => { const wl=(MARKETER_PITCHES.ads||[]).find(a=>a.id==="where-list"); return wl?(<div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.75,whiteSpace:"pre-line"}}>{wl.body.replace(/^Best places[^\n]*\n/,"")}</div>):null; })()}
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Client Acquisition Playbook</h2>
+              <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.01em"}}>{CLIENT_ACQUISITION.length}+ proven ways to land clients — outreach, referrals, content, partnerships, ads and more.</p>
+              <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+                <input value={mkSearch} onChange={e=>setMkSearch(e.target.value)} placeholder="Search strategies..." style={{flex:1,minWidth:180,padding:"9px 14px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
+                <select value={mkCat} onChange={e=>setMkCat(e.target.value)} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>{["All",...Array.from(new Set(CLIENT_ACQUISITION.map(s=>s.category)))].map(c=><option key={c}>{c}</option>)}</select>
               </div>
-
-              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.mid,textTransform:"uppercase",marginBottom:12}}>Community Playbook</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:12,marginBottom:24}}>
-                {[
-                  ["Show your work","Post your wins — a landed client, a great before/after, a campaign that popped. Proof builds your reputation and inspires the team."],
-                  ["Ask before you're stuck","Pricing a tricky client? Not sure which tool to use? The AI Coach answers instantly — use it early and often."],
-                  ["Stay consistent","The marketers who win aren't the flashiest — they're the most consistent. A little outreach every day beats a burst once a month."],
-                  ["Lift others up","Answer a question, share a script that worked, cheer on a new marketer. A strong team makes everyone more money."],
-                ].map(([t,d],i)=>(
-                  <div key={i} style={{background:B.white,border:"1px solid "+B.stone,padding:"16px"}}>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:15,color:B.charcoal,marginBottom:6}}>{t}</div>
-                    <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6}}>{d}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+                {CLIENT_ACQUISITION.filter(s=>(mkCat==="All"||s.category===mkCat)&&(s.title.toLowerCase().includes(mkSearch.toLowerCase())||s.summary.toLowerCase().includes(mkSearch.toLowerCase()))).map(s=>(
+                  <div key={s.id} onClick={()=>{setMkStrat(s);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.white,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",gap:7,marginBottom:9,flexWrap:"wrap"}}><Tag>{s.category}</Tag><Tag gold>{s.level}</Tag></div>
+                      <h3 style={{fontSize:15,fontWeight:400,margin:"0 0 6px",fontFamily:"Georgia,serif"}}>{s.title}</h3>
+                      <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 6px",lineHeight:1.6}}>{s.summary}</p>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>Time to results: {s.timeToResult}</div>
+                    </div>
+                    <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
                   </div>
                 ))}
               </div>
-
-              <div style={{background:B.offwhite,border:"1px dashed "+B.stone,padding:"20px",textAlign:"center"}}>
-                <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6}}>💬 A live marketer feed to post wins and ask questions is coming soon. For now, use the <button onClick={()=>{ setMarketerView("coach"); goTab("profile"); }} style={{background:"none",border:"none",color:B.goldDark,textDecoration:"underline",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,padding:0}}>AI Coach</button> for instant answers.</div>
+            </div>
+          )}
+          {tab==="learn"&&isTeamSpace&&marketerStatus==="approved"&&mkStrat&&(
+            <div style={{paddingTop:28,paddingLeft:20,paddingRight:20,maxWidth:720,margin:"0 auto"}}>
+              <button onClick={()=>setMkStrat(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:22,padding:0,letterSpacing:"0.1em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Client Acquisition</button>
+              <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap"}}><Tag>{mkStrat.category}</Tag><Tag gold>{mkStrat.level}</Tag></div>
+              <h1 style={{fontSize:"clamp(20px,4vw,32px)",fontWeight:400,margin:"0 0 8px",lineHeight:1.2,fontFamily:"Georgia,serif"}}>{mkStrat.title}</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 20px",lineHeight:1.7}}>{mkStrat.summary}</p>
+              <div style={{display:"inline-flex",gap:24,background:B.offwhite,border:"1px solid "+B.stone,padding:"12px 18px",marginBottom:28}}>
+                <div style={{fontFamily:"sans-serif",fontSize:11}}><span style={{color:B.mid}}>Time to results: </span>{mkStrat.timeToResult}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11}}><span style={{color:B.mid}}>Level: </span>{mkStrat.level}</div>
+              </div>
+              <Rich text={mkStrat.content} />
+              <div style={{marginTop:36,background:B.offwhite,padding:"20px 22px",borderLeft:"2px solid "+B.gold}}>
+                <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:12}}>Want help applying this to a specific client? Ask your AI Coach.</div>
+                <Btn dark small onClick={()=>{ setMarketerView("coach"); goTab("profile"); }}>ASK THE AI COACH</Btn>
               </div>
             </div>
           )}
+
 
           {tab==="home"&&subTab==="feed"&&!(isTeamSpace&&marketerStatus==="approved")&&(
             <div style={{paddingTop:28}}>
@@ -5651,7 +5700,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           )}
 
           {/* ═══ COMMUNITY ═══ */}
-          {!(isTeamSpace&&marketerStatus==="approved")&&tab==="community"&&subTab==="forum"&&!selectedForumPost&&(
+          {tab==="community"&&subTab==="forum"&&!selectedForumPost&&(
             <div style={{paddingTop:28}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}}>
                 <div>
@@ -5710,7 +5759,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {!(isTeamSpace&&marketerStatus==="approved")&&tab==="community"&&subTab==="forum"&&selectedForumPost&&(
+          {tab==="community"&&subTab==="forum"&&selectedForumPost&&(
             <div style={{paddingTop:28}}>
               <button onClick={()=>setSelectedForumPost(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:22,padding:0,letterSpacing:"0.1em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Forum</button>
               <Tag>{selectedForumPost.cat}</Tag>
@@ -5753,7 +5802,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {!(isTeamSpace&&marketerStatus==="approved")&&tab==="community"&&subTab==="events"&&(
+          {tab==="community"&&subTab==="events"&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 22px"}}>Events and Challenges</h2>
@@ -5791,7 +5840,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {!(isTeamSpace&&marketerStatus==="approved")&&tab==="community"&&subTab==="members"&&(
+          {tab==="community"&&subTab==="members"&&(
             <div style={{paddingTop:28}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Member Directory</h2>
@@ -5822,7 +5871,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           )}
 
           {/* AI ADVISOR — accessible from community tab or anywhere */}
-          {!(isTeamSpace&&marketerStatus==="approved")&&tab==="community"&&subTab==="advisor"&&(
+          {tab==="community"&&subTab==="advisor"&&(
             <div style={{paddingTop:28,maxWidth:640}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
