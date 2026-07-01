@@ -2906,7 +2906,8 @@ export default function ChelgyApp() {
   const [dvSubmitting, setDvSubmitting] = useState(false);
   const [dvSubmitMsg, setDvSubmitMsg] = useState("");
   const [sopId, setSopId] = useState(null);  // selected SOP id for detail view
-  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist  const [checklistDone, setChecklistDone] = useState(()=>{ try { const v=JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); return (v && typeof v==="object" && !Array.isArray(v)) ? v : {}; } catch { return {}; } });
+  const [checklistId, setChecklistId] = useState(null); // selected campaign checklist
+  const [checklistDone, setChecklistDone] = useState(()=>{ try { const v=JSON.parse(localStorage.getItem("chelgy_checklist_progress")||"{}"); return (v && typeof v==="object" && !Array.isArray(v)) ? v : {}; } catch { return {}; } });
   const [pitchCopied, setPitchCopied] = useState("");
   const [clientId, setClientId] = useState(null);       // selected client id, or "new"
   const [clientDraft, setClientDraft] = useState(null); // the client being edited
