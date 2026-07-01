@@ -1001,6 +1001,46 @@ function ShowcaseGallery({ tool, items }){
 function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
+  // ── Website Maker state ──
+  const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
+  const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("editorial-porcelain");
+  const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
+  function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
+  async function genWebsite(){
+    if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
+    if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
+    setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
+    try{
+      const schema = '{"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
+      const raw = await callClaude(prompt, 4000);
+      let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+      const first = jsonText.indexOf("{"); const last = jsonText.lastIndexOf("}");
+      if(first>=0&&last>first) jsonText = jsonText.slice(first,last+1);
+      let site;
+      try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
+      if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
+      site.theme = wmTheme; if(site.credit===undefined) site.credit = true;
+      setWmStage("Publishing…");
+      const tok = await freshToken();
+      if(!tok){ throw new Error("Your session expired — please log in again."); }
+      const H = { apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json" };
+      const exRes = await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug&user_id=eq."+user.id+"&limit=1", { headers:H });
+      const ex = await exRes.json().catch(()=>[]);
+      let slug;
+      if(Array.isArray(ex)&&ex.length){
+        slug = ex[0].slug;
+        const up = await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+ex[0].id, { method:"PATCH", headers:{...H, Prefer:"return=minimal"}, body:JSON.stringify({ data:site, theme:wmTheme, published:true, updated_at:new Date().toISOString() }) });
+        if(!up.ok){ throw new Error("Couldn't save your site: "+(await up.text())); }
+      } else {
+        slug = slugify(wmName)+"-"+Math.random().toString(36).slice(2,6);
+        const ins = await fetch(SUPABASE_URL+"/rest/v1/websites", { method:"POST", headers:{...H, Prefer:"return=minimal"}, body:JSON.stringify({ user_id:user.id, slug, theme:wmTheme, data:site, published:true }) });
+        if(!ins.ok){ throw new Error("Couldn't save your site: "+(await ins.text())); }
+      }
+      setWmResult({ slug, url: window.location.origin + "/?site=" + slug });
+    }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong. Please try again."); }
+    setWmLoad(false); setWmStage("");
+  }
   const [showcase, setShowcase] = useState([]);
   useEffect(()=>{ loadShowcaseItems().then(setShowcase); },[]);
   const [cType,setCType]=useState("instagram");
@@ -1207,6 +1247,56 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <Btn dark disabled={cLoad||!cBiz.trim()||!cTopic.trim()} onClick={act(genC)}>{cLoad?"GENERATING...":cType==="seo"?"GENERATE SEO CONTENT":"GENERATE CONTENT"}</Btn>
         </Card>
         <Rb label={cType==="seo"?"SEO-Optimized Content":"Generated Content"} content={cRes} loading={cLoad} />
+      </div>}
+
+      {tool==="website"&&<div>
+        <div style={{marginBottom:22}}>
+          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 4px"}}>Answer a few questions and Chelgy writes your entire luxury website — headline, story, offerings, everything — and publishes it to a shareable link. You can refine it afterward.</p>
+        </div>
+
+        {!wmResult&&<div>
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
+            {[["editorial-porcelain","Editorial / Porcelain",true],["noir","Noir",false],["warm-minimal","Warm Minimal",false],["atelier","Atelier",false],["gallery","Gallery",false]].map(([id,label,active])=>(
+              <button key={id} disabled={!active} onClick={()=>active&&setWmTheme(id)} style={{padding:"10px 15px",border:"1px solid "+(wmTheme===id?B.charcoal:B.stone),background:wmTheme===id?B.charcoal:"#fff",color:!active?"#BBB":(wmTheme===id?"#fff":B.charcoal),fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:active?"pointer":"default"}}>{label}{!active&&<span style={{fontSize:8,marginLeft:6,letterSpacing:"0.1em"}}>SOON</span>}</button>
+            ))}
+          </div>
+
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Business name</div>
+          <input value={wmName} onChange={e=>setWmName(e.target.value)} placeholder="e.g. Maren & Wilde" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18}} />
+
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Describe your business</div>
+          <textarea value={wmDesc} onChange={e=>setWmDesc(e.target.value)} placeholder="What you do, who it's for, and the feeling you want. e.g. Small-batch botanical skincare, handmade in Portland, for people who love a slow ritual." rows={4} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18,resize:"vertical",lineHeight:1.5}} />
+
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>You mainly offer</div>
+          <div style={{display:"flex",gap:8,marginBottom:18}}>
+            {[["services","Services"],["products","Products"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setWmKind(v)} style={{padding:"9px 18px",border:"1px solid "+(wmKind===v?B.charcoal:B.stone),background:wmKind===v?B.charcoal:"#fff",color:wmKind===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Key {wmKind==="products"?"products":"services"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+          <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18,resize:"vertical",lineHeight:1.5}} />
+
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Contact details <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+          <textarea value={wmContact} onChange={e=>setWmContact(e.target.value)} placeholder={"Address, email, hours — whatever you'd like shown.\nWe'll use tasteful placeholders if you skip this."} rows={2} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:22,resize:"vertical",lineHeight:1.5}} />
+
+          <Btn dark disabled={wmLoad} onClick={act(genWebsite)}>{wmLoad?(wmStage||"Working…"):"Build My Website"}</Btn>
+          {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:14,lineHeight:1.5}}>{wmErr}</div>}
+          {wmLoad&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:12}}>This takes about 20–30 seconds — Chelgy is writing every section.</div>}
+        </div>}
+
+        {wmResult&&<div style={{background:B.offwhite,border:"1px solid "+B.gold,padding:"26px"}}>
+          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>Your site is live</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,marginBottom:8}}>{wmName}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:18,wordBreak:"break-all"}}>{wmResult.url}</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <a href={wmResult.url} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
+            <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
+            <button onClick={()=>{ setWmResult(null); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Start Over</button>
+          </div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:18,lineHeight:1.6}}>Real photos and the "just tell the AI to change it" editing are coming next — for now your site uses elegant placeholder imagery.</div>
+        </div>}
       </div>}
 
       {tool==="images"&&<div>
@@ -1669,7 +1759,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Launch Package", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Maker", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -3835,7 +3925,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Maker"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
