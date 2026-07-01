@@ -2039,7 +2039,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                         <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.name||"(unnamed)"}</td>
                         <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.status==="paid"?"Paid":"Pending"}</td>
                         <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",fontWeight:600,color:"#B8955A"}}>${minMo.toLocaleString()}–${maxMo.toLocaleString()}</td>
-                        <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",color:"#999"}}>$50K–$70K</td>
+                        <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",color:"#999"}}>${Math.round(minMo*12/1000)}K–${Math.round(maxMo*12/1000)}K</td>
                       </tr>
                     );
                   })}
@@ -3843,7 +3843,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         })
       });
       if(res.ok){ setDvSubmitMsg("✅ Sent to Chelgy for review."); }
-      else { let d=""; try{ const j=await res.json(); d=j.detail||j.error||""; }catch{} setDvSubmitMsg("Couldn't send: "+(d||("server error "+res.status))); }
+      else { let d=""; try{ const t=await res.text(); try{const j=JSON.parse(t); d=j.detail||j.error||t;}catch{ d=t; } }catch{} d=(d||"").toString().slice(0,300); setDvSubmitMsg("Couldn't send: "+(d||("server error "+res.status))); }
     } catch(e){ setDvSubmitMsg("Couldn't reach the server: "+(e&&e.message||"network error")); }
     setDvSubmitting(false);
   }
@@ -3897,7 +3897,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         loadMarketerContracts();
         setInquiryErr("✅ Sent to Chelgy! We'll review and get them rolling.");
       } else {
-        let d=""; try{ const j=await res.json(); d=j.detail||j.error||""; }catch{}
+        let d=""; try{ const t=await res.text(); try{const j=JSON.parse(t); d=j.detail||j.error||t;}catch{ d=t; } }catch{}
+        d=(d||"").toString().slice(0,300);
         setInquiryErr("Couldn't send: "+(d||("server error "+res.status)));
       }
     } catch(e){

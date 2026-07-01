@@ -7,14 +7,14 @@ export default async function handler(req, res) {
 
   if (!userId) return res.status(401).json({ error: 'Not authenticated' });
 
-  const { createClient } = await import('@supabase/supabase-js');
-  const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!process.env.SUPABASE_URL || !svcKey) {
-    return res.status(500).json({ error: 'Server not configured', detail: 'Missing SUPABASE_URL or service role key in Vercel env' });
-  }
-  const supabase = createClient(process.env.SUPABASE_URL, svcKey);
-
   try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!process.env.SUPABASE_URL || !svcKey) {
+      return res.status(500).json({ error: 'Server not configured', detail: 'Missing SUPABASE_URL or service role key in Vercel env' });
+    }
+    const supabase = createClient(process.env.SUPABASE_URL, svcKey);
+
     // ── Marketer submits a client inquiry ──────────────────────────────
     if (action === 'submit') {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
