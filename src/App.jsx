@@ -148,6 +148,17 @@ async function getMyMember(token, uid){
     return Array.isArray(d) && d[0] ? d[0] : null;
   } catch { return null; }
 }
+function relTime(ts){
+  if(!ts) return "";
+  const diff = Date.now() - ts;
+  if(diff < 0) return "Just now";
+  if(diff < 60000) return "Just now";
+  const m = Math.floor(diff/60000); if(m < 60) return m+"m ago";
+  const h = Math.floor(m/60); if(h < 24) return h+"h ago";
+  const d = Math.floor(h/24); if(d < 7) return d+"d ago";
+  const w = Math.floor(d/7); if(w < 5) return w+"w ago";
+  try { return new Date(ts).toLocaleDateString(); } catch { return d+"d ago"; }
+}
 async function patchMyMember(token, uid, body){
   try {
     const res = await fetch(SUPABASE_URL + "/rest/v1/members?user_id=eq." + uid, {
@@ -506,16 +517,18 @@ async function generateOpenAIImage(prompt, inputImages, aspectRatio, quality) {
   if (!d.image) throw new Error(d.error || "No image");
   return d; // { image, balance }
 }
-async function writeImagePrompt(idea, imageType, target) {
-  const token = await freshToken();
-  const res = await fetch("/api/openai-image", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: JSON.stringify({ mode: "prompt", idea, imageType: imageType || "", target: target || "image" }),
-  });
-  const d = await res.json();
-  if (!d.prompt) throw new Error(d.error || "Couldn't write a prompt.");
-  return d.prompt;
+async function writeImagePrompt(idea, imageType, target, image=null) {
+  const isVideo = target === "video";
+  const instr = isVideo
+    ? "You are an expert at writing prompts for AI video generators. Turn the user's rough idea into ONE vivid, detailed, ready-to-paste video prompt. Cover subject, action, setting, camera movement, lighting, mood and style. Return a single tight paragraph only — no preamble, labels, or quotation marks."
+    : "You are an expert at writing prompts for AI image generators. Turn the user's rough idea into ONE vivid, detailed, ready-to-paste image prompt for "+(imageType||"a marketing image")+". Cover subject, composition, style, lighting, colors and mood. Return a single tight paragraph only — no preamble, labels, or quotation marks.";
+  const seeNote = image ? " A REFERENCE PHOTO is attached — study it and build the prompt around what you see, keeping the real subject/product accurate." : "";
+  const out = await callClaude(instr + seeNote + "\n\nThe idea: " + idea, 1000, false, image);
+  const clean = (out || "").trim();
+  if (!clean || clean === "Unable to generate. Please try again." || clean === "Something went wrong. Please try again.") {
+    throw new Error("Couldn't write a prompt. Try again.");
+  }
+  return clean;
 }
 async function generateGeminiImage(prompt, inputImages, aspectRatio, quality) {
   const token = await freshToken();
@@ -1048,13 +1061,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [auBiz,setAuBiz]=useState("");const [auSite,setAuSite]=useState("");const [auComp,setAuComp]=useState("");const [auRes,setAuRes]=useState("");const [auLoad,setAuLoad]=useState(false);
 
   async function genC(){track("tool_used",{tool:"content_writer",platform:cType});if(!cBiz.trim()||!cTopic.trim())return;setCLoad(true);setCRes("");const p={instagram:"Write a high-performing Instagram caption for a "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a scroll-stopping hook, 3-4 lines of value, a clear CTA, and 5 hashtags.",tiktok:"Write a TikTok video script for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include [Hook] first 2 seconds, [Content] fast-paced, [CTA]. Under 60 seconds.",facebook:"Write a Facebook post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Include a story element, clear value, and a question to drive comments.",linkedin:"Write a LinkedIn post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Bold opening, 3 insights, question ending, 3-4 hashtags.",google:"Write a Google Business post for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 1500 characters. Include keywords, value, and CTA.",yelp:"Write a Yelp update for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Under 500 characters. Authentic, not ad-like.",blog:"Write an SEO blog post intro for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". H1 headline, hook opening, 3 H2 subheadings with content, conclusion with CTA.",email:"Write a marketing email for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Subject line, preheader, body under 200 words, CTA. Label clearly.",ad:"Write 3 ad copy versions for "+cBiz+" about: "+cTopic+". Tone: "+cTone+". Each: headline under 40 chars, description under 90 chars, CTA. Label A, B, C.",seo:"You are an expert SEO copywriter. Write SEO-optimized "+cSeoType+" content for "+cBiz+" about: "+cTopic+". Target keyword(s): "+(cKeyword.trim()||cTopic)+". Tone: "+cTone+". Requirements: (1) Provide an SEO Title under 60 characters that includes the target keyword. (2) Provide a Meta Description under 155 characters that includes the keyword and a reason to click. (3) Write the main content using the keyword naturally within the first 100 words and in at least one heading. (4) Structure it with a clear H1 plus H2/H3 subheadings where it makes sense for this content type. (5) Weave in 5-8 relevant secondary/related keywords naturally — no keyword stuffing. (6) Keep it engaging, original, and easy to scan. (7) End with a clear call to action. Clearly label each section (SEO Title, Meta Description, then the Content)."};setCRes(await callClaude(ctxPre+p[cType]));setCLoad(false);}
-  async function genI(){track("tool_used",{tool:"image_creator",type:iType});if(!iBiz.trim())return;setILoad(true);setIRes(null);setIErr("");const p={logo:"Create a professional "+iStyle+" logo for a business called "+iBiz+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?iExtra:"")+" Clean minimal scalable design. White background.",flyer:"Create a professional marketing flyer for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Content: "+iExtra:"")+" Bold headline and clean layout.",social:"Create a square social media graphic for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Theme: "+iExtra:"")+" Bold eye-catching design.",banner:"Create a wide horizontal banner for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Message: "+iExtra:"")+" Professional quality.",product:"Create a professional product image for "+iBiz+". Style: "+iStyle+". "+(iColors?"Colors: "+iColors+".":" ")+(iExtra?"Details: "+iExtra:"")+" Clean commercial quality.",ad:(iUpload?"Transform this product photo into a stunning, high-end advertising image for "+iBiz+". Keep the actual product accurate and recognizable, but elevate it into a premium, editorial fashion/product campaign shot. ":"Create a stunning, high-end advertising image for "+iBiz+". ")+"Style: "+iStyle+". "+(iColors?"Brand colors: "+iColors+". ":"")+(iExtra?iExtra+". ":"")+"Studio-quality lighting, clean professional composition, polished and magazine-worthy."};let inputImg=null;if(iType==="ad"&&iUpload){const m=iUpload.match(/^data:(.*?);base64,(.*)$/);if(m)inputImg={mimeType:m[1],data:m[2]};}try{setIRes(await generateGeminiImage(p[iType],inputImg));}catch(e){setIErr("Image error: "+(e&&e.message?e.message:"unknown"));}setILoad(false);}
   function onUploadImg(e){const fs=e.target.files;if(!fs||!fs.length)return;const arr=Array.from(fs).slice(0,5);arr.forEach(f=>{const r=new FileReader();r.onload=()=>setIUploads(prev=>prev.length>=5?prev:[...prev,r.result]);r.readAsDataURL(f);});e.target.value="";}
   async function runPromptWriter(){
     if(!ipwIdea.trim()||ipwLoad)return;
     setIpwLoad(true);setIpwErr("");
     try{
-      const out = await writeImagePrompt(ipwIdea.trim(), {ad:"advertising image",logo:"logo",flyer:"flyer",social:"social media graphic",banner:"banner",product:"product photo"}[iType]||"marketing image");
+      const out = await writeImagePrompt(ipwIdea.trim(), {ad:"advertising image",logo:"logo",flyer:"flyer",social:"social media graphic",banner:"banner",product:"product photo"}[iType]||"marketing image", "image", iUploads[0]||null);
       setIExtra(out);
       setIpwIdea("");
     }catch(e){ setIpwErr(e&&e.message?e.message:"Couldn't write a prompt. Try again."); }
@@ -1064,7 +1076,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!vpwIdea.trim()||vpwLoad)return;
     setVpwLoad(true);setVpwErr("");
     try{
-      const out = await writeImagePrompt(vpwIdea.trim(), "short marketing video", "video");
+      const out = await writeImagePrompt(vpwIdea.trim(), "short marketing video", "video", iUploads[0]||null);
       setVTopic(out);
       setVpwIdea("");
     }catch(e){ setVpwErr(e&&e.message?e.message:"Couldn't write a prompt. Try again."); }
@@ -2069,7 +2081,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Service Tiers</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>4</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Foundation, Growth, Premium, Special</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Foundation, Growth, Premium, Business Builder</div>
               </div>
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Monthly Range</div>
@@ -2079,7 +2091,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>One-Time Projects</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$5,000</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Chelgy Special (build from scratch)</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Chelgy Business Builder (build from scratch)</div>
               </div>
             </div>
 
@@ -2097,7 +2109,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <tbody>
                   {membersList.filter(m=>m.marketer_status==="approved").map((m,i)=>{
                     const minMo = 650 + 1200 + 3000; // Foundation min + Growth min + Premium min
-                    const maxMo = 800 + 1500 + 3500; // Month-to-month max + Special
+                    const maxMo = 800 + 1500 + 3500; // Month-to-month max + Business Builder
                     return (
                       <tr key={i} style={{borderBottom:"1px solid #E8E6E1"}}>
                         <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.name||"(unnamed)"}</td>
@@ -2933,7 +2945,7 @@ const MARKETER_PRICING = [
     marketRevenue:{monthToMonth:"$3,500/mo", contract:"$3,000/mo × 12"},
     note:"* Ad spend ($1,000-3,000+/month) is separate, billed directly to client"
   },
-  { id:"special", name:"CHELGY SPECIAL / Business Builder",
+  { id:"special", name:"BUSINESS BUILDER / Done-For-You",
     projectPrice:5000, paymentModel:"One-time project",
     description:"Build a complete business from scratch — brand, website, marketing foundation, and launch strategy.",
     includes:[
@@ -3379,10 +3391,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   async function loadServerNotifications(){
     const tok = await freshToken(); if(!tok||!user) return;
     try {
-      const res = await fetch(SUPABASE_URL+"/rest/v1/notifications?select=id,text&read=eq.false&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const res = await fetch(SUPABASE_URL+"/rest/v1/notifications?select=id,text,created_at&read=eq.false&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
       const rows = await res.json();
       if(Array.isArray(rows)&&rows.length){
-        rows.slice(0,10).reverse().forEach(n=>pushNotif(n.text));
+        rows.slice(0,10).reverse().forEach(n=>pushNotif(n.text, n.created_at?new Date(n.created_at).getTime():undefined));
         const ids = rows.map(n=>n.id).join(",");
         await fetch(SUPABASE_URL+"/rest/v1/notifications?id=in.("+ids+")", { method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ read:true }) });
       }
@@ -3422,12 +3434,18 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   // Member state
   const [myPoints, setMyPoints] = useState(()=>lsGetNum("chelgy_points", 0));
-  const [myName, setMyName] = useState("You");
+  const [myName, setMyName] = useState(()=>{ try { return localStorage.getItem("chelgy_name")||"You"; } catch { return "You"; } });
   const [myBusiness, setMyBusiness] = useState(()=>{ try { return localStorage.getItem("chelgy_business")||""; } catch { return ""; } });
   const [myBio, setMyBio] = useState(()=>{ try { return localStorage.getItem("chelgy_bio")||""; } catch { return ""; } });
   const [completedChallenges, setCompletedChallenges] = useState(()=>lsGetJSON("chelgy_completed", []));
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({});
+  const [acctName, setAcctName] = useState(null);
+  const [acctEmail, setAcctEmail] = useState("");
+  const [acctPass, setAcctPass] = useState("");
+  const [acctPass2, setAcctPass2] = useState("");
+  const [acctMsg, setAcctMsg] = useState("");
+  const [acctBusy, setAcctBusy] = useState(false);
 
   // Notifications
   const [notifications, setNotifications] = useState(()=>lsGetJSON("chelgy_notifs", []));
@@ -3693,7 +3711,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   },[credits, myPoints, completedChallenges, upvoted, rsvpd, user]);
 
   // ─── Add a notification (newest first) and persist it ────────────────────────
-  const pushNotif = (text) => setNotifications(ns => [{ id: Date.now()+Math.floor(Math.random()*1000), text, time:"Just now", read:false }, ...ns].slice(0,30));
+  const pushNotif = (text, createdAt) => setNotifications(ns => [{ id: Date.now()+Math.floor(Math.random()*1000), text, createdAt: createdAt || Date.now(), read:false }, ...ns].slice(0,30));
 
   // ─── On login: pull authoritative credits/points/profile from the server ─────
   useEffect(()=>{
@@ -3714,6 +3732,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.marketer_info && typeof m.marketer_info === "object"){ setMkGoals(g=>({ ...g, location: g.location||m.marketer_info.location||"", experience: g.experience||m.marketer_info.experience||"" })); }
       if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
+      { const nm=(m.name && String(m.name).trim())?m.name:((m.intake && m.intake.name)?String(m.intake.name):""); if(nm){ setMyName(nm); try{ localStorage.setItem("chelgy_name", nm); }catch(e){} } }
       if(m.business){ setMyBusiness(m.business); }
       if(m.bio){ setMyBio(m.bio); }
       if(m.progress){
@@ -3863,6 +3882,32 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setApplying(false);
   };
 
+  function persistName(nm){
+    const clean=(nm||"").trim(); if(!clean){ setAcctMsg("Name can't be blank."); return; }
+    setMyName(clean);
+    const ni={...(intake||{}),name:clean};
+    setIntake(ni);
+    try{ localStorage.setItem("chelgy_name",clean); localStorage.setItem("chelgy_intake",JSON.stringify(ni)); }catch(e){}
+    if(user&&user.access_token&&user.id) patchMyMember(user.access_token,user.id,{name:clean,intake:ni});
+    setAcctName(null); setAcctMsg("✓ Name saved.");
+  }
+  async function saveAccount(kind){
+    setAcctMsg("");
+    if(kind==="email"){ if(!acctEmail.trim()||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(acctEmail.trim())){ setAcctMsg("Enter a valid email address."); return; } }
+    if(kind==="password"){ if((acctPass||"").length<6){ setAcctMsg("Password must be at least 6 characters."); return; } if(acctPass!==acctPass2){ setAcctMsg("The two passwords don't match."); return; } }
+    setAcctBusy(true);
+    try{
+      const tok=await freshToken();
+      if(!tok){ setAcctMsg("Your session expired — please log out and back in, then try again."); setAcctBusy(false); return; }
+      const body = kind==="email" ? { email: acctEmail.trim() } : { password: acctPass };
+      const res=await fetch(SUPABASE_URL+"/auth/v1/user",{ method:"PUT", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json" }, body:JSON.stringify(body) });
+      const d=await res.json().catch(()=>({}));
+      if(!res.ok){ setAcctMsg((d&&(d.msg||d.error_description||d.error||d.message))||"Couldn't update — please try again."); setAcctBusy(false); return; }
+      if(kind==="email"){ setAcctMsg("✓ We sent a confirmation link to "+acctEmail.trim()+". Your email changes once you click it (check spam too)."); setAcctEmail(""); }
+      else { setAcctMsg("✓ Password updated."); setAcctPass(""); setAcctPass2(""); }
+    }catch(e){ setAcctMsg("Connection error — please try again."); }
+    setAcctBusy(false);
+  }
   async function saveMarketerData(next){
     setMarketerData(next);
     try{ const tok=await freshToken(); if(tok&&user&&user.id) patchMyMember(tok, user.id, { marketer_data: next }); }catch{}
@@ -3885,7 +3930,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const msgs = [...mkCoachMsgs, { role:"user", content:text }];
     setMkCoachMsgs(msgs); setMkCoachInput(""); setMkCoachLoading(true);
     const g = marketerData.goals || mkGoals;
-    const ctx = "You are the Chelgy AI Marketing Coach — a warm, encouraging, and genuinely supportive mentor for an independent contractor marketer working under the Chelgy agency. They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Some context — business types they're interested in (just a starting point, NOT a limit): "+(g.niches||"open to any business")+"; where they're based (only relevant for optional in-person outreach): "+(g.location||"flexible")+"; income goal: "+(g.income||"n/a")+"; experience: "+(g.experience||"beginner")+". IMPORTANT: This marketer is NOT limited to any niche or city — they can market for ANY business, ANY industry, ANYWHERE in the world, since most of the work is online. Their city is only a bonus for optional in-person outreach. Always encourage them to reach out to any business anywhere they think could use marketing help; the fewer limits, the more income. Coach them with warmth and encouragement while still pushing them to be ambitious and land as many clients as they can — never cap their potential. Keep replies tight, friendly, and actionable. When it comes to outreach, do NOT prescribe a rigid number of contacts per day; instead encourage as much genuine, personalized outreach as they can do safely — warn them to vary their messages and avoid spammy copy-paste blasts so their accounts don't get flagged or banned, and gently set the expectation that most people won't respond (that's normal — it's a numbers game, and consistency wins). IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), celebrate it warmly, then immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step.";
+    const priceLine = MARKETER_PRICING.map(t=>{ const nm=(t.name||"").split(" / ")[0]; return t.projectPrice?(nm+": $"+t.projectPrice.toLocaleString()+" one-time"):(nm+": $"+t.monthToMonth+"/mo month-to-month or $"+t.contract+"/mo on a "+(t.minContract||12)+"-month agreement"); }).join("; ");
+    const structureNote = " HOW CHELGY WORKS (use this whenever advising on pricing, what to charge, or income potential — never invent different numbers): The marketer pays a $100/month Chelgy membership and works UNDER the Chelgy agency. The CLIENT pays Chelgy for the package, and Chelgy pays the marketer their 50% share — a 50/50 split of the service fee. Ad spend is always separate: clients pay Facebook or Google directly, and the marketer can add a management fee on top. Current Chelgy packages and rates: "+priceLine+". The marketer keeps 50% of these fees, so quote clients these package prices and remember your own take-home is half.";
+    const ctx = "You are the Chelgy AI Marketing Coach — a warm, encouraging, and genuinely supportive mentor for an independent contractor marketer working under the Chelgy agency. They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Some context — business types they're interested in (just a starting point, NOT a limit): "+(g.niches||"open to any business")+"; where they're based (only relevant for optional in-person outreach): "+(g.location||"flexible")+"; income goal: "+(g.income||"n/a")+"; experience: "+(g.experience||"beginner")+". IMPORTANT: This marketer is NOT limited to any niche or city — they can market for ANY business, ANY industry, ANYWHERE in the world, since most of the work is online. Their city is only a bonus for optional in-person outreach. Always encourage them to reach out to any business anywhere they think could use marketing help; the fewer limits, the more income. Coach them with warmth and encouragement while still pushing them to be ambitious and land as many clients as they can — never cap their potential. Keep replies tight, friendly, and actionable. When it comes to outreach, do NOT prescribe a rigid number of contacts per day; instead encourage as much genuine, personalized outreach as they can do safely — warn them to vary their messages and avoid spammy copy-paste blasts so their accounts don't get flagged or banned, and gently set the expectation that most people won't respond (that's normal — it's a numbers game, and consistency wins). IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), celebrate it warmly, then immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step." + structureNote;
     const convo = msgs.map(m=>(m.role==="user"?"Marketer: ":"Coach: ")+m.content).join("\n\n");
     let reply = "";
     try { reply = await callClaude(ctx+"\n\n"+convo+"\n\nCoach:", 2000, false); } catch(e){ reply = ""; }
@@ -4201,7 +4248,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Complete takeover, dedicated</div>
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Chelgy Special</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Chelgy Business Builder</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$5,000 one-time</div>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Build business from scratch</div>
               </div>
@@ -4214,7 +4261,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {[["niches","Any kinds of businesses you'd enjoy working with? (optional)","e.g. restaurants, gyms, salons — or leave blank to keep it wide open","input"],["location","Where are you based?","e.g. Tampa, FL — for in-person outreach (you can market for businesses anywhere!)","input"],["income","Monthly income goal","e.g. $3,000/mo","input"],["hours","Hours you can put in per week","e.g. 15 hours","input"],["experience","Your experience level","Beginner is totally fine — we teach you","input"]].map(([k,label,ph])=>(
               <div key={k} style={{marginBottom:14}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
-                <input value={mkGoals[k]} onChange={e=>setMkGoals(g=>({...g,[k]:e.target.value}))} placeholder={ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                <input value={mkGoals[k]} onChange={e=>setMkGoals(g=>({...g,[k]:e.target.value}))} onBlur={()=>{ if(user&&user.id) saveMarketerData({...marketerData, goals:mkGoals}); }} placeholder={ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
               </div>
             ))}
             {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
@@ -4600,7 +4647,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <option value="foundation">Foundation ($650–$800/mo)</option>
                     <option value="growth">Growth ($1,200–$1,500/mo)</option>
                     <option value="premium">Premium ($3,000–$3,500/mo)</option>
-                    <option value="special">Chelgy Special ($5,000 one-time)</option>
+                    <option value="special">Chelgy Business Builder ($5,000 one-time)</option>
                   </select>
                 </div>
                 <div>
@@ -4714,7 +4761,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </button>
             <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Special packages.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Business Builder packages.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>View →</span>
             </button>
             <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
@@ -5163,7 +5210,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {notifications.map(n=>(
                     <div key={n.id} onClick={()=>setNotifications(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} style={{padding:"11px 16px",borderBottom:"1px solid "+B.stone,background:n.read?B.white:B.goldLight,cursor:"pointer"}}>
                       <div style={{fontFamily:"sans-serif",fontSize:12,marginBottom:2}}>{n.text}</div>
-                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{n.time}</div>
+                      <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{n.createdAt?relTime(n.createdAt):(n.time||"Just now")}</div>
                     </div>
                   ))}
                 </div>
@@ -6030,7 +6077,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <input value={profileDraft.goal||""} onChange={e=>setProfileDraft(d=>({...d,goal:e.target.value}))} placeholder="Current goal" style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
                       <textarea value={profileDraft.bio||""} onChange={e=>setProfileDraft(d=>({...d,bio:e.target.value}))} placeholder="Short bio..." rows={3} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",background:B.white}} />
                       <div style={{display:"flex",gap:9}}>
-                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);const ni={...(intake||{}),what:profileDraft.business,field:profileDraft.industry,goal:profileDraft.goal,hasBiz:profileDraft.stage};setIntake(ni);try{localStorage.setItem("chelgy_intake",JSON.stringify(ni));}catch(e){}setEditingProfile(false);if(user&&user.access_token&&user.id)patchMyMember(user.access_token,user.id,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio,intake:ni});}}>SAVE</Btn>
+                        <Btn dark small onClick={()=>{setMyName(profileDraft.name);setMyBusiness(profileDraft.business);setMyBio(profileDraft.bio);const ni={...(intake||{}),what:profileDraft.business,field:profileDraft.industry,goal:profileDraft.goal,hasBiz:profileDraft.stage,name:profileDraft.name,bio:profileDraft.bio};setIntake(ni);try{localStorage.setItem("chelgy_intake",JSON.stringify(ni));localStorage.setItem("chelgy_name",profileDraft.name||"");localStorage.setItem("chelgy_business",profileDraft.business||"");localStorage.setItem("chelgy_bio",profileDraft.bio||"");}catch(e){}setEditingProfile(false);if(user&&user.access_token&&user.id)patchMyMember(user.access_token,user.id,{name:profileDraft.name,business:profileDraft.business,bio:profileDraft.bio,intake:ni});}}>SAVE</Btn>
                         <button onClick={()=>setEditingProfile(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                       </div>
                     </div>
@@ -6064,6 +6111,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <span onClick={()=>setLegalView("privacy")} style={{cursor:"pointer",textDecoration:"underline"}}>Privacy Policy</span>
                     </div>
                   </div>
+                </div>
+                <div style={{background:B.white,padding:"26px"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Account &amp; Login</div>
+
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Display Name</div>
+                  <div style={{display:"flex",gap:8,marginBottom:22}}>
+                    <input value={acctName!==null?acctName:myName} onChange={e=>setAcctName(e.target.value)} placeholder="Your name" style={{flex:1,padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box"}} />
+                    <Btn dark small onClick={()=>persistName(acctName!==null?acctName:myName)}>Save</Btn>
+                  </div>
+
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Email</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:8}}>Current: {(user&&user.email)||"—"}</div>
+                  <input value={acctEmail} onChange={e=>setAcctEmail(e.target.value)} placeholder="New email address" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
+                  <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("email"); }}>{acctBusy?"Working…":"Update Email"}</Btn>
+
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,margin:"22px 0 6px"}}>Password</div>
+                  <input type="password" value={acctPass} onChange={e=>setAcctPass(e.target.value)} placeholder="New password (min 6 characters)" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
+                  <input type="password" value={acctPass2} onChange={e=>setAcctPass2(e.target.value)} placeholder="Confirm new password" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
+                  <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("password"); }}>{acctBusy?"Working…":"Update Password"}</Btn>
+
+                  {acctMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:acctMsg.charAt(0)==="✓"?"#2E7D32":B.red,marginTop:14,lineHeight:1.5}}>{acctMsg}</div>}
                 </div>
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Need Help?</div>
