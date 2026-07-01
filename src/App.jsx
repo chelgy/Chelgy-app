@@ -2009,7 +2009,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               </div>
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Monthly Range</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$500–$3.5K</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$650–$3.5K</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Contract to month-to-month</div>
               </div>
               <div style={{background:"#fff",padding:"22px"}}>
@@ -2032,7 +2032,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 </thead>
                 <tbody>
                   {membersList.filter(m=>m.marketer_status==="approved").map((m,i)=>{
-                    const minMo = 500 + 1200 + 2500; // Foundation min + Growth min + Premium min
+                    const minMo = 650 + 1200 + 3000; // Foundation min + Growth min + Premium min
                     const maxMo = 800 + 1500 + 3500; // Month-to-month max + Special
                     return (
                       <tr key={i} style={{borderBottom:"1px solid #E8E6E1"}}>
@@ -4086,7 +4086,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
                 <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Foundation</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$500–$800/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$650–$800/mo</div>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Social, SEO basics, consulting</div>
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
@@ -4096,7 +4096,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
                 <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Premium</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$2,500–$3,500/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$3,000–$3,500/mo</div>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Complete takeover, dedicated</div>
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
@@ -4496,9 +4496,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div>
                   <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Service Tier *</label>
                   <select value={inquiryForm.serviceTier} onChange={e=>setInquiryForm(f=>({...f,serviceTier:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}}>
-                    <option value="foundation">Foundation ($500–$800/mo)</option>
+                    <option value="foundation">Foundation ($650–$800/mo)</option>
                     <option value="growth">Growth ($1,200–$1,500/mo)</option>
-                    <option value="premium">Premium ($2,500–$3,500/mo)</option>
+                    <option value="premium">Premium ($3,000–$3,500/mo)</option>
                     <option value="special">Chelgy Special ($5,000 one-time)</option>
                   </select>
                 </div>
