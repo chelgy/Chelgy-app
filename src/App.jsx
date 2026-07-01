@@ -3103,9 +3103,9 @@ const SITE_CSS_EDITORIAL = `
 #cg-site .editorial p.big{font-family:var(--display);color:#F4EEE3;font-weight:400;font-size:clamp(1.8rem,4.6vw,3.6rem);line-height:1.2;max-width:20ch;margin:16px auto 0;}
 #cg-site .editorial p.big em{color:#E7D3BE;}
 #cg-site .quote{padding:clamp(100px,16vh,200px) 0;text-align:center;}
-#cg-site .quote blockquote{margin:0 auto;max-width:22ch;}
+#cg-site .quote blockquote{margin:0 auto;max-width:36ch;}
 #cg-site .quote .mark{font-family:var(--display);font-size:3rem;color:var(--accent);line-height:0.6;display:block;margin-bottom:18px;}
-#cg-site .quote p{font-family:var(--display);font-weight:400;font-style:italic;font-size:clamp(1.7rem,4vw,3rem);line-height:1.28;}
+#cg-site .quote p{font-family:var(--display);font-weight:400;font-style:italic;font-size:clamp(1.35rem,3vw,2.3rem);line-height:1.36;}
 #cg-site .quote cite{display:block;margin-top:28px;font-family:var(--body);font-style:normal;font-size:0.72rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid);}
 #cg-site .contact{background:var(--ink);color:#EDE6D9;}
 #cg-site .contact .wrap{padding-top:clamp(80px,12vh,150px);padding-bottom:clamp(80px,12vh,150px);}
@@ -3162,7 +3162,7 @@ function SiteRender({ site }) {
             {!(sec.image&&sec.image.url)&&<span className="hero-cap">Hero imagery</span>}
             <div className="wrap hero-inner">
               {sec.eyebrow&&<div className="eyebrow hero-eye">{sec.eyebrow}</div>}
-              <h1>{sec.headline}{sec.headlineEm&&<em>{sec.headlineEm}</em>}</h1>
+              <h1>{sec.headline}{sec.headlineEm&&<em>{" "+sec.headlineEm}</em>}</h1>
               {sec.sub&&<p className="lede">{sec.sub}</p>}
               {sec.cta&&<a className="btn-line" href={sec.cta.href||"#"}>{sec.cta.label} <span>→</span></a>}
             </div>
@@ -3173,7 +3173,7 @@ function SiteRender({ site }) {
             <div className="wrap intro-grid">
               <div className="col-l">
                 {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
-                <h2>{sec.heading}{sec.headingEm&&<em>{sec.headingEm}</em>}</h2>
+                <h2>{sec.heading}{sec.headingEm&&<em>{" "+sec.headingEm}</em>}</h2>
               </div>
               <div className="col-r">
                 <div className="rule" style={{marginBottom:22}}></div>
@@ -3208,7 +3208,7 @@ function SiteRender({ site }) {
             <div className="ed-bg" style={bg(sec.image)}></div>
             <div className="wrap ed-content">
               {sec.eyebrow&&<div className="eyebrow ed-eye">{sec.eyebrow}</div>}
-              <p className="big">{sec.line}{sec.lineEm&&<em>{sec.lineEm}</em>}</p>
+              <p className="big">{sec.line}{sec.lineEm&&<em>{" "+sec.lineEm}</em>}</p>
             </div>
           </section>
         );
@@ -3226,7 +3226,7 @@ function SiteRender({ site }) {
             <div className="wrap contact-grid">
               <div className="col-l">
                 {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
-                <h2>{sec.heading}{sec.headingEm&&<em>{sec.headingEm}</em>}</h2>
+                <h2>{sec.heading}{sec.headingEm&&<em>{" "+sec.headingEm}</em>}</h2>
               </div>
               <div className="col-r">
                 {(sec.details||[]).map((d,j)=><span className="line" key={j}>{d.v}</span>)}
@@ -5994,7 +5994,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Maker",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
