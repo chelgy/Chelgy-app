@@ -8,7 +8,11 @@ export default async function handler(req, res) {
   if (!userId) return res.status(401).json({ error: 'Not authenticated' });
 
   const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY);
+  const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!process.env.SUPABASE_URL || !svcKey) {
+    return res.status(500).json({ error: 'Server not configured', detail: 'Missing SUPABASE_URL or service role key in Vercel env' });
+  }
+  const supabase = createClient(process.env.SUPABASE_URL, svcKey);
 
   try {
     // ── Marketer submits a client inquiry ──────────────────────────────
@@ -150,6 +154,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Unknown action' });
   } catch (err) {
     console.error('contracts endpoint error:', err);
-    return res.status(500).json({ error: 'Request failed' });
+    return res.status(500).json({ error: 'Request failed', detail: (err && (err.message || err.hint || err.code)) || String(err) });
   }
 }

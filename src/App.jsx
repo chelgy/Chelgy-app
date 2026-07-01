@@ -3814,8 +3814,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         })
       });
       if(res.ok){ setDvSubmitMsg("✅ Sent to Chelgy for review."); }
-      else { setDvSubmitMsg("Couldn't send just now — try again."); }
-    } catch(e){ setDvSubmitMsg("Couldn't send just now — try again."); }
+      else { let d=""; try{ const j=await res.json(); d=j.detail||j.error||""; }catch{} setDvSubmitMsg("Couldn't send: "+(d||("server error "+res.status))); }
+    } catch(e){ setDvSubmitMsg("Couldn't reach the server: "+(e&&e.message||"network error")); }
     setDvSubmitting(false);
   }
 
@@ -3868,10 +3868,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         loadMarketerContracts();
         setInquiryErr("✅ Sent to Chelgy! We'll review and get them rolling.");
       } else {
-        setInquiryErr("Couldn't send just now — please try again.");
+        let d=""; try{ const j=await res.json(); d=j.detail||j.error||""; }catch{}
+        setInquiryErr("Couldn't send: "+(d||("server error "+res.status)));
       }
     } catch(e){
-      setInquiryErr("Couldn't reach the server. Check your connection and try again.");
+      setInquiryErr("Couldn't reach the server: "+(e&&e.message||"network error"));
     } finally {
       setInquiryLoading(false);
     }
@@ -5044,7 +5045,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         {/* ── TOP SUBCATEGORY BAR (hides on scroll) ── */}
         <div style={{borderTop:"1px solid "+B.stone,height:TOP_H,overflow:"hidden",transition:"height 0.25s ease, opacity 0.25s ease",opacity:topVisible?1:0,maxHeight:topVisible?TOP_H:0}}>
           <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",maxWidth:1400,margin:"0 auto",padding:"0 12px",height:TOP_H,alignItems:"center",gap:2}}>
-            {((isTeamSpace&&marketerStatus==="approved"&&tab==="profile")?[]:(subTabs[tab]||[])).map(([id,label])=>(
+            {((isTeamSpace&&marketerStatus==="approved"&&(tab==="profile"||tab==="home"))?[]:(subTabs[tab]||[])).map(([id,label])=>(
               <button key={id} onClick={()=>{setSubTab(id);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"none",borderBottom:subTab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:subTab===id?700:400,color:subTab===id?B.charcoal:B.mid,padding:"0 12px",height:"100%",whiteSpace:"nowrap",flexShrink:0}}>
                 {label}
               </button>
@@ -5058,7 +5059,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
 
           {/* ═══ HOME ═══ */}
-          {tab==="home"&&subTab==="feed"&&(
+          {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&(
+            <div style={{paddingTop:24,paddingLeft:20,paddingRight:20}}>{renderMarketerHub()}</div>
+          )}
+          {tab==="home"&&subTab==="feed"&&!(isTeamSpace&&marketerStatus==="approved")&&(
             <div style={{paddingTop:28}}>
               {/* Hero card */}
               <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
@@ -5119,7 +5123,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {tab==="home"&&subTab==="newsletter"&&(
+          {tab==="home"&&subTab==="newsletter"&&!(isTeamSpace&&marketerStatus==="approved")&&(
             <div style={{paddingTop:28,maxWidth:520}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Stay in the loop</h2>
@@ -5848,7 +5852,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {id:"community",label:"COMMUNITY",Icon:Icons.Community},
           {id:"profile",label:"PROFILE",Icon:Icons.Profile},
         ].map(({id,label,Icon})=>(
-          <button key={id} ref={el=>{navRefs.current[id]=el;}} onClick={()=>{ if(id==="home" && isTeamSpace && marketerStatus==="approved"){ setMarketerView("home"); goTab("profile"); } else { goTab(id); } }} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:tab===id?B.charcoal:B.mid,borderTop:tab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",paddingTop:2}}>
+          <button key={id} ref={el=>{navRefs.current[id]=el;}} onClick={()=>{ if(id==="home" && isTeamSpace && marketerStatus==="approved"){ setMarketerView("home"); goTab("home"); } else { goTab(id); } }} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:tab===id?B.charcoal:B.mid,borderTop:tab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",paddingTop:2}}>
             <Icon />
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.1em",fontWeight:tab===id?700:400}}>{label}</span>
           </button>
