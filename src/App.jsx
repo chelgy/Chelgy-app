@@ -483,11 +483,11 @@ const BIZ = [
 function getLevel(pts) { return [...LEVELS].reverse().find(l => pts >= l.min) || LEVELS[0]; }
 function nextLevel(pts) { return LEVELS.find(l => l.min > pts); }
 
-async function callClaude(prompt, maxTokens, webSearch=false) {
+async function callClaude(prompt, maxTokens, webSearch=false, image=null) {
   try {
     const res = await fetch("/api/claude", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ prompt, max_tokens: maxTokens, web_search: webSearch })
+      body:JSON.stringify({ prompt, max_tokens: maxTokens, web_search: webSearch, ...(image?{image}:{}) })
     });
     const d = await res.json();
     return d.text || "Unable to generate. Please try again.";
@@ -1093,7 +1093,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){setIErr(e&&e.message?("Image error: "+e.message):"Couldn't create the image. Please try again.");}
     setILoad(false);
   }
-  async function genV(){if(!vTopic.trim())return;setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+vTopic+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word.",storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+vTopic+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay.",prompt:"Generate optimized AI video prompts for: "+vTopic+" on "+vPlat+". Goal: "+vGoal+". Specific prompts for HeyGen, Runway ML, Kling AI, and Sora."};setVRes(await callClaude(ctxPre+p[vType]));setVLoad(false);}
+  async function genV(){if(!vTopic.trim()&&!vVidPhotos.length)return;const refImg=vVidPhotos[0]||null;const seeNote=refImg?" A REFERENCE PHOTO is attached — study it closely (the subject, product, setting, styling, lighting, mood and colors) and make the output match and build on what you see.":"";setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+(vTopic||"the attached reference")+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word."+seeNote,storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+(vTopic||"the attached reference")+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay."+seeNote,prompt:"You are an expert at writing prompts for AI video generators. Write 3-4 detailed, ready-to-paste UGC-style video prompts for: "+(vTopic||"the attached reference")+" on "+vPlat+". Goal: "+vGoal+". Each prompt should be vivid and specific about the subject, action, camera, lighting, setting, mood and a natural authentic user-generated-content feel. Number them and keep each self-contained."+seeNote};setVRes(await callClaude(ctxPre+p[vType],undefined,false,refImg));setVLoad(false);}
   async function genVid(){
     if(!vTopic.trim())return;
     track("tool_used",{tool:"video_generator",mode:vVidPhotos.length?"image":"text"});
@@ -1265,19 +1265,19 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>
           </div>}
           <Fl label={vType==="generate"?"Describe the video you want":"Video Topic / Goal"}><St value={vTopic} onChange={e=>setVTopic(e.target.value)} placeholder={vType==="generate"?"e.g. Slowly rotate the product with soft studio lighting and a clean background...":"e.g. Why your business needs email marketing..."} rows={3} /></Fl>
-          {vType==="generate"&&<div style={{marginBottom:14}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Product Reference Photos (optional · up to 3)</div>
+          {(vType==="generate"||vType==="prompt"||vType==="script"||vType==="storyboard")&&<div style={{marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{vType==="generate"?"Product Reference Photos (optional · up to 3)":"Reference Photo (optional — Claude writes from it)"}</div>
             {vVidPhotos.length>0&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:vVidPhotos.length<3?10:0}}>
               {vVidPhotos.map((src,i)=>(
                 <div key={i} style={{position:"relative",border:"1px solid "+(i===0?B.gold:B.stone),padding:3,background:B.white}}>
                   <img src={src} alt={"Product "+(i+1)} style={{width:66,height:66,objectFit:"cover",display:"block"}} />
-                  {i===0&&<span style={{position:"absolute",bottom:3,left:3,right:3,background:"rgba(0,0,0,0.6)",color:"#fff",fontSize:8,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.06em",textAlign:"center",padding:"1px 0",textTransform:"uppercase"}}>Featured</span>}
+                  {i===0&&vType==="generate"&&<span style={{position:"absolute",bottom:3,left:3,right:3,background:"rgba(0,0,0,0.6)",color:"#fff",fontSize:8,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.06em",textAlign:"center",padding:"1px 0",textTransform:"uppercase"}}>Featured</span>}
                   <button onClick={()=>setVVidPhotos(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
                 </div>
               ))}
             </div>}
-            {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{vVidPhotos.length===0?"Tap to upload a product photo — the AI will animate it into a video":"Add another photo"}<input type="file" accept="image/*" multiple onChange={onUploadVid} style={{display:"none"}} /></label>}
-            {vVidPhotos.length>1&&<div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>The <strong>Featured</strong> photo is the one brought to life in the video. Remove it to feature the next one.</div>}
+            {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{vVidPhotos.length===0?(vType==="generate"?"Tap to upload a product photo — the AI will animate it into a video":"Tap to upload a reference photo — Claude will study it and write your prompt from what it sees"):"Add another photo"}<input type="file" accept="image/*" multiple onChange={onUploadVid} style={{display:"none"}} /></label>}
+            {vType==="generate"&&vVidPhotos.length>1&&<div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>The <strong>Featured</strong> photo is the one brought to life in the video. Remove it to feature the next one.</div>}
           </div>}
           {vType==="generate"&&<div style={{marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Video Style (optional)</div>
@@ -1301,7 +1301,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {vType==="generate"&&vQuality==="veo"&&<label style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.mid,cursor:"pointer",lineHeight:1.5}}><input type="checkbox" checked={vAudio} onChange={e=>setVAudio(e.target.checked)} style={{width:16,height:16,marginTop:1,accentColor:B.gold,flexShrink:0}} /><span>Generate synchronized audio — dialogue, music & sound effects (Veo's signature feature). Turn off to halve the credit cost for a silent clip.</span></label>}
           {vType==="generate"
             ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{if(useCredits(vidCost()))genVid();})}>{vVidLoad?"GENERATING VIDEO...":("GENERATE VIDEO ("+vidCost().toLocaleString()+" credits)")}</Btn>
-            : <Btn dark disabled={vLoad||!vTopic.trim()} onClick={act(genV)}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
+            : <Btn dark disabled={vLoad||(!vTopic.trim()&&!vVidPhotos.length)} onClick={act(genV)}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
         </Card>
         {vType==="generate"
           ? <div>
