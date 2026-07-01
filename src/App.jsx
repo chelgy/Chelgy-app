@@ -532,6 +532,29 @@ async function generateGeminiImage(prompt, inputImages, aspectRatio, quality) {
   return d; // { image, balance }
 }
 
+// Uploads a base64 data-URL image to the public "sites" storage bucket and
+// returns its public URL. Path must start with the user's id (e.g. "<uid>/hero-1.png").
+async function uploadSiteImage(dataUrl, path) {
+  try {
+    const m = (dataUrl || "").match(/^data:([^;]+);base64,(.*)$/);
+    if (!m) return null;
+    const mime = m[1];
+    const bin = atob(m[2]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const blob = new Blob([arr], { type: mime });
+    const token = await freshToken();
+    if (!token) return null;
+    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "x-upsert": "true", "Content-Type": mime },
+      body: blob
+    });
+    if (!res.ok) return null;
+    return SUPABASE_URL + "/storage/v1/object/public/sites/" + path;
+  } catch (e) { return null; }
+}
+
 // ─── SVG ICONS (line art, no fill) ───────────────────────────────────────────
 const Icons = {
   Home: () => (
@@ -1011,7 +1034,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const schema = '{"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 4000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
@@ -1021,6 +1044,19 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
       site.theme = wmTheme; if(site.credit===undefined) site.credit = true;
+      // Generate a real hero image (best-effort — the site still publishes if this fails)
+      setWmStage("Creating your hero image…");
+      try{
+        const hero = site.sections.find(x=>x&&x.type==="hero");
+        if(hero && hero.image && hero.image.prompt){
+          const r = await generateGeminiImage(String(hero.image.prompt)+" — luxury editorial photography, natural light, richly detailed, no text, no words, no logos.", null, "16:9", "standard");
+          if(r && r.image){
+            const url = await uploadSiteImage(r.image, user.id+"/hero-"+Date.now()+".png");
+            if(url){ hero.image = { url:url, prompt:hero.image.prompt }; }
+            if(typeof r.balance==="number") onBalance(r.balance);
+          }
+        }
+      }catch(e){ /* keep placeholder imagery if generation fails */ }
       setWmStage("Publishing…");
       const tok = await freshToken();
       if(!tok){ throw new Error("Your session expired — please log in again."); }
@@ -1295,7 +1331,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
             <button onClick={()=>{ setWmResult(null); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Start Over</button>
           </div>
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:18,lineHeight:1.6}}>Real photos and the "just tell the AI to change it" editing are coming next — for now your site uses elegant placeholder imagery.</div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:18,lineHeight:1.6}}>Your hero image is AI-generated to match your brand. Uploads (logo, your own photos) and the rest of the section imagery are coming next.</div>
         </div>}
       </div>}
 
