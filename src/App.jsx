@@ -399,6 +399,12 @@ const SEED_POSTS = [
   { id: 8, cat: "intros", author: "Cameron B.", avatar: "C", time: "3 days ago", pinned: false, title: "Hey everyone 👋 New member here!", body: "I'm Cameron — social media management agency focused on restaurants and food businesses. Based in Atlanta.\n\nJoined because I felt like I was always playing catch-up on new tools. First week in and already learned more than I have in months from random YouTube videos.\n\nIf you're in food/hospitality, let's connect!", upvotes: 28, replies: [{ id: 1, author: "Jasmine K.", avatar: "J", text: "Welcome Cameron! The restaurant niche is SO underserved with good marketing.", time: "3 days ago", upvotes: 7 }] },
 ];
 
+const MARKETER_SEED_POSTS = [
+  { id: 1, cat: "wins", author: "Renee M.", avatar: "R", time: "3 hours ago", pinned: false, title: "Landed my first client — a local salon 🎉", body: "Walked in with a free sample reel I made in the Video Studio. Owner said yes on the spot. Foundation package, month-to-month. Chelsea's free-sample close is no joke.\n\nOn to client #2!", upvotes: 24, replies: [{ id: 1, author: "Tosin A.", avatar: "T", text: "Congrats! The walk-in + free sample combo is unbeatable. Keep going!", time: "2 hours ago", upvotes: 6 }] },
+  { id: 2, cat: "questions", author: "Marco D.", avatar: "M", time: "Yesterday", pinned: true, title: "What's your best-performing cold DM opener right now?", body: "Trying to sharpen my first line. What's actually getting replies for you lately? Sharing mine below — steal it if useful.", upvotes: 18, replies: [{ id: 1, author: "Renee M.", avatar: "R", text: "Complimenting something specific about their page first. Generic openers get ignored every time.", time: "20 hours ago", upvotes: 9 }] },
+  { id: 3, cat: "working", author: "Priya N.", avatar: "P", time: "2 days ago", pinned: false, title: "Free audits are landing me calls consistently", body: "Offering a free 5-point audit (Business Audit tool) in local FB groups. 3 booked calls this week from one post. The audit does the selling for me.", upvotes: 31, replies: [] },
+];
+
 const SUPPLIERS = [
   {name:"AliExpress",url:"https://www.aliexpress.com",niche:"General",rating:"4/5",shipping:"7-30 days",min:"No minimum",notes:"World largest dropshipping source. Best for testing products cheaply."},
   {name:"CJ Dropshipping",url:"https://cjdropshipping.com",niche:"General",rating:"5/5",shipping:"5-15 days",min:"No minimum",notes:"Faster than AliExpress. Sourcing, warehousing, and private label services."},
@@ -3112,6 +3118,7 @@ export default function ChelgyApp() {
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
   const [mkStrat, setMkStrat] = useState(null);
+  const [mkPost, setMkPost] = useState(null);
   const [mkSearch, setMkSearch] = useState("");
   const [mkCat, setMkCat] = useState("All");
   async function refreshLibrary(){ setLibLoading(true); const items=await loadLibrary(user); setLibraryItems(items); setLibLoading(false); }
@@ -3348,15 +3355,18 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   async function loadForum(){
     if(forumLoaded) return; setForumLoaded(true);
     try {
-      const res = await fetch(SUPABASE_URL+"/rest/v1/forum_posts?select=*&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+      const marketerSpace = isTeamSpace && marketerStatus==="approved";
+      const audFilter = marketerSpace ? "&audience=eq.marketer" : "&or=(audience.eq.consumer,audience.is.null)";
+      const res = await fetch(SUPABASE_URL+"/rest/v1/forum_posts?select=*"+audFilter+"&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
       const rows = await res.json();
-      if(!Array.isArray(rows)||!rows.length) return;
+      const seeds = marketerSpace ? MARKETER_SEED_POSTS : SEED_POSTS;
+      if(!Array.isArray(rows)||!rows.length){ setForumPosts(seeds); return; }
       let comments=[];
       try { const cr = await fetch(SUPABASE_URL+"/rest/v1/forum_comments?select=*&order=created_at.asc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); comments = await cr.json(); } catch(e){}
       const byPost = {};
       if(Array.isArray(comments)) comments.forEach(c=>{ (byPost[c.post_id]=byPost[c.post_id]||[]).push({ author:c.author_name, text:c.body, time:relTime(c.created_at), cid:c.id }); });
       const real = rows.map(r=>({ id:"db-"+r.id, dbId:r.id, real:true, cat:r.category, author:r.author_name, avatar:(r.author_name||"M")[0], time:relTime(r.created_at), pinned:false, title:r.title, body:r.body, upvotes:r.upvotes||0, replies: byPost[r.id]||[] }));
-      setForumPosts([...real, ...SEED_POSTS]);
+      setForumPosts([...real, ...seeds]);
     } catch(e){}
   }
   async function loadMembers(){
@@ -3448,7 +3458,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const unread = notifications.filter(n=>!n.read).length;
 
   // Forum state
-  const [forumPosts, setForumPosts] = useState(SEED_POSTS);
+  const [forumPosts, setForumPosts] = useState(isTeamSpace ? MARKETER_SEED_POSTS : SEED_POSTS);
   const [forumLoaded, setForumLoaded] = useState(false);
   const [realMembers, setRealMembers] = useState([]);
   const [forumCat, setForumCat] = useState("all");
@@ -3593,7 +3603,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
     tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
-    community: [["forum","Forum"],["events","Events"],["members","Members"]],
+    community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
 
@@ -5179,7 +5189,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
 
           {/* ═══ HOME ═══ */}
-          {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&(
+          {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&!mkPost&&(
             <div style={{paddingTop:28}}>
               {/* Hero card — featured client-acquisition strategy */}
               <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:360}}>
@@ -5236,6 +5246,37 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   ))}
                 </div>
               </div>
+              {/* The Chelgy Edit — admin-run blog */}
+              {appWeeklyPosts&&appWeeklyPosts.length>0&&(
+                <div style={{paddingTop:24}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase",marginBottom:14}}>The Chelgy Edit</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+                    {appWeeklyPosts.map(post=>(
+                      <div key={post.id} onClick={()=>{setMkPost(post);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.white,padding:"20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
+                        <div style={{flex:1}}>
+                          <Tag gold>{post.tag}</Tag>
+                          <h2 style={{fontSize:16,fontWeight:400,margin:"10px 0 6px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{cleanTitle(post.title)}</h2>
+                          <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>{post.week} · {post.readTime}</div>
+                        </div>
+                        {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                        <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Marketer blog reader (The Chelgy Edit) */}
+          {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&mkPost&&(
+            <div style={{paddingTop:28,paddingLeft:20,paddingRight:20,maxWidth:720,margin:"0 auto"}}>
+              <button onClick={()=>setMkPost(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:22,padding:0,letterSpacing:"0.1em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Home</button>
+              <Tag gold>{mkPost.tag}</Tag>
+              <h1 style={{fontSize:"clamp(18px,3vw,28px)",fontWeight:400,margin:"12px 0 8px",lineHeight:1.25,fontFamily:"Georgia,serif"}}>{cleanTitle(mkPost.title)}</h1>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:28,letterSpacing:"0.06em"}}>{mkPost.week} · {mkPost.readTime}</div>
+              {mkPost.imageUrl&&<img src={mkPost.imageUrl} alt={mkPost.title} style={{width:"100%",height:"auto",marginBottom:28,display:"block"}} onError={e=>e.target.style.display="none"} />}
+              <Rich text={mkPost.content} />
             </div>
           )}
 
@@ -5725,7 +5766,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <select value={newPost.cat} onChange={e=>setNewPost(p=>({...p,cat:e.target.value}))} style={{padding:"7px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:11,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>
                       {["wins","questions","working","ai","memes","intros","life"].map(c=><option key={c} value={c}>{c}</option>)}
                     </select>
-                    <Btn dark small onClick={async ()=>{if(!newPost.title.trim()||!newPost.body.trim())return;const tok=await freshToken();if(tok&&user&&user.id){try{const res=await fetch(SUPABASE_URL+"/rest/v1/forum_posts",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify({user_id:user.id,author_name:myName||"Member",category:newPost.cat,title:newPost.title,body:newPost.body})});const rows=await res.json();const row=Array.isArray(rows)?rows[0]:rows;if(row&&row.id){setForumPosts(ps=>[{id:"db-"+row.id,dbId:row.id,real:true,cat:row.category,author:row.author_name,avatar:(row.author_name||"M")[0],time:"Just now",pinned:false,title:row.title,body:row.body,upvotes:0,replies:[]},...ps]);}}catch(e){}}setNewPost({title:"",body:"",cat:"questions"});setShowNewPost(false);track("forum_post_created");}}>POST</Btn>
+                    <Btn dark small onClick={async ()=>{if(!newPost.title.trim()||!newPost.body.trim())return;const tok=await freshToken();if(tok&&user&&user.id){try{const res=await fetch(SUPABASE_URL+"/rest/v1/forum_posts",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify({user_id:user.id,author_name:myName||"Member",category:newPost.cat,title:newPost.title,body:newPost.body,audience:(isTeamSpace&&marketerStatus==="approved")?"marketer":"consumer"})});const rows=await res.json();const row=Array.isArray(rows)?rows[0]:rows;if(row&&row.id){setForumPosts(ps=>[{id:"db-"+row.id,dbId:row.id,real:true,cat:row.category,author:row.author_name,avatar:(row.author_name||"M")[0],time:"Just now",pinned:false,title:row.title,body:row.body,upvotes:0,replies:[]},...ps]);}}catch(e){}}setNewPost({title:"",body:"",cat:"questions"});setShowNewPost(false);track("forum_post_created");}}>POST</Btn>
                     <button onClick={()=>setShowNewPost(false)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Cancel</button>
                   </div>
                 </div>
