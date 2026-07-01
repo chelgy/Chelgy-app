@@ -1675,6 +1675,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [membersList, setMembersList] = useState([]);
   const [inquiriesList, setInquiriesList] = useState([]);
   const [deliverablesList, setDeliverablesList] = useState([]);
+  const [inquiriesErr, setInquiriesErr] = useState("");
+  const [deliverablesErr, setDeliverablesErr] = useState("");
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
   const [heroForm, setHeroForm] = useState({ hero_image:"", home_hero:"" });
@@ -1703,26 +1705,34 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     }catch(e){}
   }
   async function loadInquiries(){
+    setInquiriesErr("");
     try{
       const tok=await freshToken();
-      if(!tok){ return; }
+      if(!tok){ setInquiriesErr("You're not signed in. Log in with your admin account first."); return; }
       const res=await fetch("/api/contracts?action=admin-list",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
       if(res.ok){
         const d=await res.json();
         setInquiriesList(d.inquiries||[]);
+      } else {
+        let m=""; try{ const t=await res.text(); try{const j=JSON.parse(t); m=j.detail||j.error||t;}catch{ m=t; } }catch{}
+        setInquiriesErr((m||("server error "+res.status))+"");
       }
-    }catch(e){ console.error("Load inquiries error:",e); }
+    }catch(e){ setInquiriesErr("Couldn't reach the server: "+(e&&e.message||"network error")); }
   }
   async function loadDeliverables(){
+    setDeliverablesErr("");
     try{
       const tok=await freshToken();
-      if(!tok){ return; }
+      if(!tok){ setDeliverablesErr("You're not signed in. Log in with your admin account first."); return; }
       const res=await fetch("/api/contracts?action=deliverable-list",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
       if(res.ok){
         const d=await res.json();
         setDeliverablesList(d.deliverables||[]);
+      } else {
+        let m=""; try{ const t=await res.text(); try{const j=JSON.parse(t); m=j.detail||j.error||t;}catch{ m=t; } }catch{}
+        setDeliverablesErr((m||("server error "+res.status))+"");
       }
-    }catch(e){ console.error("Load deliverables error:",e); }
+    }catch(e){ setDeliverablesErr("Couldn't reach the server: "+(e&&e.message||"network error")); }
   }
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
@@ -2064,6 +2074,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Review inquiries from marketers. Approve to activate the contract, deny to skip.</p>
             <button onClick={loadInquiries} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
 
+            {inquiriesErr&&<div style={{background:"#FFEBEE",border:"1px solid #C62828",padding:"12px 14px",marginBottom:16,fontFamily:"sans-serif",fontSize:12,color:"#C62828",borderRadius:3,lineHeight:1.5}}>Couldn't load: {inquiriesErr}{/admin/i.test(inquiriesErr)?" — this account isn't flagged as an admin in the database yet.":""}</div>}
             {inquiriesList.length===0?(
               <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No inquiries yet.</div>
             ):(
@@ -2109,6 +2120,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Documents your marketers generated and sent in for review.</p>
             <button onClick={loadDeliverables} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
 
+            {deliverablesErr&&<div style={{background:"#FFEBEE",border:"1px solid #C62828",padding:"12px 14px",marginBottom:16,fontFamily:"sans-serif",fontSize:12,color:"#C62828",borderRadius:3,lineHeight:1.5}}>Couldn't load: {deliverablesErr}{/admin/i.test(deliverablesErr)?" — this account isn't flagged as an admin in the database yet.":""}</div>}
             {deliverablesList.length===0?(
               <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"40px",textAlign:"center",fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B"}}>No deliverables submitted yet.</div>
             ):(
