@@ -3011,7 +3011,8 @@ export default function ChelgyApp() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [applyForm, setApplyForm] = useState({ name:"", phone:"", location:"", experience:"", why:"", start:"later" });
   const [applying, setApplying] = useState(false);
-  const [marketerView, setMarketerView] = useState("home");
+  const [marketerView, setMarketerView] = useState(()=>{ try { return localStorage.getItem("chelgy_mkview")||"home"; } catch { return "home"; } });
+  useEffect(()=>{ try { localStorage.setItem("chelgy_mkview", marketerView); } catch(e){} },[marketerView]);
   const [marketerData, setMarketerData] = useState({}); // { goals, plan, coach: [] }
   const [mkGoals, setMkGoals] = useState({ niches:"", income:"", hours:"", location:"", experience:"" });
   const [mkPlanLoading, setMkPlanLoading] = useState(false);
@@ -3114,7 +3115,8 @@ export default function ChelgyApp() {
   }
 
   // Nav state — bottom tab + top subcategory
-  const [tab, setTab] = useState("home");       // home | learn | tools | community | profile
+  const [tab, setTab] = useState(()=>{ try { return localStorage.getItem("chelgy_tab")||"home"; } catch { return "home"; } });       // home | learn | tools | community | profile
+  useEffect(()=>{ try { localStorage.setItem("chelgy_tab", tab); } catch(e){} },[tab]);
   const [subTab, setSubTab] = useState("feed"); // varies per tab
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
@@ -4208,7 +4210,30 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>
       );
 
-      // ── Onboarding: set goals → generate the aggressive plan ──
+      // ── Account & Login (name / email / password) ──
+      if (marketerView==="account") return teamWrap(
+        <div style={{paddingBottom:60}}>
+          {topBar}
+          <div style={{width:28,height:1,background:B.gold,marginBottom:16}} />
+          <h1 style={{fontSize:26,fontWeight:400,margin:"0 0 8px",color:B.charcoal}}>Account &amp; Login</h1>
+          <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,lineHeight:1.6,margin:"0 0 22px"}}>Update your name, email, or password.</p>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Display Name</div>
+            <div style={{display:"flex",gap:8,marginBottom:22}}>
+              <input value={acctName!==null?acctName:myName} onChange={e=>setAcctName(e.target.value)} placeholder="Your name" style={{flex:1,padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",boxSizing:"border-box"}} />
+              <Btn dark small onClick={()=>persistName(acctName!==null?acctName:myName)}>Save</Btn>
+            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Email</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:8}}>Current: {(user&&user.email)||"—"}</div>
+            <input value={acctEmail} onChange={e=>setAcctEmail(e.target.value)} placeholder="New email address" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",boxSizing:"border-box",marginBottom:8}} />
+            <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("email"); }}>{acctBusy?"Working…":"Update Email"}</Btn>
+            <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,margin:"22px 0 6px"}}>Password</div>
+            <input type="password" value={acctPass} onChange={e=>setAcctPass(e.target.value)} placeholder="New password (min 6 characters)" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",boxSizing:"border-box",marginBottom:8}} />
+            <input type="password" value={acctPass2} onChange={e=>setAcctPass2(e.target.value)} placeholder="Confirm new password" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",boxSizing:"border-box",marginBottom:8}} />
+            <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("password"); }}>{acctBusy?"Working…":"Update Password"}</Btn>
+            {acctMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:acctMsg.charAt(0)==="✓"?"#2E7D32":B.red,marginTop:14,lineHeight:1.5}}>{acctMsg}</div>}
+          </div>
+        </div>, false, true);
       if (marketerView==="onboard") return teamWrap(
         <div style={{paddingBottom:60}}>
           {topBar}
@@ -4767,6 +4792,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Sales Pitches & Promo</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land marketing and business-building clients.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
+            <button onClick={()=>{setAcctMsg("");setAcctName(null);setMarketerView("account");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Account & Login</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Change your name, email or password.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
             </button>
           </div>
           <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
