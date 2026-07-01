@@ -1,10 +1,11 @@
 // api/stripe-webhook.js
-// The ONLY place credits get added from a purchase.
+// The ONLY place a purchase changes anything server-side.
+//   • Credit packs → add credits (unchanged)
+//   • Marketer membership subscription → flip the marketer's account to "active"
 //
-// Stripe calls this URL after a payment. We verify the request is genuinely
-// from Stripe (signature check), then add the purchased credits to the buyer's
-// account using the Supabase service-role key — which only lives on the server.
-// The browser is never involved, so credits can't be faked.
+// Stripe calls this URL after a payment. We verify the request is genuinely from
+// Stripe (signature check), then act using the Supabase service-role key — which
+// only lives on the server. The browser is never involved, so nothing can be faked.
 //
 // Required Vercel env vars:
 //   STRIPE_WEBHOOK_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -51,23 +52,53 @@ export default async function handler(req, res) {
   let event;
   try { event = JSON.parse(raw); } catch { return res.status(400).json({ error: "bad json" }); }
 
+  const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
+  const SERVICE = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  async function setMemberStatus(userId, status) {
+    try {
+      await fetch(SUPABASE_URL + "/rest/v1/members?user_id=eq." + userId, {
+        method: "PATCH",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ status })
+      });
+    } catch { /* swallow; Stripe retries on non-200 */ }
+  }
+  async function addCredits(userId, credits, packId) {
+    try {
+      await fetch(SUPABASE_URL + "/rest/v1/rpc/add_credits", {
+        method: "POST",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_user: userId, p_amount: credits, p_reason: "purchase:" + (packId || "pack") })
+      });
+    } catch { /* swallow */ }
+  }
+
   if (event.type === "checkout.session.completed") {
     const s = event.data.object || {};
     const meta = s.metadata || {};
     const userId = meta.user_id;
-    const credits = parseInt(meta.credits, 10);
-    // Only credit if the payment is actually paid
     const paid = s.payment_status === "paid" || s.status === "complete";
-    if (paid && userId && credits > 0) {
-      const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
-      const SERVICE = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-      try {
-        await fetch(SUPABASE_URL + "/rest/v1/rpc/add_credits", {
-          method: "POST",
-          headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json" },
-          body: JSON.stringify({ p_user: userId, p_amount: credits, p_reason: "purchase:" + (meta.pack_id || "pack") })
-        });
-      } catch { /* Stripe will retry the webhook if we error, so swallow & 200 below only on success */ }
+
+    if (paid && userId) {
+      // Marketer membership subscription → activate the marketer
+      if (meta.kind === "marketer_membership") {
+        await setMemberStatus(userId, "active");
+      }
+      // Credit pack purchase → add credits
+      const credits = parseInt(meta.credits, 10);
+      if (credits > 0) {
+        await addCredits(userId, credits, meta.pack_id);
+      }
+    }
+  }
+
+  // Marketer cancels or their subscription lapses → revoke workspace access
+  if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object || {};
+    const meta = sub.metadata || {};
+    if (meta.user_id && meta.kind === "marketer_membership") {
+      await setMemberStatus(meta.user_id, "canceled");
     }
   }
 

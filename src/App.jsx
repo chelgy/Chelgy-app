@@ -2958,6 +2958,228 @@ const MARKETER_PRICING = [
 ];
 
 
+// ─── WEBSITE MAKER · public renderer ─────────────────────────────────────────
+const SITE_CSS_EDITORIAL = `
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400;1,6..96,500&family=Jost:wght@300;400;500&display=swap');
+#cg-site{--bg:#F1EBDF;--paper:#F8F4EC;--ink:#241E18;--mid:#8A7E70;--stone:#D9D1C2;--clay:#B9A793;--accent:#6F3A2C;--display:'Bodoni Moda',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.75;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
+#cg-site *{box-sizing:border-box;}
+#cg-site::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.04;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(24px,6vw,80px);}
+#cg-site .eyebrow{font-size:0.68rem;letter-spacing:0.26em;text-transform:uppercase;font-weight:400;color:var(--mid);}
+#cg-site .serif{font-family:var(--display);}
+#cg-site em{font-style:italic;}
+#cg-site header{position:sticky;top:0;z-index:20;background:rgba(241,235,223,0.82);backdrop-filter:saturate(120%) blur(8px);border-bottom:1px solid var(--stone);}
+#cg-site .nav{display:flex;align-items:center;justify-content:space-between;height:74px;}
+#cg-site .brand{font-family:var(--display);font-size:1.5rem;letter-spacing:0.02em;font-weight:500;}
+#cg-site .menu{display:flex;gap:36px;align-items:center;}
+#cg-site .menu a{font-size:0.72rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink);position:relative;padding:4px 0;}
+#cg-site .menu a::after{content:"";position:absolute;left:0;bottom:0;width:0;height:1px;background:var(--accent);transition:width .35s ease;}
+#cg-site .menu a:hover::after{width:100%;}
+#cg-site .hero{position:relative;min-height:92vh;display:flex;align-items:flex-end;overflow:hidden;}
+#cg-site .hero-img{position:absolute;inset:0;z-index:0;background:radial-gradient(120% 90% at 72% 18%,#CBB9A2 0%,#B29B82 38%,#7C6A56 78%,#4A3E32 100%);background-size:cover;background-position:center;}
+#cg-site .hero-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,24,18,0) 40%,rgba(30,24,18,0.55) 100%),radial-gradient(80% 60% at 30% 30%,rgba(255,250,240,0.22),transparent 60%);}
+#cg-site .hero-cap{position:absolute;top:22px;right:24px;z-index:2;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,250,240,0.5);}
+#cg-site .hero-inner{position:relative;z-index:2;width:100%;padding-bottom:clamp(48px,9vh,110px);}
+#cg-site .hero-eye{color:rgba(248,244,236,0.72);}
+#cg-site .hero h1{font-family:var(--display);color:#F6F1E7;font-weight:400;font-size:clamp(2.9rem,8.2vw,6.4rem);line-height:1.02;letter-spacing:-0.01em;margin:18px 0 20px;max-width:15ch;}
+#cg-site .hero h1 em{color:#EAD9C6;}
+#cg-site .hero p.lede{color:rgba(246,241,231,0.82);font-size:clamp(1rem,1.5vw,1.18rem);max-width:44ch;margin:0 0 30px;font-weight:300;}
+#cg-site .btn-line{display:inline-flex;align-items:center;gap:12px;color:#F6F1E7;font-size:0.72rem;letter-spacing:0.2em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid rgba(246,241,231,0.5);transition:gap .35s ease,border-color .35s ease;}
+#cg-site .btn-line:hover{gap:20px;border-color:#F6F1E7;}
+#cg-site .intro{padding:clamp(90px,14vh,180px) 0;}
+#cg-site .intro-grid{display:grid;grid-template-columns:1.15fr 0.85fr;gap:clamp(40px,7vw,110px);align-items:start;}
+#cg-site .intro h2{font-family:var(--display);font-weight:400;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1.12;margin:14px 0 0;letter-spacing:-0.01em;}
+#cg-site .intro h2 em{color:var(--accent);}
+#cg-site .intro .col-r{padding-top:10px;}
+#cg-site .intro .col-r p{color:var(--mid);font-size:1.02rem;margin:0 0 18px;}
+#cg-site .rule{width:38px;height:1px;background:var(--accent);}
+#cg-site .offer{padding:0 0 clamp(90px,14vh,170px);}
+#cg-site .offer-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:44px;}
+#cg-site .offer-head h3{font-family:var(--display);font-weight:400;font-size:clamp(1.6rem,3.4vw,2.4rem);margin:10px 0 0;}
+#cg-site .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(18px,2.4vw,34px);}
+#cg-site .card .ph{aspect-ratio:3/4;border-radius:2px;position:relative;overflow:hidden;background:radial-gradient(110% 85% at 38% 24%,#D4C6B2 0%,#B7A48D 55%,#94826C 100%);background-size:cover;background-position:center;}
+#cg-site .card .ph .tag{position:absolute;left:12px;bottom:12px;font-size:0.56rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,252,246,0.72);}
+#cg-site .cardcap{padding:18px 2px 0;}
+#cg-site .card .nm{font-family:var(--display);font-size:1.35rem;font-weight:400;}
+#cg-site .card .meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;}
+#cg-site .card .note{color:var(--mid);font-size:0.82rem;letter-spacing:0.03em;}
+#cg-site .card .price{font-size:0.92rem;color:var(--ink);}
+#cg-site .editorial{position:relative;min-height:76vh;display:flex;align-items:center;overflow:hidden;}
+#cg-site .ed-bg{position:absolute;inset:0;background:linear-gradient(180deg,#3B3025,#5A4B3B 60%,#6E5C48);background-size:cover;background-position:center;}
+#cg-site .ed-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 60% at 28% 40%,rgba(255,248,236,0.14),transparent 65%);}
+#cg-site .ed-content{position:relative;z-index:2;width:100%;text-align:center;}
+#cg-site .ed-eye{color:rgba(246,241,231,0.6);}
+#cg-site .editorial p.big{font-family:var(--display);color:#F4EEE3;font-weight:400;font-size:clamp(1.8rem,4.6vw,3.6rem);line-height:1.2;max-width:20ch;margin:16px auto 0;}
+#cg-site .editorial p.big em{color:#E7D3BE;}
+#cg-site .quote{padding:clamp(100px,16vh,200px) 0;text-align:center;}
+#cg-site .quote blockquote{margin:0 auto;max-width:22ch;}
+#cg-site .quote .mark{font-family:var(--display);font-size:3rem;color:var(--accent);line-height:0.6;display:block;margin-bottom:18px;}
+#cg-site .quote p{font-family:var(--display);font-weight:400;font-style:italic;font-size:clamp(1.7rem,4vw,3rem);line-height:1.28;}
+#cg-site .quote cite{display:block;margin-top:28px;font-family:var(--body);font-style:normal;font-size:0.72rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid);}
+#cg-site .contact{background:var(--ink);color:#EDE6D9;}
+#cg-site .contact .wrap{padding-top:clamp(80px,12vh,150px);padding-bottom:clamp(80px,12vh,150px);}
+#cg-site .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(30px,6vw,90px);align-items:center;}
+#cg-site .contact .eyebrow{color:rgba(237,230,217,0.5);}
+#cg-site .contact h2{font-family:var(--display);font-weight:400;font-size:clamp(2rem,5vw,3.6rem);line-height:1.08;margin:16px 0 0;}
+#cg-site .contact h2 em{color:#D8B79E;}
+#cg-site .contact .line{display:block;padding:16px 0;border-top:1px solid rgba(237,230,217,0.16);font-size:0.98rem;color:rgba(237,230,217,0.82);}
+#cg-site .contact .line:last-child{border-bottom:1px solid rgba(237,230,217,0.16);}
+#cg-site .contact .cta{display:inline-flex;align-items:center;gap:12px;margin-top:32px;color:#F4EEE3;font-size:0.72rem;letter-spacing:0.2em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid rgba(244,238,227,0.45);transition:gap .35s ease;}
+#cg-site .contact .cta:hover{gap:20px;}
+#cg-site footer.foot{background:var(--ink);color:rgba(237,230,217,0.55);border-top:1px solid rgba(237,230,217,0.12);}
+#cg-site .foot .wrap{padding-top:34px;padding-bottom:34px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;}
+#cg-site .foot .brand{color:#EDE6D9;font-size:1.15rem;}
+#cg-site .foot .fnav{display:flex;gap:26px;font-size:0.68rem;letter-spacing:0.16em;text-transform:uppercase;}
+#cg-site .foot .fine{font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;color:rgba(237,230,217,0.35);}
+#cg-site .credit{text-align:center;padding:16px 0 24px;border-top:1px solid rgba(237,230,217,0.12);}
+#cg-site .credit span{font-family:var(--body);font-size:0.58rem;letter-spacing:0.24em;text-transform:uppercase;color:rgba(237,230,217,0.4);}
+@media (max-width:820px){#cg-site .menu{display:none;}#cg-site .intro-grid{grid-template-columns:1fr;gap:34px;}#cg-site .cards{grid-template-columns:1fr;gap:30px;}#cg-site .card .ph{aspect-ratio:4/3;}#cg-site .contact-grid{grid-template-columns:1fr;gap:30px;}#cg-site .hero h1{max-width:100%;}}
+`;
+
+const DEMO_SITE = {
+  theme: "editorial-porcelain",
+  brand: { name: "Maren & Wilde", nav: [{label:"Shop"},{label:"Ritual"},{label:"Journal"},{label:"Contact"}], footerNote: "© 2026 · Made in Portland" },
+  sections: [
+    { type:"hero", eyebrow:"Small-batch botanical apothecary", headline:"Beauty, distilled to its ", headlineEm:"essence.", sub:"Cold-pressed botanicals, blended by hand in small batches. Skincare that asks nothing of you but a little patience.", cta:{label:"Explore the collection"} },
+    { type:"philosophy", eyebrow:"Our philosophy", heading:"We make very little, ", headingEm:"very well.", body:["Every formula begins in the field — botanicals grown slowly, harvested at their peak, and pressed within the day. Nothing synthetic, nothing rushed.","We release only a handful of products, and only when they are ready. What you hold is the result of restraint: a quiet ritual, bottled."] },
+    { type:"offerings", eyebrow:"The collection", title:"Three essentials, nothing more", items:[ {name:"The Radiance Oil", note:"Facial oil · 30ml", price:"$68"}, {name:"Rosewater Mist", note:"Hydrating tonic · 100ml", price:"$42"}, {name:"Repair Balm", note:"Overnight treatment · 50ml", price:"$54"} ] },
+    { type:"editorial", eyebrow:"The making", line:"Grown slowly. Pressed gently. Bottled ", lineEm:"by hand." },
+    { type:"quote", text:"It feels less like skincare and more like a small daily ceremony.", cite:"— Amara L., longtime customer" },
+    { type:"contact", eyebrow:"Say hello", heading:"Visit the studio, or write to ", headingEm:"us.", details:[{k:"Studio",v:"128 Alder Lane, Portland, OR"},{k:"Email",v:"hello@marenwilde.com"},{k:"Hours",v:"Thu–Sun, 11–6"}], cta:{label:"Book a consultation"} }
+  ],
+  credit: true
+};
+
+function SiteRender({ site }) {
+  const s = site || {};
+  const brand = s.brand || {};
+  const sections = Array.isArray(s.sections) ? s.sections : [];
+  const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")" } : undefined;
+  return (
+    <div id="cg-site" data-theme={s.theme || "editorial-porcelain"}>
+      <style dangerouslySetInnerHTML={{ __html: SITE_CSS_EDITORIAL }} />
+      <header>
+        <div className="wrap nav">
+          <div className="brand serif">{brand.name || "Your Brand"}</div>
+          <nav className="menu">{(brand.nav || []).map((n,i)=><a key={i} href={n.href||"#"}>{n.label}</a>)}</nav>
+        </div>
+      </header>
+      {sections.map((sec,i)=>{
+        if(sec.type==="hero") return (
+          <section className="hero" key={i}>
+            <div className="hero-img" style={bg(sec.image)}></div>
+            {!(sec.image&&sec.image.url)&&<span className="hero-cap">Hero imagery</span>}
+            <div className="wrap hero-inner">
+              {sec.eyebrow&&<div className="eyebrow hero-eye">{sec.eyebrow}</div>}
+              <h1>{sec.headline}{sec.headlineEm&&<em>{sec.headlineEm}</em>}</h1>
+              {sec.sub&&<p className="lede">{sec.sub}</p>}
+              {sec.cta&&<a className="btn-line" href={sec.cta.href||"#"}>{sec.cta.label} <span>→</span></a>}
+            </div>
+          </section>
+        );
+        if(sec.type==="philosophy") return (
+          <section className="intro" key={i}>
+            <div className="wrap intro-grid">
+              <div className="col-l">
+                {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+                <h2>{sec.heading}{sec.headingEm&&<em>{sec.headingEm}</em>}</h2>
+              </div>
+              <div className="col-r">
+                <div className="rule" style={{marginBottom:22}}></div>
+                {(sec.body||[]).map((p,j)=><p key={j}>{p}</p>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="offerings") return (
+          <section className="offer wrap" key={i}>
+            <div className="offer-head">
+              <div>
+                {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+                {sec.title&&<h3>{sec.title}</h3>}
+              </div>
+            </div>
+            <div className="cards">
+              {(sec.items||[]).map((it,j)=>(
+                <article className="card" key={j}>
+                  <div className="ph" style={bg(it.image)}>{!(it.image&&it.image.url)&&<span className="tag">Product image</span>}</div>
+                  <div className="cardcap">
+                    <div className="nm">{it.name}</div>
+                    <div className="meta"><span className="note">{it.note}</span>{it.price&&<span className="price">{it.price}</span>}</div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        );
+        if(sec.type==="editorial") return (
+          <section className="editorial" key={i}>
+            <div className="ed-bg" style={bg(sec.image)}></div>
+            <div className="wrap ed-content">
+              {sec.eyebrow&&<div className="eyebrow ed-eye">{sec.eyebrow}</div>}
+              <p className="big">{sec.line}{sec.lineEm&&<em>{sec.lineEm}</em>}</p>
+            </div>
+          </section>
+        );
+        if(sec.type==="quote") return (
+          <section className="quote wrap" key={i}>
+            <blockquote>
+              <span className="mark">&ldquo;</span>
+              <p>{sec.text}</p>
+              {sec.cite&&<cite>{sec.cite}</cite>}
+            </blockquote>
+          </section>
+        );
+        if(sec.type==="contact") return (
+          <section className="contact" key={i}>
+            <div className="wrap contact-grid">
+              <div className="col-l">
+                {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+                <h2>{sec.heading}{sec.headingEm&&<em>{sec.headingEm}</em>}</h2>
+              </div>
+              <div className="col-r">
+                {(sec.details||[]).map((d,j)=><span className="line" key={j}>{d.v}</span>)}
+                {sec.cta&&<a className="cta" href={sec.cta.href||"#"}>{sec.cta.label} <span>→</span></a>}
+              </div>
+            </div>
+          </section>
+        );
+        return null;
+      })}
+      <footer className="foot">
+        <div className="wrap">
+          <div className="brand serif">{brand.name || "Your Brand"}</div>
+          <nav className="fnav">{(brand.nav || []).map((n,i)=><a key={i} href={n.href||"#"}>{n.label}</a>)}</nav>
+          <div className="fine">{brand.footerNote || ""}</div>
+        </div>
+        {s.credit!==false&&<div className="credit"><span>Built by Chelgy</span></div>}
+      </footer>
+    </div>
+  );
+}
+
+function PublicSite({ slug }) {
+  const [st, setSt] = useState({ loading:true, site:null, error:null });
+  useEffect(()=>{
+    let cancel=false;
+    if(slug==="demo"){ setSt({loading:false, site:DEMO_SITE, error:null}); return; }
+    (async()=>{
+      try{
+        const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=data,theme,published&slug=eq."+encodeURIComponent(slug)+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+        const rows = await res.json();
+        if(cancel) return;
+        if(Array.isArray(rows)&&rows.length){ const r=rows[0]; const site=(r.data&&typeof r.data==="object")?r.data:{}; if(!site.theme&&r.theme) site.theme=r.theme; setSt({loading:false, site, error:null}); }
+        else setSt({loading:false, site:null, error:"notfound"});
+      }catch(e){ if(!cancel) setSt({loading:false, site:null, error:"error"}); }
+    })();
+    return ()=>{ cancel=true; };
+  },[slug]);
+  if(st.loading) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Jost',sans-serif",color:"#8A7E70",letterSpacing:"0.2em",textTransform:"uppercase",fontSize:12}}>Loading</div>;
+  if(!st.site) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,textAlign:"center",padding:24,fontFamily:"'Jost',sans-serif",color:"#8A7E70"}}><div style={{fontFamily:"'Bodoni Moda',serif",fontSize:28,color:"#241E18"}}>Site not found</div><div style={{fontSize:12,letterSpacing:"0.05em"}}>This site may be unpublished, or the link may be incorrect.</div></div>;
+  return <SiteRender site={st.site} />;
+}
+
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
@@ -3004,6 +3226,7 @@ export default function ChelgyApp() {
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
   const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
+  const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
   const [marketerStatus, setMarketerStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
   const [teamMode, setTeamMode] = useState("signup"); // 'signup' | 'login'
   const [teamAuth, setTeamAuth] = useState({ name:"", email:"", password:"" });
@@ -3012,6 +3235,7 @@ export default function ChelgyApp() {
   const [applyForm, setApplyForm] = useState({ name:"", phone:"", location:"", experience:"", why:"", start:"later" });
   const [applying, setApplying] = useState(false);
   const [marketerView, setMarketerView] = useState(()=>{ try { return localStorage.getItem("chelgy_mkview")||"home"; } catch { return "home"; } });
+  const [mkPayLoading, setMkPayLoading] = useState(false);
   useEffect(()=>{ try { localStorage.setItem("chelgy_mkview", marketerView); } catch(e){} },[marketerView]);
   const [marketerData, setMarketerData] = useState({}); // { goals, plan, coach: [] }
   const [mkGoals, setMkGoals] = useState({ niches:"", income:"", hours:"", location:"", experience:"" });
@@ -3669,6 +3893,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       setTimeout(refresh, 2500); setTimeout(refresh, 7000); // webhook may take a moment
       try { window.history.replaceState({}, "", "/"); } catch {}
     }
+    const isMembershipBuy = params.get("membership")==="success";
+    if (isMembershipBuy) {
+      pushNotif("Payment received — activating your marketer membership…");
+      const refreshM = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} } }); };
+      setTimeout(refreshM, 2500); setTimeout(refreshM, 7000); setTimeout(refreshM, 12000); // webhook may take a moment
+      try { window.history.replaceState({}, "", "/?team"); } catch {}
+    }
     const s = loadSession();
     if (s && s.email) {
       setUser(s);
@@ -3898,6 +4129,19 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       else { setAcctMsg("✓ Password updated."); setAcctPass(""); setAcctPass2(""); }
     }catch(e){ setAcctMsg("Connection error — please try again."); }
     setAcctBusy(false);
+  }
+  async function startMarketerMembership(){
+    if(mkPayLoading) return;
+    setTeamErr(""); setMkPayLoading(true);
+    try{
+      const tok = await freshToken();
+      if(!tok){ setTeamErr("Please log in again to start your membership."); setMkPayLoading(false); return; }
+      const res = await fetch("/api/marketer-checkout", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ access_token: tok }) });
+      const d = await res.json();
+      if(d && d.url){ window.location.href = d.url; return; } // off to Stripe
+      setTeamErr((d && d.error) || "Could not start checkout. Please try again.");
+    }catch(e){ setTeamErr("Could not reach checkout. Please try again."); }
+    setMkPayLoading(false);
   }
   async function saveMarketerData(next){
     setMarketerData(next);
@@ -4148,6 +4392,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   };
 
   // ── ADMIN (placed here so it runs only after all hooks are declared) ─────────
+  if (publicSlug) return <PublicSite slug={publicSlug} />;
   if (isAdmin && adminPanelOpen && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
@@ -4829,7 +5074,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>Welcome, Chelgy Marketer</div>
         <h1 style={{color:"#fff",fontSize:28,fontWeight:400,margin:"0 0 12px"}}>Ready to start?</h1>
         <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.7,margin:"0 auto 28px",maxWidth:400}}>You're approved to become a Chelgy Marketer. Start your $100/mo membership to access your workspace, tools, and everything you need to land clients.</p>
-        <button onClick={()=>{setShowPaywall(true);}} style={{background:B.gold,color:B.charcoal,border:"none",padding:"13px 24px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginBottom:14}}>Start Membership Now</button>
+        <button onClick={startMarketerMembership} disabled={mkPayLoading} style={{background:B.gold,color:B.charcoal,border:"none",padding:"13px 24px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPayLoading?"default":"pointer",textTransform:"uppercase",marginBottom:14}}>{mkPayLoading?"Starting…":"Start Membership Now"}</button>
+        {teamErr&&<p style={{fontFamily:"sans-serif",color:"#FCA5A5",fontSize:12,margin:"0 0 12px"}}>{teamErr}</p>}
         <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.4)",fontSize:11,lineHeight:1.6,margin:"0"}}>Full workspace access • All marketing tools • AI coach & deliverables • Client CRM</p>
       </div>, true);
 
