@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (!userId) return res.status(401).json({ error: 'Not authenticated' });
 
   const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY);
 
   try {
     // ── Marketer submits a client inquiry ──────────────────────────────

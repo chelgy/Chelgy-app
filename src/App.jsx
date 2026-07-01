@@ -2766,17 +2766,18 @@ const MARKETER_PITCHES = {
 };
 const MARKETER_PRICING = [
   { id:"foundation", name:"FOUNDATION / Local Presence", 
-    monthToMonth:800, contract:500, minContract:12,
+    monthToMonth:800, contract:650, minContract:12,
     description:"Perfect for local service businesses and startups just getting online.",
     includes:[
       "Initial Consultation & Growth Strategy",
       "Google Business Profile setup & optimization",
+      "Local SEO setup & optimization (Google Maps, local keywords, citations)",
       "Social Media Management (2-3 posts/week)",
       "Basic content creation (service descriptions, bios)",
       "Monthly review & reporting"
     ],
     effort:"8-10 hrs/week",
-    marketRevenue:{monthToMonth:"$800/mo", contract:"$500/mo × 12"}
+    marketRevenue:{monthToMonth:"$800/mo", contract:"$650/mo × 12"}
   },
   { id:"growth", name:"GROWTH / Accelerator",
     monthToMonth:1500, contract:1200, minContract:12,
@@ -2796,7 +2797,7 @@ const MARKETER_PRICING = [
     note:"* Ad spend ($300-500+/month) is separate, billed directly to client"
   },
   { id:"premium", name:"PREMIUM / Full-Service",
-    monthToMonth:3500, contract:2500, minContract:12,
+    monthToMonth:3500, contract:3000, minContract:12,
     description:"Complete marketing takeover for serious growth and revenue scaling.",
     includes:[
       "Everything in Growth +",
@@ -2811,7 +2812,7 @@ const MARKETER_PRICING = [
       "Weekly performance reports"
     ],
     effort:"25-30 hrs/week",
-    marketRevenue:{monthToMonth:"$3,500/mo", contract:"$2,500/mo × 12"},
+    marketRevenue:{monthToMonth:"$3,500/mo", contract:"$3,000/mo × 12"},
     note:"* Ad spend ($1,000-3,000+/month) is separate, billed directly to client"
   },
   { id:"special", name:"CHELGY SPECIAL / Business Builder",
@@ -3844,30 +3845,35 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setInquiryErr("");
     if(!inquiryForm.clientName.trim()){ setInquiryErr("Enter client name"); return; }
     if(!inquiryForm.serviceTier){ setInquiryErr("Select a service tier"); return; }
-    
+    if(inquiryLoading) return;
+
     setInquiryLoading(true);
-    const res = await fetch("/api/contracts?action=submit", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user?.id || ""
-      },
-      body: JSON.stringify({
-        clientName: inquiryForm.clientName.trim(),
-        businessType: inquiryForm.businessType.trim() || null,
-        serviceTier: inquiryForm.serviceTier,
-        pricingModel: inquiryForm.pricingModel,
-        notes: inquiryForm.notes.trim() || null
-      })
-    });
-    setInquiryLoading(false);
-    
-    if(res.ok){
-      setInquiryForm({clientName:"",businessType:"",serviceTier:"foundation",pricingModel:"contract",notes:""});
-      loadMarketerContracts();
-      setInquiryErr("✅ Inquiry submitted! Chelgy will contact them soon.");
-    } else {
-      setInquiryErr("Failed to submit inquiry. Try again.");
+    try {
+      const res = await fetch("/api/contracts?action=submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user?.id || ""
+        },
+        body: JSON.stringify({
+          clientName: inquiryForm.clientName.trim(),
+          businessType: inquiryForm.businessType.trim() || null,
+          serviceTier: inquiryForm.serviceTier,
+          pricingModel: inquiryForm.pricingModel,
+          notes: inquiryForm.notes.trim() || null
+        })
+      });
+      if(res.ok){
+        setInquiryForm({clientName:"",businessType:"",serviceTier:"foundation",pricingModel:"contract",notes:""});
+        loadMarketerContracts();
+        setInquiryErr("✅ Sent to Chelgy! We'll review and get them rolling.");
+      } else {
+        setInquiryErr("Couldn't send just now — please try again.");
+      }
+    } catch(e){
+      setInquiryErr("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setInquiryLoading(false);
     }
   }
 
@@ -4176,6 +4182,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Get a launch plan for this client</div>
                 </button>
               </div>
+              <button onClick={()=>{ setInquiryForm({ clientName:(clientDraft.business||clientDraft.name||"").trim(), businessType:(clientDraft.industry||"").trim(), serviceTier:"foundation", pricingModel:"contract", notes:[clientDraft.goals&&("Goals: "+clientDraft.goals), clientDraft.notes&&("Notes: "+clientDraft.notes), clientDraft.contact&&("Contact: "+clientDraft.contact)].filter(Boolean).join(" · ") }); setInquiryErr(""); setMarketerView("contracts"); }} style={{width:"100%",marginTop:8,background:B.gold,color:"#111",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send this client to Chelgy →</button>
             </div>, false, true);
         }
         return teamWrap(
@@ -4345,71 +4352,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       }
 
 
-      // ── Home / dashboard ──
-      return teamWrap(
-        <div style={{paddingBottom:60}}>
-          {topBar}
-          <div style={{background:B.charcoal,padding:"28px 26px",marginBottom:18}}>
-            <h1 style={{color:"#fff",fontSize:25,fontWeight:400,margin:"0 0 8px"}}>Welcome to your workspace, {myName}.</h1>
-            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:0}}>Your home base for landing clients and running their marketing.</p>
-          </div>
-          {!hasPlan
-            ? <button onClick={()=>setMarketerView("onboard")} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.gold,padding:"22px",marginBottom:14,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
-                <div>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:3}}>Build your 30-day plan to land your first clients</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Answer a few questions and Chelgy builds your personalized client-acquisition plan.</div>
-                </div>
-                <span style={{color:B.gold}}><Icons.ChevronRight /></span>
-              </button>
-            : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:14}}>
-                <button onClick={()=>setMarketerView("roadmap")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Plan</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>30-Day Client Sprint</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>View your roadmap →</div>
-                </button>
-                <button onClick={()=>setMarketerView("coach")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>24/7</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>AI Marketing Coach</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Ask anything →</div>
-                </button>
-              </div>}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:2,background:B.stone}}>
-            <button onClick={()=>setMarketerView("deliverables")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Deliverables</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Proposals, invoices, contracts & reports — generated, customized, downloaded.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
-            </button>
-            <button onClick={()=>{setClientId(null);setClientDraft(null);setMarketerView("clients");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Workspace</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>A mini-CRM for each client: brand, logins, notes & goals.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
-            </button>
-            <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Special packages.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>View →</span>
-            </button>
-            <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Inquiries</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelgy, track approved contracts & earnings.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
-            </button>
-            <button onClick={()=>{setChecklistId(null);setMarketerView("checklists");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Campaign Checklists</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Never forget a step — Facebook Ads, SEO, launch & more.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
-            </button>
-            <button onClick={()=>setMarketerView("pitches")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Sales Pitches & Promo</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land marketing and business-building clients.</p>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
-            </button>
-          </div>
-          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
-        </div>, false, true);
-      }
-
       // Pricing & Services
       if (marketerView==="pricing") {
         const tierList = [
@@ -4420,6 +4362,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         ];
         return teamWrap(
           <div style={{maxWidth:900}}>
+            {topBar}
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
               <h2 style={{color:B.charcoal,fontSize:22,fontWeight:400,margin:0}}>Your Service Packages</h2>
               <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.12em",fontWeight:700,textTransform:"uppercase"}}>Chelgy Standard Pricing</span>
@@ -4461,18 +4404,24 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{marginBottom:16}}>
                     <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.gold,marginBottom:10,fontWeight:700}}>Includes</div>
                     <ul style={{listStyle:"none",padding:0,margin:0}}>
-                      {(tier.includes||[]).slice(0,4).map((inc,i)=>(
+                      {(tier.includes||[]).map((inc,i)=>(
                         <li key={i} style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,lineHeight:1.4,marginBottom:6}}>✓ {inc}</li>
                       ))}
-                      {(tier.includes||[]).length>4&&<li style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8}}>+ {tier.includes.length-4} more items</li>}
                     </ul>
                   </div>
                   
-                  {/* Effort & revenue */}
-                  {tier.effort && <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,lineHeight:1.5,paddingTop:12,borderTop:"1px solid "+B.stone}}>
-                    <div><strong>Effort:</strong> {tier.effort}</div>
-                    <div style={{marginTop:4}}><strong>Your Revenue:</strong> {typeof tier.marketRevenue==="string"?tier.marketRevenue:(tier.marketRevenue?(tier.marketRevenue.monthToMonth+" or "+tier.marketRevenue.contract):"")}</div>
-                  </div>}
+                  {/* Your revenue — 50% commission */}
+                  <div style={{paddingTop:12,borderTop:"1px solid "+B.stone}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",textTransform:"uppercase",color:B.gold,fontWeight:700,marginBottom:6}}>Your Revenue (50% cut)</div>
+                    {tier.projectPrice ? (
+                      <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal}}>${Math.round(tier.projectPrice*0.5).toLocaleString()}<span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}> per project</span></div>
+                    ) : (
+                      <div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,lineHeight:1.7}}>
+                        <div><strong style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>${Math.round(tier.monthToMonth*0.5).toLocaleString()}/mo</strong> month-to-month</div>
+                        <div><strong style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>${Math.round(tier.contract*0.5).toLocaleString()}/mo</strong> on annual (× 12)</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -4592,6 +4541,71 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             )}
           </div>, false, true);
       }
+      // ── Home / dashboard ──
+      return teamWrap(
+        <div style={{paddingBottom:60}}>
+          {topBar}
+          <div style={{background:B.charcoal,padding:"28px 26px",marginBottom:18}}>
+            <h1 style={{color:"#fff",fontSize:25,fontWeight:400,margin:"0 0 8px"}}>Welcome to your workspace, {myName}.</h1>
+            <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:0}}>Your home base for landing clients and running their marketing.</p>
+          </div>
+          {!hasPlan
+            ? <button onClick={()=>setMarketerView("onboard")} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.gold,padding:"22px",marginBottom:14,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
+                <div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Start Here</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:3}}>Build your 30-day plan to land your first clients</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Answer a few questions and Chelgy builds your personalized client-acquisition plan.</div>
+                </div>
+                <span style={{color:B.gold}}><Icons.ChevronRight /></span>
+              </button>
+            : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:14}}>
+                <button onClick={()=>setMarketerView("roadmap")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Your Plan</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>30-Day Client Sprint</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>View your roadmap →</div>
+                </button>
+                <button onClick={()=>setMarketerView("coach")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>24/7</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>AI Marketing Coach</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Ask anything →</div>
+                </button>
+              </div>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:2,background:B.stone}}>
+            <button onClick={()=>setMarketerView("deliverables")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Deliverables</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Proposals, invoices, contracts & reports — generated, customized, downloaded.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
+            <button onClick={()=>{setClientId(null);setClientDraft(null);setMarketerView("clients");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Workspace</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>A mini-CRM for each client: brand, logins, notes & goals.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
+            <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Special packages.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>View →</span>
+            </button>
+            <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Inquiries</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelgy, track approved contracts & earnings.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
+            </button>
+            <button onClick={()=>{setChecklistId(null);setMarketerView("checklists");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Campaign Checklists</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Never forget a step — Facebook Ads, SEO, launch & more.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
+            <button onClick={()=>setMarketerView("pitches")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Sales Pitches & Promo</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land marketing and business-building clients.</p>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
+            </button>
+          </div>
+          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
+        </div>, false, true);
+      }
+
   if (isTeamSpace) {
 
     // Not logged in → team account auth (their own account)
@@ -5834,7 +5848,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {id:"community",label:"COMMUNITY",Icon:Icons.Community},
           {id:"profile",label:"PROFILE",Icon:Icons.Profile},
         ].map(({id,label,Icon})=>(
-          <button key={id} ref={el=>{navRefs.current[id]=el;}} onClick={()=>goTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:tab===id?B.charcoal:B.mid,borderTop:tab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",paddingTop:2}}>
+          <button key={id} ref={el=>{navRefs.current[id]=el;}} onClick={()=>{ if(id==="home" && isTeamSpace && marketerStatus==="approved"){ setMarketerView("home"); goTab("profile"); } else { goTab(id); } }} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:tab===id?B.charcoal:B.mid,borderTop:tab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",paddingTop:2}}>
             <Icon />
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.1em",fontWeight:tab===id?700:400}}>{label}</span>
           </button>
