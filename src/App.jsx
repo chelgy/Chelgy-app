@@ -148,17 +148,6 @@ async function getMyMember(token, uid){
     return Array.isArray(d) && d[0] ? d[0] : null;
   } catch { return null; }
 }
-function relTime(ts){
-  if(!ts) return "";
-  const diff = Date.now() - ts;
-  if(diff < 0) return "Just now";
-  if(diff < 60000) return "Just now";
-  const m = Math.floor(diff/60000); if(m < 60) return m+"m ago";
-  const h = Math.floor(m/60); if(h < 24) return h+"h ago";
-  const d = Math.floor(h/24); if(d < 7) return d+"d ago";
-  const w = Math.floor(d/7); if(w < 5) return w+"w ago";
-  try { return new Date(ts).toLocaleDateString(); } catch { return d+"d ago"; }
-}
 async function patchMyMember(token, uid, body){
   try {
     const res = await fetch(SUPABASE_URL + "/rest/v1/members?user_id=eq." + uid, {
