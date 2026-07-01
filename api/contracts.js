@@ -33,12 +33,13 @@ export default async function handler(req, res) {
   try {
     // Resolve the acting user: prefer a verified login token, fall back to x-user-id header.
     let userId = null;
+    let userEmail = null;
     const authz = req.headers['authorization'] || '';
     const token = authz.startsWith('Bearer ') ? authz.slice(7) : '';
     if (token) {
       try {
         const ur = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: SB_ANON || SVC, Authorization: 'Bearer ' + token } });
-        if (ur.ok) { const uj = await ur.json(); userId = (uj && uj.id) || null; }
+        if (ur.ok) { const uj = await ur.json(); userId = (uj && uj.id) || null; userEmail = (uj && uj.email) || null; }
       } catch {}
     }
     if (!userId) userId = req.headers['x-user-id'] || null;
@@ -88,9 +89,18 @@ export default async function handler(req, res) {
 
     // ── Admin-only actions ──
     if (action === 'admin-list' || action === 'admin-update' || action === 'deliverable-list') {
-      const who = await sb('members?select=is_admin&id=eq.' + encodeURIComponent(userId) + '&limit=1');
-      const isAdmin = Array.isArray(who) && who[0] && who[0].is_admin === true;
-      if (!isAdmin) return res.status(403).json({ error: 'Admins only' });
+      let isAdmin = false;
+      try {
+        const byId = await sb('members?select=is_admin&id=eq.' + encodeURIComponent(userId) + '&limit=1');
+        if (Array.isArray(byId) && byId[0] && byId[0].is_admin === true) isAdmin = true;
+      } catch {}
+      if (!isAdmin && userEmail) {
+        try {
+          const byEmail = await sb('members?select=is_admin&email=eq.' + encodeURIComponent(userEmail) + '&limit=1');
+          if (Array.isArray(byEmail) && byEmail[0] && byEmail[0].is_admin === true) isAdmin = true;
+        } catch {}
+      }
+      if (!isAdmin) return res.status(403).json({ error: 'Admins only', detail: 'No admin members row for this login (checked by id and email).' });
 
       async function withMarketers(rows) {
         rows = rows || [];
