@@ -5,11 +5,10 @@
 
 export default async function handler(req, res) {
   const action = req.query.action;
-  const userId = req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
 
   const SB_URL = (process.env.SUPABASE_URL || '').trim();
   const SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
+  const SB_ANON = (process.env.SUPABASE_ANON_KEY || '').trim();
   if (!SB_URL || !SVC) {
     return res.status(500).json({ error: 'Server not configured', detail: 'Missing SUPABASE_URL or service role key in Vercel env' });
   }
@@ -32,6 +31,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Resolve the acting user: prefer a verified login token, fall back to x-user-id header.
+    let userId = null;
+    const authz = req.headers['authorization'] || '';
+    const token = authz.startsWith('Bearer ') ? authz.slice(7) : '';
+    if (token) {
+      try {
+        const ur = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: SB_ANON || SVC, Authorization: 'Bearer ' + token } });
+        if (ur.ok) { const uj = await ur.json(); userId = (uj && uj.id) || null; }
+      } catch {}
+    }
+    if (!userId) userId = req.headers['x-user-id'] || null;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
     let b = req.body;
     if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }
     b = b || {};

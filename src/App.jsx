@@ -1709,7 +1709,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{
       const tok=await freshToken();
       if(!tok){ setInquiriesErr("You're not signed in. Log in with your admin account first."); return; }
-      const res=await fetch("/api/contracts?action=admin-list",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
+      const res=await fetch("/api/contracts?action=admin-list",{method:"GET",headers:{Authorization:"Bearer "+tok}});
       if(res.ok){
         const d=await res.json();
         setInquiriesList(d.inquiries||[]);
@@ -1724,7 +1724,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{
       const tok=await freshToken();
       if(!tok){ setDeliverablesErr("You're not signed in. Log in with your admin account first."); return; }
-      const res=await fetch("/api/contracts?action=deliverable-list",{method:"GET",headers:{Authorization:"Bearer "+tok,"x-user-id":user?.id||""}});
+      const res=await fetch("/api/contracts?action=deliverable-list",{method:"GET",headers:{Authorization:"Bearer "+tok}});
       if(res.ok){
         const d=await res.json();
         setDeliverablesList(d.deliverables||[]);
@@ -2102,8 +2102,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
                     {inquiry.status==="submitted"&&(
                       <div style={{display:"flex",gap:8}}>
-                        <button onClick={async()=>{const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"approve"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"#111",color:"#fff",border:"none",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✓ Approve</button>
-                        <button onClick={async()=>{if(!confirm("Deny this inquiry?")) return;const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,"x-user-id":user?.id||""},body:JSON.stringify({inquiryId:inquiry.id,action:"deny"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✗ Deny</button>
+                        <button onClick={async()=>{const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify({inquiryId:inquiry.id,action:"approve"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"#111",color:"#fff",border:"none",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✓ Approve</button>
+                        <button onClick={async()=>{if(!confirm("Deny this inquiry?")) return;const tok=await freshToken();const res=await fetch("/api/contracts?action=admin-update",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify({inquiryId:inquiry.id,action:"deny"})});if(res.ok) loadInquiries();}} style={{flex:1,background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✗ Deny</button>
                       </div>
                     )}
                   </div>
