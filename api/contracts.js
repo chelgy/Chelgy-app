@@ -1,149 +1,139 @@
-// Merged contract/inquiry endpoint — replaces submit-inquiry.js,
-// marketer-contracts.js and admin-inquiries.js (3 functions -> 1).
-// Route with ?action=submit | list | admin-list | admin-update
+// Contract / inquiry / deliverable endpoint.
+// Talks to Supabase over its REST API with fetch (no @supabase/supabase-js
+// package needed) — same pattern as video.js.
+// Route with ?action=submit | list | deliverable-submit | deliverable-list | admin-list | admin-update
+
 export default async function handler(req, res) {
   const action = req.query.action;
   const userId = req.headers['x-user-id'];
-
   if (!userId) return res.status(401).json({ error: 'Not authenticated' });
 
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!process.env.SUPABASE_URL || !svcKey) {
-      return res.status(500).json({ error: 'Server not configured', detail: 'Missing SUPABASE_URL or service role key in Vercel env' });
-    }
-    const supabase = createClient(process.env.SUPABASE_URL, svcKey);
+  const SB_URL = (process.env.SUPABASE_URL || '').trim();
+  const SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
+  if (!SB_URL || !SVC) {
+    return res.status(500).json({ error: 'Server not configured', detail: 'Missing SUPABASE_URL or service role key in Vercel env' });
+  }
 
-    // ── Marketer submits a client inquiry ──────────────────────────────
+  // Call Supabase REST (PostgREST) with the service key.
+  async function sb(path, { method = 'GET', body, prefer } = {}) {
+    const headers = { apikey: SVC, Authorization: 'Bearer ' + SVC, 'Content-Type': 'application/json' };
+    if (prefer) headers.Prefer = prefer;
+    const r = await fetch(SB_URL + '/rest/v1/' + path, {
+      method, headers, body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    if (!r.ok) {
+      const msg = (data && (data.message || data.hint || data.details || data.error)) || text || ('HTTP ' + r.status);
+      const e = new Error(msg); e.status = r.status; throw e;
+    }
+    return data;
+  }
+
+  try {
+    let b = req.body;
+    if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }
+    b = b || {};
+
+    // ── Marketer submits a client inquiry ──
     if (action === 'submit') {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-      const { clientName, businessType, serviceTier, pricingModel, notes } = req.body;
+      const { clientName, businessType, serviceTier, pricingModel, notes } = b;
       if (!clientName || !serviceTier) return res.status(400).json({ error: 'Missing required fields' });
-
-      const { data, error } = await supabase
-        .from('client_contracts')
-        .insert([{
-          marketer_id: userId,
-          client_name: clientName,
-          business_type: businessType || null,
-          service_tier: serviceTier,
-          pricing_model: pricingModel || 'contract',
-          notes: notes || null,
-          status: 'submitted'
-        }])
-        .select();
-      if (error) throw error;
-      return res.status(200).json({ success: true, inquiry: data[0] });
+      const data = await sb('client_contracts', {
+        method: 'POST', prefer: 'return=representation',
+        body: [{
+          marketer_id: userId, client_name: clientName, business_type: businessType || null,
+          service_tier: serviceTier, pricing_model: pricingModel || 'contract',
+          notes: notes || null, status: 'submitted',
+        }],
+      });
+      return res.status(200).json({ success: true, inquiry: (data && data[0]) || null });
     }
 
-    // ── Marketer lists their own contracts ─────────────────────────────
+    // ── Marketer lists their own contracts ──
     if (action === 'list') {
       if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-      const { data: contracts, error } = await supabase
-        .from('client_contracts')
-        .select('*')
-        .eq('marketer_id', userId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
+      const contracts = await sb('client_contracts?select=*&marketer_id=eq.' + encodeURIComponent(userId) + '&order=created_at.desc');
       return res.status(200).json({ success: true, contracts: contracts || [] });
     }
 
-    // ── Marketer submits a generated deliverable for review ────────────
+    // ── Marketer submits a generated deliverable for review ──
     if (action === 'deliverable-submit') {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-      const { dvType, dvLabel, clientName, content } = req.body;
+      const { dvType, dvLabel, clientName, content } = b;
       if (!content) return res.status(400).json({ error: 'Missing content' });
-
-      const { data, error } = await supabase
-        .from('marketer_deliverables')
-        .insert([{
-          marketer_id: userId,
-          dv_type: dvType || null,
-          dv_label: dvLabel || null,
-          client_name: clientName || null,
-          content: content,
-          status: 'submitted'
-        }])
-        .select();
-      if (error) throw error;
-      return res.status(200).json({ success: true, deliverable: data[0] });
+      const data = await sb('marketer_deliverables', {
+        method: 'POST', prefer: 'return=representation',
+        body: [{
+          marketer_id: userId, dv_type: dvType || null, dv_label: dvLabel || null,
+          client_name: clientName || null, content: content, status: 'submitted',
+        }],
+      });
+      return res.status(200).json({ success: true, deliverable: (data && data[0]) || null });
     }
 
-    // ── Admin-only actions: verify is_admin first ──────────────────────
+    // ── Admin-only actions ──
     if (action === 'admin-list' || action === 'admin-update' || action === 'deliverable-list') {
-      const { data: adminCheck, error: adminError } = await supabase
-        .from('members')
-        .select('is_admin')
-        .eq('id', userId)
-        .single();
-      if (adminError || !adminCheck?.is_admin) return res.status(403).json({ error: 'Admins only' });
+      const who = await sb('members?select=is_admin&id=eq.' + encodeURIComponent(userId) + '&limit=1');
+      const isAdmin = Array.isArray(who) && who[0] && who[0].is_admin === true;
+      if (!isAdmin) return res.status(403).json({ error: 'Admins only' });
 
-      // Admin lists every inquiry
+      async function withMarketers(rows) {
+        rows = rows || [];
+        try {
+          const ids = [...new Set(rows.map(r => r.marketer_id).filter(Boolean))];
+          if (!ids.length) return rows.map(r => ({ ...r, marketer: null }));
+          const list = ids.map(encodeURIComponent).join(',');
+          const members = await sb('members?select=id,name,email&id=in.(' + list + ')');
+          const byId = {};
+          (members || []).forEach(m => { byId[m.id] = m; });
+          return rows.map(r => ({ ...r, marketer: byId[r.marketer_id] || null }));
+        } catch { return rows.map(r => ({ ...r, marketer: null })); }
+      }
+
       if (action === 'admin-list') {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-        const { data: inquiries, error } = await supabase
-          .from('client_contracts')
-          .select('*, marketer:marketer_id(id, name, email)')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        return res.status(200).json({ success: true, inquiries: inquiries || [] });
+        const rows = await sb('client_contracts?select=*&order=created_at.desc');
+        return res.status(200).json({ success: true, inquiries: await withMarketers(rows) });
       }
 
-      // Admin lists every submitted deliverable
       if (action === 'deliverable-list') {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-        const { data: deliverables, error } = await supabase
-          .from('marketer_deliverables')
-          .select('*, marketer:marketer_id(id, name, email)')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        return res.status(200).json({ success: true, deliverables: deliverables || [] });
+        const rows = await sb('marketer_deliverables?select=*&order=created_at.desc');
+        return res.status(200).json({ success: true, deliverables: await withMarketers(rows) });
       }
 
-      // Admin approves or denies an inquiry
       if (action === 'admin-update') {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const { inquiryId, action: decision, denialReason } = req.body; // decision: 'approve' | 'deny'
+        const { inquiryId, action: decision, denialReason } = b;
         if (!inquiryId || !decision) return res.status(400).json({ error: 'Missing required fields' });
 
         if (decision === 'approve') {
-          const { data: inquiry, error: fetchError } = await supabase
-            .from('client_contracts')
-            .select('service_tier, pricing_model')
-            .eq('id', inquiryId)
-            .single();
-          if (fetchError) throw fetchError;
-
+          const found = await sb('client_contracts?select=service_tier,pricing_model&id=eq.' + encodeURIComponent(inquiryId) + '&limit=1');
+          const inquiry = (found && found[0]) || {};
           const prices = {
-            foundation: { contract: 500, 'month-to-month': 800 },
+            foundation: { contract: 650, 'month-to-month': 800 },
             growth: { contract: 1200, 'month-to-month': 1500 },
-            premium: { contract: 2500, 'month-to-month': 3500 },
-            special: { contract: 5000, 'month-to-month': 5000 }
+            premium: { contract: 3000, 'month-to-month': 3500 },
+            special: { contract: 5000, 'month-to-month': 5000 },
           };
           const tier = inquiry.service_tier;
           const model = inquiry.pricing_model || 'contract';
-          const monthlyRevenue = prices[tier]?.[model] || 0;
-
-          const { error: updateError } = await supabase
-            .from('client_contracts')
-            .update({
-              status: 'approved',
-              approved_at: new Date().toISOString(),
-              approved_by: userId,
-              monthly_revenue: monthlyRevenue
-            })
-            .eq('id', inquiryId);
-          if (updateError) throw updateError;
+          const monthlyRevenue = (prices[tier] && prices[tier][model]) || 0;
+          await sb('client_contracts?id=eq.' + encodeURIComponent(inquiryId), {
+            method: 'PATCH',
+            body: { status: 'approved', approved_at: new Date().toISOString(), approved_by: userId, monthly_revenue: monthlyRevenue },
+          });
           return res.status(200).json({ success: true, message: 'Inquiry approved' });
         }
 
         if (decision === 'deny') {
-          const { error: updateError } = await supabase
-            .from('client_contracts')
-            .update({ status: 'denied', denial_reason: denialReason || null })
-            .eq('id', inquiryId);
-          if (updateError) throw updateError;
+          await sb('client_contracts?id=eq.' + encodeURIComponent(inquiryId), {
+            method: 'PATCH',
+            body: { status: 'denied', denial_reason: denialReason || null },
+          });
           return res.status(200).json({ success: true, message: 'Inquiry denied' });
         }
 
@@ -154,6 +144,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Unknown action' });
   } catch (err) {
     console.error('contracts endpoint error:', err);
-    return res.status(500).json({ error: 'Request failed', detail: (err && (err.message || err.hint || err.code)) || String(err) });
+    return res.status(500).json({ error: 'Request failed', detail: (err && (err.message || String(err))) || 'unknown' });
   }
 }
