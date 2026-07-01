@@ -4336,7 +4336,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ); })}
             </div>
           </div>, false, true);
-       } catch(e){ return teamWrap(<div style={{padding:"20px",fontFamily:"sans-serif"}}><div style={{color:B.red,fontWeight:700,marginBottom:8}}>Campaign Checklists error:</div><pre style={{whiteSpace:"pre-wrap",fontSize:11,color:B.charcoal,lineHeight:1.5}}>{String((e&&e.stack)||(e&&e.message)||e)}</pre></div>, false, true); }
+       } catch(e){
+         var diag = "MESSAGE: " + String((e&&e.message)||e) + "\n\nVIEW: " + (checklistId ? ("detail → "+checklistId) : "list");
+         try { var arr=(CAMPAIGN_CHECKLISTS||[]); diag += "\n\nCOUNT: "+arr.length+"\nTYPES: "+arr.map(function(x){return x?(typeof x)+(x.steps?("/steps="+(Array.isArray(x.steps)?x.steps.length:typeof x.steps)):"/NO-STEPS"):"null";}).join(", ")+"\n\nFIRST ENTRY: "+JSON.stringify(arr[0]).slice(0,260); } catch(x){ diag += "\n(data read failed: "+String(x&&x.message||x)+")"; }
+         return teamWrap(<div style={{padding:"20px",fontFamily:"sans-serif"}}><div style={{color:B.red,fontWeight:700,marginBottom:8}}>Campaign Checklists error:</div><pre style={{whiteSpace:"pre-wrap",fontSize:12,color:B.charcoal,lineHeight:1.55}}>{diag}</pre></div>, false, true);
+       }
       }
 
 
