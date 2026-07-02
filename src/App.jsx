@@ -6443,6 +6443,21 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [prefill, setPrefill] = useState(null);
   const [brandProgress, setBrandProgress] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("chelgy_brand_progress")||"{}"); }catch(e){ return {}; } });
   const markBrand = (k)=> setBrandProgress(prev=>{ const n={...prev,[k]:true}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} return n; });
+  const [profileKit, setProfileKit] = useState(null);
+  const [profileKitLoad, setProfileKitLoad] = useState(false);
+  async function generateProfileKit(){
+    const d=launchData; if(!d||!d.bizName){ return; }
+    setProfileKitLoad(true); setProfileKit(null);
+    const prompt="You are a local-SEO and social branding expert. Using this business, write ready-to-paste profile content for a Google Business Profile, a Facebook Page, and an Instagram business profile.\n\nBusiness Name: "+d.bizName+"\nType: "+d.bizType+"\nNiche: "+d.niche+"\nTarget Customer: "+d.targetCustomer+"\nLocation: "+d.location+"\nUnique Value: "+d.uniqueValue+"\nServices/Products: "+d.services+"\nTone: "+d.tone+"\n\nReturn ONLY a JSON object, no markdown, no commentary, exactly this shape (fill every field for THIS business):\n{\"google\":{\"name\":string,\"primaryCategory\":string,\"additionalCategories\":[string],\"description\":string (600-700 characters, warm and keyword-rich, mention the city naturally),\"services\":[string],\"keywords\":[string] (8-12 local search phrases that combine a service and the city)},\"facebook\":{\"name\":string,\"category\":string,\"about\":string (under 255 characters),\"username\":string (short handle, no spaces or @),\"cta\":string (choose one: Book Now, Call Now, Contact Us, Learn More, Shop Now, Sign Up)},\"instagram\":{\"displayName\":string (under 30 characters),\"handle\":string (short handle, no spaces or @),\"bio\":string (under 150 characters, 1-2 tasteful emoji),\"linkText\":string}}";
+    try{
+      const raw=await callClaude(prompt, 3000);
+      let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+      const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1);
+      let kit; try{ kit=JSON.parse(t); }catch(e){ kit={_raw:raw}; }
+      setProfileKit(kit); markBrand("profiles");
+    }catch(e){ setProfileKit({_raw:"Couldn't generate your profile kit — please try again."}); }
+    setProfileKitLoad(false);
+  }
 
   async function generateLaunchPackage() {
     track("launch_package_generated", {biz_type:launchData.bizType, niche:launchData.niche});
@@ -8762,15 +8777,44 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Turn this into the real thing</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy drafts each of these straight from your answers — then you refine.</div>
                     <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.06em"}}>
-                      {[["website","Website"],["logo","Logo"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?B.gold:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
+                      {[["website","Website"],["logo","Logo"],["ads","Ads"],["profiles","Profiles"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?B.gold:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
                     </div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                       <button onClick={()=>{ setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"✓ Website — refine":"✨ Draft my website"}</button>
                       <button onClick={()=>{ setPrefill({tool:"images",auto:true,data:{iType:"logo",iBiz:launchData.bizName,iExtra:"A minimal, elegant logo for "+launchData.bizName+(launchData.bizType?(", "+launchData.bizType):"")+(launchData.tone?(". Style: "+launchData.tone):"")+(launchData.colors?(". Colors: "+launchData.colors):"")+". Simple, professional, on a clean background."}}); setSubTab("images"); }} style={{background:brandProgress.logo?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.logo?"✓ Logo — refine":"Draft my logo"}</button>
                       <button onClick={()=>{ setPrefill({tool:"ads",auto:true,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"✓ Ads — refine":"Draft my ads"}</button>
+                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:brandProgress.profiles?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Profiles — view":"Set up my profiles")}</button>
                       <button onClick={()=>setSubTab("hub")} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
                     </div>
                   </div>
+                  
+                  {profileKitLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"18px",marginTop:14,fontFamily:"sans-serif",fontSize:13,color:B.mid}}>Writing your Google, Facebook &amp; Instagram profiles…</div>}
+                  {profileKit&&!profileKit._raw&&!profileKitLoad&&<div style={{marginTop:14}}>
+                    {[
+                      {key:"google",label:"Google Business Profile",link:"https://business.google.com/create",rows:[["Business name",profileKit.google&&profileKit.google.name],["Primary category",profileKit.google&&profileKit.google.primaryCategory],["More categories",profileKit.google&&(profileKit.google.additionalCategories||[]).join(", ")],["Description",profileKit.google&&profileKit.google.description],["Services",profileKit.google&&(profileKit.google.services||[]).join(", ")],["Local keywords",profileKit.google&&(profileKit.google.keywords||[]).join(", ")]]},
+                      {key:"facebook",label:"Facebook Page",link:"https://www.facebook.com/pages/create",rows:[["Page name",profileKit.facebook&&profileKit.facebook.name],["Category",profileKit.facebook&&profileKit.facebook.category],["About",profileKit.facebook&&profileKit.facebook.about],["Suggested @username",profileKit.facebook&&profileKit.facebook.username],["Call-to-action button",profileKit.facebook&&profileKit.facebook.cta]]},
+                      {key:"instagram",label:"Instagram",link:"https://www.instagram.com/accounts/emailsignup/",rows:[["Display name",profileKit.instagram&&profileKit.instagram.displayName],["Suggested @handle",profileKit.instagram&&profileKit.instagram.handle],["Bio",profileKit.instagram&&profileKit.instagram.bio],["Link text",profileKit.instagram&&profileKit.instagram.linkText]]},
+                    ].map(pf=>(
+                      <div key={pf.key} style={{border:"1px solid "+B.stone,background:"#fff",padding:"18px",marginBottom:12}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                          <div style={{fontFamily:"Georgia,serif",fontSize:17,color:B.charcoal}}>{pf.label}</div>
+                          <a href={pf.link} target="_blank" rel="noreferrer" style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,color:B.goldDark,textTransform:"uppercase",textDecoration:"none",border:"1px solid "+B.gold,padding:"7px 12px"}}>Create it here →</a>
+                        </div>
+                        {pf.rows.filter(r=>r[1]).map(([lab,val],i)=>(
+                          <div key={i} style={{marginBottom:10}}>
+                            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:4,textTransform:"uppercase"}}>{lab}</div>
+                            <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                              <div style={{flex:1,fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6,whiteSpace:"pre-wrap",background:B.offwhite,border:"1px solid "+B.stone,padding:"8px 10px"}}>{val}</div>
+                              <button onClick={()=>{ try{navigator.clipboard.writeText(String(val));}catch(e){} }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"8px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",flexShrink:0}}>Copy</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    <div style={{background:B.goldLight,padding:"12px 14px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.6}}>Use your logo as the profile photo on each. You finish signup and verification on each platform — Chelgy fills in everything to paste. Google verifies your address; Instagram is set up in its app.</div>
+                  </div>}
+                  {profileKit&&profileKit._raw&&!profileKitLoad&&<div style={{marginTop:14,background:B.offwhite,border:"1px solid "+B.stone,padding:"18px"}}><Md text={profileKit._raw} /></div>}
+
                   <Upsell variant="both" />
                 </div>
               )}
