@@ -1663,6 +1663,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
 
         {!wmResult && wmExisting && wmMode==="view" && <div>
+          <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"14px 16px",marginBottom:20,fontFamily:"sans-serif",fontSize:12.5,color:B.goldDark,lineHeight:1.65}}><strong style={{color:B.charcoal}}>This is your ready-made website.</strong> Don't love it? Browse the themes below to change the whole look — and use the tools underneath to swap your photos, products, and text until it feels like yours.</div>
           {multiSite && <div style={{marginBottom:22,paddingBottom:20,borderBottom:"1px solid "+B.stone}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>Your websites ({wmSites.length})</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
@@ -6684,16 +6685,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [advisorMsgs, setAdvisorMsgs] = useState([]);
 
   // ─── BUSINESS LAUNCH PACKAGE ─────────────────────────────────────────────
-  const [launchStep, setLaunchStep] = useState(1);
-  const [launchData, setLaunchData] = useState({
-    bizName: "", bizType: "", niche: "", targetCustomer: "", location: "",
-    uniqueValue: "", services: "", priceRange: "", tone: "Professional & Warm",
-    colors: "", competitors: "", goal: ""
-  });
-  const [launchResult, setLaunchResult] = useState(null);
+  const [launchStep, setLaunchStep] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_launch_step"); return v?JSON.parse(v):1; }catch(e){ return 1; } });
+  const [launchData, setLaunchData] = useState(()=>{ const DEF={ bizName:"", bizType:"", niche:"", targetCustomer:"", location:"", uniqueValue:"", services:"", priceRange:"", tone:"Professional & Warm", colors:"", competitors:"", goal:"" }; try{ const v=localStorage.getItem("chelgy_launch_data"); return v?{...DEF,...JSON.parse(v)}:DEF; }catch(e){ return DEF; } });
+  const [launchResult, setLaunchResult] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_launch_result"); return v?JSON.parse(v):null; }catch(e){ return null; } });
   const [launchLoading, setLaunchLoading] = useState(false);
   const [fromLaunch, setFromLaunch] = useState(false);
-  const [launchSection, setLaunchSection] = useState("brand");
+  const [launchSection, setLaunchSection] = useState(()=>{ try{ return localStorage.getItem("chelgy_launch_section")||"brand"; }catch(e){ return "brand"; } });
   const [prefill, setPrefill] = useState(null);
   const [brandProgress, setBrandProgress] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("chelgy_brand_progress")||"{}"); }catch(e){ return {}; } });
   const markBrand = (k)=> setBrandProgress(prev=>{ const n={...prev,[k]:true}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} return n; });
@@ -6788,8 +6785,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       sections[f.key] = result.slice(f.loc.after, end).trim();
     });
 
-    setLaunchResult(Object.keys(sections).length ? sections : { "BRAND STRATEGY": result });
+    const finalSections = Object.keys(sections).length ? sections : { "BRAND STRATEGY": result };
+    setLaunchResult(finalSections);
     setLaunchLoading(false);
+    // Persist to the member record so the package survives refresh, navigation and re-login
+    if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { launch_data: d, launch_result: finalSections });
   }
 
 
@@ -6910,6 +6910,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // ─── Persist everything locally so nothing resets on refresh ─────────────────
   useEffect(()=>{ if(isTeamSpace && marketerStatus==="approved"){ setPage("app"); if(!isPaid) setIsTrial(true); else setIsTrial(false); } },[isTeamSpace, marketerStatus, isPaid]);
   useEffect(()=>{ lsSet("chelgy_credits", credits); },[credits]);
+  useEffect(()=>{ try{ localStorage.setItem("chelgy_launch_data", JSON.stringify(launchData)); }catch(e){} },[launchData]);
+  useEffect(()=>{ try{ if(launchResult) localStorage.setItem("chelgy_launch_result", JSON.stringify(launchResult)); else localStorage.removeItem("chelgy_launch_result"); }catch(e){} },[launchResult]);
+  useEffect(()=>{ try{ localStorage.setItem("chelgy_launch_step", JSON.stringify(launchStep)); }catch(e){} },[launchStep]);
+  useEffect(()=>{ try{ localStorage.setItem("chelgy_launch_section", launchSection); }catch(e){} },[launchSection]);
   useEffect(()=>{ lsSet("chelgy_points", myPoints); },[myPoints]);
   useEffect(()=>{ lsSet("chelgy_completed", completedChallenges); },[completedChallenges]);
   useEffect(()=>{ lsSet("chelgy_upvoted", upvoted); },[upvoted]);
@@ -6948,6 +6952,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       }
       if(typeof m.credits === "number" || typeof m.credits_purchased === "number"){ const bal=(m.credits||0)+(m.credits_purchased||0); setCredits(bal); lsSet("chelgy_credits", bal); }
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
+      if(m.launch_data && typeof m.launch_data === "object"){ setLaunchData(ld=>({ ...ld, ...m.launch_data })); }
+      if(m.launch_result && typeof m.launch_result === "object" && Object.keys(m.launch_result).length){ setLaunchResult(m.launch_result); }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
       if(Array.isArray(m.advisor) && m.advisor.length){ setAdvisorMsgs(m.advisor); }
       if(m.marketer_status){ setMarketerStatus(m.marketer_status); }
@@ -9125,7 +9131,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
                       <button onClick={()=>navigator.clipboard?.writeText(launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"])} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy This Section</button>
-                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("brand");}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
+                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("brand"); if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { launch_data:null, launch_result:null });}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
                     </div>
                   </div>
                   <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
