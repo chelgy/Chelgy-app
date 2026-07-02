@@ -6085,7 +6085,10 @@ function PublicSite({ slug, domain, onNotFound }) {
   },[slug,domain]);
   if(st.loading) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Jost',sans-serif",color:"#8A7E70",letterSpacing:"0.2em",textTransform:"uppercase",fontSize:12}}>Loading</div>;
   if(!st.site) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,textAlign:"center",padding:24,fontFamily:"'Jost',sans-serif",color:"#8A7E70"}}><div style={{fontFamily:"'Bodoni Moda',serif",fontSize:28,color:"#241E18"}}>Site not found</div><div style={{fontSize:12,letterSpacing:"0.05em"}}>This site may be unpublished, or the link may be incorrect.</div></div>;
-  return <SiteRender site={st.site} />;
+  return (<>
+    <style dangerouslySetInnerHTML={{ __html: '#cg-site a[href^="#"]{display:none!important;}' }} />
+    <SiteRender site={st.site} />
+  </>);
 }
 
 export default function ChelgyApp() {
@@ -6582,6 +6585,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [acctPass2, setAcctPass2] = useState("");
   const [acctMsg, setAcctMsg] = useState("");
   const [acctBusy, setAcctBusy] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalErr, setPortalErr] = useState("");
 
   // Notifications
   const [notifications, setNotifications] = useState(()=>lsGetJSON("chelgy_notifs", []));
@@ -7059,6 +7064,18 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     try{ localStorage.setItem("chelgy_name",clean); localStorage.setItem("chelgy_intake",JSON.stringify(ni)); }catch(e){}
     if(user&&user.access_token&&user.id) patchMyMember(user.access_token,user.id,{name:clean,intake:ni});
     setAcctName(null); setAcctMsg("✓ Name saved.");
+  }
+  async function openBillingPortal(){
+    setPortalErr(""); setPortalLoading(true);
+    try{
+      const token = await freshToken();
+      if(!token){ setPortalErr("Please log in again."); setPortalLoading(false); return; }
+      const res = await fetch("/api/create-portal-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ access_token: token }) });
+      const d = await res.json();
+      if(d && d.url){ window.location.href = d.url; return; }
+      setPortalErr((d && d.error) || "Could not open billing. Please try again.");
+      setPortalLoading(false);
+    }catch{ setPortalErr("Could not reach billing. Please try again."); setPortalLoading(false); }
   }
   async function saveAccount(kind){
     setAcctMsg("");
@@ -9321,6 +9338,16 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Account &amp; Login</div>
 
+                  <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"16px 18px",marginBottom:26}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:14}}>Your Membership</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Plan</span><span style={{fontFamily:"Georgia,serif",fontSize:15,color:B.charcoal}}>Chelgy Membership</span></div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Price</span><span style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,fontWeight:700}}>$100 / month</span></div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Status</span><span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:isTrial?B.mid:"#2E7D32"}}>{isTrial?"Free · Explore":"Active"}</span></div>
+                    <button onClick={openBillingPortal} disabled={portalLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"11px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:portalLoading?"default":"pointer",textTransform:"uppercase"}}>{portalLoading?"Opening…":"Manage subscription"}</button>
+                    <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.6,marginTop:10}}>See your next renewal date, update your payment method, download invoices, or cancel — all in Stripe's secure portal.</div>
+                    {portalErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red,marginTop:8,lineHeight:1.5}}>{portalErr}</div>}
+                  </div>
+
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Display Name</div>
                   <div style={{display:"flex",gap:8,marginBottom:22}}>
                     <input value={acctName!==null?acctName:myName} onChange={e=>setAcctName(e.target.value)} placeholder="Your name" style={{flex:1,padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box"}} />
@@ -9419,11 +9446,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   )}
                 </div>
-                <div style={{background:B.white,padding:"26px"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>New here?</div>
-                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 14px",lineHeight:1.6}}>Take the quick guided tour again — it ends by pointing you to the right tool for whatever you want to do next.</p>
-                  <button onClick={()=>{ try{localStorage.removeItem("chelgy_tour_done");}catch(e){} goTab("home","feed"); setTourStep(0); }} style={{background:"none",border:"1px solid "+B.charcoal,padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.charcoal,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Replay the tour</button>
-                </div>
+              </div>
+              <div style={{textAlign:"center",marginTop:20}}>
+                <button onClick={()=>{ try{localStorage.removeItem("chelgy_tour_done");}catch(e){} goTab("home","feed"); setTourStep(0); }} style={{background:"none",border:"none",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:B.mid,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,textDecoration:"underline",textUnderlineOffset:"4px"}}>Replay the guided tour</button>
               </div>
             </div>
           )}
