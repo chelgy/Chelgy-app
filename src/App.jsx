@@ -1084,7 +1084,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmExisting,setWmExisting]=useState(null); const [wmSites,setWmSites]=useState([]); const [wmNewSite,setWmNewSite]=useState(false); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
-  const [edTab,setEdTab]=useState("design"); const [edFields,setEdFields]=useState({details:[]});
+  const [edTab,setEdTab]=useState("design"); const [edFields,setEdFields]=useState({details:[]}); const [edProducts,setEdProducts]=useState([]); const [edProdBusy,setEdProdBusy]=useState(-1);
   const [edDomain,setEdDomain]=useState(""); const [edDomainDns,setEdDomainDns]=useState(null); const [edDomainMsg,setEdDomainMsg]=useState(""); const [edDomainLoad,setEdDomainLoad]=useState(false);
   async function connectDomain(){
     const d=(edDomain||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
@@ -1197,6 +1197,38 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     else { d.sections=d.sections||[]; d.sections.push({type:"contact",eyebrow:"Contact",heading:edFields.cHeading||"Get in touch",headingEm:"",details:rows,cta:{label:"Get in touch"}}); }
     await saveData(d);
   }
+  async function saveProducts(){
+    const d=JSON.parse(JSON.stringify(wmExisting.data||{}));
+    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined }));
+    const i=(d.sections||[]).findIndex(x=>x&&x.type==="offerings");
+    if(i>=0){ d.sections[i].items=items; } else { d.sections=d.sections||[]; d.sections.push({type:"offerings",eyebrow:"Offerings",title:"What we offer",items}); }
+    await saveData(d);
+  }
+  async function genProductImage(idx){
+    if(edProdBusy>=0) return; const pr=edProducts[idx]; if(!pr) return; setEdProdBusy(idx); setWmErr("");
+    try{
+      const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)||"editorial-porcelain"]||THEME_IMG_STYLE["editorial-porcelain"];
+      const prompt="A premium, editorial product photo of "+(pr.name||"a product")+(pr.note?(" — "+pr.note):"")+". Clean, minimal luxury styling, soft professional lighting. "+themeStyle+" No text, no words, no logos.";
+      const r=await generateGeminiImage(prompt, null, "1:1", "standard");
+      if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,image:{url:u}}:x)); }
+    }catch(e){ setWmErr("Couldn't generate that image — please try again."); }
+    setEdProdBusy(-1);
+  }
+  function uploadProductImage(idx, file){
+    if(!file) return; setEdProdBusy(idx); setWmErr("");
+    wmRead(file, async(dataUrl)=>{ try{ const u=await uploadSiteImage(dataUrl, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,image:{url:u}}:x)); }catch(e){ setWmErr("Couldn't upload that image."); } setEdProdBusy(-1); });
+  }
+  async function aiCreateProduct(){
+    if(edProdBusy>=0) return; setEdProdBusy(9999); setWmErr("");
+    try{
+      const b=(wmExisting.data&&wmExisting.data.brand&&wmExisting.data.brand.name)||"the business";
+      const raw=await callClaude("For this business: "+b+". Suggest ONE new product or service that fits it well. Return ONLY JSON, no markdown: {\"name\":string,\"note\":string (one short line),\"price\":string (or empty)}.", 500);
+      let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim(); const a=t.indexOf("{"),z=t.lastIndexOf("}"); if(a>=0&&z>a) t=t.slice(a,z+1);
+      let obj; try{ obj=JSON.parse(t); }catch(e){ obj=null; }
+      if(obj&&obj.name){ setEdProducts(arr=>[...arr,{name:obj.name,price:obj.price||"",note:obj.note||"",image:null}]); }
+    }catch(e){ setWmErr("Couldn't create a product — please try again."); }
+    setEdProdBusy(-1);
+  }
   async function addEditorImage(){
     if(!edImgData||!wmExisting) return;
     setEdImgLoad(true); setWmErr("");
@@ -1292,7 +1324,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
   useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
-  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
+  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
@@ -1669,18 +1701,35 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 
           </div>}
           {edTab==="products"&&<div>
-          {(()=>{ const off=(wmExisting.data.sections||[]).find(x=>x&&x.type==="offerings"); const items=(off&&off.items)||[]; if(!items.length) return null; return (
-            <div style={{marginBottom:24}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Your products / services</div>
-              {items.map((it,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:10,border:"1px solid "+B.stone,background:"#fff",padding:"9px 11px",marginBottom:6}}>
-                  <div style={{flex:1,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>{it.name}{it.price?(" · "+it.price):""}</div>
-                  <button onClick={()=>removeOffering(i)} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
+            {edProducts.map((pr,i)=>(
+              <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",padding:"16px",marginBottom:12}}>
+                <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <div style={{width:88,flexShrink:0}}>
+                    {pr.image&&pr.image.url
+                      ? <div><div style={{width:88,height:88,backgroundImage:"url("+pr.image.url+")",backgroundSize:"cover",backgroundPosition:"center",border:"1px solid "+B.stone}} /><button onClick={()=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,image:null}:x))} style={{width:"100%",marginTop:4,background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"4px",fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.06em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button></div>
+                      : <div style={{width:88,height:88,border:"1px dashed "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",color:B.mid,fontFamily:"sans-serif",fontSize:9,textAlign:"center",lineHeight:1.3}}>{edProdBusy===i?"…":"No photo"}</div>}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
+                    <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
+                    <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
+                      <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
+                      <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#111",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
+                      <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product</button>
+                    </div>
+                  </div>
                 </div>
-              ))}
-              <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6,lineHeight:1.5}}>To add one, use the chat below — e.g. &quot;Add a product called Body Oil for $52&quot;.</div>
+              </div>
+            ))}
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product</button>
+              <button disabled={edProdBusy>=0} onClick={aiCreateProduct} style={{background:"none",border:"1px solid "+B.stone,color:B.charcoal,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===9999?"Writing…":"\u2728 Let Chelgy write one"}</button>
             </div>
-          ); })()}
+            <Btn dark small onClick={saveProducts}>Save products</Btn>
+            {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red,marginTop:10}}>{wmErr}</div>}
           </div>}
           {edTab==="refine"&&<div>
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
@@ -9225,6 +9274,32 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
                 <Icons.ChevronRight />
               </button>
+              {profileView==="main"&&<div onClick={()=>setProfileView("account")} style={{background:B.white,padding:"18px 26px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>Account &amp; login settings</span><span style={{color:B.mid,fontSize:15}}>&#8594;</span></div>}
+              {profileView==="account"&&(<div>
+                <button onClick={()=>setProfileView("main")} style={{background:"none",border:"none",color:B.mid,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,cursor:"pointer",padding:0,marginBottom:14}}>&#8592; Back to profile</button>
+                <div style={{background:B.white,padding:"26px"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Account &amp; Login</div>
+
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Display Name</div>
+                  <div style={{display:"flex",gap:8,marginBottom:22}}>
+                    <input value={acctName!==null?acctName:myName} onChange={e=>setAcctName(e.target.value)} placeholder="Your name" style={{flex:1,padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box"}} />
+                    <Btn dark small onClick={()=>persistName(acctName!==null?acctName:myName)}>Save</Btn>
+                  </div>
+
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Email</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:8}}>Current: {(user&&user.email)||"—"}</div>
+                  <input value={acctEmail} onChange={e=>setAcctEmail(e.target.value)} placeholder="New email address" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
+                  <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("email"); }}>{acctBusy?"Working…":"Update Email"}</Btn>
+
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,margin:"22px 0 6px"}}>Password</div>
+                  <input type="password" value={acctPass} onChange={e=>setAcctPass(e.target.value)} placeholder="New password (min 6 characters)" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
+                  <input type="password" value={acctPass2} onChange={e=>setAcctPass2(e.target.value)} placeholder="Confirm new password" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
+                  <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("password"); }}>{acctBusy?"Working…":"Update Password"}</Btn>
+
+                  {acctMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:acctMsg.charAt(0)==="✓"?"#2E7D32":B.red,marginTop:14,lineHeight:1.5}}>{acctMsg}</div>}
+                </div>
+                </div>)}
+
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:2,background:B.stone}}>
                 <div style={{background:B.white,padding:"26px"}}>
                   {!editingProfile?(<>
@@ -9285,31 +9360,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   </div>
                 </div>
-                {profileView==="main"&&<div onClick={()=>setProfileView("account")} style={{background:B.white,padding:"18px 26px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>Account &amp; login settings</span><span style={{color:B.mid,fontSize:15}}>&#8594;</span></div>}
-                {profileView==="account"&&(<div>
-                <button onClick={()=>setProfileView("main")} style={{background:"none",border:"none",color:B.mid,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,cursor:"pointer",padding:0,marginBottom:14}}>&#8592; Back to profile</button>
-                <div style={{background:B.white,padding:"26px"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Account &amp; Login</div>
-
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Display Name</div>
-                  <div style={{display:"flex",gap:8,marginBottom:22}}>
-                    <input value={acctName!==null?acctName:myName} onChange={e=>setAcctName(e.target.value)} placeholder="Your name" style={{flex:1,padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box"}} />
-                    <Btn dark small onClick={()=>persistName(acctName!==null?acctName:myName)}>Save</Btn>
-                  </div>
-
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Email</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:8}}>Current: {(user&&user.email)||"—"}</div>
-                  <input value={acctEmail} onChange={e=>setAcctEmail(e.target.value)} placeholder="New email address" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
-                  <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("email"); }}>{acctBusy?"Working…":"Update Email"}</Btn>
-
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,margin:"22px 0 6px"}}>Password</div>
-                  <input type="password" value={acctPass} onChange={e=>setAcctPass(e.target.value)} placeholder="New password (min 6 characters)" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
-                  <input type="password" value={acctPass2} onChange={e=>setAcctPass2(e.target.value)} placeholder="Confirm new password" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,boxSizing:"border-box",marginBottom:8}} />
-                  <Btn dark small onClick={()=>{ if(!acctBusy) saveAccount("password"); }}>{acctBusy?"Working…":"Update Password"}</Btn>
-
-                  {acctMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:acctMsg.charAt(0)==="✓"?"#2E7D32":B.red,marginTop:14,lineHeight:1.5}}>{acctMsg}</div>}
-                </div>
-                </div>)}
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Need Help?</div>
                   <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 16px",lineHeight:1.6}}>Stuck on something or have a question? Send us a message and we'll get back to you by email.</p>
