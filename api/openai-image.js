@@ -99,6 +99,7 @@ export default async function handler(req, res) {
     const quality = ["standard", "2K", "4K"].includes(body.quality) ? body.quality : "standard";
     const oaQuality = quality === "4K" ? "high" : quality === "2K" ? "medium" : "low";
     const size = sizeFor(aspectRatio);
+    const bg = ["transparent", "opaque", "auto"].includes(body.background) ? body.background : undefined;
 
     if (!prompt || !String(prompt).trim()) return res.status(400).json({ error: "Missing prompt" });
 
@@ -127,6 +128,8 @@ export default async function handler(req, res) {
         form.append("size", size);
         form.append("quality", oaQuality);
         form.append("n", "1");
+        if (bg) form.append("background", bg);
+        if (bg === "transparent") form.append("output_format", "png");
         validImgs.slice(0, 16).forEach((im, i) => {
           const buf = Buffer.from(im.data, "base64");
           const type = im.mimeType || "image/png";
@@ -143,7 +146,7 @@ export default async function handler(req, res) {
         r = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
           headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "gpt-image-2", prompt: String(prompt), size, quality: oaQuality, n: 1 })
+          body: JSON.stringify({ model: "gpt-image-2", prompt: String(prompt), size, quality: oaQuality, n: 1, background: bg, output_format: bg === "transparent" ? "png" : undefined })
         });
       }
       data = await r.json();

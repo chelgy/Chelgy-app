@@ -1072,10 +1072,10 @@ function ShareBar({ url, title, text, file, filename }){
   );
 }
 
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, fromLaunch=false, onBackToLaunch=()=>{} }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
-  // ── Website Maker state ──
+  // ── Website Builder state ──
   const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
   const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState(""); const [wmAutoBuild,setWmAutoBuild]=useState(false); const [iAutoRun,setIAutoRun]=useState(false); const [adAutoRun,setAdAutoRun]=useState(false);
@@ -1515,11 +1515,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(iExtra.trim())p+=" "+iExtra.trim();
     if(iUploads.length) p+=" Use the "+(iUploads.length>1?"uploaded reference photos":"uploaded reference photo")+" as the basis — keep the real product/subject accurate and build the design around "+(iUploads.length>1?"them":"it")+".";
     p+=" Make it professional, modern, sharp, well-composed and ready to use.";
+    if(iType==="logo") p+=" Present the logo isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no scene).";
     const inputImages = iUploads.map(u=>{ const m=/^data:(.*?);base64,(.*)$/.exec(u||""); return m?{mimeType:m[1],data:m[2]}:null; }).filter(Boolean);
     const useOpenAI = ["logo","flyer","social","banner"].includes(iType);
     try{
       const r = useOpenAI
-        ? await generateOpenAIImage(p,inputImages,iAspect,iQuality)
+        ? await generateOpenAIImage(p,inputImages,iAspect,iQuality,iType==="logo"?"transparent":undefined)
         : await generateGeminiImage(p,inputImages,iAspect,iQuality);
       setIRes(r.image); if(iType==="logo")onBrandProgress("logo");
       if(typeof r.balance==="number") onBalance(r.balance);
@@ -1610,8 +1611,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
-          <Icons.ChevronLeft /> Back
+        <button onClick={fromLaunch?onBackToLaunch:onBack} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
+          <Icons.ChevronLeft /> {fromLaunch?"Back to Business Launch Package":"Back"}
         </button>
         {!locked&&(
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2383,7 +2384,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Maker", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -5928,7 +5929,9 @@ function StandardSections({ site, show }){
   );
 }
 function SiteRender({ site }) {
-  const s = site || {};
+  const s0 = site || {};
+  // Nav menu links removed sitewide — they pointed to anchors that didn't reliably resolve
+  const s = s0.brand ? { ...s0, brand: { ...s0.brand, nav: [] } } : s0;
   if (s.theme === "muse") return <CollageLayout site={s} />;
   if (s.theme === "duet") return <DuetLayout site={s} />;
   if (s.theme === "rouge") return <RougeLayout site={s} />;
@@ -6286,7 +6289,7 @@ export default function ChelgyApp() {
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
     { target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." },
     { target: "learn", title: "Learn", body: "Marketing strategies and The Chelgy Edit blog. Tap any strategy for a step-by-step deep dive." },
-    { target: "tools", title: "Tools", body: "Your AI toolkit — build and publish a whole website with the Website Maker, launch your entire business with the Business Launch Package, plus create images, flyers, videos, ads, content, voiceovers, and more." },
+    { target: "tools", title: "Tools", body: "Your AI toolkit — build and publish a whole website with the Website Builder, launch your entire business with the Business Launch Package, plus create images, flyers, videos, ads, content, voiceovers, and more." },
     { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
     { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
     { target: null, chooser: true, title: "Where would you like to start?", body: "Pick one and I'll take you straight there — you can always explore the rest whenever you like." },
@@ -6385,7 +6388,7 @@ Before listing tools, write 2 to 4 warm, confident sentences that make this poin
 ## Your Chelgy toolkit
 For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on how to use it for that step. Only use tools from this list:
 - Business Launch Package (builds their entire business — a complete published website, logo, brand strategy, social plan, and launch roadmap)
-- Website Maker (writes and publishes a complete, ready-to-share website for their business)
+- Website Builder (writes and publishes a complete, ready-to-share website for their business)
 - AI Image Creator (logos, flyers, social graphics, product images)
 - AI Video Studio & Viral Video Generator (video scripts, viral ideas, AI video)
 - Ad Campaign Builder (ad copy, targeting, budget for Facebook/Instagram/TikTok)
@@ -6650,7 +6653,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   });
   const [launchResult, setLaunchResult] = useState(null);
   const [launchLoading, setLaunchLoading] = useState(false);
-  const [launchSection, setLaunchSection] = useState("website");
+  const [fromLaunch, setFromLaunch] = useState(false);
+  const [launchSection, setLaunchSection] = useState("brand");
   const [prefill, setPrefill] = useState(null);
   const [brandProgress, setBrandProgress] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("chelgy_brand_progress")||"{}"); }catch(e){ return {}; } });
   const markBrand = (k)=> setBrandProgress(prev=>{ const n={...prev,[k]:true}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} return n; });
@@ -6724,7 +6728,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       "- Week 4: Growth (specific tasks)\n" +
       "- First 3 months milestones\n" +
       "- Key metrics to track\n" +
-      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Business Launch Package to build their entire business at once (a complete published website, logo, brand, social plan and launch roadmap) and the Website Maker to build and publish their website; the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
+      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Business Launch Package to build their entire business at once (a complete published website, logo, brand, social plan and launch roadmap) and the Website Builder to build and publish their website; the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
       "Make everything specific to THIS business. No generic advice. Real, usable copy they can implement immediately."
 
     const result = await callClaude(prompt, 8000);
@@ -6778,7 +6782,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Maker"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -8848,7 +8852,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Maker",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -8863,7 +8867,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} />
             </div>
           )}
 
@@ -8969,8 +8973,21 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
               {launchResult&&!launchLoading&&(
                 <div>
+                  <div style={{background:B.charcoal,padding:"22px 20px",marginBottom:22}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Bring your launch to life</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your launch is ready — open and edit it</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy drafts each of these from your answers — click any one to see it and make it yours.</div>
+                    <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.06em"}}>
+                      {[["website","Website"],["logo","Logo"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?B.gold:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
+                    </div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"images",auto:true,data:{iType:"logo",iBiz:launchData.bizName,iExtra:"A minimal, elegant logo for "+launchData.bizName+(launchData.bizType?(", "+launchData.bizType):"")+(launchData.tone?(". Style: "+launchData.tone):"")+(launchData.colors?(". Colors: "+launchData.colors):"")+". Simple, professional, isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no scene)."}}); setSubTab("images"); }} style={{background:brandProgress.logo?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.logo?"See & edit your logo":"Draft my logo"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"ads",auto:true,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"See & edit your ads":"Draft my ads"}</button>
+                    </div>
+                  </div>
                   <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone,overflowX:"auto"}}>
-                    {[["website","Website Copy"],["brand","Brand Strategy"],["social","Social Media"],["roadmap","Launch Roadmap"]].map(([id,label])=>(
+                    {[["brand","Brand Strategy"],["social","Social Media"],["roadmap","Launch Roadmap"]].map(([id,label])=>(
                       <button key={id} onClick={()=>setLaunchSection(id)} style={{background:"none",color:launchSection===id?B.charcoal:B.mid,border:"none",borderBottom:launchSection===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:launchSection===id?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>
                     ))}
                   </div>
@@ -8984,25 +9001,19 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
                       <button onClick={()=>navigator.clipboard?.writeText(launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"])} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy This Section</button>
-                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("website");}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
+                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("brand");}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
                     </div>
                   </div>
                   <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
                     This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
                   </div>
                   <div style={{background:B.charcoal,padding:"22px 20px",marginTop:14}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Bring your brand to life</div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Turn this into the real thing</div>
-                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy drafts each of these straight from your answers — then you refine.</div>
-                    <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.06em"}}>
-                      {[["website","Website"],["logo","Logo"],["ads","Ads"],["profiles","Profiles"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?B.gold:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
-                    </div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Get found online</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy writes everything to paste into each profile — you just create the accounts.</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={()=>{ setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"✓ Website — refine":"✨ Draft my website"}</button>
-                      <button onClick={()=>{ setPrefill({tool:"images",auto:true,data:{iType:"logo",iBiz:launchData.bizName,iExtra:"A minimal, elegant logo for "+launchData.bizName+(launchData.bizType?(", "+launchData.bizType):"")+(launchData.tone?(". Style: "+launchData.tone):"")+(launchData.colors?(". Colors: "+launchData.colors):"")+". Simple, professional, on a clean background."}}); setSubTab("images"); }} style={{background:brandProgress.logo?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.logo?"✓ Logo — refine":"Draft my logo"}</button>
-                      <button onClick={()=>{ setPrefill({tool:"ads",auto:true,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"✓ Ads — refine":"Draft my ads"}</button>
-                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:brandProgress.profiles?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Profiles — view":"Set up my profiles")}</button>
-                      <button onClick={()=>setSubTab("hub")} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
+                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
+                      <button onClick={()=>{ setFromLaunch(false); setSubTab("hub"); }} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
                     </div>
                   </div>
                   
