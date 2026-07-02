@@ -6165,6 +6165,7 @@ export default function ChelgyApp() {
   },[]);
   const [isTrial, setIsTrial] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [pastDue, setPastDue] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
@@ -6889,6 +6890,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       setTimeout(refreshM, 2500); setTimeout(refreshM, 7000); setTimeout(refreshM, 12000); // webhook may take a moment
       try { window.history.replaceState({}, "", "/?team"); } catch {}
     }
+    const isMemberBuy = params.get("member")==="success";
+    if (isMemberBuy) {
+      pushNotif("Payment received — activating your membership…");
+      const refreshMem = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} freshToken().then(t=>t?claimMonthlyCredits(t):null).then(tot=>{ if(typeof tot==="number"){ setCredits(tot); lsSet("chelgy_credits", tot); } }); } }); };
+      setTimeout(refreshMem, 2500); setTimeout(refreshMem, 7000); setTimeout(refreshMem, 12000); // webhook may take a moment
+      try { window.history.replaceState({}, "", "/"); } catch {}
+    }
     const s = loadSession();
     if (s && s.email) {
       setUser(s);
@@ -6932,8 +6940,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(cancelled || !m) return;
       // Membership is decided by the database, not a browser flag. Paid/comp/admin = full access.
       if(m.status && ["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){
-        setIsTrial(false); setIsPaid(true); try{ localStorage.setItem("chelgy_member","1"); }catch{}
+        setIsTrial(false); setIsPaid(true); setPastDue(false); try{ localStorage.setItem("chelgy_member","1"); }catch{}
       } else { setIsPaid(false); }
+      if(String(m.status||"").toLowerCase()==="past_due"){
+        setPastDue(true);
+        pushNotif("Your last membership payment didn't go through. Update your card in Profile → Manage subscription to restore full access.");
+      }
       if(typeof m.credits === "number" || typeof m.credits_purchased === "number"){ const bal=(m.credits||0)+(m.credits_purchased||0); setCredits(bal); lsSet("chelgy_credits", bal); }
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
@@ -6994,25 +7006,35 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if(credits >= 1000) lowWarnedRef.current = false;
   },[credits, isTrial]);
 
-  const startUpgrade = () => {
+  async function startMembershipCheckout(){
+    // A suspended (past_due) member already HAS a subscription — send them to fix
+    // their card in the Stripe portal instead of creating a second subscription.
+    if (pastDue) { try { await openBillingPortal(); return; } catch(e){} }
+    // Proper server-created subscription checkout — stamps the member's id so the
+    // webhook auto-activates them. Falls back to the hosted payment link if the API
+    // or price env var isn't configured yet, so upgrading never dead-ends.
     let email = (user && user.email) || signupData.email || "";
     if (!email) { try { email = localStorage.getItem("chelgy_email") || ""; } catch {} }
-    if (email && email.includes("@")) {
+    try { if(email) localStorage.setItem("chelgy_email", email); localStorage.setItem("chelgy_name", (user && user.name) || signupData.name || (myName!=="You"?myName:"") || ""); } catch {}
+    const tok = await freshToken();
+    if (tok) {
       try {
-        localStorage.setItem("chelgy_email", email);
-        localStorage.setItem("chelgy_name", (user && user.name) || signupData.name || (myName!=="You"?myName:"") || "");
-      } catch {}
-      window.location.href = STRIPE_PAYMENT_LINK + "?prefilled_email=" + encodeURIComponent(email);
-    } else {
-      setPage("signup");
+        const res = await fetch("/api/create-membership-checkout", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ access_token: tok }) });
+        const d = await res.json().catch(()=>null);
+        if (d && d.url) { window.location.href = d.url; return; }
+      } catch (e) { /* fall through to payment link */ }
+      window.location.href = STRIPE_PAYMENT_LINK + (email?("?prefilled_email="+encodeURIComponent(email)):"");
+      return;
     }
-  };
+    setPage("signup"); // not logged in yet → sign up first, then subscribe
+  }
+  const startUpgrade = () => { startMembershipCheckout(); };
   const handleStripeCheckout = async () => {
     setStripeError("");
     if (!signupData.email || !signupData.email.includes("@")) { setStripeError("Please enter a valid email address first."); return; }
     setProcessing(true);
     try { localStorage.setItem("chelgy_name", signupData.name||""); localStorage.setItem("chelgy_email", signupData.email); } catch {}
-    window.location.href = STRIPE_PAYMENT_LINK + "?prefilled_email=" + encodeURIComponent(signupData.email);
+    await startMembershipCheckout();
   };
 
   const doEmailSignup = async () => {

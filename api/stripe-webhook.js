@@ -73,6 +73,21 @@ export default async function handler(req, res) {
       });
     } catch { /* swallow */ }
   }
+  // Update a member's status looked up by email. `onlyFrom` (optional) restricts the
+  // update to members currently in those statuses — so we never clobber admin/comp
+  // accounts or re-suspend someone who's fine.
+  async function setMemberStatusByEmail(email, status, onlyFrom) {
+    if (!email) return;
+    try {
+      let url = SUPABASE_URL + "/rest/v1/members?email=eq." + encodeURIComponent(email);
+      if (onlyFrom && onlyFrom.length) url += "&status=in.(" + onlyFrom.join(",") + ")";
+      await fetch(url, {
+        method: "PATCH",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ status })
+      });
+    } catch { /* swallow */ }
+  }
 
   if (event.type === "checkout.session.completed") {
     const s = event.data.object || {};
@@ -85,6 +100,11 @@ export default async function handler(req, res) {
       if (meta.kind === "marketer_membership") {
         await setMemberStatus(userId, "active");
       }
+      // Regular member subscription → activate the member.
+      // (Their 12,000 monthly allowance is granted by the monthly claim on next login.)
+      if (meta.kind === "member_membership") {
+        await setMemberStatus(userId, "active");
+      }
       // Credit pack purchase → add credits
       const credits = parseInt(meta.credits, 10);
       if (credits > 0) {
@@ -93,12 +113,30 @@ export default async function handler(req, res) {
     }
   }
 
-  // Marketer cancels or their subscription lapses → revoke workspace access
+  // Marketer or member cancels / subscription lapses → revoke access
   if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object || {};
     const meta = sub.metadata || {};
-    if (meta.user_id && meta.kind === "marketer_membership") {
+    if (meta.user_id && (meta.kind === "marketer_membership" || meta.kind === "member_membership")) {
       await setMemberStatus(meta.user_id, "canceled");
+    }
+  }
+
+  // A subscription payment failed (card declined mid-membership) → suspend access.
+  // Only touches members who were actively paying, so admin/comp accounts are safe.
+  if (event.type === "invoice.payment_failed") {
+    const inv = event.data.object || {};
+    if (inv.subscription && inv.customer_email) {
+      await setMemberStatusByEmail(inv.customer_email, "past_due", ["active", "paid"]);
+    }
+  }
+
+  // A subscription payment cleared (initial or a recovered retry) → restore access.
+  // Only un-suspends someone currently past_due; won't disturb admin/comp/active.
+  if (event.type === "invoice.payment_succeeded") {
+    const inv = event.data.object || {};
+    if (inv.subscription && inv.customer_email) {
+      await setMemberStatusByEmail(inv.customer_email, "active", ["past_due"]);
     }
   }
 
