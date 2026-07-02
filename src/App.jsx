@@ -1072,7 +1072,7 @@ function ShareBar({ url, title, text, file, filename }){
   );
 }
 
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{} }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Maker state ──
@@ -1081,7 +1081,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState(""); const [wmAutoBuild,setWmAutoBuild]=useState(false); const [iAutoRun,setIAutoRun]=useState(false); const [adAutoRun,setAdAutoRun]=useState(false);
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
-  const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
+  const [wmExisting,setWmExisting]=useState(null); const [wmSites,setWmSites]=useState([]); const [wmNewSite,setWmNewSite]=useState(false); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
   const [edTab,setEdTab]=useState("design"); const [edFields,setEdFields]=useState({details:[]});
@@ -1229,9 +1229,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     (async()=>{
       try{
         const tok=await freshToken(); if(!tok) return;
-        const res=await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug,data,theme,custom_domain&user_id=eq."+user.id+"&limit=1",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+        const res=await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug,data,theme,custom_domain&user_id=eq."+user.id+"&order=updated_at.desc.nullslast",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
         const rows=await res.json();
-        if(!cancel&&Array.isArray(rows)&&rows.length){ const r=rows[0]; const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; setWmExisting({ id:r.id, slug:r.slug, data, domain:r.custom_domain||null }); }
+        if(!cancel&&Array.isArray(rows)&&rows.length){ const mapped=rows.map(r=>{ const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; return { id:r.id, slug:r.slug, data, domain:r.custom_domain||null }; }); setWmSites(mapped); setWmExisting(mapped[0]); }
       }catch(e){}
     })();
     return ()=>{ cancel=true; };
@@ -1362,20 +1362,23 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const tok = await freshToken();
       if(!tok){ throw new Error("Your session expired — please log in again."); }
       const H = { apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json" };
-      const exRes = await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug&user_id=eq."+user.id+"&limit=1", { headers:H });
-      const ex = await exRes.json().catch(()=>[]);
+      const rnd=()=>Math.random().toString(36).slice(2,6);
+      const insertNew=async()=>{ const sl=slugify(wmName)+"-"+rnd(); const ins = await fetch(SUPABASE_URL+"/rest/v1/websites", { method:"POST", headers:{...H, Prefer:"return=representation"}, body:JSON.stringify({ user_id:user.id, slug:sl, theme:site.theme, data:site, published:true }) }); if(!ins.ok){ throw new Error("Couldn't save your site: "+(await ins.text())); } const j = await ins.json().catch(()=>null); return { slug:sl, rowId:(Array.isArray(j)&&j[0])?j[0].id:null }; };
+      const patchRow=async(id,sl)=>{ const up = await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+id, { method:"PATCH", headers:{...H, Prefer:"return=minimal"}, body:JSON.stringify({ data:site, theme:site.theme, published:true, updated_at:new Date().toISOString() }) }); if(!up.ok){ throw new Error("Couldn't save your site: "+(await up.text())); } return { slug:sl, rowId:id }; };
       let slug, rowId;
-      if(Array.isArray(ex)&&ex.length){
-        slug = ex[0].slug; rowId = ex[0].id;
-        const up = await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+ex[0].id, { method:"PATCH", headers:{...H, Prefer:"return=minimal"}, body:JSON.stringify({ data:site, theme:site.theme, published:true, updated_at:new Date().toISOString() }) });
-        if(!up.ok){ throw new Error("Couldn't save your site: "+(await up.text())); }
+      if(wmNewSite){
+        const r=await insertNew(); slug=r.slug; rowId=r.rowId;
+      } else if(wmExisting && wmExisting.id){
+        const r=await patchRow(wmExisting.id, wmExisting.slug||(slugify(wmName)+"-"+rnd())); slug=r.slug; rowId=r.rowId;
       } else {
-        slug = slugify(wmName)+"-"+Math.random().toString(36).slice(2,6);
-        const ins = await fetch(SUPABASE_URL+"/rest/v1/websites", { method:"POST", headers:{...H, Prefer:"return=representation"}, body:JSON.stringify({ user_id:user.id, slug, theme:site.theme, data:site, published:true }) });
-        if(!ins.ok){ throw new Error("Couldn't save your site: "+(await ins.text())); }
-        const j = await ins.json().catch(()=>null); rowId = (Array.isArray(j)&&j[0])?j[0].id:null;
+        const exRes = await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug&user_id=eq."+user.id+"&limit=1", { headers:H });
+        const ex = await exRes.json().catch(()=>[]);
+        if(Array.isArray(ex)&&ex.length){ const r=await patchRow(ex[0].id, ex[0].slug); slug=r.slug; rowId=r.rowId; }
+        else { const r=await insertNew(); slug=r.slug; rowId=r.rowId; }
       }
-      if(rowId) setWmExisting({ id:rowId, slug, data:site });
+      const newRec = { id:rowId, slug, data:site, domain:((!wmNewSite&&wmExisting)?wmExisting.domain:null) };
+      if(rowId){ setWmExisting(newRec); setWmSites(prev=>{ const others=(prev||[]).filter(x=>x.id!==rowId); return [newRec, ...others]; }); }
+      setWmNewSite(false);
       setWmResult({ slug, url: window.location.origin + "/?site=" + slug }); onBrandProgress("website");
     }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong. Please try again."); }
     setWmLoad(false); setWmStage("");
@@ -1594,6 +1597,15 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
 
         {!wmResult && wmExisting && wmMode==="view" && <div>
+          {multiSite && <div style={{marginBottom:22,paddingBottom:20,borderBottom:"1px solid "+B.stone}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>Your websites ({wmSites.length})</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
+              {wmSites.map(st=>{ const cur=wmExisting&&wmExisting.id===st.id; return (
+                <button key={st.id} onClick={()=>{ setWmExisting(st); setWmMode("view"); setWmResult(null); }} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(st.data&&st.data.brand&&st.data.brand.name)||st.slug}</button>
+              ); })}
+            </div>
+            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:"#111",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Make another website</button>
+          </div>}
           <div style={{background:B.offwhite,border:"1px solid "+B.gold,padding:"22px",marginBottom:22}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>Your website is live</div>
             <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:14,wordBreak:"break-all"}}>{window.location.origin+"/?site="+wmExisting.slug}</div>
@@ -8772,7 +8784,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} />
+              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} />
             </div>
           )}
 
