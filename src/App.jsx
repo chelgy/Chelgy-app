@@ -1148,7 +1148,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; noir = dark & dramatic for restaurants, nightlife, fashion, barbers, bold brands; warm-minimal = soft, airy, calm for wellness, ceramics, cafes, makers; atelier = timeless & classic for jewelry, tailors, law, consulting, heritage; gallery = image-forward & minimal for photographers, designers, architects, real estate; bordeaux = moody deep-maroon editorial for coaches, creatives, agencies; blush = soft feminine pink for coaches, beauty, feminine brands; studio = bold modern sans for fitness, gyms, bold modern brands; scarlet = bold vibrant red for creative & personal brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; noir = dark & dramatic for restaurants, nightlife, fashion, barbers, bold brands; bordeaux = moody deep-maroon editorial for coaches, creatives, agencies; blush = soft feminine pink for coaches, beauty, feminine brands; studio = bold modern sans for fitness, gyms, bold modern brands; scarlet = bold vibrant red for creative & personal brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 8000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
@@ -1157,7 +1157,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       let site;
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
-      const IMPL=["editorial-porcelain","noir","warm-minimal","atelier","gallery","bordeaux","blush","studio","scarlet","fog","postale"];
+      const IMPL=["editorial-porcelain","noir","bordeaux","blush","studio","scarlet","fog","postale","muse","duet"];
       site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"editorial-porcelain") : wmTheme;
       if(site.credit===undefined) site.credit = true;
       const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
@@ -1458,7 +1458,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Look &amp; colours</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["editorial-porcelain","Editorial"],["noir","Noir"],["warm-minimal","Warm Minimal"],["atelier","Atelier"],["gallery","Gallery"],["bordeaux","Bordeaux"],["blush","Blush"],["studio","Studio"],["scarlet","Scarlet"],["fog","Fog"],["postale","Postale"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
+              {[["editorial-porcelain","Editorial"],["noir","Noir"],["bordeaux","Bordeaux"],["blush","Blush"],["studio","Studio"],["scarlet","Scarlet"],["fog","Fog"],["postale","Postale"],["muse","Muse"],["duet","Duet"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
             </div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,marginBottom:14,lineHeight:1.5}}>Tap a preset to swap the whole palette — or fine-tune it below.</div>
             <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"16px"}}>
@@ -1536,7 +1536,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
-            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["noir","Noir",true],["warm-minimal","Warm Minimal",true],["atelier","Atelier",true],["gallery","Gallery",true],["bordeaux","Bordeaux",true],["blush","Blush",true],["studio","Studio",true],["scarlet","Scarlet",true],["fog","Fog",true],["postale","Postale",true]].map(([id,label,active])=>(
+            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["noir","Noir",true],["bordeaux","Bordeaux",true],["blush","Blush",true],["studio","Studio",true],["scarlet","Scarlet",true],["fog","Fog",true],["postale","Postale",true],["muse","Muse",true],["duet","Duet",true]].map(([id,label,active])=>(
               <button key={id} disabled={!active} onClick={()=>active&&setWmTheme(id)} style={{padding:"10px 15px",border:"1px solid "+(wmTheme===id?B.charcoal:B.stone),background:wmTheme===id?B.charcoal:"#fff",color:!active?"#BBB":(wmTheme===id?"#fff":B.charcoal),fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:active?"pointer":"default"}}>{label}{!active&&<span style={{fontSize:8,marginLeft:6,letterSpacing:"0.1em"}}>SOON</span>}</button>
             ))}
           </div>
@@ -4314,7 +4314,9 @@ const THEME_IMG_STYLE = {
   "studio":"bold, modern and high-contrast in stone, concrete and charcoal tones, crisp confident studio light, athletic minimal luxury",
   "scarlet":"bold and vibrant editorial with striking scarlet-red and warm cream tones, confident dramatic light, playful high-fashion luxury",
   "fog":"cool, elegant and high-fashion in soft grey, pewter and cream tones, refined even studio light, understated luxury",
-  "postale":"crisp black and white editorial, timeless monochrome tones, clean magazine light, effortless chic luxury"
+  "postale":"crisp black and white editorial, timeless monochrome tones, clean magazine light, effortless chic luxury",
+  "muse":"warm, moody scrapbook editorial in oxblood, wine and cream tones, soft film-like grain and light, intimate personal-brand luxury",
+  "duet":"elegant black-and-white editorial photography, timeless monochrome and cream tones, refined natural light, romantic high-end luxury"
 };
 
 const DEMO_SITE = {
@@ -4331,6 +4333,263 @@ const DEMO_SITE = {
   credit: true
 };
 
+const COLLAGE_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=Sacramento&family=Jost:wght@300;400;500&display=swap');
+#cg-site{--bg:#F3EADB;--card:#FBF6EC;--ink:#2B1A17;--mid:#8A7365;--oxblood:#7A2E2E;--maroon:#4E1E1E;--tape:rgba(206,182,140,0.55);--display:'Fraunces',Georgia,serif;--script:'Sacramento',cursive;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.75;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
+#cg-site *{box-sizing:border-box;}
+#cg-site::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.05;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");}
+#cg-site .wrap{max-width:1240px;margin:0 auto;padding:0 clamp(20px,5vw,56px);}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site em{font-style:italic;}
+#cg-site .script{font-family:var(--script);font-style:normal;}
+#cg-site .eyebrow{font-family:var(--body);font-size:0.66rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--oxblood);}
+#cg-site .btn-pill{display:inline-block;background:var(--oxblood);color:var(--card);border-radius:40px;padding:13px 30px;font-size:0.68rem;letter-spacing:0.16em;text-transform:uppercase;font-family:var(--body);font-weight:500;transition:transform .35s, background .35s;}
+#cg-site .btn-pill:hover{transform:translateY(-2px);background:var(--maroon);}
+#cg-site .btn-pill.light{background:var(--card);color:var(--maroon);}
+#cg-site .brandlogo{width:auto;max-width:200px;object-fit:contain;display:block;}
+#cg-site header{position:sticky;top:0;z-index:30;background:rgba(243,234,219,0.86);backdrop-filter:blur(8px);}
+#cg-site .nav{display:flex;align-items:center;justify-content:space-between;height:78px;}
+#cg-site .brand{font-family:var(--display);font-size:1.55rem;font-weight:500;letter-spacing:0.04em;}
+#cg-site .menu{display:flex;gap:30px;align-items:center;}
+#cg-site .menu a{font-size:0.7rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink);}
+#cg-site .menu a:hover{color:var(--oxblood);}
+#cg-site .hero{padding:8px clamp(8px,1.4vw,16px) 0;}
+#cg-site .hero-card{position:relative;border-radius:28px;overflow:hidden;min-height:86vh;display:flex;align-items:flex-end;}
+#cg-site .hero-img{position:absolute;inset:0;background:radial-gradient(120% 100% at 66% 24%,#9A5A4E,#6E2E2A 52%,#3A1614 100%);background-size:cover;background-position:center;}
+#cg-site .hero-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,14,12,0.15) 30%,rgba(40,14,12,0.6) 100%);}
+#cg-site .hero-cap{position:absolute;top:20px;right:22px;z-index:2;font-size:0.56rem;letter-spacing:0.22em;text-transform:uppercase;color:rgba(247,241,230,0.55);}
+#cg-site .badge{position:absolute;top:22px;left:22px;z-index:2;width:70px;height:70px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-family:var(--script);font-size:1.4rem;color:var(--oxblood);transform:rotate(-8deg);box-shadow:0 10px 24px rgba(40,14,12,0.25);}
+#cg-site .hero-inner{position:relative;z-index:2;padding:clamp(28px,5vw,64px);padding-bottom:clamp(40px,7vh,80px);max-width:840px;}
+#cg-site .hero .eyebrow{color:rgba(247,231,224,0.8);}
+#cg-site .hero h1{font-family:var(--display);color:#F7EEE6;font-weight:400;font-size:clamp(2.6rem,7vw,5.6rem);line-height:1.02;margin:16px 0 22px;}
+#cg-site .hero h1 em{color:#E9B9AE;}
+#cg-site .hero h1 .script{color:#E9B9AE;font-size:1.15em;display:inline-block;}
+#cg-site .statement{text-align:center;padding:clamp(70px,12vh,150px) 0 clamp(50px,8vh,90px);}
+#cg-site .statement h2{font-family:var(--display);font-weight:400;font-size:clamp(2rem,5vw,3.8rem);line-height:1.12;margin:0 auto;max-width:20ch;}
+#cg-site .statement h2 em{color:var(--oxblood);font-style:italic;}
+#cg-site .statement p{color:var(--mid);max-width:52ch;margin:22px auto 0;font-size:1.02rem;}
+#cg-site .marquee{background:var(--oxblood);color:var(--card);overflow:hidden;padding:11px 0;}
+#cg-site .marquee div{display:flex;gap:30px;white-space:nowrap;animation:cgscroll 26s linear infinite;font-size:0.7rem;letter-spacing:0.24em;text-transform:uppercase;}
+@keyframes cgscroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+#cg-site .meet{background:var(--maroon);color:#F4E7E1;padding:clamp(80px,12vh,150px) 0;}
+#cg-site .meet-grid{display:grid;grid-template-columns:0.95fr 1.05fr;gap:clamp(40px,6vw,90px);align-items:center;}
+#cg-site .collage{position:relative;height:clamp(420px,52vh,560px);}
+#cg-site .polaroid{position:absolute;background:var(--card);padding:12px 12px 40px;border-radius:3px;box-shadow:0 26px 50px rgba(20,6,6,0.45);}
+#cg-site .polaroid .ph{width:100%;height:100%;background:radial-gradient(120% 100% at 40% 30%,#B98A7E,#7A4A42 70%);background-size:cover;background-position:center;display:block;}
+#cg-site .polaroid::before{content:"";position:absolute;top:-13px;left:50%;transform:translateX(-50%) rotate(-3deg);width:94px;height:26px;background:var(--tape);box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+#cg-site .p1{width:56%;aspect-ratio:4/5;top:0;left:2%;transform:rotate(-6deg);z-index:2;}
+#cg-site .p2{width:52%;aspect-ratio:4/5;top:22%;right:0;transform:rotate(5deg);z-index:3;}
+#cg-site .p3{width:46%;aspect-ratio:1;bottom:0;left:14%;transform:rotate(-2deg);z-index:4;}
+#cg-site .meet .eyebrow{color:rgba(233,185,174,0.85);}
+#cg-site .meet h2{font-family:var(--display);font-weight:400;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1.1;margin:14px 0 20px;}
+#cg-site .meet h2 .script{color:#E9B9AE;font-size:1.15em;}
+#cg-site .meet p{color:rgba(244,231,225,0.82);font-size:1.02rem;margin:0 0 16px;max-width:46ch;}
+#cg-site .meet .btn-pill{margin-top:12px;}
+#cg-site .offer{padding:clamp(80px,12vh,160px) 0;}
+#cg-site .offer-head{text-align:center;margin-bottom:52px;}
+#cg-site .offer-head h3{font-family:var(--display);font-weight:400;font-size:clamp(1.8rem,3.6vw,2.7rem);margin:10px 0 0;}
+#cg-site .offer-head h3 em{color:var(--oxblood);font-style:italic;}
+#cg-site .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(20px,3vw,44px);}
+#cg-site .card{text-align:center;}
+#cg-site .card .ph{aspect-ratio:4/5;border-radius:18px;overflow:hidden;background:radial-gradient(120% 100% at 40% 25%,#C6A093,#8A574C 72%);background-size:cover;background-position:center;box-shadow:0 18px 36px rgba(60,20,16,0.16);transition:transform .5s cubic-bezier(.2,.7,.2,1);}
+#cg-site .card:hover .ph{transform:translateY(-6px) rotate(-1.5deg);}
+#cg-site .card .nm{font-family:var(--display);font-size:1.35rem;margin-top:18px;}
+#cg-site .card .meta{display:flex;justify-content:center;gap:12px;align-items:baseline;margin-top:4px;color:var(--mid);font-size:0.86rem;}
+#cg-site .card .price{color:var(--oxblood);}
+#cg-site .quote{text-align:center;padding:clamp(60px,10vh,120px) 0;}
+#cg-site .quote p{font-family:var(--script);font-size:clamp(1.9rem,4vw,3rem);line-height:1.3;color:var(--oxblood);max-width:24ch;margin:0 auto;}
+#cg-site .quote cite{display:block;margin-top:20px;font-family:var(--body);font-style:normal;font-size:0.68rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--mid);}
+#cg-site .contact{padding:0 clamp(8px,1.4vw,16px) 12px;}
+#cg-site .contact-card{background:var(--maroon);color:#F4E7E1;border-radius:28px;text-align:center;padding:clamp(60px,10vh,130px) clamp(24px,6vw,80px);}
+#cg-site .contact .eyebrow{color:rgba(233,185,174,0.85);}
+#cg-site .contact h2{font-family:var(--display);font-weight:400;font-size:clamp(2rem,5vw,3.6rem);line-height:1.08;margin:16px auto 18px;max-width:18ch;}
+#cg-site .contact h2 em{color:#E9B9AE;font-style:italic;}
+#cg-site .contact .line{display:block;color:rgba(244,231,225,0.82);}
+#cg-site footer.foot{padding:34px 0;}
+#cg-site .foot .wrap{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;}
+#cg-site .foot .brand{font-size:1.2rem;}
+#cg-site .foot .fnav{display:flex;gap:24px;font-size:0.66rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--mid);}
+#cg-site .credit{text-align:center;padding:0 0 26px;}
+#cg-site .credit span{font-size:0.58rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--mid);opacity:0.7;}
+@media (max-width:860px){#cg-site .menu{display:none;}#cg-site .meet-grid{grid-template-columns:1fr;gap:60px;}#cg-site .collage{height:440px;max-width:420px;margin:0 auto;}#cg-site .cards{grid-template-columns:1fr;gap:34px;}}
+`;
+
+function CollageLayout({ site }) {
+  const s = site || {}; const brand = s.brand || {};
+  const sections = Array.isArray(s.sections) ? s.sections : [];
+  const get = (t) => sections.find(x => x && x.type === t);
+  const hero = get("hero"), phil = get("philosophy"), about = get("about"), off = get("offerings"), quote = get("quote"), contact = get("contact");
+  const url = (im) => (im && im.url) ? im.url : null;
+  const bgi = (u) => u ? { backgroundImage: "url(" + u + ")", backgroundSize: "cover", backgroundPosition: "center" } : undefined;
+  const pics = [];
+  if (about && url(about.image)) pics.push(url(about.image));
+  if (off && Array.isArray(off.items)) off.items.forEach(it => { if (url(it.image)) pics.push(url(it.image)); });
+  if (hero && url(hero.image)) pics.push(url(hero.image));
+  const mq = "\u2605 " + (brand.name || "Studio") + " \u2605 Clarity \u2605 Confidence \u2605 Strategy \u2605 Freedom \u00A0";
+  const custom = s.custom ? buildCustomCSS(s.custom) : "";
+  return (
+    <div id="cg-site" data-theme="muse">
+      <style dangerouslySetInnerHTML={{ __html: COLLAGE_CSS }} />
+      {custom && <style dangerouslySetInnerHTML={{ __html: custom }} />}
+      <header><div className="wrap nav">
+        {brand.logo ? <img className="brandlogo" src={brand.logo} alt={brand.name || ""} style={{ height: 44 }} /> : <div className="brand">{brand.name || "Your Brand"}</div>}
+        <nav className="menu">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}<a href="#s-contact" className="btn-pill" style={{ padding: "10px 22px" }}>Book</a></nav>
+      </div></header>
+      {hero && <section className="hero" id="s-top"><div className="hero-card"><div className="hero-img" style={bgi(url(hero.image))}></div>{!url(hero.image) && <span className="hero-cap">Hero imagery</span>}<span className="badge">hi!</span><div className="hero-inner">{hero.eyebrow && <div className="eyebrow">{hero.eyebrow}</div>}<h1>{hero.headline} {hero.headlineEm && <span className="script">{hero.headlineEm}</span>}</h1>{hero.cta && <a href="#s-contact" className="btn-pill light">{hero.cta.label}</a>}</div></div></section>}
+      {phil && <section className="statement wrap" id="s-about"><div>{phil.eyebrow && <div className="eyebrow">{phil.eyebrow}</div>}<h2>{phil.heading}{phil.headingEm && <em> {phil.headingEm}</em>}</h2>{phil.body && phil.body[0] && <p>{phil.body[0]}</p>}</div></section>}
+      <div className="marquee"><div><span>{mq}</span><span>{mq}</span></div></div>
+      {about && <section className="meet" id="s-work"><div className="wrap meet-grid"><div className="collage"><div className="polaroid p1"><div className="ph" style={bgi(pics[0] || null)}></div></div><div className="polaroid p2"><div className="ph" style={bgi(pics[1] || null)}></div></div><div className="polaroid p3"><div className="ph" style={bgi(pics[2] || null)}></div></div></div><div>{about.eyebrow && <div className="eyebrow">{about.eyebrow}</div>}<h2>{about.heading}{about.headingEm && <span className="script"> {about.headingEm}</span>}</h2>{(about.body || []).map((p, j) => <p key={j}>{p}</p>)}<a href="#s-contact" className="btn-pill light">Meet me</a></div></div></section>}
+      {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j}><div className="ph" style={bgi(url(it.image))}></div><div className="nm">{it.name}</div><div className="meta"><span>{it.note}</span>{it.price && <span className="price">{it.price}</span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
+      {quote && <section className="quote wrap"><div><p>{quote.text}</p>{quote.cite && <cite>{quote.cite}</cite>}</div></section>}
+      {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow">{contact.eyebrow}</div>}<h2>{contact.heading}{contact.headingEm && <em> {contact.headingEm}</em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}>{d.v}</span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}>{contact.cta.label}</a></div>}</div></div></section>}
+      <footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
+    </div>
+  );
+}
+
+const DUET_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap');
+#cg-site{--bg:#F4F1EA;--paper:#FBF9F3;--ink:#1C1B18;--mid:#8A8880;--line:#E2DFD6;--display:'Cormorant Garamond',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
+#cg-site *{box-sizing:border-box;}
+#cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(22px,5vw,64px);}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site em{font-style:italic;}
+#cg-site .eyebrow{font-size:0.62rem;letter-spacing:0.32em;text-transform:uppercase;color:var(--mid);}
+#cg-site .btn-out{display:inline-flex;align-items:center;gap:12px;border:1px solid currentColor;border-radius:40px;padding:12px 28px;font-size:0.64rem;letter-spacing:0.2em;text-transform:uppercase;transition:background .35s,color .35s;}
+#cg-site .btn-out:hover{background:var(--ink);color:var(--paper);}
+#cg-site .brandlogo{height:40px;width:auto;max-width:180px;object-fit:contain;display:block;margin:0 auto;}
+#cg-site header{position:sticky;top:0;z-index:30;background:rgba(244,241,234,0.86);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);}
+#cg-site .nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:74px;}
+#cg-site .nav .l{display:flex;gap:26px;}
+#cg-site .nav .r{display:flex;gap:26px;justify-content:flex-end;}
+#cg-site .nav a{font-size:0.64rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid);}
+#cg-site .nav a:hover{color:var(--ink);}
+#cg-site .nav .wm{font-family:var(--display);font-size:1.4rem;letter-spacing:0.16em;text-transform:uppercase;text-align:center;}
+#cg-site .split-hero{position:relative;display:grid;grid-template-columns:1fr 1fr;height:90vh;min-height:560px;}
+#cg-site .half{position:relative;overflow:hidden;}
+#cg-site .half .img{position:absolute;inset:0;background:radial-gradient(120% 100% at 45% 30%,#9A968E,#4A4844 70%,#26251F 100%);background-size:cover;background-position:center;}
+#cg-site .half.b .img{background:radial-gradient(120% 100% at 55% 35%,#B8B4AC,#7C7268 60%,#3A342C 100%);}
+#cg-site .half .img::after{content:"";position:absolute;inset:0;background:rgba(22,20,16,0.3);}
+#cg-site .hero-mark{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#F6F3EC;text-align:center;padding:20px;}
+#cg-site .hero-mark .eyebrow{color:rgba(246,243,236,0.75);margin-bottom:20px;}
+#cg-site .hero-mark .name{font-family:var(--display);font-weight:400;font-size:clamp(2.4rem,7vw,5.4rem);letter-spacing:0.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:0.5em;line-height:1;}
+#cg-site .amp{position:relative;font-style:italic;font-weight:400;display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;}
+#cg-site .amp::before{content:"";position:absolute;inset:0;border:1px solid rgba(246,243,236,0.7);border-radius:50%;}
+#cg-site .hero-mark .sub{margin-top:22px;font-family:var(--body);font-size:0.68rem;letter-spacing:0.28em;text-transform:uppercase;color:rgba(246,243,236,0.8);}
+#cg-site .hero-cap{position:absolute;bottom:16px;z-index:3;font-size:0.54rem;letter-spacing:0.22em;text-transform:uppercase;color:rgba(246,243,236,0.5);}
+#cg-site .hero-cap.la{left:18px;}#cg-site .hero-cap.lb{right:18px;}
+#cg-site .statement{text-align:center;padding:clamp(80px,14vh,170px) 0 clamp(50px,8vh,90px);}
+#cg-site .statement h2{font-family:var(--display);font-weight:300;font-size:clamp(2.2rem,5.5vw,4.4rem);line-height:1.1;margin:14px auto 0;max-width:18ch;}
+#cg-site .statement h2 em{color:var(--ink);}
+#cg-site .statement p{color:var(--mid);max-width:50ch;margin:22px auto 26px;font-size:1.02rem;}
+#cg-site .framed{padding:clamp(30px,6vh,70px) 0 clamp(80px,13vh,150px);}
+#cg-site .framed-grid{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:clamp(14px,1.8vw,28px);align-items:center;}
+#cg-site .stack{display:flex;flex-direction:column;gap:clamp(14px,1.8vw,28px);}
+#cg-site .ph{background:radial-gradient(120% 100% at 45% 30%,#C4C0B8,#7E786E 70%);background-size:cover;background-position:center;}
+#cg-site .stack .ph.tall{aspect-ratio:3/4;}#cg-site .stack .ph.wide{aspect-ratio:4/3;}
+#cg-site .framed .mid{text-align:center;padding:clamp(20px,3vw,40px) clamp(10px,2vw,24px);}
+#cg-site .framed .mid .big{font-family:var(--display);font-weight:300;font-style:italic;font-size:clamp(1.9rem,4vw,3rem);line-height:1.2;}
+#cg-site .framed .mid .lab{font-size:0.6rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--mid);margin-bottom:16px;}
+#cg-site .framed .mid .btn-out{margin-top:24px;}
+#cg-site .services{padding:clamp(70px,12vh,150px) 0;background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+#cg-site .services-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:clamp(40px,7vw,100px);align-items:center;}
+#cg-site .services h3{font-family:var(--display);font-weight:300;font-size:clamp(1.9rem,4vw,3rem);line-height:1.16;margin:14px 0 30px;max-width:16ch;}
+#cg-site .services h3 em{color:var(--ink);}
+#cg-site .svc{display:flex;gap:20px;align-items:baseline;padding:20px 0;border-top:1px solid var(--line);}
+#cg-site .svc:last-child{border-bottom:1px solid var(--line);}
+#cg-site .svc .no{font-family:var(--display);font-size:1.1rem;color:var(--mid);min-width:2ch;}
+#cg-site .svc .nm{font-family:var(--display);font-size:clamp(1.3rem,2.4vw,1.8rem);}
+#cg-site .svc .pr{margin-left:auto;color:var(--mid);font-size:0.9rem;}
+#cg-site .svc .shop{display:block;margin-top:4px;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase;border-bottom:1px solid currentColor;padding-bottom:2px;}
+#cg-site .services .pic{aspect-ratio:4/5;background:radial-gradient(120% 100% at 40% 30%,#B4B0A8,#5E584E 70%);background-size:cover;background-position:center;}
+#cg-site .quote{text-align:center;padding:clamp(80px,13vh,160px) 0;}
+#cg-site .quote p{font-family:var(--display);font-weight:300;font-style:italic;font-size:clamp(1.8rem,4vw,3rem);line-height:1.3;max-width:24ch;margin:0 auto;}
+#cg-site .quote cite{display:block;margin-top:24px;font-family:var(--body);font-style:normal;font-size:0.66rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--mid);}
+#cg-site .contact{text-align:center;padding:clamp(70px,12vh,150px) 0;border-top:1px solid var(--line);}
+#cg-site .contact h2{font-family:var(--display);font-weight:300;font-size:clamp(2.2rem,5vw,3.8rem);line-height:1.08;margin:16px auto 12px;max-width:16ch;}
+#cg-site .contact h2 em{color:var(--ink);}
+#cg-site .contact .rows{display:flex;justify-content:center;gap:clamp(24px,5vw,70px);flex-wrap:wrap;margin:26px 0 30px;}
+#cg-site .contact .k{font-size:0.58rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--mid);margin-bottom:6px;}
+#cg-site .contact .v{font-family:var(--display);font-size:1.15rem;}
+#cg-site footer.foot{border-top:1px solid var(--line);}
+#cg-site .foot .wrap{padding:32px 0;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;}
+#cg-site .foot .wm{font-family:var(--display);font-size:1.2rem;letter-spacing:0.14em;text-transform:uppercase;}
+#cg-site .foot .fnav{display:flex;gap:24px;font-size:0.64rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--mid);}
+#cg-site .credit{text-align:center;padding:14px 0 24px;}
+#cg-site .credit span{font-size:0.58rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--mid);opacity:0.7;}
+@media (max-width:860px){#cg-site .nav{grid-template-columns:auto 1fr;}#cg-site .nav .l{display:none;}#cg-site .nav .wm{text-align:left;}#cg-site .split-hero{grid-template-columns:1fr;height:auto;}#cg-site .half{height:52vh;}#cg-site .framed-grid{grid-template-columns:1fr;}#cg-site .framed .mid{order:-1;}#cg-site .services-grid{grid-template-columns:1fr;gap:40px;}}
+`;
+
+function duetName(name){
+  const nm = name || "Your Brand";
+  const parts = nm.split(/\s*&\s*/);
+  if(parts.length===2) return <span className="name"><span>{parts[0]}</span><span className="amp"><em>&amp;</em></span><span>{parts[1]}</span></span>;
+  return <span className="name">{nm}</span>;
+}
+
+function DuetLayout({ site }) {
+  const s = site || {}; const brand = s.brand || {};
+  const sections = Array.isArray(s.sections) ? s.sections : [];
+  const get = (t) => sections.find(x => x && x.type === t);
+  const hero = get("hero"), phil = get("philosophy"), about = get("about"), off = get("offerings"), ed = get("editorial"), quote = get("quote"), contact = get("contact");
+  const url = (im) => (im && im.url) ? im.url : null;
+  const bgi = (u) => u ? { backgroundImage: "url(" + u + ")", backgroundSize: "cover", backgroundPosition: "center" } : undefined;
+  const imgs = [];
+  if (hero && url(hero.image)) imgs.push(url(hero.image));
+  if (about && url(about.image)) imgs.push(url(about.image));
+  if (off && Array.isArray(off.items)) off.items.forEach(it => { if (url(it.image)) imgs.push(url(it.image)); });
+  const gi = (n) => imgs[n] || null;
+  const custom = s.custom ? buildCustomCSS(s.custom) : "";
+  const items = (off && Array.isArray(off.items)) ? off.items.slice(0, 5) : [];
+  return (
+    <div id="cg-site" data-theme="duet">
+      <style dangerouslySetInnerHTML={{ __html: DUET_CSS }} />
+      {custom && <style dangerouslySetInnerHTML={{ __html: custom }} />}
+      <header><div className="wrap nav">
+        <div className="l">{(brand.nav || []).slice(0, 2).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</div>
+        {brand.logo ? <img className="brandlogo" src={brand.logo} alt={brand.name || ""} /> : <div className="wm">{brand.name || "Your Brand"}</div>}
+        <div className="r">{(brand.nav || []).slice(2).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}<a href="#s-contact">Inquire</a></div>
+      </div></header>
+      <section className="split-hero" id="s-top">
+        <div className="half a"><div className="img" style={bgi(gi(0))}></div>{!gi(0) && <span className="hero-cap la">Imagery</span>}</div>
+        <div className="half b"><div className="img" style={bgi(gi(1))}></div>{!gi(1) && <span className="hero-cap lb">Imagery</span>}</div>
+        <div className="hero-mark">
+          {hero && hero.eyebrow && <div className="eyebrow">{hero.eyebrow}</div>}
+          {duetName(brand.name)}
+          {hero && hero.sub && <div className="sub">{hero.sub}</div>}
+        </div>
+      </section>
+      {(phil || hero) && <section className="statement wrap" id="s-about"><div>
+        {phil && phil.eyebrow && <div className="eyebrow">{phil.eyebrow}</div>}
+        <h2>{(phil && phil.heading) || (hero && hero.headline)}{phil && phil.headingEm && <em> {phil.headingEm}</em>}{!phil && hero && hero.headlineEm && <em> {hero.headlineEm}</em>}</h2>
+        {phil && phil.body && phil.body[0] && <p>{phil.body[0]}</p>}
+        <a href="#s-offerings" className="btn-out">{(hero && hero.cta && hero.cta.label) || "View the work"}</a>
+      </div></section>}
+      {ed && <section className="framed wrap"><div className="framed-grid">
+        <div className="stack"><div className="ph tall" style={bgi(gi(2))}></div><div className="ph wide" style={bgi(gi(3))}></div></div>
+        <div className="mid">{ed.eyebrow && <div className="lab">{ed.eyebrow}</div>}<div className="big">{ed.line}{ed.lineEm && <em> {ed.lineEm}</em>}</div><a href="#s-contact" className="btn-out">Book now</a></div>
+        <div className="stack"><div className="ph wide" style={bgi(gi(4))}></div><div className="ph tall" style={bgi(gi(5))}></div></div>
+      </div></section>}
+      {off && <section className="services" id="s-offerings"><div className="wrap services-grid">
+        <div>{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}
+          {items.map((it, j) => <div className="svc" key={j}><div className="no">{("0" + (j + 1)).slice(-2)}</div><div><div className="nm">{it.name}</div>{it.buyUrl && <a className="shop" href={it.buyUrl} target="_blank" rel="noreferrer">Shop</a>}</div>{it.price && <div className="pr">{it.price}</div>}</div>)}
+        </div>
+        <div className="pic" style={bgi(gi(2) || gi(0))}></div>
+      </div></section>}
+      {quote && <section className="quote wrap"><div><p>{quote.text}</p>{quote.cite && <cite>{quote.cite}</cite>}</div></section>}
+      {contact && <section className="contact wrap" id="s-contact"><div>
+        {contact.eyebrow && <div className="eyebrow">{contact.eyebrow}</div>}
+        <h2>{contact.heading}{contact.headingEm && <em> {contact.headingEm}</em>}</h2>
+        <div className="rows">{(contact.details || []).map((d, j) => <div key={j}><div className="k">{d.k}</div><div className="v">{d.v}</div></div>)}</div>
+        {contact.cta && <a href="#" className="btn-out">{contact.cta.label}</a>}
+      </div></section>}
+      <footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
+    </div>
+  );
+}
+
 function navHref(label){
   const l=(label||"").toLowerCase();
   if(/contact|visit|book|enquir|reach|appointment|reserve|hello|find us/.test(l)) return "#s-contact";
@@ -4340,6 +4599,8 @@ function navHref(label){
 }
 function SiteRender({ site }) {
   const s = site || {};
+  if (s.theme === "muse") return <CollageLayout site={s} />;
+  if (s.theme === "duet") return <DuetLayout site={s} />;
   const brand = s.brand || {};
   const sections = Array.isArray(s.sections) ? s.sections : [];
   const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")" } : undefined;
