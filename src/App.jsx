@@ -1236,7 +1236,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; blush = soft feminine pink for coaches, beauty, feminine brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; blush = soft feminine pink for coaches, beauty, feminine brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 8000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
@@ -1245,7 +1245,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       let site;
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
-      const IMPL=["editorial-porcelain","blush","fog","postale","muse","duet","rouge","vigor","aurelia","claret","nocturne"];
+      const IMPL=["editorial-porcelain","blush","fog","muse","duet","rouge","vigor","aurelia","claret","nocturne","sable","missive"];
       site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"editorial-porcelain") : wmTheme;
       if(site.credit===undefined) site.credit = true;
       const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
@@ -1547,7 +1547,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Look &amp; colours</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["editorial-porcelain","Editorial"],["blush","Blush"],["fog","Fog"],["postale","Postale"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
+              {[["editorial-porcelain","Editorial"],["blush","Blush"],["fog","Fog"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"],["sable","Sable"],["missive","Missive"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
             </div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,marginBottom:14,lineHeight:1.5}}>Tap a preset to swap the whole palette — or fine-tune it below.</div>
             <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"16px"}}>
@@ -1647,7 +1647,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
-            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["blush","Blush",true],["fog","Fog",true],["postale","Postale",true],["muse","Muse",true],["duet","Duet",true],["rouge","Rouge",true],["vigor","Vigor",true],["aurelia","Aurelia",true],["claret","Claret",true],["nocturne","Nocturne",true]].map(([id,label,active])=>(
+            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["blush","Blush",true],["fog","Fog",true],["muse","Muse",true],["duet","Duet",true],["rouge","Rouge",true],["vigor","Vigor",true],["aurelia","Aurelia",true],["claret","Claret",true],["nocturne","Nocturne",true],["sable","Sable",true],["missive","Missive",true]].map(([id,label,active])=>(
               <button key={id} disabled={!active} onClick={()=>active&&setWmTheme(id)} style={{padding:"10px 15px",border:"1px solid "+(wmTheme===id?B.charcoal:B.stone),background:wmTheme===id?B.charcoal:"#fff",color:!active?"#BBB":(wmTheme===id?"#fff":B.charcoal),fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:active?"pointer":"default"}}>{label}{!active&&<span style={{fontSize:8,marginLeft:6,letterSpacing:"0.1em"}}>SOON</span>}</button>
             ))}
           </div>
@@ -4433,7 +4433,9 @@ const THEME_IMG_STYLE = {
   "vigor":"bold, athletic and high-contrast in bone, concrete grey and near-black, crisp confident light, heavy modern fitness-studio energy",
   "aurelia":"dark, warm and cinematic in near-black and sepia cream tones, moody low-key light, hushed high-luxury editorial",
   "claret":"dramatic and cinematic in deep wine, oxblood and warm cream, moody magnetic light, bold high-fashion creative-agency energy",
-  "nocturne":"dark, moody and luxe in near-black with soft blush-white highlights, glossy low-key beauty light, elegant premium beauty-store mood"
+  "nocturne":"dark, moody and luxe in near-black with soft blush-white highlights, glossy low-key beauty light, elegant premium beauty-store mood",
+  "sable":"refined minimal editorial in soft greige and warm grey, crisp even natural light, understated luxe branding-studio elegance",
+  "missive":"timeless black and white editorial photography, porcelain and charcoal tones, soft natural light, effortless personal-brand chic"
 };
 
 const DEMO_SITE = {
@@ -5185,6 +5187,167 @@ function NocturneLayout({ site }){
   );
 }
 
+const SABLE_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap');
+#cg-site{--greige:#F0EFEB;--paper:#F6F5F1;--ink:#16150F;--muted:#79756C;--line:rgba(22,21,15,.18);--line-soft:rgba(22,21,15,.10);--serif:"Cormorant Garamond",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,5vw,68px);background:var(--greige);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site *{box-sizing:border-box;}
+#cg-site img{display:block;max-width:100%;}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site .img-slot{position:relative;overflow:hidden;background:linear-gradient(155deg,#d7d6d1 0%,#a8a69f 48%,#6d6b64 100%);background-size:cover;background-position:center;filter:grayscale(1);}
+#cg-site .eyebrow{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted);}
+#cg-site .pill{display:inline-block;font-family:var(--sans);font-weight:500;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);border:1px solid var(--line);border-radius:40px;padding:11px 22px;transition:background .35s,color .35s;}
+#cg-site .pill:hover{background:var(--ink);color:var(--greige);}
+#cg-site header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:24px var(--pad);gap:20px;}
+#cg-site nav.main{display:flex;gap:26px;}
+#cg-site nav.main a{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.2em;text-transform:uppercase;}
+#cg-site nav.main a:hover{color:var(--muted);}
+#cg-site .logo{font-family:var(--serif);font-weight:600;font-size:clamp(19px,2.4vw,24px);letter-spacing:.26em;text-transform:uppercase;text-align:center;padding-left:.26em;white-space:nowrap;}
+#cg-site .head-right{display:flex;justify-content:flex-end;}
+#cg-site .hero{position:relative;padding:0 var(--pad) clamp(10px,2vw,20px);}
+#cg-site .hero .split{display:grid;grid-template-columns:1fr 1fr;gap:8px;position:relative;}
+#cg-site .hero .pane{position:relative;}
+#cg-site .hero .pane .img-slot{aspect-ratio:3/3.4;}
+#cg-site .hero .pane .img-slot::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(15,14,10,.4));}
+#cg-site .hero .cap{position:absolute;z-index:3;bottom:26px;color:#fff;font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.22em;text-transform:uppercase;text-decoration:underline;text-underline-offset:5px;}
+#cg-site .hero .cap.left{left:26px;}
+#cg-site .hero .cap.right{left:50%;transform:translateX(-50%);}
+#cg-site .hero .mark{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:clamp(46px,5vw,62px);aspect-ratio:1;background:var(--greige);display:grid;place-content:center;box-shadow:0 8px 26px rgba(0,0,0,.22);font-family:var(--serif);font-weight:600;font-size:22px;text-transform:uppercase;}
+#cg-site .headline{text-align:center;padding:clamp(56px,8vw,110px) var(--pad) clamp(40px,6vw,70px);}
+#cg-site .headline h1{font-family:var(--serif);font-weight:600;font-size:clamp(40px,7vw,88px);line-height:1.02;letter-spacing:.005em;text-transform:uppercase;}
+#cg-site .headline h1 em{font-style:italic;font-weight:500;text-transform:none;}
+#cg-site .headline .sub{font-family:var(--sans);font-weight:300;font-size:13px;line-height:1.9;letter-spacing:.04em;color:var(--muted);max-width:40ch;margin:22px auto 0;}
+#cg-site .services{padding:clamp(30px,4vw,50px) var(--pad) clamp(60px,9vw,120px);}
+#cg-site .services .grid{max-width:1140px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,7vw,90px);align-items:center;}
+#cg-site .services .eyebrow{margin-bottom:34px;display:block;}
+#cg-site .svc-list{list-style:none;padding:0;margin:0;}
+#cg-site .svc-list li{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:baseline;padding:20px 0;border-top:1px solid var(--line-soft);}
+#cg-site .svc-list li:first-child{border-top:none;}
+#cg-site .svc-list .num{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.2em;color:var(--muted);}
+#cg-site .svc-list .name{font-family:var(--serif);font-weight:600;font-size:clamp(24px,3.4vw,40px);line-height:1.05;text-transform:uppercase;letter-spacing:.01em;}
+#cg-site .services .img-slot{aspect-ratio:4/5;}
+#cg-site footer.foot{border-top:1px solid var(--line-soft);text-align:center;padding:clamp(50px,7vw,90px) var(--pad) 40px;}
+#cg-site footer.foot .tagline{font-family:var(--serif);font-weight:500;font-size:clamp(20px,3vw,30px);font-style:italic;max-width:34ch;margin:0 auto 32px;line-height:1.4;}
+#cg-site .foot-mark{font-family:var(--serif);font-weight:600;font-size:clamp(18px,2.4vw,24px);letter-spacing:.26em;text-transform:uppercase;padding-left:.26em;}
+#cg-site .foot-nav{display:flex;justify-content:center;gap:26px;margin-top:20px;flex-wrap:wrap;}
+#cg-site .foot-nav a{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);}
+#cg-site .foot-nav a:hover{color:var(--ink);}
+#cg-site .foot-bar{margin-top:34px;font-family:var(--sans);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:rgba(22,21,15,.4);}
+@media (max-width:820px){#cg-site nav.main,#cg-site .head-right .pill{display:none;}#cg-site header{grid-template-columns:auto 1fr auto;}#cg-site .logo{text-align:left;}#cg-site .services .grid{grid-template-columns:1fr;}}
+`;
+
+function SableLayout({ site }){
+  const s=site||{}; const brand=s.brand||{}; const sections=Array.isArray(s.sections)?s.sections:[];
+  const get=t=>sections.find(x=>x&&x.type===t);
+  const hero=get("hero"),phil=get("philosophy"),off=get("offerings"),quote=get("quote"),contact=get("contact");
+  const url=im=>(im&&im.url)?im.url:null; const bgi=u=>u?{backgroundImage:"url("+u+")",backgroundSize:"cover",backgroundPosition:"center"}:undefined;
+  const custom=s.custom?buildCustomCSS(s.custom):""; const nav=brand.nav||[];
+  const imgs=[]; if(hero&&url(hero.image))imgs.push(url(hero.image)); const ab=get("about"); if(ab&&url(ab.image))imgs.push(url(ab.image)); if(off&&Array.isArray(off.items))off.items.forEach(it=>{if(url(it.image))imgs.push(url(it.image));});
+  const gi=n=>imgs[n]||null;
+  const tagline=(quote&&quote.text)||(contact&&contact.heading)||"";
+  return (
+    <div id="cg-site" data-theme="sable">
+      <style dangerouslySetInnerHTML={{__html:SABLE_CSS}} />
+      {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
+      <header><nav className="main">{nav.slice(0,3).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="logo">{brand.name||"Your Brand"}</div><div className="head-right"><a className="pill" href="#s-contact">Book appointment</a></div></header>
+      <section className="hero" id="s-top"><div className="split">
+        <div className="pane"><div className="img-slot" style={bgi(gi(0))}></div><a className="cap left" href="#s-services">View portfolio</a></div>
+        <div className="pane"><div className="img-slot" style={bgi(gi(1)||gi(0))}></div><a className="cap right" href="#s-services">Discover services</a></div>
+        <div className="mark" aria-hidden="true">{(brand.name||"S").trim().charAt(0)}</div>
+      </div></section>
+      {phil&&<section className="headline" id="s-about"><h1>{phil.heading}{phil.headingEm&&<em> {phil.headingEm}</em>}</h1>{phil.body&&phil.body[0]&&<p className="sub">{phil.body[0]}</p>}</section>}
+      {off&&<section className="services" id="s-services"><div className="grid"><div><span className="eyebrow">{off.eyebrow||"Full-spectrum services"}</span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name">{it.name}</span></li>)}</ul></div><div className="img-slot" style={bgi(gi(2)||gi(0))}></div></div></section>}
+      <footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+    </div>
+  );
+}
+
+const MISSIVE_CSS = `
+@import url('https://api.fontshare.com/v2/css?f[]=zodiak@300,400,700&f[]=gambetta@400,500&f[]=rosaline@400&f[]=satoshi@300,400,500&display=swap');
+#cg-site{--porcelain:#F8F7F5;--dark:#0F0F0F;--ink:#161616;--muted:#6E6A64;--muted-d:#B7B3AC;--line:rgba(22,22,22,.16);--line-d:rgba(248,247,245,.24);--serif:"Zodiak",Georgia,serif;--bodyf:"Gambetta",Georgia,serif;--script:"Rosaline",cursive;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--porcelain);color:var(--ink);font-family:var(--bodyf);font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site *{box-sizing:border-box;}
+#cg-site img{display:block;max-width:100%;}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site .img-slot{position:relative;overflow:hidden;background:linear-gradient(155deg,#d6d4d0 0%,#a3a09b 48%,#6f6c67 100%);background-size:cover;background-position:center;filter:grayscale(1);}
+#cg-site .img-slot.dark{background:linear-gradient(155deg,#3a3833,#161513);}
+#cg-site .eyebrow{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:var(--muted);}
+#cg-site .script{font-family:var(--script);font-weight:400;}
+#cg-site .btn{display:inline-block;font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.24em;text-transform:uppercase;padding:14px 34px;border:1px solid var(--ink);color:var(--ink);background:transparent;transition:background .35s,color .35s;}
+#cg-site .btn:hover{background:var(--ink);color:var(--porcelain);}
+#cg-site header{position:absolute;top:0;left:0;right:0;z-index:20;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:26px var(--pad);gap:24px;color:#fff;}
+#cg-site nav.g{display:flex;gap:26px;}
+#cg-site nav.g.r{justify-content:flex-end;}
+#cg-site nav.g a{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.2em;text-transform:uppercase;}
+#cg-site nav.g a:hover{opacity:.7;}
+#cg-site .logo{font-family:var(--serif);font-weight:400;font-size:clamp(18px,2.4vw,24px);letter-spacing:.34em;text-transform:uppercase;text-align:center;padding-left:.34em;white-space:nowrap;}
+#cg-site .hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;overflow:hidden;}
+#cg-site .hero .bg{position:absolute;inset:0;z-index:0;}
+#cg-site .hero .bg .img-slot{height:100%;}
+#cg-site .hero .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,15,15,.35),rgba(15,15,15,.15) 45%,rgba(15,15,15,.4));}
+#cg-site .hero-inner{position:relative;z-index:3;padding:0 var(--pad);max-width:760px;}
+#cg-site .hero-inner .script{font-size:clamp(52px,9vw,120px);line-height:1;display:block;}
+#cg-site .hero-inner .sub{font-family:var(--sans);font-weight:300;font-size:13px;line-height:1.9;letter-spacing:.02em;max-width:44ch;margin:26px auto 0;color:rgba(255,255,255,.9);}
+#cg-site .hero .nav-cue{position:absolute;z-index:3;bottom:40px;left:50%;transform:translateX(-50%);text-align:center;}
+#cg-site .hero .nav-cue .script{font-size:26px;color:#fff;}
+#cg-site .hero .nav-cue .bar{width:1px;height:34px;background:rgba(255,255,255,.7);margin:8px auto 0;}
+#cg-site .about{padding:clamp(60px,8vw,120px) var(--pad);}
+#cg-site .about .grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(40px,7vw,90px);align-items:center;}
+#cg-site .frame{border:1px solid var(--line);padding:22px 22px 26px;background:var(--porcelain);position:relative;max-width:360px;margin:0 auto;}
+#cg-site .frame .flabel{font-family:var(--serif);font-weight:400;font-size:22px;letter-spacing:.18em;text-transform:uppercase;text-align:center;margin-bottom:18px;opacity:.55;}
+#cg-site .polaroid{background:#fff;padding:12px 12px 34px;box-shadow:0 18px 40px rgba(0,0,0,.14);}
+#cg-site .polaroid .img-slot{aspect-ratio:3/4;}
+#cg-site .about h2{font-family:var(--serif);font-weight:400;font-size:clamp(40px,6.5vw,84px);line-height:.98;text-transform:uppercase;letter-spacing:-.01em;}
+#cg-site .about .role{font-family:var(--sans);font-weight:300;font-size:14px;line-height:1.9;color:var(--muted);margin:24px 0 30px;max-width:42ch;}
+#cg-site .qband{background:var(--dark);color:#fff;display:grid;grid-template-columns:1fr 1fr;align-items:stretch;}
+#cg-site .qband .img-slot{min-height:clamp(320px,42vw,540px);}
+#cg-site .qband .qtext{display:flex;align-items:center;padding:clamp(40px,6vw,90px);}
+#cg-site .qband .qtext .script{font-size:clamp(34px,4.6vw,60px);line-height:1.25;}
+#cg-site .welcome{text-align:center;padding:clamp(64px,9vw,120px) var(--pad) clamp(30px,4vw,44px);max-width:820px;margin:0 auto;}
+#cg-site .welcome p{font-family:var(--bodyf);font-weight:400;font-size:clamp(22px,3.2vw,34px);line-height:1.5;}
+#cg-site .welcome p em{font-family:var(--script);font-style:normal;font-size:1.28em;line-height:.7;}
+#cg-site .cats{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,26px);max-width:1080px;margin:0 auto;padding:0 var(--pad) clamp(70px,10vw,130px);}
+#cg-site .catcard{position:relative;}
+#cg-site .catcard .img-slot{aspect-ratio:4/5;}
+#cg-site .catcard .clabel{position:absolute;inset:0;display:grid;place-content:center;color:#fff;font-family:var(--script);font-size:clamp(30px,4vw,52px);text-shadow:0 4px 18px rgba(0,0,0,.4);z-index:2;}
+#cg-site .catcard .img-slot::after{content:"";position:absolute;inset:0;background:rgba(15,15,15,.22);}
+#cg-site footer.foot{background:var(--dark);color:#fff;text-align:center;padding:clamp(50px,7vw,84px) var(--pad) 36px;}
+#cg-site .foot-mark{font-family:var(--serif);font-weight:400;font-size:clamp(22px,3.4vw,32px);letter-spacing:.34em;text-transform:uppercase;padding-left:.34em;}
+#cg-site .foot-sub{font-family:var(--script);font-size:30px;margin-top:6px;color:var(--muted-d);}
+#cg-site .foot-nav{display:flex;justify-content:center;gap:26px;margin-top:24px;flex-wrap:wrap;}
+#cg-site .foot-nav a{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted-d);}
+#cg-site .foot-nav a:hover{color:#fff;}
+#cg-site .foot-bar{margin-top:36px;font-family:var(--sans);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:rgba(248,247,245,.4);}
+@media (max-width:820px){#cg-site nav.g{display:none;}#cg-site header{grid-template-columns:auto 1fr;}#cg-site .logo{text-align:left;padding-left:.2em;}#cg-site .about .grid,#cg-site .qband,#cg-site .cats{grid-template-columns:1fr;}#cg-site .qband .img-slot{min-height:300px;}}
+`;
+
+function MissiveLayout({ site }){
+  const s=site||{}; const brand=s.brand||{}; const sections=Array.isArray(s.sections)?s.sections:[];
+  const get=t=>sections.find(x=>x&&x.type===t);
+  const hero=get("hero"),about=get("about"),phil=get("philosophy"),ed=get("editorial"),quote=get("quote"),off=get("offerings"),contact=get("contact");
+  const url=im=>(im&&im.url)?im.url:null; const bgi=u=>u?{backgroundImage:"url("+u+")",backgroundSize:"cover",backgroundPosition:"center"}:undefined;
+  const custom=s.custom?buildCustomCSS(s.custom):""; const nav=brand.nav||[];
+  const items=(off&&Array.isArray(off.items))?off.items.slice(0,2):[];
+  const qtext=(quote&&quote.text)||(ed&&ed.line)||"";
+  const qimg=url((ed&&ed.image))||url((quote&&quote.image))||null;
+  return (
+    <div id="cg-site" data-theme="missive">
+      <style dangerouslySetInnerHTML={{__html:MISSIVE_CSS}} />
+      {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
+      <header><nav className="g">{nav.slice(0,3).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="logo">{brand.name||"Your Brand"}</div><nav className="g r">{nav.slice(3).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav></header>
+      <section className="hero" id="s-top">
+        <div className="bg"><div className="img-slot" style={bgi(url(hero&&hero.image))}></div></div>
+        <div className="hero-inner"><span className="script">{brand.name||"Your Brand"}</span>{hero&&(hero.sub||hero.headline)&&<p className="sub">{hero.sub||hero.headline}</p>}</div>
+        <div className="nav-cue"><div className="script">navigate</div><div className="bar"></div></div>
+      </section>
+      {about&&<section className="about" id="s-about"><div className="grid"><div className="frame"><div className="flabel">About</div><div className="polaroid"><div className="img-slot" style={bgi(url(about.image))}></div></div></div><div><h2>{about.heading}{about.headingEm?(" "+about.headingEm):""}</h2>{about.body&&about.body[0]&&<p className="role">{about.body[0]}</p>}<a className="btn" href="#s-contact">My story</a></div></div></section>}
+      {qtext&&<section className="qband"><div className="img-slot" style={bgi(qimg)}></div><div className="qtext"><p className="script">{qtext}</p></div></section>}
+      {phil&&<section className="welcome"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>}</p></section>}
+      {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
+      <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+    </div>
+  );
+}
+
 function navHref(label){
   const l=(label||"").toLowerCase();
   if(/contact|visit|book|enquir|reach|appointment|reserve|hello|find us/.test(l)) return "#s-contact";
@@ -5201,6 +5364,8 @@ function SiteRender({ site }) {
   if (s.theme === "aurelia") return <AureliaLayout site={s} />;
   if (s.theme === "claret") return <ClaretLayout site={s} />;
   if (s.theme === "nocturne") return <NocturneLayout site={s} />;
+  if (s.theme === "sable") return <SableLayout site={s} />;
+  if (s.theme === "missive") return <MissiveLayout site={s} />;
   const brand = s.brand || {};
   const sections = Array.isArray(s.sections) ? s.sections : [];
   const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")" } : undefined;
@@ -5326,7 +5491,7 @@ function PublicSite({ slug, domain, onNotFound }) {
   const [st, setSt] = useState({ loading:true, site:null, error:null });
   useEffect(()=>{
     let cancel=false;
-    if(!domain && (slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge"||slug==="demo-vigor"||slug==="demo-aurelia"||slug==="demo-claret"||slug==="demo-nocturne")){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":(slug==="demo-vigor"?"vigor":(slug==="demo-aurelia"?"aurelia":(slug==="demo-claret"?"claret":(slug==="demo-nocturne"?"nocturne":DEMO_SITE.theme)))))) }; setSt({loading:false, site:d, error:null}); return; }
+    if(!domain && (slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge"||slug==="demo-vigor"||slug==="demo-aurelia"||slug==="demo-claret"||slug==="demo-nocturne"||slug==="demo-sable"||slug==="demo-missive")){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":(slug==="demo-vigor"?"vigor":(slug==="demo-aurelia"?"aurelia":(slug==="demo-claret"?"claret":(slug==="demo-nocturne"?"nocturne":(slug==="demo-sable"?"sable":(slug==="demo-missive"?"missive":DEMO_SITE.theme)))))))) }; setSt({loading:false, site:d, error:null}); return; }
     (async()=>{
       try{
         const q = domain ? ("custom_domain=eq."+encodeURIComponent(domain)) : ("slug=eq."+encodeURIComponent(slug));
