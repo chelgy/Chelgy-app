@@ -4346,6 +4346,7 @@ const SITE_CSS_SCARLET = `
 
 const SITE_CSS_FOG = `
 @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500&display=swap');
+#cg-site header{display:none!important;}
 #cg-site{--bg:#FFFFFF;--ink:#26262A;--mid:#83838A;--accent:#3C3C42;--dark:#2A2A2E;--line:#D6D5D1;--display:'Marcellus',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.014em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.03;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");}
@@ -4695,6 +4696,7 @@ function CollageLayout({ site }) {
 
 const DUET_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap');
+#cg-site header{display:none!important;}
 #cg-site{--cg-fg:var(--ink);--cg-muted:var(--mid);--cg-line:var(--line);--cg-serif:var(--display);--cg-sans:var(--body);--bg:#FFFFFF;--paper:#FFFFFF;--ink:#1C1B18;--mid:#8A8880;--line:#E2DFD6;--display:'Cormorant Garamond',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(22px,5vw,64px);}
@@ -6161,8 +6163,9 @@ export default function ChelgyApp() {
   }
 
   // Nav state — bottom tab + top subcategory
-  const [tab, setTab] = useState("home");       // home | learn | tools | community | profile
-  useEffect(()=>{ try { localStorage.setItem("chelgy_tab", tab); } catch(e){} },[tab]);
+  const [tab, setTab] = useState(()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); return ["home","learn","tools","community","profile"].includes(seg)?seg:"home"; }catch(e){ return "home"; } });  // home | learn | tools | community | profile
+  useEffect(()=>{ try{ const path=tab==="home"?"/":("/"+tab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab]);
+  useEffect(()=>{ const h=()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); setTab(["home","learn","tools","community","profile"].includes(seg)?seg:"home"); }catch(e){} }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
   const [subTab, setSubTab] = useState("feed"); // varies per tab
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
