@@ -158,6 +158,21 @@ async function patchMyMember(token, uid, body){
     return res.ok;
   } catch { return false; }
 }
+// Resets the monthly credit allowance to 12,000 if a new month has started.
+// The database decides whether a reset is due (once per calendar month, paid
+// members only) and returns the up-to-date total balance (allowance + purchased).
+async function claimMonthlyCredits(token){
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_monthly_credits", {
+      method: "POST",
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body: "{}"
+    });
+    if(!res.ok) return null;
+    const v = await res.json();
+    return typeof v === "number" ? v : null;
+  } catch { return null; }
+}
 
 // ── Media Library (saved creations) ──────────────────────────────
 async function saveToLibrary(user, kind, title, url){
@@ -6863,7 +6878,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const isCreditsBuy = params.get("credits")==="success";
     if (isCreditsBuy) {
       pushNotif("Payment received — your new credits are being added to your balance.");
-      const refresh = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&typeof m.credits==="number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); } }); };
+      const refresh = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m){ const bal=(m.credits||0)+(m.credits_purchased||0); setCredits(bal); lsSet("chelgy_credits", bal); } }); };
       setTimeout(refresh, 2500); setTimeout(refresh, 7000); // webhook may take a moment
       try { window.history.replaceState({}, "", "/"); } catch {}
     }
@@ -6919,7 +6934,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.status && ["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){
         setIsTrial(false); setIsPaid(true); try{ localStorage.setItem("chelgy_member","1"); }catch{}
       } else { setIsPaid(false); }
-      if(typeof m.credits === "number"){ setCredits(m.credits); lsSet("chelgy_credits", m.credits); }
+      if(typeof m.credits === "number" || typeof m.credits_purchased === "number"){ const bal=(m.credits||0)+(m.credits_purchased||0); setCredits(bal); lsSet("chelgy_credits", bal); }
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
       if(Array.isArray(m.advisor) && m.advisor.length){ setAdvisorMsgs(m.advisor); }
@@ -6942,6 +6957,18 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     return ()=>{ cancelled = true; };
   },[user]);
 
+  // ─── Monthly allowance: reset to 12,000 at the start of each month (paid members) ─
+  // The database decides if a reset is due (once per calendar month) and returns the
+  // authoritative total (monthly allowance + any purchased pack credits).
+  useEffect(()=>{
+    if(!(user && user.email) || !isPaid) return;
+    let cancelled=false;
+    freshToken().then(tok=> tok ? claimMonthlyCredits(tok) : null).then(total=>{
+      if(cancelled || typeof total!=="number") return;
+      setCredits(total); lsSet("chelgy_credits", total);
+    });
+    return ()=>{ cancelled=true; };
+  },[user, isPaid]);
   // ─── Notify when a genuinely NEW weekly update appears (not on every load) ───
   const weeklyReady = useRef(false);
   useEffect(()=>{ const t=setTimeout(()=>{ weeklyReady.current=true; }, 4000); return ()=>clearTimeout(t); },[]);
