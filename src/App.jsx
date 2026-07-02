@@ -1657,7 +1657,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-            {[["design","Theme"],["business","Business"],["contact","Contact"],["products","Products"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+            {[["design","Theme"],["business","Business"],["contact","Contact"],["products","Products / Services"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
               <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
@@ -1718,22 +1718,22 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                       <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#111",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
-                      <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product</button>
+                      <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product</button>
+              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product / service</button>
               <button disabled={edProdBusy>=0} onClick={aiCreateProduct} style={{background:"none",border:"1px solid "+B.stone,color:B.charcoal,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===9999?"Writing…":"\u2728 Let Chelgy write one"}</button>
             </div>
-            <Btn dark small onClick={saveProducts}>Save products</Btn>
+            <Btn dark small onClick={saveProducts}>Save products / services</Btn>
             {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red,marginTop:10}}>{wmErr}</div>}
           </div>}
           {edTab==="refine"&&<div>
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
-          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>This chat changes your <strong>words &amp; sections</strong> — headline, story, products, prices, contact, and adding, removing, or reordering sections. For example: "Make the headline punchier," "Add a product called Body Oil for $52," "Change my hours to Mon–Fri," "Remove the testimonial."</p>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>This chat changes your <strong>words &amp; sections</strong> — headline, story, products &amp; services, prices, contact, and adding, removing, or reordering sections. For example: "Make the headline punchier," "Add a service called Consultation for $150," "Change my hours to Mon–Fri," "Remove the testimonial."</p>
           <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>To change <strong>colours &amp; fonts</strong>, switch your <strong>Theme</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
           <textarea value={wmEdit} onChange={e=>setWmEdit(e.target.value)} placeholder="What would you like to change?" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,resize:"vertical",lineHeight:1.5}} />
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
@@ -1746,7 +1746,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {edTab==="photos"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Add or replace a photo</div>
-            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Upload a product or work photo and choose where it goes. Flip the polish on and Chelgy makes it studio-quality.</p>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Upload a product, service or work photo and choose where it goes. Flip the polish on and Chelgy makes it studio-quality.</p>
             {!edImgData
               ? <label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Upload a photo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setEdImgData)} style={{display:"none"}} /></label>
               : <div>
@@ -1838,7 +1838,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {wmStep===3&&<div>
             <div style={wmLbl}>Your {wmKind==="products"?"products":(wmKind==="both"?"products & services":"services")} · list them</div>
             <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={5} style={wmTa} />
-            <div style={wmLbl}>{wmKind==="services"?"Photos":"Product / work photos"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>{wmKind==="services"?"Photos":"Product / service photos"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{marginBottom:12}}>
               {wmPhotos.map((p,idx)=>(
                 <div key={idx} style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:8,position:"relative"}}>
