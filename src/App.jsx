@@ -1031,6 +1031,18 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0);
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
+  const [edCustom,setEdCustom]=useState({});
+  useEffect(()=>{ setEdCustom((wmExisting&&wmExisting.data&&wmExisting.data.custom)||{}); },[wmExisting&&wmExisting.id]);
+  async function saveCustom(next){
+    if(!wmExisting) return; setWmErr("");
+    try{
+      const data={...wmExisting.data, custom:next};
+      const tok=await freshToken(); if(!tok){ setWmErr("Your session expired — please log in again."); return; }
+      const up=await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+wmExisting.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ data, updated_at:new Date().toISOString() }) });
+      if(!up.ok){ setWmErr("Couldn't save the look — please try again."); return; }
+      setWmExisting(x=>({ ...x, data })); setWmPreview(p=>p+1);
+    }catch(e){ setWmErr("Couldn't save the look — please try again."); }
+  }
   function siteSlots(){ const out=[]; const secs=(wmExisting&&wmExisting.data&&wmExisting.data.sections)||[]; secs.forEach(s=>{ if(s.type==="hero")out.push(["hero","Hero image (top of site)"]); if(s.type==="about")out.push(["about","About photo"]); if(s.type==="editorial")out.push(["editorial","Feature image"]); if(s.type==="offerings"&&Array.isArray(s.items))s.items.forEach((it,i)=>out.push(["offering-"+i,"Product "+(i+1)+(it.name?" — "+it.name:"")])); }); return out; }
   async function changeEditorTheme(themeId){
     if(!wmExisting) return;
@@ -1421,7 +1433,24 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {[["editorial-porcelain","Editorial"],["noir","Noir"],["warm-minimal","Warm Minimal"],["atelier","Atelier"],["gallery","Gallery"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
             </div>
-            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch the whole palette and typography instantly. (Fine-tuning individual colours will come later.)</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,marginBottom:14,lineHeight:1.5}}>Tap a preset to swap the whole palette — or fine-tune it below.</div>
+            <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"16px"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:12,textTransform:"uppercase"}}>Fine-tune</div>
+              <div style={{display:"flex",gap:18,flexWrap:"wrap",marginBottom:14}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>Accent <input type="color" value={edCustom.accent||"#6f3a2c"} onChange={e=>setEdCustom(c=>({...c,accent:e.target.value}))} style={{width:34,height:26,border:"1px solid "+B.stone,padding:0,cursor:"pointer",background:"none"}} /></label>
+                <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>Background <input type="color" value={edCustom.bg||"#f1ebdf"} onChange={e=>setEdCustom(c=>({...c,bg:e.target.value}))} style={{width:34,height:26,border:"1px solid "+B.stone,padding:0,cursor:"pointer",background:"none"}} /></label>
+                <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>Text <input type="color" value={edCustom.ink||"#241e18"} onChange={e=>setEdCustom(c=>({...c,ink:e.target.value}))} style={{width:34,height:26,border:"1px solid "+B.stone,padding:0,cursor:"pointer",background:"none"}} /></label>
+              </div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+                <select value={edCustom.display||""} onChange={e=>setEdCustom(c=>({...c,display:e.target.value||undefined}))} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff"}}><option value="">Heading font (default)</option>{Object.keys(CUSTOM_FONTS).map(f=><option key={f} value={f}>{f}</option>)}</select>
+                <select value={edCustom.body||""} onChange={e=>setEdCustom(c=>({...c,body:e.target.value||undefined}))} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff"}}><option value="">Body font (default)</option>{Object.keys(CUSTOM_FONTS).map(f=><option key={f} value={f}>{f}</option>)}</select>
+              </div>
+              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                <Btn dark small onClick={()=>saveCustom(edCustom)}>Apply</Btn>
+                <button onClick={()=>{ setEdCustom({}); saveCustom({}); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"8px 12px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Reset</button>
+              </div>
+              <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginTop:10,lineHeight:1.5}}>Accent and fonts apply throughout. Background and text recolor the main sections; the dramatic dark bands keep their designed contrast for readability.</div>
+            </div>
           </div>
 
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
@@ -3703,6 +3732,35 @@ const SITE_CSS_GALLERY = `
 
 const THEME_CSS = { "editorial-porcelain": SITE_CSS_EDITORIAL, "noir": SITE_CSS_NOIR, "warm-minimal": SITE_CSS_WARM, "atelier": SITE_CSS_ATELIER, "gallery": SITE_CSS_GALLERY };
 
+const CUSTOM_FONTS = {
+  "Bodoni Moda":"family=Bodoni+Moda:ital,wght@0,400;0,500;1,400;1,500",
+  "Fraunces":"family=Fraunces:ital,wght@0,300;0,400;1,300;1,400",
+  "Cormorant Garamond":"family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400",
+  "Playfair Display":"family=Playfair+Display:ital,wght@0,400;0,600;1,400",
+  "Newsreader":"family=Newsreader:ital,wght@0,300;0,400;1,400",
+  "Jost":"family=Jost:wght@300;400;500",
+  "Outfit":"family=Outfit:wght@300;400;500",
+  "Mulish":"family=Mulish:wght@300;400;500",
+  "Manrope":"family=Manrope:wght@300;400;500"
+};
+function buildCustomCSS(c){
+  if(!c||typeof c!=="object") return "";
+  const hex=(v)=>/^#[0-9a-fA-F]{3,8}$/.test(v||"")?v:null;
+  const imports=[];
+  if(c.display&&CUSTOM_FONTS[c.display]) imports.push(CUSTOM_FONTS[c.display]);
+  if(c.body&&CUSTOM_FONTS[c.body]&&c.body!==c.display) imports.push(CUSTOM_FONTS[c.body]);
+  let css="";
+  if(imports.length) css+="@import url('https://fonts.googleapis.com/css2?"+imports.join("&")+"&display=swap');";
+  let vars="";
+  if(hex(c.accent)) vars+="--accent:"+c.accent+";";
+  if(hex(c.bg)) vars+="--bg:"+c.bg+";";
+  if(hex(c.ink)) vars+="--ink:"+c.ink+";";
+  if(c.display&&CUSTOM_FONTS[c.display]) vars+="--display:'"+c.display+"',Georgia,serif;";
+  if(c.body&&CUSTOM_FONTS[c.body]) vars+="--body:'"+c.body+"','Helvetica Neue',Arial,sans-serif;";
+  if(vars) css+="#cg-site{"+vars+"}";
+  return css;
+}
+
 const DEMO_SITE = {
   theme: "editorial-porcelain",
   brand: { name: "Maren & Wilde", nav: [{label:"Shop"},{label:"Ritual"},{label:"Journal"},{label:"Contact"}], footerNote: "© 2026 · Made in Portland" },
@@ -3725,6 +3783,7 @@ function SiteRender({ site }) {
   return (
     <div id="cg-site" data-theme={s.theme || "editorial-porcelain"}>
       <style dangerouslySetInnerHTML={{ __html: (THEME_CSS[s.theme] || SITE_CSS_EDITORIAL) }} />
+      {s.custom && <style dangerouslySetInnerHTML={{ __html: buildCustomCSS(s.custom) }} />}
       <header>
         <div className="wrap nav">
           {brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand serif">{brand.name || "Your Brand"}</div>}
