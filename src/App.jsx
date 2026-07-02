@@ -1078,6 +1078,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   // ── Website Maker state ──
   const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
+  const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState("");
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
@@ -1230,14 +1231,19 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     setWmEditLoad(false);
   }
   function wmRead(file,cb){ if(!file) return; const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsDataURL(file); }
+  function wmNext(){ if(wmStep===1&&(!wmName.trim()||!wmDesc.trim())){ setWmErr("Please add your business name and what you do."); return; } setWmErr(""); setWmStep(s=>Math.min(5,s+1)); }
+  function wmBack(){ setWmErr(""); setWmStep(s=>Math.max(1,s-1)); }
+  const wmLbl={fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"};
+  const wmInp={width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18};
+  const wmTa={width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18,resize:"vertical",lineHeight:1.5};
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; blush = soft feminine pink for coaches, beauty, feminine brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; haven = airy minimal rounded-card store for homeware, product & minimal e-commerce; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
-      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
+      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; blush = soft feminine pink for coaches, beauty, feminine brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; haven = airy minimal rounded-card store for homeware, product & minimal e-commerce; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":(wmKind==="both"?"business offering both products and services":"service business"))+(wmAudience.trim()?("\nWHO THEY SERVE: "+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge — make the philosophy section and overall voice clearly convey it):\n"+wmDiff.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\nKEY OFFERINGS (create one offering item for EACH line below, in order — do not cap the count):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 8000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const first = jsonText.indexOf("{"); const last = jsonText.lastIndexOf("}");
@@ -1641,63 +1647,80 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Recent changes</div>
             {wmEditLog.map((c,i)=><div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"8px 0",borderTop:"1px solid "+B.stone}}>✓ {c}</div>)}
           </div>}
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:16,lineHeight:1.6}}>Chelgy rewrites your words and layout instantly. After a change, refresh your site link to see it. (To swap photos, use Rebuild and re-upload.)</div>
         </div>}
 
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
-            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["blush","Blush",true],["fog","Fog",true],["muse","Muse",true],["duet","Duet",true],["rouge","Rouge",true],["vigor","Vigor",true],["aurelia","Aurelia",true],["claret","Claret",true],["nocturne","Nocturne",true],["sable","Sable",true],["missive","Missive",true],["haven","Haven",true],["linen","Linen",true],["umber","Umber",true],["willow","Willow",true]].map(([id,label,active])=>(
-              <button key={id} disabled={!active} onClick={()=>active&&setWmTheme(id)} style={{padding:"10px 15px",border:"1px solid "+(wmTheme===id?B.charcoal:B.stone),background:wmTheme===id?B.charcoal:"#fff",color:!active?"#BBB":(wmTheme===id?"#fff":B.charcoal),fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:active?"pointer":"default"}}>{label}{!active&&<span style={{fontSize:8,marginLeft:6,letterSpacing:"0.1em"}}>SOON</span>}</button>
-            ))}
-          </div>
+          <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:20,lineHeight:1.6}}>Tell us about your business and Chelgy builds the whole site — words, layout, and a matching look chosen for you. You can switch themes and fine-tune everything after it's made.</div>
 
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Business name</div>
-          <input value={wmName} onChange={e=>setWmName(e.target.value)} placeholder="e.g. Maren & Wilde" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18}} />
+          <div style={{display:"flex",gap:6,marginBottom:8}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:3,background:n<=wmStep?B.gold:B.stone}}></div>)}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:20,textTransform:"uppercase"}}>Step {wmStep} of 5 · {["The basics","Your positioning","What you offer","Your story","Finishing touches"][wmStep-1]}</div>
 
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Describe your business</div>
-          <textarea value={wmDesc} onChange={e=>setWmDesc(e.target.value)} placeholder="What you do, who it's for, and the feeling you want. e.g. Small-batch botanical skincare, handmade in Portland, for people who love a slow ritual." rows={4} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18,resize:"vertical",lineHeight:1.5}} />
+          {wmStep===1&&<div>
+            <div style={wmLbl}>Business name</div>
+            <input value={wmName} onChange={e=>setWmName(e.target.value)} placeholder="e.g. Maren & Wilde" style={wmInp} />
+            <div style={wmLbl}>What you do</div>
+            <textarea value={wmDesc} onChange={e=>setWmDesc(e.target.value)} placeholder="What you do, who it's for, and the feeling you want. e.g. Small-batch botanical skincare, handmade in Portland, for people who love a slow ritual." rows={4} style={wmTa} />
+            <div style={wmLbl}>You offer</div>
+            <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>{[["services","Services"],["products","Products"],["both","Both"]].map(([v,l])=>(<button key={v} onClick={()=>setWmKind(v)} style={{padding:"9px 18px",border:"1px solid "+(wmKind===v?B.charcoal:B.stone),background:wmKind===v?B.charcoal:"#fff",color:wmKind===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>))}</div>
+          </div>}
 
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>You mainly offer</div>
-          <div style={{display:"flex",gap:8,marginBottom:18}}>
-            {[["services","Services"],["products","Products"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setWmKind(v)} style={{padding:"9px 18px",border:"1px solid "+(wmKind===v?B.charcoal:B.stone),background:wmKind===v?B.charcoal:"#fff",color:wmKind===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-            ))}
-          </div>
+          {wmStep===2&&<div>
+            <div style={wmLbl}>Who you serve</div>
+            <textarea value={wmAudience} onChange={e=>setWmAudience(e.target.value)} placeholder="Your ideal client or customer — who they are, what they want, how they want to feel." rows={3} style={wmTa} />
+            <div style={wmLbl}>What makes you different</div>
+            <textarea value={wmDiff} onChange={e=>setWmDiff(e.target.value)} placeholder="Your edge — why people choose you. Your approach, values, or signature." rows={3} style={wmTa} />
+            <div style={wmLbl}>Vibe <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>{["Luxury","Minimal","Warm","Bold","Playful","Classic","Modern","Earthy","Feminine","Editorial"].map(v=>{const on=(wmTone||"").split(", ").indexOf(v)>=0;return <button key={v} onClick={()=>setWmTone(t=>{const a=t?t.split(", ").filter(Boolean):[];return a.indexOf(v)>=0?a.filter(x=>x!==v).join(", "):[...a,v].join(", ");})} style={{padding:"8px 14px",border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.charcoal:"#fff",color:on?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{v}</button>;})}</div>
+          </div>}
 
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Key {wmKind==="products"?"products":"services"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
-          <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18,resize:"vertical",lineHeight:1.5}} />
-
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Contact details <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
-          <textarea value={wmContact} onChange={e=>setWmContact(e.target.value)} placeholder={"Address, email, hours — whatever you'd like shown.\nWe'll use tasteful placeholders if you skip this."} rows={2} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:22,resize:"vertical",lineHeight:1.5}} />
-
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Your photos <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-            <div>{wmLogo
-              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:84}}><img src={wmLogo} alt="logo" style={{maxHeight:66,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
-              : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:84,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
-            <div>{wmSelf
-              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:84}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
-              : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:84,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for About)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
-          </div>
-          <div style={{marginBottom:12}}>
-            {wmPhotos.map((p,idx)=>(
-              <div key={idx} style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:8,position:"relative"}}>
-                <img src={p.data} alt="" style={{width:64,height:64,objectFit:"cover",display:"block",flexShrink:0}} />
-                <div style={{flex:1,minWidth:0}}>
-                  <input value={p.use} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,use:e.target.value}:x))} placeholder="What is this? e.g. red summer dress" style={{width:"100%",padding:"7px 9px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
-                  <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.charcoal}}>
-                    <input type="checkbox" checked={!!p.pro} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,pro:e.target.checked}:x))} /> ✨ Make it look professional
-                  </label>
+          {wmStep===3&&<div>
+            <div style={wmLbl}>Your {wmKind==="products"?"products":(wmKind==="both"?"products & services":"services")} · list them</div>
+            <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={5} style={wmTa} />
+            <div style={wmLbl}>Product / work photos <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={{marginBottom:12}}>
+              {wmPhotos.map((p,idx)=>(
+                <div key={idx} style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:8,position:"relative"}}>
+                  <img src={p.data} alt="" style={{width:64,height:64,objectFit:"cover",display:"block",flexShrink:0}} />
+                  <div style={{flex:1,minWidth:0}}>
+                    <input value={p.use} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,use:e.target.value}:x))} placeholder="What is this? e.g. red summer dress" style={{width:"100%",padding:"7px 9px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
+                    <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.charcoal}}>
+                      <input type="checkbox" checked={!!p.pro} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,pro:e.target.checked}:x))} /> ✨ Make it look professional
+                    </label>
+                  </div>
+                  <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
                 </div>
-                <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
-              </div>
-            ))}
-            {wmPhotos.length<4&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Add a product / work photo<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,4-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,4)))); }} style={{display:"none"}} /></label>}
-          </div>
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:22,lineHeight:1.55}}>Optional. Your logo goes in the header, your photo into an About section, and business/work photos fill product and feature spots. Anything you skip, Chelgy fills with AI imagery.</div>
+              ))}
+              {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Add a product / work photo<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
+            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Add a photo for each product if you can. Services can just be listed. Anything you skip, Chelgy fills with matching AI imagery.</div>
+          </div>}
 
-          <Btn dark disabled={wmLoad} onClick={act(genWebsite)}>{wmLoad?(wmStage||"Working…"):"Build My Website"}</Btn>
+          {wmStep===4&&<div>
+            <div style={wmLbl}>Your story <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <textarea value={wmAbout} onChange={e=>setWmAbout(e.target.value)} placeholder="A little about you or the founder — the journey, the why, what you care about." rows={4} style={wmTa} />
+            <div style={wmLbl}>Photo of you <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={{maxWidth:200,marginBottom:10}}>{wmSelf
+              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:120}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:120,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for your About section)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Chelgy never invents people — a photo of you or your team only appears if you upload one here.</div>
+          </div>}
+
+          {wmStep===5&&<div>
+            <div style={wmLbl}>Contact details <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <textarea value={wmContact} onChange={e=>setWmContact(e.target.value)} placeholder={"Address, email, hours — whatever you'd like shown.\nWe'll use tasteful placeholders if you skip this."} rows={3} style={wmTa} />
+            <div style={wmLbl}>Logo <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={{maxWidth:220,marginBottom:10}}>{wmLogo
+              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:90}}><img src={wmLogo} alt="logo" style={{maxHeight:72,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:90,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Your logo goes in the header. Skip it and Chelgy shows your name in a beautiful typeface.</div>
+          </div>}
+
+          <div style={{display:"flex",gap:10,marginTop:16,alignItems:"center",flexWrap:"wrap"}}>
+            {wmStep>1&&<button onClick={wmBack} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"12px 20px",fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>← Back</button>}
+            {wmStep<5
+              ? <Btn dark onClick={wmNext}>Next →</Btn>
+              : <Btn dark disabled={wmLoad} onClick={act(genWebsite)}>{wmLoad?(wmStage||"Working…"):"Build My Website"}</Btn>}
+          </div>
           {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:14,lineHeight:1.5}}>{wmErr}</div>}
           {wmLoad&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:12}}>This takes about 20–30 seconds — Chelgy is writing every section.</div>}
         </div>}
