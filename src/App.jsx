@@ -494,13 +494,13 @@ async function callClaude(prompt, maxTokens, webSearch=false, image=null) {
   } catch { return "Something went wrong. Please try again."; }
 }
 
-async function generateOpenAIImage(prompt, inputImages, aspectRatio, quality) {
+async function generateOpenAIImage(prompt, inputImages, aspectRatio, quality, background) {
   const token = await freshToken();
   const imgs = Array.isArray(inputImages) ? inputImages : (inputImages ? [inputImages] : []);
   const res = await fetch("/api/openai-image", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: JSON.stringify({ prompt, inputImages: imgs, inputImage: imgs[0] || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard" }),
+    body: JSON.stringify({ prompt, inputImages: imgs, inputImage: imgs[0] || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard", background: background || undefined }),
   });
   const d = await res.json();
   if (!d.image) throw new Error(d.error || "No image");
@@ -1290,6 +1290,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const uid = user.id;
       let logoUrl=null, selfUrl=null; const photoUrls=[];
       try{ if(wmLogo){ logoUrl = await uploadSiteImage(wmLogo, uid+"/logo-"+Date.now()+".png"); } }catch(e){}
+      if(!logoUrl){ setWmStage("Designing your logo…"); try{ const lp="A clean, minimal, modern logo for "+wmName+(wmDesc?(", "+wmDesc):"")+(wmTone.trim()?(". Style: "+wmTone.trim()):"")+". A simple elegant wordmark or a tasteful symbol, crisp and high-contrast, perfectly centered, isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no photo, no scene). No tagline, no extra text."; const lr=await generateOpenAIImage(lp, null, "1:1", "standard", "transparent"); if(lr&&lr.image){ if(typeof lr.balance==="number") onBalance(lr.balance); const lu=await uploadSiteImage(lr.image, uid+"/logo-"+Date.now()+".png"); if(lu){ logoUrl=lu; try{ doSaveMedia("logo",(wmName||"Brand")+" Logo",lu); }catch(e){} try{ onBrandProgress("logo"); }catch(e){} } } }catch(e){} }
       try{ if(wmSelf){ selfUrl = await uploadSiteImage(wmSelf, uid+"/about-"+Date.now()+".png"); } }catch(e){}
       for(const ph of wmPhotos){
         try{
@@ -4623,7 +4624,7 @@ function CollageLayout({ site }) {
 
 const DUET_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#FFFFFF;--paper:#FFFFFF;--ink:#1C1B18;--mid:#8A8880;--line:#E2DFD6;--display:'Cormorant Garamond',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
+#cg-site{--cg-fg:var(--ink);--cg-muted:var(--mid);--cg-line:var(--line);--cg-serif:var(--display);--cg-sans:var(--body);--bg:#FFFFFF;--paper:#FFFFFF;--ink:#1C1B18;--mid:#8A8880;--line:#E2DFD6;--display:'Cormorant Garamond',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(22px,5vw,64px);}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4755,6 +4756,7 @@ function DuetLayout({ site }) {
         <div className="rows">{(contact.details || []).map((d, j) => <div key={j}><div className="k">{d.k}</div><div className="v">{d.v}</div></div>)}</div>
         {contact.cta && <a href="#" className="btn-out">{contact.cta.label}</a>}
       </div></section>}
+      <StandardSections site={s} show={{about:true}} />
       <footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
     </div>
@@ -4763,7 +4765,7 @@ function DuetLayout({ site }) {
 
 const ROUGE_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#FFFFFF;--paper:#F7F5F1;--ink:#20140F;--mid:#8A7461;--red:#161616;--red2:#000000;--line:#E2D9C9;--display:'Playfair Display',Georgia,serif;--script:'Pinyon Script',cursive;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.7;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
+#cg-site{--cg-fg:var(--ink);--cg-muted:var(--mid);--cg-line:var(--line);--cg-serif:var(--display);--cg-sans:var(--body);--bg:#FFFFFF;--paper:#F7F5F1;--ink:#20140F;--mid:#8A7461;--red:#161616;--red2:#000000;--line:#E2D9C9;--display:'Playfair Display',Georgia,serif;--script:'Pinyon Script',cursive;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.7;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(20px,5vw,60px);}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4879,6 +4881,7 @@ function RougeLayout({ site }) {
         <div className="kick">let's talk</div>
         {contact.cta && <a href="#" className="btn cream">{contact.cta.label}</a>}
       </div></section>}
+      <StandardSections site={s} show={{about:true,quote:true}} />
       <footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
     </div>
@@ -4887,7 +4890,7 @@ function RougeLayout({ site }) {
 
 const VIGOR_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap');
-#cg-site{--dark:#14171A;--bone:#FFFFFF;--ink:#131313;--gray:#8E8A82;--muted:#6C6862;--paper:#FFFFFF;--line:rgba(19,19,19,.14);--line-d:rgba(243,242,238,.20);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
+#cg-site{--cg-fg:var(--ink);--cg-muted:var(--muted);--cg-line:var(--line);--cg-serif:var(--display);--cg-sans:var(--sans);--dark:#14171A;--bone:#FFFFFF;--ink:#131313;--gray:#8E8A82;--muted:#6C6862;--paper:#FFFFFF;--line:rgba(19,19,19,.14);--line-d:rgba(243,242,238,.20);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4986,6 +4989,7 @@ function VigorLayout({ site }){
         {contact.details&&contact.details[0]&&<p>{contact.details.map(d=>d.v).join("   ·   ")}</p>}
         {contact.cta&&<a className="btn light" href="#">{contact.cta.label}</a>}
       </section>}
+      <StandardSections site={s} show={{quote:true}} />
       <footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}>Built by Chelgy</div>}</footer>
     </div>
   );
@@ -5161,7 +5165,7 @@ function ClaretLayout({ site }){
 
 const NOCTURNE_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=sentient@300,400,500&f[]=satoshi@300,400,500&display=swap');
-#cg-site{--bg:#0D0D0D;--panel:#131313;--text:#E6E0DA;--muted:#948D86;--blush:#E9D6CE;--line:rgba(230,224,218,.30);--line-soft:rgba(230,224,218,.14);--serif:"Sentient","Cormorant Garamond",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,70px);color:var(--text);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;background-color:var(--bg);background-image:radial-gradient(1.5px 1.5px at 12% 22%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 78% 14%,rgba(255,255,255,.28),transparent),radial-gradient(1.5px 1.5px at 46% 66%,rgba(255,255,255,.22),transparent),radial-gradient(1px 1px at 88% 72%,rgba(255,255,255,.30),transparent),radial-gradient(1px 1px at 30% 88%,rgba(255,255,255,.20),transparent);}
+#cg-site{--cg-fg:var(--text);--cg-muted:var(--muted);--cg-line:var(--line-soft);--cg-serif:var(--serif);--cg-sans:var(--sans);--bg:#0D0D0D;--panel:#131313;--text:#E6E0DA;--muted:#948D86;--blush:#E9D6CE;--line:rgba(230,224,218,.30);--line-soft:rgba(230,224,218,.14);--serif:"Sentient","Cormorant Garamond",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,70px);color:var(--text);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;background-color:var(--bg);background-image:radial-gradient(1.5px 1.5px at 12% 22%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 78% 14%,rgba(255,255,255,.28),transparent),radial-gradient(1.5px 1.5px at 46% 66%,rgba(255,255,255,.22),transparent),radial-gradient(1px 1px at 88% 72%,rgba(255,255,255,.30),transparent),radial-gradient(1px 1px at 30% 88%,rgba(255,255,255,.20),transparent);}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5231,6 +5235,7 @@ function NocturneLayout({ site }){
       </section>
       {off&&<section className="cats" id="s-shop"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
       {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-shop">Shop now</a></section>}
+      <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
     </div>
   );
@@ -5314,7 +5319,7 @@ function SableLayout({ site }){
 
 const MISSIVE_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=zodiak@300,400,700&f[]=gambetta@400,500&f[]=rosaline@400&f[]=satoshi@300,400,500&display=swap');
-#cg-site{--porcelain:#F8F7F5;--dark:#0F0F0F;--ink:#161616;--muted:#6E6A64;--muted-d:#B7B3AC;--line:rgba(22,22,22,.16);--line-d:rgba(248,247,245,.24);--serif:"Zodiak",Georgia,serif;--bodyf:"Gambetta",Georgia,serif;--script:"Rosaline",cursive;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--porcelain);color:var(--ink);font-family:var(--bodyf);font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site{--cg-fg:var(--ink);--cg-muted:var(--muted);--cg-line:var(--line);--cg-serif:var(--serif);--cg-sans:var(--sans);--porcelain:#F8F7F5;--dark:#0F0F0F;--ink:#161616;--muted:#6E6A64;--muted-d:#B7B3AC;--line:rgba(22,22,22,.16);--line-d:rgba(248,247,245,.24);--serif:"Zodiak",Georgia,serif;--bodyf:"Gambetta",Georgia,serif;--script:"Rosaline",cursive;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--porcelain);color:var(--ink);font-family:var(--bodyf);font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5393,6 +5398,7 @@ function MissiveLayout({ site }){
       {qtext&&<section className="qband"><div className="img-slot" style={bgi(qimg)}></div><div className="qtext"><p className="script">{qtext}</p></div></section>}
       {phil&&<section className="welcome"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>}</p></section>}
       {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
+      <StandardSections site={s} show={{contact:true}} />
       <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
     </div>
   );
@@ -5545,7 +5551,7 @@ function LinenLayout({ site }){
 
 const UMBER_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500&display=swap');
-#cg-site{--mocha:#494238;--mocha-2:#524B40;--cream:#E5E0D4;--ink:#1A1712;--muted-c:rgba(229,224,212,.72);--muted-i:#6F665A;--line-c:rgba(229,224,212,.28);--line-i:rgba(26,23,18,.16);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--mocha);color:var(--cream);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site{--cg-fg:var(--cream);--cg-muted:var(--muted-c);--cg-line:var(--line-c);--cg-serif:var(--display);--cg-sans:var(--sans);--mocha:#494238;--mocha-2:#524B40;--cream:#E5E0D4;--ink:#1A1712;--muted-c:rgba(229,224,212,.72);--muted-i:#6F665A;--line-c:rgba(229,224,212,.28);--line-i:rgba(26,23,18,.16);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--mocha);color:var(--cream);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5614,6 +5620,7 @@ function UmberLayout({ site }){
       </section>
       {phil&&<section className="known" id="s-known"><div className="ghost" aria-hidden="true">{brand.name||""}</div><div className="inner"><p className="eyebrow i">{phil.eyebrow||"Best known for"}</p><h2>{phil.heading} {phil.headingEm&&<span className="hollow">{phil.headingEm}</span>}</h2>{phil.body&&phil.body[0]&&<p className="body">{phil.body[0]}</p>}{contact&&contact.cta&&<a className="pill solid" href="#s-contact">{contact.cta.label}</a>}</div></section>}
       {about&&<section className="meet" id="s-about"><div className="grid"><div><h2>{about.heading} {"\u007D"}</h2>{(about.headingEm||about.eyebrow)&&<p className="role">{about.headingEm||about.eyebrow}</p>}{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><div className="img-slot" style={bgi(url(about.image))}></div></div></section>}
+      <StandardSections site={s} show={{quote:true,contact:true}} />
       <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
     </div>
   );
@@ -5621,7 +5628,7 @@ function UmberLayout({ site }){
 
 const WILLOW_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=zodiak@300,400,700&f[]=gambetta@400,500&f[]=satoshi@300,400,500,700&display=swap');
-#cg-site{--bone:#FFFFFF;--paper:#FDFDFD;--dark:#14130F;--ink:#171512;--cream:#EDEBE5;--muted:#6E685F;--muted-d:#A69E92;--line:rgba(23,21,18,.16);--line-d:rgba(237,235,229,.22);--serif:"Zodiak",Georgia,serif;--soft:"Gambetta",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,6vw,96px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site{--cg-fg:var(--ink);--cg-muted:var(--muted);--cg-line:var(--line);--cg-serif:var(--serif);--cg-sans:var(--sans);--bone:#FFFFFF;--paper:#FDFDFD;--dark:#14130F;--ink:#171512;--cream:#EDEBE5;--muted:#6E685F;--muted-d:#A69E92;--line:rgba(23,21,18,.16);--line-d:rgba(237,235,229,.22);--serif:"Zodiak",Georgia,serif;--soft:"Gambetta",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,6vw,96px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5716,6 +5723,7 @@ function WillowLayout({ site }){
       {quote&&<section><div className="quote"><div className="qmark">&#8220;</div><blockquote>{quote.text}</blockquote>{quote.cite&&<div className="who"><div className="av"><div className="img-slot" style={{width:"100%",height:"100%"}}></div></div><div className="nm">{quote.cite}</div></div>}</div></section>}
       {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><div className="img-slot dark" style={bgi(url((ed&&ed.image))||url(hero&&hero.image))}></div></div></section>}
       {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
+      <StandardSections site={s} show={{contact:true}} />
       <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
     </div>
   );
@@ -6480,6 +6488,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const markBrand = (k)=> setBrandProgress(prev=>{ const n={...prev,[k]:true}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} return n; });
   const [profileKit, setProfileKit] = useState(null);
   const [profileKitLoad, setProfileKitLoad] = useState(false);
+  async function finishLaunch(){
+    if(isTrial){ setShowPaywall(true); return; }
+    await generateLaunchPackage();
+    try{ generateProfileKit(); }catch(e){}
+    setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}});
+    setSubTab("website");
+  }
   async function generateProfileKit(){
     const d=launchData; if(!d||!d.bizName){ return; }
     setProfileKitLoad(true); setProfileKit(null);
@@ -8769,7 +8784,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       </div>
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>setLaunchStep(2)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
-                        <button onClick={()=>{if(isTrial){setShowPaywall(true);return;}generateLaunchPackage();}} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>GENERATE MY LAUNCH PACKAGE</button>
+                        <button onClick={finishLaunch} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>GENERATE MY LAUNCH PACKAGE</button>
                       </div>
                     </Card>
                   )}
