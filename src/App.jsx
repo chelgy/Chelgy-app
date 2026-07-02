@@ -1030,6 +1030,44 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0);
+  const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
+  function siteSlots(){ const out=[]; const secs=(wmExisting&&wmExisting.data&&wmExisting.data.sections)||[]; secs.forEach(s=>{ if(s.type==="hero")out.push(["hero","Hero image (top of site)"]); if(s.type==="about")out.push(["about","About photo"]); if(s.type==="editorial")out.push(["editorial","Feature image"]); if(s.type==="offerings"&&Array.isArray(s.items))s.items.forEach((it,i)=>out.push(["offering-"+i,"Product "+(i+1)+(it.name?" — "+it.name:"")])); }); return out; }
+  async function changeEditorTheme(themeId){
+    if(!wmExisting) return;
+    try{
+      const data={...wmExisting.data, theme:themeId};
+      const tok=await freshToken(); if(!tok){ setWmErr("Your session expired — please log in again."); return; }
+      const up=await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+wmExisting.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ data, theme:themeId, updated_at:new Date().toISOString() }) });
+      if(!up.ok){ setWmErr("Couldn't switch the look — try again."); return; }
+      setWmExisting(x=>({ ...x, data })); setWmPreview(p=>p+1);
+    }catch(e){ setWmErr("Couldn't switch the look — try again."); }
+  }
+  async function addEditorImage(){
+    if(!edImgData||!wmExisting) return;
+    setEdImgLoad(true); setWmErr("");
+    try{
+      let dataUrl=edImgData;
+      if(edImgPro){
+        const desc=(edImgUse||"the item").trim();
+        const isApparel=/(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
+        const proPrompt="Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the actual item true to the uploaded photo. No text, no words, no logos.";
+        try{ const r=await generateGeminiImage(proPrompt, edImgData, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
+      }
+      const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
+      const url=await uploadSiteImage(dataUrl, user.id+"/edit-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png");
+      if(!url) throw new Error("Couldn't upload that image — please try again.");
+      const data=JSON.parse(JSON.stringify(wmExisting.data)); const secs=data.sections||[]; const slot=edImgSlot;
+      if(slot==="hero"){ const h=secs.find(x=>x.type==="hero"); if(h) h.image={url}; }
+      else if(slot==="editorial"){ const e=secs.find(x=>x.type==="editorial"); if(e) e.image={url}; }
+      else if(slot==="about"){ const a=secs.find(x=>x.type==="about"); if(a) a.image={url}; }
+      else if(slot&&slot.indexOf("offering-")===0){ const oi=parseInt(slot.split("-")[1],10); const off=secs.find(x=>x.type==="offerings"); if(off&&off.items&&off.items[oi]) off.items[oi].image={url}; }
+      const upd=await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+wmExisting.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ data, updated_at:new Date().toISOString() }) });
+      if(!upd.ok) throw new Error("Couldn't save — "+(await upd.text()));
+      setWmExisting(x=>({ ...x, data })); setWmEditLog(l=>["Added a photo ("+(edImgUse||slot)+")", ...l].slice(0,8));
+      setEdImgData(null); setEdImgUse(""); setEdImgPro(false); setWmPreview(p=>p+1);
+    }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong — please try again."); }
+    setEdImgLoad(false);
+  }
   useEffect(()=>{
     if(tool!=="website"||!user||!user.id) return;
     let cancel=false;
@@ -1378,6 +1416,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Refreshes automatically after each change.</div>
           </div>
 
+          <div style={{marginBottom:24}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Look &amp; colours</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {[["editorial-porcelain","Editorial"],["noir","Noir"],["warm-minimal","Warm Minimal"],["atelier","Atelier"],["gallery","Gallery"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
+            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch the whole palette and typography instantly. (Fine-tuning individual colours will come later.)</div>
+          </div>
+
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
           <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Type any change in plain English. For example: "Make the headline punchier," "Rewrite the About to feel warmer," "Add a fourth product called Body Oil for $52," "Change my hours to Mon–Fri 9–5," or "Remove the testimonial."</p>
           <textarea value={wmEdit} onChange={e=>setWmEdit(e.target.value)} placeholder="What would you like to change?" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,resize:"vertical",lineHeight:1.5}} />
@@ -1386,6 +1432,28 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <button onClick={()=>{ setWmMode("rebuild"); setWmErr(""); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Rebuild From Scratch</button>
           </div>
           {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:12,lineHeight:1.5}}>{wmErr}</div>}
+          <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Add or replace a photo</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Upload a product or work photo and choose where it goes. Flip the polish on and Chelgy makes it studio-quality.</p>
+            {!edImgData
+              ? <label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Upload a photo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setEdImgData)} style={{display:"none"}} /></label>
+              : <div>
+                  <div style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:10}}>
+                    <img src={edImgData} alt="" style={{width:70,height:70,objectFit:"cover",flexShrink:0}} />
+                    <div style={{flex:1,minWidth:0}}>
+                      <input value={edImgUse} onChange={e=>setEdImgUse(e.target.value)} placeholder="What is this? e.g. blue dress" style={{width:"100%",padding:"7px 9px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",marginBottom:6}} />
+                      <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.charcoal}}><input type="checkbox" checked={edImgPro} onChange={e=>setEdImgPro(e.target.checked)} /> ✨ Make it look professional</label>
+                    </div>
+                    <button onClick={()=>{setEdImgData(null);setEdImgUse("");setEdImgPro(false);}} style={{background:"none",border:"none",color:B.mid,cursor:"pointer",fontSize:11,fontFamily:"sans-serif",textDecoration:"underline"}}>Remove</button>
+                  </div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Place it as</div>
+                  <select value={edImgSlot} onChange={e=>setEdImgSlot(e.target.value)} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,background:"#fff",marginBottom:12,boxSizing:"border-box"}}>
+                    {siteSlots().map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                  </select>
+                  <Btn dark disabled={edImgLoad} onClick={addEditorImage}>{edImgLoad?"Adding…":"Add Photo to Site"}</Btn>
+                </div>}
+          </div>
+
           {wmEditLog.length>0&&<div style={{marginTop:20}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Recent changes</div>
             {wmEditLog.map((c,i)=><div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"8px 0",borderTop:"1px solid "+B.stone}}>✓ {c}</div>)}
