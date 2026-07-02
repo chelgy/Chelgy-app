@@ -6164,8 +6164,10 @@ export default function ChelgyApp() {
 
   // Nav state — bottom tab + top subcategory
   const [tab, setTab] = useState(()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); return ["home","learn","tools","community","profile"].includes(seg)?seg:"home"; }catch(e){ return "home"; } });  // home | learn | tools | community | profile
+  const [profileView,setProfileView]=useState("main");
   useEffect(()=>{ try{ const path=tab==="home"?"/":("/"+tab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab]);
   useEffect(()=>{ const h=()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); setTab(["home","learn","tools","community","profile"].includes(seg)?seg:"home"); }catch(e){} }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
+  useEffect(()=>{ if(tab!=="profile") setProfileView("main"); },[tab]);
   const [subTab, setSubTab] = useState("feed"); // varies per tab
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
@@ -9271,6 +9273,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   </div>
                 </div>
+                {profileView==="main"&&<div onClick={()=>setProfileView("account")} style={{background:B.white,padding:"18px 26px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>Account &amp; login settings</span><span style={{color:B.mid,fontSize:15}}>&#8594;</span></div>}
+                {profileView==="account"&&(<div>
+                <button onClick={()=>setProfileView("main")} style={{background:"none",border:"none",color:B.mid,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,cursor:"pointer",padding:0,marginBottom:14}}>&#8592; Back to profile</button>
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:16,textTransform:"uppercase",fontWeight:700}}>Account &amp; Login</div>
 
@@ -9292,6 +9297,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
                   {acctMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:acctMsg.charAt(0)==="✓"?"#2E7D32":B.red,marginTop:14,lineHeight:1.5}}>{acctMsg}</div>}
                 </div>
+                </div>)}
                 <div style={{background:B.white,padding:"26px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Need Help?</div>
                   <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 16px",lineHeight:1.6}}>Stuck on something or have a question? Send us a message and we'll get back to you by email.</p>
