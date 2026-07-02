@@ -1084,7 +1084,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
-  const [edTab,setEdTab]=useState("business"); const [edFields,setEdFields]=useState({details:[]});
+  const [edTab,setEdTab]=useState("design"); const [edFields,setEdFields]=useState({details:[]});
   const [edDomain,setEdDomain]=useState(""); const [edDomainDns,setEdDomainDns]=useState(null); const [edDomainMsg,setEdDomainMsg]=useState(""); const [edDomainLoad,setEdDomainLoad]=useState(false);
   async function connectDomain(){
     const d=(edDomain||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
@@ -1613,7 +1613,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-            {[["business","Business"],["contact","Contact"],["products","Products"],["photos","Photos"],["design","Theme"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+            {[["design","Theme"],["business","Business"],["contact","Contact"],["products","Products"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
               <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
@@ -4930,15 +4930,15 @@ function RougeLayout({ site }) {
         <div className="wordmark">{brand.name || "Your Brand"}</div>
       </section>
       {phil && <section className="intro wrap" id="s-about"><div className="intro-grid">
-        <div>{phil.eyebrow && <div className="eyebrow">{phil.eyebrow}</div>}<h2>{phil.heading}{phil.headingEm && <span className="script"> {phil.headingEm}</span>}</h2>{phil.body && phil.body[0] && <p>{phil.body[0]}</p>}<a href="#s-services" className="btn">{(hero && hero.cta && hero.cta.label) || "Learn more"}</a></div>
+        <div>{phil.eyebrow && <div className="eyebrow">{phil.eyebrow}</div>}<h2>{phil.heading}{phil.headingEm && <span className="script"> {phil.headingEm}</span>}</h2>{phil.body && phil.body[0] && <p>{phil.body[0]}</p>}<a href="#s-offerings" className="btn">{(hero && hero.cta && hero.cta.label) || "Learn more"}</a></div>
         <div className="pic" style={bgi(gi(2))}></div>
       </div></section>}
       {ed && <section className="redblock" id="s-work"><div className="wrap red-grid">
         <div className="scatter"><div className="pola s1"><div className="ph" style={bgi(gi(3) || gi(0))}></div></div><div className="pola s2"><div className="ph" style={bgi(gi(4) || gi(1))}></div></div><div className="pola s3"><div className="ph" style={bgi(gi(5) || gi(2))}></div></div></div>
-        <div>{ed.eyebrow && <div className="tag">[ {ed.eyebrow} ]</div>}<h2>{ed.line}{ed.lineEm && <span className="script"> {ed.lineEm}</span>}</h2><a href="#s-services" className="btn cream">Learn more</a></div>
+        <div>{ed.eyebrow && <div className="tag">[ {ed.eyebrow} ]</div>}<h2>{ed.line}{ed.lineEm && <span className="script"> {ed.lineEm}</span>}</h2><a href="#s-offerings" className="btn cream">Learn more</a></div>
       </div></section>}
       <div className="marquee"><div><span>{"\u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 \u00A0"}</span><span>{"\u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 \u00A0"}</span></div></div>
-      {off && <section className="services wrap" id="s-services">
+      {off && <section className="services wrap" id="s-offerings">
         <div className="big">{off.title || "Signature Services"}</div>
         {off.eyebrow && <div className="sub">{off.eyebrow}</div>}
         <div className="svc-grid">
@@ -5225,8 +5225,8 @@ function ClaretLayout({ site }){
       </section>
       {phil&&<section className="about" id="s-about"><p className="eyebrow c">{phil.eyebrow||"About"}</p><h2 className="stmt">{phil.heading}{phil.headingEm&&<em> {phil.headingEm}</em>}</h2><a className="btn on-wine" href="#s-work">{(hero&&hero.cta&&hero.cta.label)||"Learn more"}</a></section>}
       <div className="strip">{[0,1,2,3,4].map(i=><div className="img-slot" key={i} style={bgi(gi(2+i)||gi(0))}></div>)}</div>
-      {about&&<section className="work" id="s-work"><div className="ghost" aria-hidden="true">{(brand.name||"")+" "+(brand.name||"")}</div><div className="grid"><div><p className="eyebrow i">{about.eyebrow||"Our work"}</p><h2 className="stmt">{about.heading}{about.headingEm&&<em> {about.headingEm}</em>}</h2>{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}<a className="btn on-cream" href="#s-services">View more</a></div><div className="stack"><div className="img-slot" style={bgi(gi(1))}></div><div className="img-slot wine" style={bgi(gi(3))}></div></div></div></section>}
-      {off&&<section className="services" id="s-services"><span className="eyebrow c">{off.eyebrow||"Our services"}</span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name">{it.name}</span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}
+      {about&&<section className="work" id="s-work"><div className="ghost" aria-hidden="true">{(brand.name||"")+" "+(brand.name||"")}</div><div className="grid"><div><p className="eyebrow i">{about.eyebrow||"Our work"}</p><h2 className="stmt">{about.heading}{about.headingEm&&<em> {about.headingEm}</em>}</h2>{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}<a className="btn on-cream" href="#s-offerings">View more</a></div><div className="stack"><div className="img-slot" style={bgi(gi(1))}></div><div className="img-slot wine" style={bgi(gi(3))}></div></div></div></section>}
+      {off&&<section className="services" id="s-offerings"><span className="eyebrow c">{off.eyebrow||"Our services"}</span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name">{it.name}</span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}
       {bandStmt&&bandStmt.line&&<section className="band" id="s-contact"><h2 className="stmt">{bandStmt.line}{bandStmt.em&&<em> {bandStmt.em}</em>}</h2>{contact&&contact.cta&&<a className="btn on-wine" href="#">{contact.cta.label}</a>}</section>}
       <StandardSections site={s} show={{contact:true}} />
       <footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
@@ -5302,10 +5302,10 @@ function NocturneLayout({ site }){
       </header>
       <section className="hero" id="s-top">
         <div className="img-slot" style={bgi(url(hero&&hero.image))}></div>
-        <div className="hero-copy">{hero&&<h1>{hero.headline}</h1>}{phil&&phil.eyebrow&&<p className="sub">{phil.eyebrow}</p>}{hero&&hero.cta&&<a className="btn-out" href="#s-shop"><span className="hrt">&#9825;</span>{hero.cta.label}<span className="hrt">&#9825;</span></a>}</div>
+        <div className="hero-copy">{hero&&<h1>{hero.headline}</h1>}{phil&&phil.eyebrow&&<p className="sub">{phil.eyebrow}</p>}{hero&&hero.cta&&<a className="btn-out" href="#s-offerings"><span className="hrt">&#9825;</span>{hero.cta.label}<span className="hrt">&#9825;</span></a>}</div>
       </section>
-      {off&&<section className="cats" id="s-shop"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
-      {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-shop">Shop now</a></section>}
+      {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
+      {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
     </div>
@@ -5376,12 +5376,12 @@ function SableLayout({ site }){
       {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
       <header><nav className="main">{nav.slice(0,3).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="logo">{brand.name||"Your Brand"}</div><div className="head-right"><a className="pill" href="#s-contact">Book appointment</a></div></header>
       <section className="hero" id="s-top"><div className="split">
-        <div className="pane"><div className="img-slot" style={bgi(gi(0))}></div><a className="cap left" href="#s-services">View portfolio</a></div>
-        <div className="pane"><div className="img-slot" style={bgi(gi(1)||gi(0))}></div><a className="cap right" href="#s-services">Discover services</a></div>
+        <div className="pane"><div className="img-slot" style={bgi(gi(0))}></div><a className="cap left" href="#s-offerings">View portfolio</a></div>
+        <div className="pane"><div className="img-slot" style={bgi(gi(1)||gi(0))}></div><a className="cap right" href="#s-offerings">Discover services</a></div>
         <div className="mark" aria-hidden="true">{(brand.name||"S").trim().charAt(0)}</div>
       </div></section>
       {phil&&<section className="headline" id="s-about"><h1>{phil.heading}{phil.headingEm&&<em> {phil.headingEm}</em>}</h1>{phil.body&&phil.body[0]&&<p className="sub">{phil.body[0]}</p>}</section>}
-      {off&&<section className="services" id="s-services"><div className="grid"><div><span className="eyebrow">{off.eyebrow||"Full-spectrum services"}</span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name">{it.name}</span></li>)}</ul></div><div className="img-slot" style={bgi(gi(2)||gi(0))}></div></div></section>}
+      {off&&<section className="services" id="s-offerings"><div className="grid"><div><span className="eyebrow">{off.eyebrow||"Full-spectrum services"}</span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name">{it.name}</span></li>)}</ul></div><div className="img-slot" style={bgi(gi(2)||gi(0))}></div></div></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
     </div>
@@ -5528,7 +5528,7 @@ function HavenLayout({ site }){
           <div className="topbar">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand">{brand.name||"Your Brand"}</div>}<div className="right"><nav className="main">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><span className="cart">Cart · 0</span></div></div>
           <div className="img-slot" style={bgi(url(hero&&hero.image))}></div>
         </section>
-        <section className="feature" id="s-shop">
+        <section className="feature" id="s-offerings">
           <h1>{(hero&&hero.headline)||(phil&&phil.heading)||"Beautiful things for calm spaces."}</h1>
           <div className="tiles">{items.map((it,i)=>{const body=[<div className="pad" key="p"><div className="img-slot" style={bgi(url(it.image))}></div></div>,<div className="name" key="n">{it.name}</div>];if(it.price)body.push(<div className="price" key="pr">{it.price}</div>);return it.buyUrl?<a className="tile" key={i} href={it.buyUrl} target="_blank" rel="noreferrer">{body}</a>:<div className="tile" key={i}>{body}</div>;})}</div>
         </section>
@@ -5808,6 +5808,7 @@ function navHref(label){
   return "#s-top";
 }
 const STD_CSS = `
+#cg-site h1,#cg-site h2,#cg-site h3,#cg-site h4,#cg-site h5,#cg-site h6{color:inherit;}
 #cg-site .cg-sec{padding:clamp(48px,7vw,96px) clamp(18px,5vw,72px);}
 #cg-site .cg-about{display:grid;grid-template-columns:1fr 1fr;gap:clamp(30px,5vw,70px);align-items:center;max-width:1120px;margin:0 auto;}
 #cg-site .cg-about .cg-img{aspect-ratio:4/5;background-size:cover;background-position:center;background-color:rgba(128,128,128,.12);}
