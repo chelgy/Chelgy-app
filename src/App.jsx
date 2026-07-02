@@ -1029,6 +1029,41 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("editorial-porcelain");
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
+  const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false);
+  useEffect(()=>{
+    if(tool!=="website"||!user||!user.id) return;
+    let cancel=false;
+    (async()=>{
+      try{
+        const tok=await freshToken(); if(!tok) return;
+        const res=await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug,data,theme&user_id=eq."+user.id+"&limit=1",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+        const rows=await res.json();
+        if(!cancel&&Array.isArray(rows)&&rows.length){ const r=rows[0]; const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; setWmExisting({ id:r.id, slug:r.slug, data }); }
+      }catch(e){}
+    })();
+    return ()=>{ cancel=true; };
+  },[tool,user]);
+  async function applyEdit(){
+    if(!wmEdit.trim()||!wmExisting) return;
+    setWmEditLoad(true); setWmErr("");
+    try{
+      const cur = JSON.stringify(wmExisting.data);
+      const prompt = "You are editing a published luxury website that is stored as JSON. Apply ONLY the change the owner asks for and return the COMPLETE updated JSON (identical schema). Do not change anything they didn't ask about. CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY as-is — never remove, invent, or alter image urls. Keep all copy in the same upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nReturn ONLY the updated JSON object — no markdown, no commentary.";
+      const raw = await callClaude(prompt, 4000);
+      let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+      const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1);
+      let updated; try{ updated=JSON.parse(t); }catch(pe){ throw new Error("That edit didn't come back cleanly — try rephrasing it."); }
+      if(!updated||!Array.isArray(updated.sections)||!updated.brand) throw new Error("That edit didn't come back cleanly — try rephrasing it.");
+      updated.theme = (wmExisting.data&&wmExisting.data.theme) || updated.theme || "editorial-porcelain";
+      const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
+      const up=await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+wmExisting.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ data:updated, updated_at:new Date().toISOString() }) });
+      if(!up.ok) throw new Error("Couldn't save the change: "+(await up.text()));
+      setWmExisting(x=>({ ...x, data:updated }));
+      setWmEditLog(l=>[wmEdit.trim(), ...l].slice(0,8));
+      setWmEdit("");
+    }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong — please try again."); }
+    setWmEditLoad(false);
+  }
   function wmRead(file,cb){ if(!file) return; const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsDataURL(file); }
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
@@ -1081,16 +1116,18 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const H = { apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json" };
       const exRes = await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug&user_id=eq."+user.id+"&limit=1", { headers:H });
       const ex = await exRes.json().catch(()=>[]);
-      let slug;
+      let slug, rowId;
       if(Array.isArray(ex)&&ex.length){
-        slug = ex[0].slug;
+        slug = ex[0].slug; rowId = ex[0].id;
         const up = await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+ex[0].id, { method:"PATCH", headers:{...H, Prefer:"return=minimal"}, body:JSON.stringify({ data:site, theme:wmTheme, published:true, updated_at:new Date().toISOString() }) });
         if(!up.ok){ throw new Error("Couldn't save your site: "+(await up.text())); }
       } else {
         slug = slugify(wmName)+"-"+Math.random().toString(36).slice(2,6);
-        const ins = await fetch(SUPABASE_URL+"/rest/v1/websites", { method:"POST", headers:{...H, Prefer:"return=minimal"}, body:JSON.stringify({ user_id:user.id, slug, theme:wmTheme, data:site, published:true }) });
+        const ins = await fetch(SUPABASE_URL+"/rest/v1/websites", { method:"POST", headers:{...H, Prefer:"return=representation"}, body:JSON.stringify({ user_id:user.id, slug, theme:wmTheme, data:site, published:true }) });
         if(!ins.ok){ throw new Error("Couldn't save your site: "+(await ins.text())); }
+        const j = await ins.json().catch(()=>null); rowId = (Array.isArray(j)&&j[0])?j[0].id:null;
       }
+      if(rowId) setWmExisting({ id:rowId, slug, data:site });
       setWmResult({ slug, url: window.location.origin + "/?site=" + slug });
     }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong. Please try again."); }
     setWmLoad(false); setWmStage("");
@@ -1308,7 +1345,32 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 4px"}}>Answer a few questions and Chelgy writes your entire luxury website — headline, story, offerings, everything — and publishes it to a shareable link. You can refine it afterward.</p>
         </div>
 
-        {!wmResult&&<div>
+        {!wmResult && wmExisting && wmMode==="view" && <div>
+          <div style={{background:B.offwhite,border:"1px solid "+B.gold,padding:"22px",marginBottom:22}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>Your website is live</div>
+            <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:14,wordBreak:"break-all"}}>{window.location.origin+"/?site="+wmExisting.slug}</div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <a href={window.location.origin+"/?site="+wmExisting.slug} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
+              <button onClick={()=>{try{navigator.clipboard.writeText(window.location.origin+"/?site="+wmExisting.slug);}catch(e){}}} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
+            </div>
+          </div>
+
+          <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Type any change in plain English. For example: "Make the headline punchier," "Rewrite the About to feel warmer," "Add a fourth product called Body Oil for $52," "Change my hours to Mon–Fri 9–5," or "Remove the testimonial."</p>
+          <textarea value={wmEdit} onChange={e=>setWmEdit(e.target.value)} placeholder="What would you like to change?" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,resize:"vertical",lineHeight:1.5}} />
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+            <Btn dark disabled={wmEditLoad} onClick={applyEdit}>{wmEditLoad?"Updating…":"Apply Change"}</Btn>
+            <button onClick={()=>{ setWmMode("rebuild"); setWmErr(""); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Rebuild From Scratch</button>
+          </div>
+          {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:12,lineHeight:1.5}}>{wmErr}</div>}
+          {wmEditLog.length>0&&<div style={{marginTop:20}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Recent changes</div>
+            {wmEditLog.map((c,i)=><div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"8px 0",borderTop:"1px solid "+B.stone}}>✓ {c}</div>)}
+          </div>}
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:16,lineHeight:1.6}}>Chelgy rewrites your words and layout instantly. After a change, refresh your site link to see it. (To swap photos, use Rebuild and re-upload.)</div>
+        </div>}
+
+        {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
             {[["editorial-porcelain","Editorial / Porcelain",true],["noir","Noir",false],["warm-minimal","Warm Minimal",false],["atelier","Atelier",false],["gallery","Gallery",false]].map(([id,label,active])=>(
@@ -1364,7 +1426,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             <a href={wmResult.url} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
             <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
-            <button onClick={()=>{ setWmResult(null); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Start Over</button>
+            <button onClick={()=>{ setWmResult(null); setWmMode("view"); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Refine My Site</button>
           </div>
           <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:18,lineHeight:1.6}}>Your hero image is AI-generated to match your brand. Uploads (logo, your own photos) and the rest of the section imagery are coming next.</div>
         </div>}
