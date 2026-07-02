@@ -1090,7 +1090,19 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       let logoUrl=null, selfUrl=null; const photoUrls=[];
       try{ if(wmLogo){ logoUrl = await uploadSiteImage(wmLogo, uid+"/logo-"+Date.now()+".png"); } }catch(e){}
       try{ if(wmSelf){ selfUrl = await uploadSiteImage(wmSelf, uid+"/about-"+Date.now()+".png"); } }catch(e){}
-      for(const ph of wmPhotos){ try{ const u=await uploadSiteImage(ph, uid+"/photo-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) photoUrls.push(u); }catch(e){} }
+      for(const ph of wmPhotos){
+        try{
+          let dataUrl = (ph && ph.data) ? ph.data : ph;
+          if(ph && ph.pro && ph.data){
+            setWmStage("Polishing your photos…");
+            const desc = (ph.use||"the item").trim();
+            const isApparel = /(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
+            const proPrompt = "Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the actual item true to the uploaded photo. No text, no words, no logos.";
+            try{ const r=await generateGeminiImage(proPrompt, ph.data, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
+          }
+          const u=await uploadSiteImage(dataUrl, uid+"/photo-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) photoUrls.push(u);
+        }catch(e){}
+      }
       if(logoUrl){ site.brand = site.brand||{}; site.brand.logo = logoUrl; }
       // About section: keep it only if there's a photo of the person; attach it
       const aboutIdx = site.sections.findIndex(x=>x&&x.type==="about");
@@ -1417,11 +1429,20 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:84}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
               : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:84,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for About)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
           </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+          <div style={{marginBottom:12}}>
             {wmPhotos.map((p,idx)=>(
-              <div key={idx} style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff"}}><img src={p} alt="" style={{width:64,height:64,objectFit:"cover",display:"block"}} /><button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              <div key={idx} style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:8,position:"relative"}}>
+                <img src={p.data} alt="" style={{width:64,height:64,objectFit:"cover",display:"block",flexShrink:0}} />
+                <div style={{flex:1,minWidth:0}}>
+                  <input value={p.use} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,use:e.target.value}:x))} placeholder="What is this? e.g. red summer dress" style={{width:"100%",padding:"7px 9px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
+                  <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.charcoal}}>
+                    <input type="checkbox" checked={!!p.pro} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,pro:e.target.checked}:x))} /> ✨ Make it look professional
+                  </label>
+                </div>
+                <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
+              </div>
             ))}
-            {wmPhotos.length<4&&<label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",width:64,height:64,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.goldDark,textAlign:"center"}}>+ Work<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,4-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,d].slice(0,4)))); }} style={{display:"none"}} /></label>}
+            {wmPhotos.length<4&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Add a product / work photo<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,4-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,4)))); }} style={{display:"none"}} /></label>}
           </div>
           <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:22,lineHeight:1.55}}>Optional. Your logo goes in the header, your photo into an About section, and business/work photos fill product and feature spots. Anything you skip, Chelgy fills with AI imagery.</div>
 
