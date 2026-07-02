@@ -1032,6 +1032,43 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
+  const [edDomain,setEdDomain]=useState(""); const [edDomainDns,setEdDomainDns]=useState(null); const [edDomainMsg,setEdDomainMsg]=useState(""); const [edDomainLoad,setEdDomainLoad]=useState(false);
+  async function connectDomain(){
+    const d=(edDomain||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
+    if(!d){ setWmErr("Enter your domain, e.g. yourbusiness.com"); return; }
+    setEdDomainLoad(true); setWmErr(""); setEdDomainDns(null); setEdDomainMsg("");
+    try{
+      const tok=await freshToken(); if(!tok) throw new Error("Please log in again.");
+      const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d }) });
+      const j=await res.json();
+      if(!res.ok||j.error) throw new Error(j.error||"Couldn't connect that domain.");
+      setEdDomainDns(j.dns||null); setEdDomainMsg("Domain saved. Add the DNS record(s) below at your registrar, then tap Check status. It can take a few minutes to 48 hours.");
+      setWmExisting(x=>({ ...x, domain:j.domain||d }));
+    }catch(e){ setWmErr(e&&e.message?e.message:"Couldn't connect that domain."); }
+    setEdDomainLoad(false);
+  }
+  async function checkDomain(){
+    const d=(wmExisting&&wmExisting.domain)||(edDomain||"").trim(); if(!d) return;
+    setEdDomainLoad(true); setEdDomainMsg("");
+    try{
+      const tok=await freshToken();
+      const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"status" }) });
+      const j=await res.json();
+      if(j.error) throw new Error(j.error);
+      setEdDomainMsg(j.misconfigured===false ? "\u2713 Your domain is connected and live!" : "Not resolving yet — DNS can take a few minutes to 48 hours. Add the record below and check again shortly.");
+    }catch(e){ setEdDomainMsg("Couldn't check status right now — try again in a moment."); }
+    setEdDomainLoad(false);
+  }
+  async function removeDomain(){
+    const d=(wmExisting&&wmExisting.domain); if(!d) return;
+    setEdDomainLoad(true); setWmErr(""); setEdDomainMsg("");
+    try{
+      const tok=await freshToken();
+      await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"remove" }) });
+      setWmExisting(x=>({ ...x, domain:null })); setEdDomainDns(null); setEdDomainMsg(""); setEdDomain("");
+    }catch(e){ setWmErr("Couldn't remove the domain — try again."); }
+    setEdDomainLoad(false);
+  }
   useEffect(()=>{
     setEdCustom((wmExisting&&wmExisting.data&&wmExisting.data.custom)||{});
     const off=(wmExisting&&wmExisting.data&&(wmExisting.data.sections||[]).find(x=>x&&x.type==="offerings"));
@@ -1103,9 +1140,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     (async()=>{
       try{
         const tok=await freshToken(); if(!tok) return;
-        const res=await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug,data,theme&user_id=eq."+user.id+"&limit=1",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+        const res=await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug,data,theme,custom_domain&user_id=eq."+user.id+"&limit=1",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
         const rows=await res.json();
-        if(!cancel&&Array.isArray(rows)&&rows.length){ const r=rows[0]; const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; setWmExisting({ id:r.id, slug:r.slug, data }); }
+        if(!cancel&&Array.isArray(rows)&&rows.length){ const r=rows[0]; const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; setWmExisting({ id:r.id, slug:r.slug, data, domain:r.custom_domain||null }); }
       }catch(e){}
     })();
     return ()=>{ cancel=true; };
@@ -1525,6 +1562,28 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               <div style={{marginTop:4}}><Btn dark small onClick={saveLinks}>Save Buy Buttons</Btn></div>
             </div>
           ); })()}
+
+          <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Your domain</div>
+            {wmExisting.domain
+              ? <div>
+                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Connected: <strong style={{color:B.charcoal}}>{wmExisting.domain}</strong></p>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                    <Btn dark small disabled={edDomainLoad} onClick={checkDomain}>{edDomainLoad?"Checking…":"Check status"}</Btn>
+                    <button onClick={removeDomain} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
+                  </div>
+                </div>
+              : <div>
+                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Point your own web address (like <strong>yourbusiness.com</strong>) to this site. You'll need to own the domain; we'll show you the one DNS record to add at your registrar.</p>
+                  <input value={edDomain} onChange={e=>setEdDomain(e.target.value)} placeholder="yourbusiness.com" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12}} />
+                  <Btn dark disabled={edDomainLoad} onClick={connectDomain}>{edDomainLoad?"Connecting…":"Connect domain"}</Btn>
+                </div>}
+            {edDomainMsg&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,marginTop:12,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.gold,padding:"10px 12px"}}>{edDomainMsg}</div>}
+            {edDomainDns&&<div style={{marginTop:12,background:B.charcoal,color:"#fff",padding:"14px 16px",fontFamily:"monospace",fontSize:12,lineHeight:1.8,overflowX:"auto"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",opacity:0.6,marginBottom:8}}>Add this at your domain registrar (DNS)</div>
+              {edDomainDns.map((r,i)=><div key={i}>{r.type}&nbsp;&nbsp;{r.name}&nbsp;&nbsp;&rarr;&nbsp;&nbsp;{r.value}</div>)}
+            </div>}
+          </div>
 
           {wmEditLog.length>0&&<div style={{marginTop:20}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Recent changes</div>
@@ -4853,14 +4912,15 @@ function SiteRender({ site }) {
   );
 }
 
-function PublicSite({ slug }) {
+function PublicSite({ slug, domain }) {
   const [st, setSt] = useState({ loading:true, site:null, error:null });
   useEffect(()=>{
     let cancel=false;
-    if(slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge"){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":DEMO_SITE.theme)) }; setSt({loading:false, site:d, error:null}); return; }
+    if(!domain && (slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge")){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":DEMO_SITE.theme)) }; setSt({loading:false, site:d, error:null}); return; }
     (async()=>{
       try{
-        const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=data,theme,published&slug=eq."+encodeURIComponent(slug)+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+        const q = domain ? ("custom_domain=eq."+encodeURIComponent(domain)) : ("slug=eq."+encodeURIComponent(slug));
+        const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=data,theme,published&"+q+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
         const rows = await res.json();
         if(cancel) return;
         if(Array.isArray(rows)&&rows.length){ const r=rows[0]; const site=(r.data&&typeof r.data==="object")?r.data:{}; if(!site.theme&&r.theme) site.theme=r.theme; setSt({loading:false, site, error:null}); }
@@ -4868,7 +4928,7 @@ function PublicSite({ slug }) {
       }catch(e){ if(!cancel) setSt({loading:false, site:null, error:"error"}); }
     })();
     return ()=>{ cancel=true; };
-  },[slug]);
+  },[slug,domain]);
   if(st.loading) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Jost',sans-serif",color:"#8A7E70",letterSpacing:"0.2em",textTransform:"uppercase",fontSize:12}}>Loading</div>;
   if(!st.site) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,textAlign:"center",padding:24,fontFamily:"'Jost',sans-serif",color:"#8A7E70"}}><div style={{fontFamily:"'Bodoni Moda',serif",fontSize:28,color:"#241E18"}}>Site not found</div><div style={{fontSize:12,letterSpacing:"0.05em"}}>This site may be unpublished, or the link may be incorrect.</div></div>;
   return <SiteRender site={st.site} />;
@@ -4921,6 +4981,7 @@ export default function ChelgyApp() {
   const [user, setUser] = useState(null);
   const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
+  const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
   const [marketerStatus, setMarketerStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
   const [teamMode, setTeamMode] = useState("signup"); // 'signup' | 'login'
   const [teamAuth, setTeamAuth] = useState({ name:"", email:"", password:"" });
@@ -6086,6 +6147,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   };
 
   // ── ADMIN (placed here so it runs only after all hooks are declared) ─────────
+  if (customDomain) return <PublicSite domain={customDomain} />;
   if (publicSlug) return <PublicSite slug={publicSlug} />;
   if (isAdmin && adminPanelOpen && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
