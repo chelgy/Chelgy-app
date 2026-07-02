@@ -1021,6 +1021,57 @@ function ShowcaseGallery({ tool, items }){
   );
 }
 
+function ShareBar({ url, title, text, file, filename }){
+  const [open,setOpen]=useState(false);
+  const [cap,setCap]=useState(text||"");
+  const enc=encodeURIComponent;
+  const pillS={display:"inline-block",background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"8px 13px",fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:"pointer",textDecoration:"none"};
+  async function doShare(){
+    try{
+      const data={};
+      if(title) data.title=title;
+      if(cap) data.text=cap;
+      let shared=false;
+      if(file){
+        try{
+          const r=await fetch(file); const blob=await r.blob();
+          const f=new File([blob], filename||"chelgy.png", {type:blob.type||"image/png"});
+          if(navigator.canShare && navigator.canShare({files:[f]}) && navigator.share){ data.files=[f]; await navigator.share(data); shared=true; }
+        }catch(e){ if(e&&e.name==="AbortError") return; }
+      }
+      if(!shared){
+        if(url) data.url=url;
+        if(navigator.share){ await navigator.share(data); shared=true; }
+      }
+      if(shared) return;
+    }catch(e){ if(e&&e.name==="AbortError") return; }
+    setOpen(true);
+  }
+  const dl=()=>{ try{ const a=document.createElement("a"); a.href=file; a.download=filename||"chelgy.png"; document.body.appendChild(a); a.click(); a.remove(); }catch(e){} };
+  const cp=(t)=>{ try{ navigator.clipboard.writeText(t||""); }catch(e){} };
+  return (
+    <div style={{display:"inline-block"}}>
+      <Btn dark small onClick={doShare}>Share to social ↗</Btn>
+      {open&&<div style={{marginTop:12,border:"1px solid "+B.stone,background:"#fff",padding:"14px",maxWidth:440}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,textTransform:"uppercase",marginBottom:8}}>Caption</div>
+        <textarea value={cap} onChange={e=>setCap(e.target.value)} rows={2} placeholder="Write a caption…" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",marginBottom:10,resize:"vertical"}} />
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:url?10:0}}>
+          <button onClick={()=>cp(cap)} style={pillS}>Copy caption</button>
+          {url&&<button onClick={()=>cp(url)} style={pillS}>Copy link</button>}
+          {file&&<button onClick={dl} style={pillS}>Download</button>}
+        </div>
+        {url&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <a target="_blank" rel="noreferrer" href={"https://www.facebook.com/sharer/sharer.php?u="+enc(url)} style={pillS}>Facebook</a>
+          <a target="_blank" rel="noreferrer" href={"https://pinterest.com/pin/create/button/?url="+enc(url)+"&description="+enc(cap)} style={pillS}>Pinterest</a>
+          <a target="_blank" rel="noreferrer" href={"https://www.linkedin.com/sharing/share-offsite/?url="+enc(url)} style={pillS}>LinkedIn</a>
+          <a target="_blank" rel="noreferrer" href={"https://twitter.com/intent/tweet?text="+enc(cap)+"&url="+enc(url)} style={pillS}>X</a>
+        </div>}
+        <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:10,lineHeight:1.5}}>{file?"For Instagram, TikTok & Snapchat: tap Download, then post from the app — they don't allow pre-filled web posting.":"For Instagram & TikTok: copy your caption and paste it in the app (they don't allow pre-filled links)."}</div>
+      </div>}
+    </div>
+  );
+}
+
 function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
@@ -1185,7 +1236,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; noir = dark & dramatic for restaurants, nightlife, fashion, barbers, bold brands; bordeaux = moody deep-maroon editorial for coaches, creatives, agencies; blush = soft feminine pink for coaches, beauty, feminine brands; studio = bold modern sans for fitness, gyms, bold modern brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; bordeaux = moody deep-maroon editorial for coaches, creatives, agencies; blush = soft feminine pink for coaches, beauty, feminine brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 8000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
@@ -1194,7 +1245,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       let site;
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
-      const IMPL=["editorial-porcelain","noir","bordeaux","blush","studio","fog","postale","muse","duet","rouge"];
+      const IMPL=["editorial-porcelain","bordeaux","blush","fog","postale","muse","duet","rouge","vigor","aurelia"];
       site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"editorial-porcelain") : wmTheme;
       if(site.credit===undefined) site.credit = true;
       const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
@@ -1481,6 +1532,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               <a href={window.location.origin+"/?site="+wmExisting.slug} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
               <button onClick={()=>{try{navigator.clipboard.writeText(window.location.origin+"/?site="+wmExisting.slug);}catch(e){}}} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
+              <ShareBar url={(wmExisting.domain?("https://"+wmExisting.domain):(window.location.origin+"/?site="+wmExisting.slug))} title={(wmExisting.data&&wmExisting.data.brand&&wmExisting.data.brand.name)||"my site"} text={"Come visit my site!"} />
             </div>
           </div>
 
@@ -1495,7 +1547,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Look &amp; colours</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["editorial-porcelain","Editorial"],["noir","Noir"],["bordeaux","Bordeaux"],["blush","Blush"],["studio","Studio"],["fog","Fog"],["postale","Postale"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
+              {[["editorial-porcelain","Editorial"],["bordeaux","Bordeaux"],["blush","Blush"],["fog","Fog"],["postale","Postale"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
             </div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,marginBottom:14,lineHeight:1.5}}>Tap a preset to swap the whole palette — or fine-tune it below.</div>
             <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"16px"}}>
@@ -1595,7 +1647,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
-            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["noir","Noir",true],["bordeaux","Bordeaux",true],["blush","Blush",true],["studio","Studio",true],["fog","Fog",true],["postale","Postale",true],["muse","Muse",true],["duet","Duet",true],["rouge","Rouge",true]].map(([id,label,active])=>(
+            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["bordeaux","Bordeaux",true],["blush","Blush",true],["fog","Fog",true],["postale","Postale",true],["muse","Muse",true],["duet","Duet",true],["rouge","Rouge",true],["vigor","Vigor",true],["aurelia","Aurelia",true]].map(([id,label,active])=>(
               <button key={id} disabled={!active} onClick={()=>active&&setWmTheme(id)} style={{padding:"10px 15px",border:"1px solid "+(wmTheme===id?B.charcoal:B.stone),background:wmTheme===id?B.charcoal:"#fff",color:!active?"#BBB":(wmTheme===id?"#fff":B.charcoal),fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:active?"pointer":"default"}}>{label}{!active&&<span style={{fontSize:8,marginLeft:6,letterSpacing:"0.1em"}}>SOON</span>}</button>
             ))}
           </div>
@@ -1659,6 +1711,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
             <button onClick={()=>{ setWmResult(null); setWmMode("view"); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Refine My Site</button>
           </div>
+          <div style={{marginTop:16}}><ShareBar url={wmResult.url} title={wmName} text={"I just launched my new website — "+wmName+"!"} /></div>
           <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:18,lineHeight:1.6}}>Your hero image is AI-generated to match your brand. Uploads (logo, your own photos) and the rest of the section imagery are coming next.</div>
         </div>}
       </div>}
@@ -1700,7 +1753,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
-        {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>{["logo","flyer","social","banner"].includes(iType)?"Generated by GPT Image 2":"Generated by Nano Banana 2"}</div><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><a href={iRes} download="chelgy-image.png"><Btn dark small>DOWNLOAD IMAGE</Btn></a> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}</div>}
+        {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>{["logo","flyer","social","banner"].includes(iType)?"Generated by GPT Image 2":"Generated by Nano Banana 2"}</div><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><a href={iRes} download="chelgy-image.png"><Btn dark small>DOWNLOAD IMAGE</Btn></a> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}<div style={{marginTop:14}}><ShareBar file={iRes} filename="chelgy-image.png" title="Made with Chelgy" text="" /></div></div>}
       </div>}
 
       {tool==="video"&&<div>
@@ -4376,7 +4429,9 @@ const THEME_IMG_STYLE = {
   "postale":"crisp black and white editorial, timeless monochrome tones, clean magazine light, effortless chic luxury",
   "muse":"warm, moody scrapbook editorial in oxblood, wine and cream tones, soft film-like grain and light, intimate personal-brand luxury",
   "duet":"elegant black-and-white editorial photography, timeless monochrome and cream tones, refined natural light, romantic high-end luxury",
-  "rouge":"bold, vibrant editorial in striking scarlet-red and warm cream, confident dramatic light, playful high-fashion creative-studio luxury"
+  "rouge":"bold, vibrant editorial in striking scarlet-red and warm cream, confident dramatic light, playful high-fashion creative-studio luxury",
+  "vigor":"bold, athletic and high-contrast in bone, concrete grey and near-black, crisp confident light, heavy modern fitness-studio energy",
+  "aurelia":"dark, warm and cinematic in near-black and sepia cream tones, moody low-key light, hushed high-luxury editorial"
 };
 
 const DEMO_SITE = {
@@ -4779,6 +4834,186 @@ function RougeLayout({ site }) {
   );
 }
 
+const VIGOR_CSS = `
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap');
+#cg-site{--dark:#14171A;--bone:#F3F2EE;--ink:#131313;--gray:#8E8A82;--muted:#6C6862;--paper:#FFFFFF;--line:rgba(19,19,19,.14);--line-d:rgba(243,242,238,.20);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
+#cg-site *{box-sizing:border-box;}
+#cg-site img{display:block;max-width:100%;}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site .img-slot{position:relative;overflow:hidden;background:radial-gradient(120% 100% at 30% 20%,rgba(255,255,255,.12),transparent 55%),linear-gradient(155deg,#9a978f 0%,#6f6c65 50%,#3d3b37 100%);background-size:cover;background-position:center;}
+#cg-site .img-slot.concrete{background:linear-gradient(160deg,#cfccc4 0%,#a5a199 45%,#807c74 100%);background-size:cover;background-position:center;}
+#cg-site .eyebrow{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:var(--muted);}
+#cg-site .eyebrow.light{color:rgba(243,242,238,.85);}
+#cg-site .btn{display:inline-block;font-family:var(--sans);font-weight:600;font-size:12px;letter-spacing:.18em;text-transform:uppercase;padding:16px 40px;background:var(--ink);color:var(--bone);border:1px solid var(--ink);transition:background .3s,color .3s;cursor:pointer;}
+#cg-site .btn:hover{background:transparent;color:var(--ink);}
+#cg-site .btn.light{background:var(--bone);color:var(--ink);border-color:var(--bone);}
+#cg-site .btn.light:hover{background:transparent;color:var(--bone);}
+#cg-site header{background:var(--dark);color:var(--bone);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:16px var(--pad);gap:20px;position:relative;z-index:20;}
+#cg-site header .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.02em;}
+#cg-site header .brandlogo{height:40px;width:auto;max-width:180px;object-fit:contain;}
+#cg-site nav.main{display:flex;justify-content:center;gap:26px;flex-wrap:wrap;}
+#cg-site nav.main a{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--bone);opacity:.85;}
+#cg-site nav.main a:hover{opacity:1;}
+#cg-site .head-right{display:flex;justify-content:flex-end;align-items:center;gap:10px;font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.18em;text-transform:uppercase;}
+#cg-site .hero{position:relative;min-height:82vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;overflow:hidden;}
+#cg-site .hero .bg{position:absolute;inset:0;z-index:0;}
+#cg-site .hero .bg .img-slot{height:100%;}
+#cg-site .hero .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,23,26,.30),rgba(20,23,26,.10) 40%,rgba(20,23,26,.38));}
+#cg-site .hero-inner{position:relative;z-index:3;padding:0 var(--pad);}
+#cg-site .hero-inner .eyebrow{color:rgba(255,255,255,.9);margin-bottom:18px;}
+#cg-site .hero-word{font-family:var(--display);font-weight:700;font-size:clamp(90px,22vw,300px);line-height:.9;letter-spacing:.02em;color:#fff;text-shadow:0 6px 40px rgba(0,0,0,.35);}
+#cg-site .hero-estd{font-family:var(--sans);font-weight:600;font-size:12px;letter-spacing:.34em;text-transform:uppercase;margin-top:14px;}
+#cg-site .welcome{text-align:center;padding:clamp(60px,9vw,120px) var(--pad) clamp(30px,4vw,50px);}
+#cg-site .welcome .eyebrow{margin-bottom:26px;}
+#cg-site .headline{font-family:var(--display);font-weight:700;font-size:clamp(38px,8vw,92px);line-height:.98;letter-spacing:-.005em;text-transform:uppercase;}
+#cg-site .headline .l1{color:var(--ink);display:block;}
+#cg-site .headline .l2{color:var(--gray);display:block;}
+#cg-site .intro{padding:clamp(40px,6vw,90px) var(--pad) clamp(70px,10vw,130px);}
+#cg-site .intro .grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:clamp(34px,6vw,80px);align-items:center;}
+#cg-site .intro .img-slot{aspect-ratio:4/5;}
+#cg-site .intro .lead{font-family:var(--sans);font-weight:500;font-size:clamp(20px,2.6vw,30px);line-height:1.4;color:var(--ink);}
+#cg-site .intro .body{font-family:var(--sans);font-weight:300;font-size:14px;line-height:1.85;color:var(--muted);margin-top:22px;max-width:44ch;}
+#cg-site .intro .btn{margin-top:28px;}
+#cg-site .vg-classes{padding:clamp(50px,7vw,90px) var(--pad);max-width:1120px;margin:0 auto;}
+#cg-site .vg-classes .eyebrow{margin-bottom:14px;}
+#cg-site .vg-row{display:flex;align-items:baseline;gap:20px;padding:22px 0;border-top:1px solid var(--line);}
+#cg-site .vg-row .nm{font-family:var(--display);font-weight:600;font-size:clamp(22px,3.4vw,40px);text-transform:uppercase;line-height:1;}
+#cg-site .vg-row .pr{margin-left:auto;font-family:var(--sans);color:var(--muted);font-size:13px;letter-spacing:.06em;text-align:right;}
+#cg-site .vg-row .shop{display:inline-block;margin-top:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink);padding-bottom:2px;color:var(--ink);}
+#cg-site .cta{background:var(--dark);color:var(--bone);text-align:center;padding:clamp(64px,9vw,120px) var(--pad);}
+#cg-site .cta h2{font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,72px);line-height:1;text-transform:uppercase;}
+#cg-site .cta p{font-family:var(--sans);font-weight:300;font-size:15px;color:rgba(243,242,238,.75);max-width:44ch;margin:20px auto 34px;}
+#cg-site footer.foot{background:var(--dark);color:var(--bone);border-top:1px solid var(--line-d);padding:clamp(44px,6vw,72px) var(--pad) 34px;text-align:center;}
+#cg-site .foot-mark{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,48px);}
+#cg-site .foot-nav{display:flex;justify-content:center;gap:26px;margin-top:20px;flex-wrap:wrap;}
+#cg-site .foot-nav a{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(243,242,238,.7);}
+#cg-site .foot-bar{margin-top:36px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:rgba(243,242,238,.4);}
+@media (max-width:820px){#cg-site nav.main,#cg-site .head-right{display:none;}#cg-site header{grid-template-columns:1fr auto;}#cg-site .intro .grid{grid-template-columns:1fr;}#cg-site .intro .img-slot{aspect-ratio:16/11;}}
+`;
+
+function VigorLayout({ site }){
+  const s=site||{}; const brand=s.brand||{}; const sections=Array.isArray(s.sections)?s.sections:[];
+  const get=t=>sections.find(x=>x&&x.type===t);
+  const hero=get("hero"),phil=get("philosophy"),about=get("about"),off=get("offerings"),contact=get("contact");
+  const url=im=>(im&&im.url)?im.url:null; const bgi=u=>u?{backgroundImage:"url("+u+")",backgroundSize:"cover",backgroundPosition:"center"}:undefined;
+  const custom=s.custom?buildCustomCSS(s.custom):""; const nav=brand.nav||[];
+  return (
+    <div id="cg-site" data-theme="vigor">
+      <style dangerouslySetInnerHTML={{__html:VIGOR_CSS}} />
+      {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
+      <header>
+        {brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand">{brand.name||"Your Brand"}</div>}
+        <nav className="main">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
+        <div className="head-right"><span>Shop</span></div>
+      </header>
+      <section className="hero" id="s-top">
+        <div className="bg"><div className="img-slot concrete" style={bgi(url(hero&&hero.image))}></div></div>
+        <div className="hero-inner">
+          {hero&&hero.eyebrow&&<p className="eyebrow light">{hero.eyebrow}</p>}
+          <div className="hero-word">{brand.name||"Your Brand"}</div>
+          {hero&&hero.sub&&<p className="hero-estd">{hero.sub}</p>}
+        </div>
+      </section>
+      {phil&&<section className="welcome" id="s-about">
+        <p className="eyebrow">{phil.eyebrow||"Welcome"}</p>
+        <h1 className="headline"><span className="l1">{phil.heading}</span>{phil.headingEm&&<span className="l2">{phil.headingEm}</span>}</h1>
+      </section>}
+      {about&&<section className="intro"><div className="grid">
+        <div className="img-slot" style={bgi(url(about.image))}></div>
+        <div>
+          <p className="lead">{about.heading}{about.headingEm?(" "+about.headingEm):""}</p>
+          {about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}
+          <a className="btn" href="#s-offerings">{(hero&&hero.cta&&hero.cta.label)||"Explore"}</a>
+        </div>
+      </div></section>}
+      {off&&<section className="vg-classes" id="s-offerings">
+        {off.eyebrow&&<p className="eyebrow">{off.eyebrow}</p>}
+        {(off.items||[]).map((it,i)=><div className="vg-row" key={i}><div className="nm">{it.name}</div><div className="pr">{it.note}{it.price?(" · "+it.price):""}{it.buyUrl&&<a className="shop" href={it.buyUrl} target="_blank" rel="noreferrer">Shop</a>}</div></div>)}
+      </section>}
+      {contact&&<section className="cta" id="s-contact">
+        <h2>{contact.heading}{contact.headingEm?(" "+contact.headingEm):""}</h2>
+        {contact.details&&contact.details[0]&&<p>{contact.details.map(d=>d.v).join("   ·   ")}</p>}
+        {contact.cta&&<a className="btn light" href="#">{contact.cta.label}</a>}
+      </section>}
+      <footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}>Built by Chelgy</div>}</footer>
+    </div>
+  );
+}
+
+const AURELIA_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Jost:wght@300;400;500&display=swap');
+#cg-site{--bg:#16110E;--bg-2:#1C1611;--cream:#EDE5D9;--muted:#A99C8C;--hair:rgba(237,229,217,.28);--hair-soft:rgba(237,229,217,.14);--display:"Bodoni Moda","Didot",Georgia,serif;--util:"Jost","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,70px);background:var(--bg);color:var(--cream);font-family:var(--util);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
+#cg-site *{box-sizing:border-box;}
+#cg-site img{display:block;max-width:100%;}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site .img-slot{position:relative;overflow:hidden;background:radial-gradient(130% 100% at 30% 20%,rgba(255,246,230,.14),transparent 55%),linear-gradient(155deg,#5c4c3d 0%,#3c3128 45%,#241d17 100%);background-size:cover;background-position:center;}
+#cg-site .img-slot.cool{background:linear-gradient(155deg,#5a5a5e,#33322f 55%,#1f1c19);background-size:cover;background-position:center;}
+#cg-site .announce{text-align:center;padding:9px 20px;background:var(--bg-2);font-family:var(--util);font-weight:400;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--cream);border-bottom:1px solid var(--hair-soft);}
+#cg-site header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:22px var(--pad);gap:20px;border-bottom:1px solid var(--hair-soft);position:relative;z-index:30;}
+#cg-site nav.left{display:flex;gap:28px;}
+#cg-site nav.left a{font-family:var(--util);font-weight:400;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--cream);transition:color .3s;}
+#cg-site nav.left a:hover{color:var(--muted);}
+#cg-site .logo{font-family:var(--display);font-weight:400;font-size:clamp(20px,3vw,28px);letter-spacing:.34em;text-transform:uppercase;text-align:center;white-space:nowrap;padding-left:.34em;}
+#cg-site .logoimg{height:42px;width:auto;max-width:200px;object-fit:contain;margin:0 auto;display:block;}
+#cg-site .head-right{display:flex;justify-content:flex-end;gap:24px;}
+#cg-site .head-right a{font-family:var(--util);font-weight:400;font-size:11px;letter-spacing:.24em;text-transform:uppercase;}
+#cg-site .hero{position:relative;}
+#cg-site .hero .img-slot{height:min(64vh,620px);}
+#cg-site .hero .img-slot::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(22,17,14,.35) 0%,transparent 30%,rgba(22,17,14,.55) 100%);}
+#cg-site .hero-title{position:absolute;left:0;right:0;bottom:-.14em;z-index:3;text-align:center;font-family:var(--display);font-weight:400;font-size:clamp(48px,11vw,168px);line-height:1;letter-spacing:.005em;color:var(--cream);text-shadow:0 8px 40px rgba(0,0,0,.5);padding:0 12px;}
+#cg-site .band{text-align:center;padding:clamp(46px,7vw,86px) var(--pad) clamp(30px,4vw,46px);}
+#cg-site .band .eyebrow{font-family:var(--util);font-weight:400;font-size:13px;letter-spacing:.42em;text-transform:uppercase;color:var(--cream);}
+#cg-site .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:0 4px;}
+#cg-site .cat{display:block;}
+#cg-site .cat .frame{overflow:hidden;}
+#cg-site .cat .img-slot{aspect-ratio:3/3.5;transition:transform 1.1s cubic-bezier(.2,.7,.2,1);}
+#cg-site .cat:hover .img-slot{transform:scale(1.05);}
+#cg-site .cat .label{text-align:center;padding:22px 0 8px;font-family:var(--util);font-weight:400;font-size:12px;letter-spacing:.4em;text-transform:uppercase;color:var(--muted);transition:color .3s;}
+#cg-site .cat:hover .label{color:var(--cream);}
+#cg-site .manifesto{text-align:center;padding:clamp(64px,9vw,120px) var(--pad);}
+#cg-site .manifesto p{max-width:52ch;margin:0 auto 40px;font-family:var(--util);font-weight:300;font-size:15px;line-height:2;letter-spacing:.04em;color:var(--muted);}
+#cg-site .manifesto p em{color:var(--cream);font-style:normal;}
+#cg-site .btn-outline{display:inline-block;font-family:var(--util);font-weight:400;font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--cream);border:1px solid var(--hair);padding:16px 44px;transition:background .4s,color .4s,letter-spacing .4s;}
+#cg-site .btn-outline:hover{background:var(--cream);color:var(--bg);letter-spacing:.38em;}
+#cg-site footer.foot{border-top:1px solid var(--hair-soft);padding:clamp(48px,7vw,80px) var(--pad) 36px;}
+#cg-site .foot-top{text-align:center;}
+#cg-site .foot-logo{font-family:var(--display);font-weight:400;font-size:clamp(28px,5vw,44px);letter-spacing:.3em;text-transform:uppercase;padding-left:.3em;}
+#cg-site .foot-nav{display:flex;justify-content:center;gap:30px;margin-top:26px;flex-wrap:wrap;}
+#cg-site .foot-nav a{font-family:var(--util);font-weight:400;font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);}
+#cg-site .foot-nav a:hover{color:var(--cream);}
+#cg-site .foot-bar{margin-top:44px;text-align:center;font-family:var(--util);font-weight:300;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:rgba(237,229,217,.4);}
+@media (max-width:820px){#cg-site nav.left,#cg-site .head-right a{display:none;}#cg-site .grid{grid-template-columns:1fr;}#cg-site .cat .img-slot{aspect-ratio:16/12;}}
+`;
+
+function AureliaLayout({ site }){
+  const s=site||{}; const brand=s.brand||{}; const sections=Array.isArray(s.sections)?s.sections:[];
+  const get=t=>sections.find(x=>x&&x.type===t);
+  const hero=get("hero"),phil=get("philosophy"),off=get("offerings"),contact=get("contact");
+  const url=im=>(im&&im.url)?im.url:null; const bgi=u=>u?{backgroundImage:"url("+u+")",backgroundSize:"cover",backgroundPosition:"center"}:undefined;
+  const custom=s.custom?buildCustomCSS(s.custom):""; const nav=brand.nav||[];
+  const items=(off&&Array.isArray(off.items))?off.items:[];
+  return (
+    <div id="cg-site" data-theme="aurelia">
+      <style dangerouslySetInnerHTML={{__html:AURELIA_CSS}} />
+      {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
+      {hero&&hero.eyebrow&&<div className="announce">{hero.eyebrow}</div>}
+      <header>
+        <nav className="left">{nav.slice(0,3).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
+        {brand.logo?<img className="logoimg" src={brand.logo} alt={brand.name||""} />:<div className="logo">{brand.name||"Your Brand"}</div>}
+        <div className="head-right">{nav.slice(3,4).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</div>
+      </header>
+      <section className="hero" id="s-top">
+        <div className="img-slot" style={bgi(url(hero&&hero.image))}></div>
+        {hero&&<h1 className="hero-title">{hero.headline}</h1>}
+      </section>
+      {(phil||hero)&&<div className="band"><p className="eyebrow">{(phil&&phil.eyebrow)||(hero&&hero.sub)||""}</p></div>}
+      {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><div className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</section>}
+      {phil&&<section className="manifesto" id="s-about"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>} {phil.body&&phil.body[0]?phil.body[0]:""}</p><a className="btn-outline" href="#s-work">{(hero&&hero.cta&&hero.cta.label)||"View gallery"}</a></section>}
+      <footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+    </div>
+  );
+}
+
 function navHref(label){
   const l=(label||"").toLowerCase();
   if(/contact|visit|book|enquir|reach|appointment|reserve|hello|find us/.test(l)) return "#s-contact";
@@ -4791,6 +5026,8 @@ function SiteRender({ site }) {
   if (s.theme === "muse") return <CollageLayout site={s} />;
   if (s.theme === "duet") return <DuetLayout site={s} />;
   if (s.theme === "rouge") return <RougeLayout site={s} />;
+  if (s.theme === "vigor") return <VigorLayout site={s} />;
+  if (s.theme === "aurelia") return <AureliaLayout site={s} />;
   const brand = s.brand || {};
   const sections = Array.isArray(s.sections) ? s.sections : [];
   const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")" } : undefined;
@@ -4912,11 +5149,11 @@ function SiteRender({ site }) {
   );
 }
 
-function PublicSite({ slug, domain }) {
+function PublicSite({ slug, domain, onNotFound }) {
   const [st, setSt] = useState({ loading:true, site:null, error:null });
   useEffect(()=>{
     let cancel=false;
-    if(!domain && (slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge")){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":DEMO_SITE.theme)) }; setSt({loading:false, site:d, error:null}); return; }
+    if(!domain && (slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge"||slug==="demo-vigor"||slug==="demo-aurelia")){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":(slug==="demo-vigor"?"vigor":(slug==="demo-aurelia"?"aurelia":DEMO_SITE.theme)))) }; setSt({loading:false, site:d, error:null}); return; }
     (async()=>{
       try{
         const q = domain ? ("custom_domain=eq."+encodeURIComponent(domain)) : ("slug=eq."+encodeURIComponent(slug));
@@ -4924,8 +5161,8 @@ function PublicSite({ slug, domain }) {
         const rows = await res.json();
         if(cancel) return;
         if(Array.isArray(rows)&&rows.length){ const r=rows[0]; const site=(r.data&&typeof r.data==="object")?r.data:{}; if(!site.theme&&r.theme) site.theme=r.theme; setSt({loading:false, site, error:null}); }
-        else setSt({loading:false, site:null, error:"notfound"});
-      }catch(e){ if(!cancel) setSt({loading:false, site:null, error:"error"}); }
+        else { if(domain && onNotFound){ onNotFound(); return; } setSt({loading:false, site:null, error:"notfound"}); }
+      }catch(e){ if(!cancel){ if(domain && onNotFound){ onNotFound(); return; } setSt({loading:false, site:null, error:"error"}); } }
     })();
     return ()=>{ cancel=true; };
   },[slug,domain]);
@@ -4981,7 +5218,8 @@ export default function ChelgyApp() {
   const [user, setUser] = useState(null);
   const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
-  const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
+  const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
+  const [domainMiss,setDomainMiss] = useState(false);
   const [marketerStatus, setMarketerStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
   const [teamMode, setTeamMode] = useState("signup"); // 'signup' | 'login'
   const [teamAuth, setTeamAuth] = useState({ name:"", email:"", password:"" });
@@ -6147,7 +6385,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   };
 
   // ── ADMIN (placed here so it runs only after all hooks are declared) ─────────
-  if (customDomain) return <PublicSite domain={customDomain} />;
+  if (customDomain && !domainMiss) return <PublicSite domain={customDomain} onNotFound={()=>setDomainMiss(true)} />;
   if (publicSlug) return <PublicSite slug={publicSlug} />;
   if (isAdmin && adminPanelOpen && !adminAuthed) return <AdminLogin onLogin={()=>setAdminAuthed(true)} />;
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
