@@ -6091,6 +6091,24 @@ function PublicSite({ slug, domain, onNotFound }) {
   </>);
 }
 
+const NAV_TABS = ["home","learn","tools","community","profile"];
+const NAV_DEFAULT_SUB = { home:"feed", learn:"strategies", tools:"hub", community:"forum", profile:"overview" };
+// Read the current tab + sub-view from the URL path (e.g. "/tools/website" → {tab:"tools", sub:"website"})
+function parseNavPath(){
+  try{
+    const segs = window.location.pathname.replace(/^\/+|\/+$/g,"").split("/");
+    const tab = NAV_TABS.includes((segs[0]||"").toLowerCase()) ? (segs[0]||"").toLowerCase() : "home";
+    const sub = (segs[1]||"").toLowerCase() || NAV_DEFAULT_SUB[tab] || "feed";
+    return { tab, sub };
+  }catch(e){ return { tab:"home", sub:"feed" }; }
+}
+// Build the URL path for a tab + sub-view (default sub-views are omitted for clean URLs)
+function buildNavPath(tab, sub){
+  if(tab==="home" && (!sub || sub==="feed")) return "/";
+  const d = NAV_DEFAULT_SUB[tab];
+  return "/"+tab+((sub && sub!==d) ? "/"+sub : "");
+}
+
 export default function ChelgyApp() {
   const [page, setPage] = useState("onboarding");
   useEffect(()=>{
@@ -6252,12 +6270,12 @@ export default function ChelgyApp() {
   }
 
   // Nav state — bottom tab + top subcategory
-  const [tab, setTab] = useState(()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); return ["home","learn","tools","community","profile"].includes(seg)?seg:"home"; }catch(e){ return "home"; } });  // home | learn | tools | community | profile
+  const [tab, setTab] = useState(()=>parseNavPath().tab);  // home | learn | tools | community | profile
+  const [subTab, setSubTab] = useState(()=>parseNavPath().sub); // the sub-view / tool within the tab
   const [profileView,setProfileView]=useState("main");
-  useEffect(()=>{ try{ const path=tab==="home"?"/":("/"+tab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab]);
-  useEffect(()=>{ const h=()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); const t=["home","learn","tools","community","profile"].includes(seg)?seg:"home"; setTab(t); setSubTab(({home:"feed",learn:"strategies",tools:"hub",community:"forum",profile:"overview"})[t]||"feed"); }catch(e){} }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
+  useEffect(()=>{ try{ const path=buildNavPath(tab,subTab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab,subTab]);
+  useEffect(()=>{ const h=()=>{ const n=parseNavPath(); setTab(n.tab); setSubTab(n.sub); }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
   useEffect(()=>{ if(tab!=="profile") setProfileView("main"); },[tab]);
-  const [subTab, setSubTab] = useState(()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); return ({home:"feed",learn:"strategies",tools:"hub",community:"forum",profile:"overview"})[seg]||"feed"; }catch(e){ return "feed"; } }); // varies per tab
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
   const [mkStrat, setMkStrat] = useState(null);
@@ -6670,6 +6688,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     await generateLaunchPackage();
     try{ generateProfileKit(); }catch(e){}
     setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}});
+    setFromLaunch(true);
     setSubTab("website");
   }
   async function generateProfileKit(){
@@ -6738,19 +6757,22 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
     const result = await callClaude(prompt, 8000);
     
-    // Parse sections
+    // Parse sections — tolerate [SECTION], **SECTION**, ## SECTION, etc. (case-insensitive)
     const sections = {};
     const sectionKeys = ["WEBSITE COPY", "BRAND STRATEGY", "SOCIAL MEDIA PLAN", "LAUNCH ROADMAP"];
-    sectionKeys.forEach((key, i) => {
-      const start = result.indexOf("[" + key + "]");
-      const nextKey = sectionKeys[i + 1];
-      const end = nextKey ? result.indexOf("[" + nextKey + "]") : result.length;
-      if (start !== -1) {
-        sections[key] = result.slice(start + key.length + 2, end).trim();
-      }
+    const locate = (key) => {
+      const pat = key.split(" ").join("[\\s\\-]*");
+      const re = new RegExp("[\\[\\*#>\\s]*" + pat + "[\\]\\*:>]*", "i");
+      const m = re.exec(result);
+      return m ? { start: m.index, after: m.index + m[0].length } : null;
+    };
+    const found = sectionKeys.map(k => ({ key: k, loc: locate(k) })).filter(x => x.loc).sort((a, b) => a.loc.start - b.loc.start);
+    found.forEach((f, i) => {
+      const end = i + 1 < found.length ? found[i + 1].loc.start : result.length;
+      sections[f.key] = result.slice(f.loc.after, end).trim();
     });
-    
-    setLaunchResult(Object.keys(sections).length ? sections : { "WEBSITE COPY": result });
+
+    setLaunchResult(Object.keys(sections).length ? sections : { "BRAND STRATEGY": result });
     setLaunchLoading(false);
   }
 
@@ -9003,27 +9025,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"ads",auto:true,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"See & edit your ads":"Draft my ads"}</button>
                     </div>
                   </div>
-                  <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone,overflowX:"auto"}}>
-                    {[["brand","Brand Strategy"],["social","Social Media"],["roadmap","Launch Roadmap"]].map(([id,label])=>(
-                      <button key={id} onClick={()=>setLaunchSection(id)} style={{background:"none",color:launchSection===id?B.charcoal:B.mid,border:"none",borderBottom:launchSection===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:launchSection===id?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>
-                    ))}
-                  </div>
-
-                  <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"24px",marginBottom:14}}>
-                    <div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:16,textTransform:"uppercase"}}>
-                      {launchSection==="website"?"Website Copy":launchSection==="brand"?"Brand Strategy":launchSection==="social"?"Social Media Plan":"30-Day Launch Roadmap"}
-                    </div>
-                    <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.9}}>
-                      <Md text={launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"]} />
-                    </div>
-                    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-                      <button onClick={()=>navigator.clipboard?.writeText(launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"])} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy This Section</button>
-                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("brand");}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
-                    </div>
-                  </div>
-                  <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
-                    This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
-                  </div>
                   <div style={{background:B.charcoal,padding:"22px 20px",marginTop:14}}>
                     <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Get found online</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
@@ -9060,7 +9061,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{background:B.goldLight,padding:"12px 14px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.6}}>Use your logo as the profile photo on each. You finish signup and verification on each platform — Chelgy fills in everything to paste. Google verifies your address; Instagram is set up in its app.</div>
                   </div>}
                   {profileKit&&profileKit._raw&&!profileKitLoad&&<div style={{marginTop:14,background:B.offwhite,border:"1px solid "+B.stone,padding:"18px"}}><Md text={profileKit._raw} /></div>}
+                  <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone,overflowX:"auto"}}>
+                    {[["brand","Brand Strategy"],["social","Social Media"],["roadmap","Launch Roadmap"]].map(([id,label])=>(
+                      <button key={id} onClick={()=>setLaunchSection(id)} style={{background:"none",color:launchSection===id?B.charcoal:B.mid,border:"none",borderBottom:launchSection===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",padding:"10px 16px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:launchSection===id?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>
+                    ))}
+                  </div>
 
+                  <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"24px",marginBottom:14}}>
+                    <div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:16,textTransform:"uppercase"}}>
+                      {launchSection==="website"?"Website Copy":launchSection==="brand"?"Brand Strategy":launchSection==="social"?"Social Media Plan":"30-Day Launch Roadmap"}
+                    </div>
+                    <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.9}}>
+                      <Md text={launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"]} />
+                    </div>
+                    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+                      <button onClick={()=>navigator.clipboard?.writeText(launchSection==="website"?launchResult["WEBSITE COPY"]:launchSection==="brand"?launchResult["BRAND STRATEGY"]:launchSection==="social"?launchResult["SOCIAL MEDIA PLAN"]:launchResult["LAUNCH ROADMAP"])} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy This Section</button>
+                      <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("brand");}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
+                    </div>
+                  </div>
+                  <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
+                    This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
+                  </div>
                   <Upsell variant="both" />
                 </div>
               )}
