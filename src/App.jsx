@@ -1168,7 +1168,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       if(edImgPro){
         const desc=(edImgUse||"the item").trim(); const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)||"editorial-porcelain"]||THEME_IMG_STYLE["editorial-porcelain"];
         const isApparel=/(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
-        const proPrompt="Enhance this into professional, editorial catalogue photography of "+desc+". "+(isApparel?"Present the piece beautifully styled — as an elegant flat-lay or on a form — in a soft-lit studio setting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the real subject, colours and details true to the uploaded photo — preserve any real person exactly, and do NOT add, invent, or replace any people. Match this mood and palette: "+themeStyle+". No text, no words, no logos.";
+        const proPrompt="Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Set and light it to match this mood and palette: "+themeStyle+" (keep the real product and subject true to the uploaded photo — if a person is shown, preserve their likeness). No text, no words, no logos.";
         try{ const r=await generateGeminiImage(proPrompt, edImgData, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
       }
       const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
@@ -1205,7 +1205,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     try{
       setWmEditNote("");
       const cur = JSON.stringify(wmExisting.data);
-      const prompt = "You are the content editor for a published luxury website stored as JSON. You may change ONLY text and structure: headlines, paragraphs, the About text, offerings (names, notes, prices), the testimonial, contact details, navigation labels — and you may add, remove, or reorder sections. You CANNOT change colours, fonts, the theme, layout/spacing, or images; those are handled by separate controls in this editor. If the owner asks for a colour/font/theme change, do NOT modify the site — instead tell them to use the \"Look & colours\" controls. If they ask to change or add a photo, tell them to use \"Add or replace a photo\". CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY. Keep the upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nRespond with ONLY this JSON object (no markdown): {\"site\": <the complete website JSON, edited if you could apply the request, otherwise unchanged>, \"note\": <one short friendly sentence: what you changed, or if you couldn't, which control to use>}";
+      const prompt = "You are the content editor for a published luxury website stored as JSON. You may change ONLY text and structure: headlines, paragraphs, the About text, offerings (names, notes, prices), the testimonial, contact details, navigation labels — and you may add, remove, or reorder sections. You CANNOT change colours, fonts, the theme, layout/spacing, or images; those are handled by separate controls in this editor. If the owner asks for a colour/font/theme change, do NOT modify the site — instead tell them to use the \"Theme\" controls. If they ask to change or add a photo, tell them to use \"Add or replace a photo\". CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY. Keep the upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nRespond with ONLY this JSON object (no markdown): {\"site\": <the complete website JSON, edited if you could apply the request, otherwise unchanged>, \"note\": <one short friendly sentence: what you changed, or if you couldn't, which control to use>}";
       const raw = await callClaude(prompt, 12000);
       let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1);
@@ -1216,7 +1216,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       if(wmExisting.data&&wmExisting.data.custom) updated.custom = wmExisting.data.custom;
       const changed = JSON.stringify(updated) !== JSON.stringify(wmExisting.data);
       if(!changed){
-        setWmEditNote(note || "I didn't change anything for that. Colours, fonts and theme are under \"Look & colours\" above; photos are under \"Add or replace a photo\" below.");
+        setWmEditNote(note || "I didn't change anything for that. Colours, fonts and theme are under \"Theme\" above; photos are under \"Add or replace a photo\" below.");
         setWmEditLoad(false); return;
       }
       const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
@@ -1261,8 +1261,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; blush = soft feminine pink for coaches, beauty, feminine brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; haven = airy minimal rounded-card store for homeware, product & minimal e-commerce; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site — palette, lighting, mood, finish — so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; NO people, no faces, no human figures; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; NO people, no faces, no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; NO people, no faces, no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; NO people, no faces, no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
-      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nIMAGERY: Also write a vivid photography brief (image.prompt) for the hero, the about scene, the editorial scene, and EACH offering item, plus a one-sentence styleDNA for the whole site. Every image must look like one cohesive editorial shoot — shared palette, lighting, mood and finish. NEVER describe people, faces, or human figures in any image prompt; only products, scenes, spaces, materials, textures and details.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":(wmKind==="both"?"business offering both products and services":"service business"))+(wmAudience.trim()?("\nWHO THEY SERVE: "+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge — make the philosophy section and overall voice clearly convey it):\n"+wmDiff.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\nKEY OFFERINGS (create one offering item for EACH line below, in order — do not cap the count):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
+      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; fog = cool elegant grey high-fashion for beauty & marketing agencies; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site — palette, lighting, mood, finish — so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nIMAGERY: Also write a vivid photography brief (image.prompt) for the hero, the about scene, the editorial scene, and EACH offering item, plus a one-sentence styleDNA for the whole site. Every image must look like one cohesive editorial shoot — shared palette, lighting, mood and finish. Include people naturally where they fit the business (someone using the product, a stylist at work, a happy client), alongside products, scenes, spaces and details.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":(wmKind==="both"?"business offering both products and services":"service business"))+(wmAudience.trim()?("\nWHO THEY SERVE: "+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge — make the philosophy section and overall voice clearly convey it):\n"+wmDiff.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\nKEY OFFERINGS (create one offering item for EACH line below, in order — do not cap the count):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 12000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const first = jsonText.indexOf("{"); const last = jsonText.lastIndexOf("}");
@@ -1270,7 +1270,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       let site;
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
-      const IMPL=["editorial-porcelain","blush","fog","muse","duet","rouge","vigor","aurelia","claret","nocturne","sable","missive","haven","linen","umber","willow"];
+      const IMPL=["editorial-porcelain","fog","muse","duet","rouge","vigor","aurelia","claret","nocturne","sable","missive","linen","umber","willow"];
       site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"editorial-porcelain") : wmTheme;
       if(site.credit===undefined) site.credit = true;
       const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
@@ -1287,7 +1287,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             setWmStage("Polishing your photos…");
             const desc = (ph.use||"the item").trim();
             const isApparel = /(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
-            const proPrompt = "Enhance this into professional, editorial catalogue photography of "+desc+". "+(isApparel?"Present the piece beautifully styled — as an elegant flat-lay or on a form — in a soft-lit studio setting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the real subject, colours and details true to the uploaded photo — preserve any real person exactly, and do NOT add, invent, or replace any people. Match this mood and palette: "+themeStyle+". No text, no words, no logos.";
+            const proPrompt = "Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Set and light it to match this mood and palette: "+themeStyle+" (keep the real product and subject true to the uploaded photo — if a person is shown, preserve their likeness). No text, no words, no logos.";
             try{ const r=await generateGeminiImage(proPrompt, ph.data, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
           }
           const u=await uploadSiteImage(dataUrl, uid+"/photo-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) photoUrls.push(u);
@@ -1296,7 +1296,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       if(logoUrl){ site.brand = site.brand||{}; site.brand.logo = logoUrl; }
       // Shared photography art-direction so every image reads as one cohesive shoot
       const dna = (site.styleDNA?String(site.styleDNA)+" ":"") + themeStyle + (wmTone.trim()?(" Overall vibe: "+wmTone.trim()+"."):"");
-      const IMGX = " — One cohesive brand shoot: every image shares the same palette, lighting, photographic style and finish. "+dna+" No people, no faces, no human figures, no hands. No text, no words, no logos, no watermarks.";
+      const IMGX = " — One cohesive brand shoot: every image shares the same palette, lighting, photographic style and finish. "+dna+" No text, no words, no logos, no watermarks.";
       let gens=0; const MAXGEN=12;
       async function genImg(promptText, ar){ if(gens>=MAXGEN) return null; gens++; try{ const r=await generateGeminiImage(String(promptText)+IMGX, null, ar||"4:5", "standard"); if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, uid+"/img-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); return u||null; } }catch(e){} return null; }
       const hasUrl=im=>!!(im&&im.url&&String(im.url).indexOf("http")===0);
@@ -1574,33 +1574,16 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{marginBottom:24}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Look &amp; colours</div>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Theme</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["editorial-porcelain","Editorial"],["blush","Blush"],["fog","Fog"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"],["sable","Sable"],["missive","Missive"],["haven","Haven"],["linen","Linen"],["umber","Umber"],["willow","Willow"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
+              {[["editorial-porcelain","Editorial"],["fog","Fog"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"],["sable","Sable"],["missive","Missive"],["linen","Linen"],["umber","Umber"],["willow","Willow"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
             </div>
-            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,marginBottom:14,lineHeight:1.5}}>Tap a preset to swap the whole palette — or fine-tune it below.</div>
-            <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"16px"}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:12,textTransform:"uppercase"}}>Fine-tune</div>
-              <div style={{display:"flex",gap:18,flexWrap:"wrap",marginBottom:14}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>Accent <input type="color" value={edCustom.accent||"#6f3a2c"} onChange={e=>setEdCustom(c=>({...c,accent:e.target.value}))} style={{width:34,height:26,border:"1px solid "+B.stone,padding:0,cursor:"pointer",background:"none"}} /></label>
-                <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>Background <input type="color" value={edCustom.bg||"#f1ebdf"} onChange={e=>setEdCustom(c=>({...c,bg:e.target.value}))} style={{width:34,height:26,border:"1px solid "+B.stone,padding:0,cursor:"pointer",background:"none"}} /></label>
-                <label style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>Text <input type="color" value={edCustom.ink||"#241e18"} onChange={e=>setEdCustom(c=>({...c,ink:e.target.value}))} style={{width:34,height:26,border:"1px solid "+B.stone,padding:0,cursor:"pointer",background:"none"}} /></label>
-              </div>
-              <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
-                <select value={edCustom.display||""} onChange={e=>setEdCustom(c=>({...c,display:e.target.value||undefined}))} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff"}}><option value="">Heading font (default)</option>{Object.keys(CUSTOM_FONTS).map(f=><option key={f} value={f}>{f}</option>)}</select>
-                <select value={edCustom.body||""} onChange={e=>setEdCustom(c=>({...c,body:e.target.value||undefined}))} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff"}}><option value="">Body font (default)</option>{Object.keys(CUSTOM_FONTS).map(f=><option key={f} value={f}>{f}</option>)}</select>
-              </div>
-              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                <Btn dark small onClick={()=>saveCustom(edCustom)}>Apply</Btn>
-                <button onClick={()=>{ setEdCustom({}); saveCustom({}); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"8px 12px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Reset</button>
-              </div>
-              <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginTop:10,lineHeight:1.5}}>Accent and fonts apply throughout. Background and text recolor the main sections; the dramatic dark bands keep their designed contrast for readability.</div>
-            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch your theme anytime — each one changes the whole look, fonts, and colours.</div>
           </div>
 
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
           <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>This chat changes your <strong>words &amp; sections</strong> — headline, story, products, prices, contact, and adding, removing, or reordering sections. For example: "Make the headline punchier," "Add a product called Body Oil for $52," "Change my hours to Mon–Fri," "Remove the testimonial."</p>
-          <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>For <strong>colours &amp; fonts</strong>, use <strong>Look &amp; colours</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
+          <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>To change <strong>colours &amp; fonts</strong>, switch your <strong>Theme</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
           <textarea value={wmEdit} onChange={e=>setWmEdit(e.target.value)} placeholder="What would you like to change?" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,resize:"vertical",lineHeight:1.5}} />
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
             <Btn dark disabled={wmEditLoad} onClick={applyEdit}>{wmEditLoad?"Updating…":"Apply Change"}</Btn>
@@ -4268,7 +4251,7 @@ const SITE_CSS_SCARLET = `
 
 const SITE_CSS_FOG = `
 @import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#E8E6E2;--ink:#26262A;--mid:#83838A;--accent:#3C3C42;--dark:#2A2A2E;--line:#D6D5D1;--display:'Marcellus',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.014em;-webkit-font-smoothing:antialiased;}
+#cg-site{--bg:#FFFFFF;--ink:#26262A;--mid:#83838A;--accent:#3C3C42;--dark:#2A2A2E;--line:#D6D5D1;--display:'Marcellus',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.014em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.03;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4468,7 +4451,6 @@ const THEME_IMG_STYLE = {
   "atelier":"timeless and classic, ivory and deep emerald-green tones with subtle brass, refined soft studio lighting, heritage luxury",
   "gallery":"clean and architectural, neutral greige, stone and charcoal tones, crisp even lighting, minimal gallery-like editorial luxury",
   "bordeaux":"warm, moody editorial in deep bordeaux, wine and cream tones, soft dramatic film-like light, rich luxury",
-  "blush":"soft, feminine editorial in blush pink, dusty rose and cream tones, gentle flattering light, romantic luxury",
   "studio":"bold, modern and high-contrast in stone, concrete and charcoal tones, crisp confident studio light, athletic minimal luxury",
   "scarlet":"bold and vibrant editorial with striking scarlet-red and warm cream tones, confident dramatic light, playful high-fashion luxury",
   "fog":"cool, elegant and high-fashion in soft grey, pewter and cream tones, refined even studio light, understated luxury",
@@ -4482,7 +4464,6 @@ const THEME_IMG_STYLE = {
   "nocturne":"dark, moody and luxe in near-black with soft blush-white highlights, glossy low-key beauty light, elegant premium beauty-store mood",
   "sable":"refined minimal editorial in soft greige and warm grey, crisp even natural light, understated luxe branding-studio elegance",
   "missive":"timeless black and white editorial photography, porcelain and charcoal tones, soft natural light, effortless personal-brand chic",
-  "haven":"clean, airy and minimal product photography in soft white and warm blush tones, bright even light, calm modern homeware store",
   "linen":"warm, cozy lifestyle and interior photography in oat, cream and camel tones, soft golden light, inviting home-decor store",
   "umber":"warm, earthy and editorial in mocha brown and oat cream, soft directional light, grounded premium life-coach mood",
   "willow":"warm, aspirational lifestyle editorial in greige and bone tones, soft natural light, elevated coaching sales-page feel"
@@ -4620,7 +4601,7 @@ function CollageLayout({ site }) {
 
 const DUET_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#F4F1EA;--paper:#FBF9F3;--ink:#1C1B18;--mid:#8A8880;--line:#E2DFD6;--display:'Cormorant Garamond',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
+#cg-site{--bg:#FFFFFF;--paper:#FFFFFF;--ink:#1C1B18;--mid:#8A8880;--line:#E2DFD6;--display:'Cormorant Garamond',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(22px,5vw,64px);}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4762,7 +4743,7 @@ function DuetLayout({ site }) {
 
 const ROUGE_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#F1EBDF;--paper:#F7F2E8;--ink:#20140F;--mid:#8A7461;--red:#BE3A2B;--red2:#A32C20;--line:#E2D9C9;--display:'Playfair Display',Georgia,serif;--script:'Pinyon Script',cursive;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.7;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
+#cg-site{--bg:#FFFFFF;--paper:#F7F5F1;--ink:#20140F;--mid:#8A7461;--red:#161616;--red2:#000000;--line:#E2D9C9;--display:'Playfair Display',Georgia,serif;--script:'Pinyon Script',cursive;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.7;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(20px,5vw,60px);}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4890,7 +4871,7 @@ function RougeLayout({ site }) {
 
 const VIGOR_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap');
-#cg-site{--dark:#14171A;--bone:#F3F2EE;--ink:#131313;--gray:#8E8A82;--muted:#6C6862;--paper:#FFFFFF;--line:rgba(19,19,19,.14);--line-d:rgba(243,242,238,.20);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
+#cg-site{--dark:#14171A;--bone:#FFFFFF;--ink:#131313;--gray:#8E8A82;--muted:#6C6862;--paper:#FFFFFF;--line:rgba(19,19,19,.14);--line-d:rgba(243,242,238,.20);--display:"Clash Display","Arial Narrow",sans-serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,5vw,72px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -4935,7 +4916,7 @@ const VIGOR_CSS = `
 #cg-site .vg-row .pr{margin-left:auto;font-family:var(--sans);color:var(--muted);font-size:13px;letter-spacing:.06em;text-align:right;}
 #cg-site .vg-row .shop{display:inline-block;margin-top:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink);padding-bottom:2px;color:var(--ink);}
 #cg-site .cta{background:var(--dark);color:var(--bone);text-align:center;padding:clamp(64px,9vw,120px) var(--pad);}
-#cg-site .cta h2{font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,72px);line-height:1;text-transform:uppercase;}
+#cg-site .cta h2{font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,72px);line-height:1;text-transform:uppercase;color:var(--bone);}
 #cg-site .cta p{font-family:var(--sans);font-weight:300;font-size:15px;color:rgba(243,242,238,.75);max-width:44ch;margin:20px auto 34px;}
 #cg-site footer.foot{background:var(--dark);color:var(--bone);border-top:1px solid var(--line-d);padding:clamp(44px,6vw,72px) var(--pad) 34px;text-align:center;}
 #cg-site .foot-mark{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,48px);}
@@ -5179,10 +5160,10 @@ const NOCTURNE_CSS = `
 #cg-site nav.main a:hover{color:var(--blush);}
 #cg-site .hero{position:relative;}
 #cg-site .hero .img-slot{height:min(72vh,660px);}
-#cg-site .hero .img-slot::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(13,13,13,.72) 0%,rgba(13,13,13,.25) 45%,transparent 75%);}
+#cg-site .hero .img-slot::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(13,13,13,.92) 0%,rgba(13,13,13,.55) 45%,rgba(13,13,13,.18) 100%);}
 #cg-site .hero-copy{position:absolute;z-index:3;left:var(--pad);top:50%;transform:translateY(-50%);max-width:440px;}
-#cg-site .hero-copy h1{font-family:var(--serif);font-weight:400;font-size:clamp(34px,5.2vw,60px);letter-spacing:.24em;text-transform:uppercase;line-height:1.15;padding-left:.24em;}
-#cg-site .hero-copy .sub{font-family:var(--sans);font-weight:300;font-size:12px;letter-spacing:.4em;text-transform:uppercase;color:var(--text);margin:20px 0 30px;padding-left:.4em;}
+#cg-site .hero-copy h1{font-family:var(--serif);font-weight:400;font-size:clamp(34px,5.2vw,60px);letter-spacing:.24em;text-transform:uppercase;line-height:1.15;padding-left:.24em;text-shadow:0 2px 26px rgba(0,0,0,.8);}
+#cg-site .hero-copy .sub{font-family:var(--sans);font-weight:300;font-size:12px;letter-spacing:.4em;text-transform:uppercase;color:var(--text);margin:20px 0 30px;padding-left:.4em;text-shadow:0 2px 20px rgba(0,0,0,.8);}
 #cg-site .btn-out{display:inline-block;font-family:var(--sans);font-weight:400;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--text);border:1px solid var(--line);padding:15px 34px;background:transparent;transition:background .4s,color .4s,border-color .4s;}
 #cg-site .btn-out .hrt{color:var(--blush);margin:0 8px;}
 #cg-site .btn-out:hover{background:var(--blush);color:#1a1512;border-color:var(--blush);}
@@ -5240,7 +5221,7 @@ function NocturneLayout({ site }){
 const SABLE_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap');
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap');
-#cg-site{--greige:#F0EFEB;--paper:#F6F5F1;--ink:#16150F;--muted:#79756C;--line:rgba(22,21,15,.18);--line-soft:rgba(22,21,15,.10);--serif:"Cormorant Garamond",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,5vw,68px);background:var(--greige);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site{--greige:#FFFFFF;--paper:#FFFFFF;--ink:#16150F;--muted:#79756C;--line:rgba(22,21,15,.18);--line-soft:rgba(22,21,15,.10);--serif:"Cormorant Garamond",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,5vw,68px);background:var(--greige);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5335,7 +5316,7 @@ const MISSIVE_CSS = `
 #cg-site .hero .bg .img-slot{height:100%;}
 #cg-site .hero .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,15,15,.35),rgba(15,15,15,.15) 45%,rgba(15,15,15,.4));}
 #cg-site .hero-inner{position:relative;z-index:3;padding:0 var(--pad);max-width:760px;}
-#cg-site .hero-inner .script{font-size:clamp(52px,9vw,120px);line-height:1;display:block;}
+#cg-site .hero-inner .script{font-size:clamp(38px,6.5vw,84px);line-height:1;display:block;}
 #cg-site .hero-inner .sub{font-family:var(--sans);font-weight:300;font-size:13px;line-height:1.9;letter-spacing:.02em;max-width:44ch;margin:26px auto 0;color:rgba(255,255,255,.9);}
 #cg-site .hero .nav-cue{position:absolute;z-index:3;bottom:40px;left:50%;transform:translateX(-50%);text-align:center;}
 #cg-site .hero .nav-cue .script{font-size:26px;color:#fff;}
@@ -5351,14 +5332,14 @@ const MISSIVE_CSS = `
 #cg-site .qband{background:var(--dark);color:#fff;display:grid;grid-template-columns:1fr 1fr;align-items:stretch;}
 #cg-site .qband .img-slot{min-height:clamp(320px,42vw,540px);}
 #cg-site .qband .qtext{display:flex;align-items:center;padding:clamp(40px,6vw,90px);}
-#cg-site .qband .qtext .script{font-size:clamp(34px,4.6vw,60px);line-height:1.25;}
+#cg-site .qband .qtext .script{font-size:clamp(24px,3.4vw,44px);line-height:1.25;}
 #cg-site .welcome{text-align:center;padding:clamp(64px,9vw,120px) var(--pad) clamp(30px,4vw,44px);max-width:820px;margin:0 auto;}
 #cg-site .welcome p{font-family:var(--bodyf);font-weight:400;font-size:clamp(22px,3.2vw,34px);line-height:1.5;}
 #cg-site .welcome p em{font-family:var(--script);font-style:normal;font-size:1.28em;line-height:.7;}
 #cg-site .cats{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,26px);max-width:1080px;margin:0 auto;padding:0 var(--pad) clamp(70px,10vw,130px);}
 #cg-site .catcard{position:relative;}
 #cg-site .catcard .img-slot{aspect-ratio:4/5;}
-#cg-site .catcard .clabel{position:absolute;inset:0;display:grid;place-content:center;color:#fff;font-family:var(--script);font-size:clamp(30px,4vw,52px);text-shadow:0 4px 18px rgba(0,0,0,.4);z-index:2;}
+#cg-site .catcard .clabel{position:absolute;inset:0;display:grid;place-content:center;color:#fff;font-family:var(--script);font-size:clamp(22px,3vw,38px);text-shadow:0 4px 18px rgba(0,0,0,.4);z-index:2;}
 #cg-site .catcard .img-slot::after{content:"";position:absolute;inset:0;background:rgba(15,15,15,.22);}
 #cg-site footer.foot{background:var(--dark);color:#fff;text-align:center;padding:clamp(50px,7vw,84px) var(--pad) 36px;}
 #cg-site .foot-mark{font-family:var(--serif);font-weight:400;font-size:clamp(22px,3.4vw,32px);letter-spacing:.34em;text-transform:uppercase;padding-left:.34em;}
@@ -5464,7 +5445,7 @@ function HavenLayout({ site }){
 const LINEN_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&display=swap');
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500&display=swap');
-#cg-site{--cream:#F9F5EF;--ink:#14110E;--dark:#060505;--camel:#A8906E;--muted:#726A5E;--line:rgba(20,17,14,.16);--line-soft:rgba(20,17,14,.09);--serif:"Fraunces",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,4vw,56px);background:var(--cream);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site{--cream:#FFFFFF;--ink:#14110E;--dark:#060505;--camel:#A8906E;--muted:#726A5E;--line:rgba(20,17,14,.16);--line-soft:rgba(20,17,14,.09);--serif:"Fraunces",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(18px,4vw,56px);background:var(--cream);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5606,7 +5587,7 @@ function UmberLayout({ site }){
       <header>{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand">{brand.name||"Your Brand"}</div>}<nav className="main">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><a className="book" href="#s-contact">Book a call &#8599;</a></header>
       <section className="hero" id="s-top">
         <div className="labels"><span className="tiny">( {(hero&&hero.eyebrow)||"1:1 Coaching"} )</span><span className="tiny">( {(off&&off.eyebrow)||"Programs"} )</span></div>
-        <h1>{brand.name||"Your Brand"}{hero&&hero.sub&&<><br/><span style={{fontWeight:500}}>( {hero.sub} )</span></>}</h1>
+        <h1>{brand.name||"Your Brand"}{hero&&hero.sub&&<><br/><span style={{fontWeight:500,fontSize:"0.34em"}}>( {hero.sub} )</span></>}</h1>
         <div className="portrait"><div className="img-slot" style={bgi(url(hero&&hero.image))}></div></div>
         <div className="meta"><p className="tiny">{(hero&&hero.headline)||""}</p><div><p className="tiny r">{(off&&off.title)||""}</p></div></div>
         {hero&&hero.cta&&<div className="cta"><a className="pill on-brown" href="#s-known">{hero.cta.label} &#8594;</a></div>}
@@ -5620,7 +5601,7 @@ function UmberLayout({ site }){
 
 const WILLOW_CSS = `
 @import url('https://api.fontshare.com/v2/css?f[]=zodiak@300,400,700&f[]=gambetta@400,500&f[]=satoshi@300,400,500,700&display=swap');
-#cg-site{--bone:#EDEBE5;--paper:#FDFDFD;--dark:#14130F;--ink:#171512;--cream:#EDEBE5;--muted:#6E685F;--muted-d:#A69E92;--line:rgba(23,21,18,.16);--line-d:rgba(237,235,229,.22);--serif:"Zodiak",Georgia,serif;--soft:"Gambetta",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,6vw,96px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
+#cg-site{--bone:#FFFFFF;--paper:#FDFDFD;--dark:#14130F;--ink:#171512;--cream:#EDEBE5;--muted:#6E685F;--muted-d:#A69E92;--line:rgba(23,21,18,.16);--line-d:rgba(237,235,229,.22);--serif:"Zodiak",Georgia,serif;--soft:"Gambetta",Georgia,serif;--sans:"Satoshi","Helvetica Neue",Arial,sans-serif;--pad:clamp(20px,6vw,96px);background:var(--bone);color:var(--ink);font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;}
 #cg-site *{box-sizing:border-box;}
 #cg-site img{display:block;max-width:100%;}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -5708,7 +5689,7 @@ function WillowLayout({ site }){
         <div className="bg"><div className="img-slot" style={bgi(url(hero&&hero.image))}></div></div>
         <div className="hero-head">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="mark">{brand.name||"Your Brand"}</div>}</div>
         <div className="hero-inner">{hero&&hero.sub&&<p className="eyebrow" style={{color:"rgba(237,235,229,.85)"}}>{(phil&&phil.eyebrow)||"Time to move differently"}</p>}<h1>{(hero&&hero.headline)||"This is where it begins."}</h1>{hero&&hero.sub&&<p className="sub">{hero.sub}</p>}<a className="btn light" href="#s-enroll">{(hero&&hero.cta&&hero.cta.label)||enroll}</a></div>
-        <div className="wave" aria-hidden="true"><svg viewBox="0 0 1440 90" preserveAspectRatio="none"><path d="M0,70 C240,10 480,10 720,45 C960,80 1200,80 1440,30 L1440,90 L0,90 Z" fill="#EDEBE5"/></svg></div>
+        <div className="wave" aria-hidden="true"><svg viewBox="0 0 1440 90" preserveAspectRatio="none"><path d="M0,70 C240,10 480,10 720,45 C960,80 1200,80 1440,30 L1440,90 L0,90 Z" fill="#FFFFFF"/></svg></div>
       </section>
       {phil&&<section id="s-about"><div className="two"><div className="img-slot" style={bgi(url((about&&about.image))||url(hero&&hero.image))}></div><div><p className="eyebrow">{phil.eyebrow||"Let's be honest"}</p><h2 className="soft-head">{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p className="body-copy">{phil.body[0]}</p>}</div></div></section>}
       {about&&about.body&&about.body.length>0&&<div className="card-wrap"><div className="card"><h3>{about.heading}</h3><ul className="painlist">{about.body.map((p,i)=><li key={i}>{p}</li>)}</ul></div></div>}
