@@ -4325,6 +4325,7 @@ const DEMO_SITE = {
   sections: [
     { type:"hero", eyebrow:"Small-batch botanical apothecary", headline:"Beauty, distilled to its ", headlineEm:"essence.", sub:"Cold-pressed botanicals, blended by hand in small batches. Skincare that asks nothing of you but a little patience.", cta:{label:"Explore the collection"} },
     { type:"philosophy", eyebrow:"Our philosophy", heading:"We make very little, ", headingEm:"very well.", body:["Every formula begins in the field — botanicals grown slowly, harvested at their peak, and pressed within the day. Nothing synthetic, nothing rushed.","We release only a handful of products, and only when they are ready. What you hold is the result of restraint: a quiet ritual, bottled."] },
+    { type:"about", eyebrow:"The founder", heading:"Made slowly, ", headingEm:"by hand.", body:["I began Maren & Wilde at my kitchen table, distilling botanicals late into the night until each formula felt right. Every bottle still passes through my hands before it reaches yours."] },
     { type:"offerings", eyebrow:"The collection", title:"Three essentials, nothing more", items:[ {name:"The Radiance Oil", note:"Facial oil · 30ml", price:"$68"}, {name:"Rosewater Mist", note:"Hydrating tonic · 100ml", price:"$42"}, {name:"Repair Balm", note:"Overnight treatment · 50ml", price:"$54"} ] },
     { type:"editorial", eyebrow:"The making", line:"Grown slowly. Pressed gently. Bottled ", lineEm:"by hand." },
     { type:"quote", text:"It feels less like skincare and more like a small daily ceremony.", cite:"— Amara L., longtime customer" },
@@ -4726,7 +4727,7 @@ function PublicSite({ slug }) {
   const [st, setSt] = useState({ loading:true, site:null, error:null });
   useEffect(()=>{
     let cancel=false;
-    if(slug==="demo"){ setSt({loading:false, site:DEMO_SITE, error:null}); return; }
+    if(slug==="demo"||slug==="demo-muse"||slug==="demo-duet"){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":DEMO_SITE.theme) }; setSt({loading:false, site:d, error:null}); return; }
     (async()=>{
       try{
         const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=data,theme,published&slug=eq."+encodeURIComponent(slug)+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
