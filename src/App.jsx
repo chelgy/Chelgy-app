@@ -6107,6 +6107,22 @@ function PublicSite({ slug, domain, onNotFound }) {
   </>);
 }
 
+// Daily "on the house" marketing gift — free, fresh content types that rotate by day.
+// (Text types are free via Claude; flyer/graphic image types are added later with a weekly cap.)
+const GIFT_TYPES = [
+  { key:"caption", noun:"social post",      tool:"content" },
+  { key:"viral",   noun:"viral video idea", tool:"viral"   },
+  { key:"content", noun:"content idea",     tool:"content" },
+  { key:"ad",      noun:"ad hook",          tool:"ads"     },
+];
+function todaysGiftType(){
+  try{
+    const d = new Date();
+    const dayIndex = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
+    return GIFT_TYPES[dayIndex % GIFT_TYPES.length];
+  }catch(e){ return GIFT_TYPES[0]; }
+}
+
 const NAV_TABS = ["home","learn","tools","community","profile"];
 const NAV_DEFAULT_SUB = { home:"feed", learn:"strategies", tools:"hub", community:"forum", profile:"overview" };
 // Read the current tab + sub-view from the URL path (e.g. "/tools/website" → {tab:"tools", sub:"website"})
@@ -6313,6 +6329,8 @@ export default function ChelgyApp() {
   const [dailyDone, setDailyDone] = useState(()=>lsGetJSON("chelgy_daily_done", {}));
   const [showTasks, setShowTasks] = useState(false);
   const [showGreeting, setShowGreeting] = useState(false);
+  const [giftLoading, setGiftLoading] = useState(false);
+  const [giftContent, setGiftContent] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_gift_"+todayStr()); return v?(JSON.parse(v).content||""):""; }catch(e){ return ""; } });
   const [celebrate, setCelebrate] = useState("");
   const [completions, setCompletions] = useState(()=>lsGetJSON("chelgy_completions", {}));
   const [showJournal, setShowJournal] = useState(false);
@@ -6480,6 +6498,25 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); addPts(PTS.bigTask); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
   function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); addPts(PTS.daily); } return nd; }); }
   function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
+  // Generate today's free "on the house" marketing gift (text — free via Claude)
+  async function makeDailyGift(){
+    if(giftLoading) return;
+    setGiftLoading(true);
+    const ctx = bizContext();
+    const g = todaysGiftType();
+    let prompt;
+    if(g.key==="caption") prompt = "Write ONE ready-to-post social media caption for this business — punchy, on-brand, with a strong hook, 2-4 short lines, and 3-5 relevant hashtags. Return ONLY the caption, no preamble or labels.\n\n"+ctx;
+    else if(g.key==="viral") prompt = "Give ONE specific, ready-to-film short-video idea for this business with viral potential. Include: the hook line (first 3 seconds), what to show on screen, and the on-screen text. Keep it tight and doable on a phone. Return ONLY the idea, no preamble.\n\n"+ctx;
+    else if(g.key==="content") prompt = "Give ONE fresh content idea this business can post this week — the angle, why it works in one line, and a one-line example. Return ONLY that, no preamble.\n\n"+ctx;
+    else prompt = "Write ONE scroll-stopping ad hook plus one line of benefit-led body copy for this business. Return ONLY the hook and the line, no preamble.\n\n"+ctx;
+    try{
+      const out = await callClaude(prompt, 500);
+      const text = (out||"").trim();
+      setGiftContent(text);
+      try{ localStorage.setItem("chelgy_gift_"+todayStr(), JSON.stringify({ type:g.key, content:text })); }catch(e){}
+    }catch(e){ setGiftContent("Couldn't make your gift right now — please try again in a moment."); }
+    setGiftLoading(false);
+  }
   // Short description of the member's business — fed to the AI so it "knows" them
   function bizContext(){
     const i = intake || {};
@@ -8346,6 +8383,21 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{width:32,height:1,background:B.gold,marginBottom:16}} />
             <h2 style={{fontSize:23,fontFamily:"Georgia,serif",fontWeight:400,margin:"0 0 4px"}}>Welcome back{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",letterSpacing:"0.01em"}}>Here are your tasks for today.</p>
+            {(()=>{ const g=todaysGiftType(); return (
+              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"18px 20px",marginBottom:18}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>On the house</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:5}}>Your free {g.noun} for today</div>
+                <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>Fresh and made just for your business — yours to use, no credits.</div>
+                {!giftContent && <button onClick={makeDailyGift} disabled={giftLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",cursor:giftLoading?"default":"pointer",textTransform:"uppercase"}}>{giftLoading?"Making it…":"Make my free "+g.noun}</button>}
+                {giftContent && <div>
+                  <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{giftContent}</div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <button onClick={()=>{try{navigator.clipboard.writeText(giftContent);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 14px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>
+                    <button onClick={()=>openTool(g.tool)} style={{background:B.gold,color:"#111",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Use it in the {TOOL_LABELS[g.tool]} →</button>
+                  </div>
+                </div>}
+              </div>
+            ); })()}
             {hero&&(
               <div style={{background:B.charcoal,padding:"20px 22px",marginBottom:16}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:B.gold,fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Today's Highest-Impact Task</div>
