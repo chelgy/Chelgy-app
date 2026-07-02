@@ -1148,7 +1148,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; noir = dark & dramatic for restaurants, nightlife, fashion, barbers, bold brands; bordeaux = moody deep-maroon editorial for coaches, creatives, agencies; blush = soft feminine pink for coaches, beauty, feminine brands; studio = bold modern sans for fitness, gyms, bold modern brands; scarlet = bold vibrant red for creative & personal brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; noir = dark & dramatic for restaurants, nightlife, fashion, barbers, bold brands; bordeaux = moody deep-maroon editorial for coaches, creatives, agencies; blush = soft feminine pink for coaches, beauty, feminine brands; studio = bold modern sans for fitness, gyms, bold modern brands; fog = cool elegant grey high-fashion for beauty & marketing agencies; postale = crisp black & white with script accents for content creators & bloggers; muse = warm scrapbook collage with taped polaroids for coaches, life coaches & personal brands; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 8000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
@@ -1157,7 +1157,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       let site;
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
-      const IMPL=["editorial-porcelain","noir","bordeaux","blush","studio","scarlet","fog","postale","muse","duet"];
+      const IMPL=["editorial-porcelain","noir","bordeaux","blush","studio","fog","postale","muse","duet","rouge"];
       site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"editorial-porcelain") : wmTheme;
       if(site.credit===undefined) site.credit = true;
       const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
@@ -1458,7 +1458,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Look &amp; colours</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["editorial-porcelain","Editorial"],["noir","Noir"],["bordeaux","Bordeaux"],["blush","Blush"],["studio","Studio"],["scarlet","Scarlet"],["fog","Fog"],["postale","Postale"],["muse","Muse"],["duet","Duet"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
+              {[["editorial-porcelain","Editorial"],["noir","Noir"],["bordeaux","Bordeaux"],["blush","Blush"],["studio","Studio"],["fog","Fog"],["postale","Postale"],["muse","Muse"],["duet","Duet"],["rouge","Rouge"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>{label}</button>;})}
             </div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,marginBottom:14,lineHeight:1.5}}>Tap a preset to swap the whole palette — or fine-tune it below.</div>
             <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"16px"}}>
@@ -1536,7 +1536,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Choose a look</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>
-            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["noir","Noir",true],["bordeaux","Bordeaux",true],["blush","Blush",true],["studio","Studio",true],["scarlet","Scarlet",true],["fog","Fog",true],["postale","Postale",true],["muse","Muse",true],["duet","Duet",true]].map(([id,label,active])=>(
+            {[["auto","✨ Let Chelgy Pick",true],["editorial-porcelain","Editorial",true],["noir","Noir",true],["bordeaux","Bordeaux",true],["blush","Blush",true],["studio","Studio",true],["fog","Fog",true],["postale","Postale",true],["muse","Muse",true],["duet","Duet",true],["rouge","Rouge",true]].map(([id,label,active])=>(
               <button key={id} disabled={!active} onClick={()=>active&&setWmTheme(id)} style={{padding:"10px 15px",border:"1px solid "+(wmTheme===id?B.charcoal:B.stone),background:wmTheme===id?B.charcoal:"#fff",color:!active?"#BBB":(wmTheme===id?"#fff":B.charcoal),fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.04em",cursor:active?"pointer":"default"}}>{label}{!active&&<span style={{fontSize:8,marginLeft:6,letterSpacing:"0.1em"}}>SOON</span>}</button>
             ))}
           </div>
@@ -4316,7 +4316,8 @@ const THEME_IMG_STYLE = {
   "fog":"cool, elegant and high-fashion in soft grey, pewter and cream tones, refined even studio light, understated luxury",
   "postale":"crisp black and white editorial, timeless monochrome tones, clean magazine light, effortless chic luxury",
   "muse":"warm, moody scrapbook editorial in oxblood, wine and cream tones, soft film-like grain and light, intimate personal-brand luxury",
-  "duet":"elegant black-and-white editorial photography, timeless monochrome and cream tones, refined natural light, romantic high-end luxury"
+  "duet":"elegant black-and-white editorial photography, timeless monochrome and cream tones, refined natural light, romantic high-end luxury",
+  "rouge":"bold, vibrant editorial in striking scarlet-red and warm cream, confident dramatic light, playful high-fashion creative-studio luxury"
 };
 
 const DEMO_SITE = {
@@ -4591,6 +4592,134 @@ function DuetLayout({ site }) {
   );
 }
 
+const ROUGE_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Jost:wght@300;400;500&display=swap');
+#cg-site{--bg:#F1EBDF;--paper:#F7F2E8;--ink:#20140F;--mid:#8A7461;--red:#BE3A2B;--red2:#A32C20;--line:#E2D9C9;--display:'Playfair Display',Georgia,serif;--script:'Pinyon Script',cursive;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.7;min-height:100vh;position:relative;letter-spacing:0.01em;-webkit-font-smoothing:antialiased;}
+#cg-site *{box-sizing:border-box;}
+#cg-site .wrap{max-width:1280px;margin:0 auto;padding:0 clamp(20px,5vw,60px);}
+#cg-site a{color:inherit;text-decoration:none;}
+#cg-site em{font-style:italic;}
+#cg-site .script{font-family:var(--script);font-style:normal;}
+#cg-site .eyebrow{font-size:0.64rem;letter-spacing:0.26em;text-transform:uppercase;color:var(--red);font-weight:500;}
+#cg-site .btn{display:inline-block;background:var(--red);color:#F7F2E8;padding:13px 30px;font-size:0.64rem;letter-spacing:0.18em;text-transform:uppercase;font-weight:500;border:1px solid var(--red);transition:background .3s,color .3s;}
+#cg-site .btn:hover{background:transparent;color:var(--red);}
+#cg-site .btn.cream{background:var(--paper);color:var(--red);border-color:var(--paper);}
+#cg-site .btn.cream:hover{background:transparent;color:var(--paper);}
+#cg-site .brandlogo{height:40px;width:auto;max-width:180px;object-fit:contain;display:block;}
+#cg-site header{position:sticky;top:0;z-index:30;background:rgba(241,235,223,0.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);}
+#cg-site .nav{display:flex;align-items:center;justify-content:space-between;height:70px;}
+#cg-site .nav .bm{font-family:var(--display);font-weight:600;font-size:1.1rem;letter-spacing:0.2em;text-transform:uppercase;}
+#cg-site .menu{display:flex;gap:30px;}
+#cg-site .menu a{font-size:0.66rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink);}
+#cg-site .menu a:hover{color:var(--red);}
+#cg-site .hero{position:relative;}
+#cg-site .hero-imgs{display:grid;grid-template-columns:1fr 1fr;height:74vh;min-height:480px;}
+#cg-site .hero-imgs .im{position:relative;overflow:hidden;background:radial-gradient(120% 100% at 40% 30%,#D98A6E,#B23A24 60%,#7A2418 100%);background-size:cover;background-position:center;}
+#cg-site .hero-imgs .im.b{background:radial-gradient(120% 100% at 55% 35%,#C97A5A,#9A2E1C 70%);background-size:cover;background-position:center;}
+#cg-site .hero .label{position:absolute;top:18px;left:clamp(20px,5vw,60px);z-index:3;font-size:0.6rem;letter-spacing:0.24em;text-transform:uppercase;color:rgba(247,242,232,0.9);max-width:18ch;line-height:1.5;}
+#cg-site .hero .loc{position:absolute;top:42%;right:clamp(20px,5vw,60px);z-index:3;font-size:0.58rem;letter-spacing:0.24em;text-transform:uppercase;color:rgba(247,242,232,0.9);text-align:right;}
+#cg-site .hero .wordmark{position:absolute;left:0;right:0;bottom:-2vw;z-index:4;text-align:center;font-family:var(--script);font-size:clamp(5rem,20vw,17rem);line-height:0.8;color:#F7F2E8;pointer-events:none;text-shadow:0 8px 40px rgba(60,10,6,0.4);}
+#cg-site .intro{padding:clamp(80px,13vh,150px) 0;}
+#cg-site .intro-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:clamp(40px,6vw,90px);align-items:center;}
+#cg-site .intro h2{font-family:var(--display);font-weight:500;font-size:clamp(2.2rem,5vw,3.8rem);line-height:1.08;margin:16px 0 22px;}
+#cg-site .intro h2 .script{color:var(--red);font-size:1.35em;}
+#cg-site .intro p{color:var(--mid);max-width:44ch;margin:0 0 26px;}
+#cg-site .intro .pic{aspect-ratio:3/4;background:radial-gradient(120% 100% at 45% 30%,#D98A6E,#9A2E1C 75%);background-size:cover;background-position:center;}
+#cg-site .redblock{background:var(--red);color:var(--paper);padding:clamp(80px,13vh,160px) 0;}
+#cg-site .red-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,80px);align-items:center;}
+#cg-site .scatter{position:relative;height:clamp(400px,50vh,540px);}
+#cg-site .pola{position:absolute;background:#F7F2E8;padding:10px 10px 34px;box-shadow:0 22px 44px rgba(50,8,4,0.4);}
+#cg-site .pola .ph{width:100%;height:100%;background:radial-gradient(120% 100% at 40% 30%,#C98A72,#7A3020 72%);background-size:cover;background-position:center;display:block;}
+#cg-site .pola.s1{width:44%;aspect-ratio:4/5;top:0;left:6%;transform:rotate(-8deg);z-index:2;}
+#cg-site .pola.s2{width:40%;aspect-ratio:4/5;top:18%;right:8%;transform:rotate(6deg);z-index:3;}
+#cg-site .pola.s3{width:38%;aspect-ratio:4/5;bottom:2%;left:26%;transform:rotate(-3deg);z-index:4;}
+#cg-site .redblock .tag{font-size:0.62rem;letter-spacing:0.24em;text-transform:uppercase;color:rgba(247,242,232,0.8);}
+#cg-site .redblock h2{font-family:var(--display);font-weight:500;font-size:clamp(2.4rem,6vw,4.6rem);line-height:1.0;margin:16px 0 26px;}
+#cg-site .redblock h2 .script{font-size:1.3em;color:#F7F2E8;}
+#cg-site .marquee{background:var(--red2);color:var(--paper);overflow:hidden;padding:12px 0;}
+#cg-site .marquee div{display:flex;gap:20px;white-space:nowrap;animation:rougemq 24s linear infinite;font-size:0.72rem;letter-spacing:0.26em;text-transform:uppercase;}
+@keyframes rougemq{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+#cg-site .services{padding:clamp(80px,13vh,160px) 0;}
+#cg-site .services .big{font-family:var(--script);color:var(--red);font-size:clamp(3rem,9vw,7rem);line-height:0.9;text-align:center;}
+#cg-site .services .sub{text-align:center;font-size:0.62rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--mid);max-width:34ch;margin:16px auto 50px;line-height:1.8;}
+#cg-site .svc-grid{display:grid;grid-template-columns:0.8fr 1.2fr;gap:clamp(30px,5vw,70px);align-items:center;border-top:1px solid var(--line);padding-top:40px;}
+#cg-site .svc-grid .pics{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+#cg-site .svc-grid .pics .ph{aspect-ratio:3/4;background:radial-gradient(120% 100% at 45% 30%,#D0A08C,#8A3020 75%);background-size:cover;background-position:center;}
+#cg-site .svc-grid h3{font-family:var(--display);font-weight:500;font-size:clamp(1.8rem,4vw,2.8rem);margin:0 0 4px;}
+#cg-site .svc-grid .price{font-size:0.62rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--red);margin-bottom:22px;}
+#cg-site .svc-grid ul{list-style:none;padding:0;margin:0 0 26px;}
+#cg-site .svc-grid li{padding:9px 0;border-bottom:1px solid var(--line);color:var(--mid);font-size:0.92rem;}
+#cg-site .contact{background:var(--red);color:var(--paper);text-align:center;padding:clamp(70px,12vh,150px) 0;}
+#cg-site .contact h2{font-family:var(--display);font-weight:500;font-size:clamp(2.2rem,5.5vw,4rem);line-height:1.06;margin:14px auto 10px;max-width:16ch;}
+#cg-site .contact h2 .script{font-size:1.3em;}
+#cg-site .contact .kick{font-family:var(--script);font-size:2rem;margin-bottom:26px;}
+#cg-site footer.foot{padding:30px 0;}
+#cg-site .foot .wrap{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;}
+#cg-site .foot .bm{font-family:var(--display);font-weight:600;letter-spacing:0.2em;text-transform:uppercase;font-size:1rem;}
+#cg-site .foot .fnav{display:flex;gap:22px;font-size:0.64rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--mid);}
+#cg-site .credit{text-align:center;padding:0 0 24px;}
+#cg-site .credit span{font-size:0.58rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--mid);opacity:0.7;}
+@media (max-width:860px){#cg-site .menu{display:none;}#cg-site .hero-imgs{height:52vh;}#cg-site .hero .wordmark{bottom:-4vw;}#cg-site .intro-grid{grid-template-columns:1fr;gap:34px;}#cg-site .red-grid{grid-template-columns:1fr;gap:50px;}#cg-site .scatter{max-width:400px;margin:0 auto;}#cg-site .svc-grid{grid-template-columns:1fr;gap:30px;}}
+`;
+
+function RougeLayout({ site }) {
+  const s = site || {}; const brand = s.brand || {};
+  const sections = Array.isArray(s.sections) ? s.sections : [];
+  const get = (t) => sections.find(x => x && x.type === t);
+  const hero = get("hero"), phil = get("philosophy"), ed = get("editorial"), off = get("offerings"), contact = get("contact");
+  const url = (im) => (im && im.url) ? im.url : null;
+  const bgi = (u) => u ? { backgroundImage: "url(" + u + ")", backgroundSize: "cover", backgroundPosition: "center" } : undefined;
+  const imgs = [];
+  if (hero && url(hero.image)) imgs.push(url(hero.image));
+  const about = get("about"); if (about && url(about.image)) imgs.push(url(about.image));
+  if (off && Array.isArray(off.items)) off.items.forEach(it => { if (url(it.image)) imgs.push(url(it.image)); });
+  const gi = (n) => imgs[n] || null;
+  const items = (off && Array.isArray(off.items)) ? off.items.slice(0, 4) : [];
+  const loc = contact && Array.isArray(contact.details) ? (contact.details.find(d => /studio|location|based|city|address/i.test(d.k || "")) || null) : null;
+  const custom = s.custom ? buildCustomCSS(s.custom) : "";
+  return (
+    <div id="cg-site" data-theme="rouge">
+      <style dangerouslySetInnerHTML={{ __html: ROUGE_CSS }} />
+      {custom && <style dangerouslySetInnerHTML={{ __html: custom }} />}
+      <header><div className="wrap nav">
+        {brand.logo ? <img className="brandlogo" src={brand.logo} alt={brand.name || ""} /> : <div className="bm">{brand.name || "Your Brand"}</div>}
+        <nav className="menu">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
+      </div></header>
+      <section className="hero" id="s-top">
+        <div className="hero-imgs"><div className="im a" style={bgi(gi(0))}></div><div className="im b" style={bgi(gi(1))}></div></div>
+        {hero && hero.eyebrow && <div className="label">{hero.eyebrow}</div>}
+        {loc && <div className="loc">{loc.v}</div>}
+        <div className="wordmark">{brand.name || "Your Brand"}</div>
+      </section>
+      {phil && <section className="intro wrap" id="s-about"><div className="intro-grid">
+        <div>{phil.eyebrow && <div className="eyebrow">{phil.eyebrow}</div>}<h2>{phil.heading}{phil.headingEm && <span className="script"> {phil.headingEm}</span>}</h2>{phil.body && phil.body[0] && <p>{phil.body[0]}</p>}<a href="#s-services" className="btn">{(hero && hero.cta && hero.cta.label) || "Learn more"}</a></div>
+        <div className="pic" style={bgi(gi(2))}></div>
+      </div></section>}
+      {ed && <section className="redblock" id="s-work"><div className="wrap red-grid">
+        <div className="scatter"><div className="pola s1"><div className="ph" style={bgi(gi(3) || gi(0))}></div></div><div className="pola s2"><div className="ph" style={bgi(gi(4) || gi(1))}></div></div><div className="pola s3"><div className="ph" style={bgi(gi(5) || gi(2))}></div></div></div>
+        <div>{ed.eyebrow && <div className="tag">[ {ed.eyebrow} ]</div>}<h2>{ed.line}{ed.lineEm && <span className="script"> {ed.lineEm}</span>}</h2><a href="#s-services" className="btn cream">Learn more</a></div>
+      </div></section>}
+      <div className="marquee"><div><span>{"\u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 \u00A0"}</span><span>{"\u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 \u00A0"}</span></div></div>
+      {off && <section className="services wrap" id="s-services">
+        <div className="big">{off.title || "Signature Services"}</div>
+        {off.eyebrow && <div className="sub">{off.eyebrow}</div>}
+        <div className="svc-grid">
+          <div className="pics"><div className="ph" style={bgi(gi(2))}></div><div className="ph" style={bgi(gi(3) || gi(0))}></div></div>
+          <div>{items.map((it, j) => <div key={j} style={{ marginBottom: 22 }}><h3>{it.name}</h3>{it.price && <div className="price">{it.price}</div>}{it.note && <ul><li>{it.note}</li></ul>}{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn" style={{ marginTop: 4 }}>Shop</a>}</div>)}{!items.some(it => it.buyUrl) && <a href="#s-contact" className="btn">Book now</a>}</div>
+        </div>
+      </section>}
+      {contact && <section className="contact" id="s-contact"><div className="wrap">
+        {contact.eyebrow && <div className="eyebrow" style={{ color: "rgba(247,242,232,0.9)" }}>{contact.eyebrow}</div>}
+        <h2>{contact.heading}{contact.headingEm && <span className="script"> {contact.headingEm}</span>}</h2>
+        <div className="kick">let's talk</div>
+        {contact.cta && <a href="#" className="btn cream">{contact.cta.label}</a>}
+      </div></section>}
+      <footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
+    </div>
+  );
+}
+
 function navHref(label){
   const l=(label||"").toLowerCase();
   if(/contact|visit|book|enquir|reach|appointment|reserve|hello|find us/.test(l)) return "#s-contact";
@@ -4602,6 +4731,7 @@ function SiteRender({ site }) {
   const s = site || {};
   if (s.theme === "muse") return <CollageLayout site={s} />;
   if (s.theme === "duet") return <DuetLayout site={s} />;
+  if (s.theme === "rouge") return <RougeLayout site={s} />;
   const brand = s.brand || {};
   const sections = Array.isArray(s.sections) ? s.sections : [];
   const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")" } : undefined;
@@ -4727,7 +4857,7 @@ function PublicSite({ slug }) {
   const [st, setSt] = useState({ loading:true, site:null, error:null });
   useEffect(()=>{
     let cancel=false;
-    if(slug==="demo"||slug==="demo-muse"||slug==="demo-duet"){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":DEMO_SITE.theme) }; setSt({loading:false, site:d, error:null}); return; }
+    if(slug==="demo"||slug==="demo-muse"||slug==="demo-duet"||slug==="demo-rouge"){ const d={ ...DEMO_SITE, theme: slug==="demo-muse"?"muse":(slug==="demo-duet"?"duet":(slug==="demo-rouge"?"rouge":DEMO_SITE.theme)) }; setSt({loading:false, site:d, error:null}); return; }
     (async()=>{
       try{
         const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=data,theme,published&slug=eq."+encodeURIComponent(slug)+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
