@@ -1029,7 +1029,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
-  const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0);
+  const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
   const [edCustom,setEdCustom]=useState({});
   useEffect(()=>{ setEdCustom((wmExisting&&wmExisting.data&&wmExisting.data.custom)||{}); },[wmExisting&&wmExisting.id]);
@@ -1060,9 +1060,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     try{
       let dataUrl=edImgData;
       if(edImgPro){
-        const desc=(edImgUse||"the item").trim();
+        const desc=(edImgUse||"the item").trim(); const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)||"editorial-porcelain"]||THEME_IMG_STYLE["editorial-porcelain"];
         const isApparel=/(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
-        const proPrompt="Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the actual item true to the uploaded photo. No text, no words, no logos.";
+        const proPrompt="Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Set and light it to match this mood and palette: "+themeStyle+" (keep the real colours and details true to the uploaded photo). No text, no words, no logos.";
         try{ const r=await generateGeminiImage(proPrompt, edImgData, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
       }
       const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
@@ -1097,20 +1097,29 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(!wmEdit.trim()||!wmExisting) return;
     setWmEditLoad(true); setWmErr("");
     try{
+      setWmEditNote("");
       const cur = JSON.stringify(wmExisting.data);
-      const prompt = "You are editing a published luxury website that is stored as JSON. Apply ONLY the change the owner asks for and return the COMPLETE updated JSON (identical schema). Do not change anything they didn't ask about. CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY as-is — never remove, invent, or alter image urls. Keep all copy in the same upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nReturn ONLY the updated JSON object — no markdown, no commentary.";
+      const prompt = "You are the content editor for a published luxury website stored as JSON. You may change ONLY text and structure: headlines, paragraphs, the About text, offerings (names, notes, prices), the testimonial, contact details, navigation labels — and you may add, remove, or reorder sections. You CANNOT change colours, fonts, the theme, layout/spacing, or images; those are handled by separate controls in this editor. If the owner asks for a colour/font/theme change, do NOT modify the site — instead tell them to use the \"Look & colours\" controls. If they ask to change or add a photo, tell them to use \"Add or replace a photo\". CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY. Keep the upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nRespond with ONLY this JSON object (no markdown): {\"site\": <the complete website JSON, edited if you could apply the request, otherwise unchanged>, \"note\": <one short friendly sentence: what you changed, or if you couldn't, which control to use>}";
       const raw = await callClaude(prompt, 8000);
       let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1);
-      let updated; try{ updated=JSON.parse(t); }catch(pe){ throw new Error("That edit didn't come back cleanly — try rephrasing it."); }
-      if(!updated||!Array.isArray(updated.sections)||!updated.brand) throw new Error("That edit didn't come back cleanly — try rephrasing it.");
+      let parsed; try{ parsed=JSON.parse(t); }catch(pe){ throw new Error("That didn't come back cleanly — try rephrasing it."); }
+      const updated = parsed && parsed.site; const note = (parsed && parsed.note ? String(parsed.note) : "").trim();
+      if(!updated||!Array.isArray(updated.sections)||!updated.brand) throw new Error("That didn't come back cleanly — try rephrasing it.");
       updated.theme = (wmExisting.data&&wmExisting.data.theme) || updated.theme || "editorial-porcelain";
+      if(wmExisting.data&&wmExisting.data.custom) updated.custom = wmExisting.data.custom;
+      const changed = JSON.stringify(updated) !== JSON.stringify(wmExisting.data);
+      if(!changed){
+        setWmEditNote(note || "I didn't change anything for that. Colours, fonts and theme are under \"Look & colours\" above; photos are under \"Add or replace a photo\" below.");
+        setWmEditLoad(false); return;
+      }
       const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
       const up=await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+wmExisting.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ data:updated, updated_at:new Date().toISOString() }) });
       if(!up.ok) throw new Error("Couldn't save the change: "+(await up.text()));
       setWmExisting(x=>({ ...x, data:updated }));
       setWmEditLog(l=>[wmEdit.trim(), ...l].slice(0,8));
       setWmEdit("");
+      setWmEditNote(note || "Done — your change is in the preview.");
       setWmPreview(p=>p+1);
     }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong — please try again."); }
     setWmEditLoad(false);
@@ -1134,6 +1143,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const IMPL=["editorial-porcelain","noir","warm-minimal","atelier","gallery"];
       site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"editorial-porcelain") : wmTheme;
       if(site.credit===undefined) site.credit = true;
+      const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
       // Upload any photos the person provided, then place them into the site
       setWmStage("Adding your photos…");
       const uid = user.id;
@@ -1147,7 +1157,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             setWmStage("Polishing your photos…");
             const desc = (ph.use||"the item").trim();
             const isApparel = /(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
-            const proPrompt = "Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the actual item true to the uploaded photo. No text, no words, no logos.";
+            const proPrompt = "Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Set and light it to match this mood and palette: "+themeStyle+" (keep the real colours and details true to the uploaded photo). No text, no words, no logos.";
             try{ const r=await generateGeminiImage(proPrompt, ph.data, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
           }
           const u=await uploadSiteImage(dataUrl, uid+"/photo-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) photoUrls.push(u);
@@ -1167,7 +1177,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       try{
         const hero = site.sections.find(x=>x&&x.type==="hero");
         if(hero && hero.image && hero.image.prompt){
-          const r = await generateGeminiImage(String(hero.image.prompt)+" — luxury editorial photography, natural light, richly detailed, no text, no words, no logos.", null, "16:9", "standard");
+          const r = await generateGeminiImage(String(hero.image.prompt)+" — "+themeStyle+". Luxury editorial photography, richly detailed, tasteful composition, no text, no words, no logos.", null, "16:9", "standard");
           if(r && r.image){
             const url = await uploadSiteImage(r.image, user.id+"/hero-"+Date.now()+".png");
             if(url){ hero.image = { url:url, prompt:hero.image.prompt }; }
@@ -1454,13 +1464,15 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
-          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Type any change in plain English. For example: "Make the headline punchier," "Rewrite the About to feel warmer," "Add a fourth product called Body Oil for $52," "Change my hours to Mon–Fri 9–5," or "Remove the testimonial."</p>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>This chat changes your <strong>words &amp; sections</strong> — headline, story, products, prices, contact, and adding, removing, or reordering sections. For example: "Make the headline punchier," "Add a product called Body Oil for $52," "Change my hours to Mon–Fri," "Remove the testimonial."</p>
+          <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>For <strong>colours &amp; fonts</strong>, use <strong>Look &amp; colours</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
           <textarea value={wmEdit} onChange={e=>setWmEdit(e.target.value)} placeholder="What would you like to change?" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12,resize:"vertical",lineHeight:1.5}} />
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
             <Btn dark disabled={wmEditLoad} onClick={applyEdit}>{wmEditLoad?"Updating…":"Apply Change"}</Btn>
             <button onClick={()=>{ setWmMode("rebuild"); setWmErr(""); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Rebuild From Scratch</button>
           </div>
           {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:12,lineHeight:1.5}}>{wmErr}</div>}
+          {wmEditNote&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,marginTop:12,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.gold,padding:"10px 12px"}}>{wmEditNote}</div>}
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Add or replace a photo</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Upload a product or work photo and choose where it goes. Flip the polish on and Chelgy makes it studio-quality.</p>
@@ -3484,7 +3496,7 @@ const SITE_CSS_NOIR = `
 
 const SITE_CSS_WARM = `
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#ECE6D9;--ink:#3B352C;--mid:#8B8173;--accent:#808C6E;--line:#DBD3C3;--display:'Newsreader',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.85;min-height:100vh;position:relative;letter-spacing:0.015em;-webkit-font-smoothing:antialiased;}
+#cg-site{--bg:#ECE6D9;--ink:#3B352C;--mid:#8B8173;--accent:#C6B29A;--line:#DBD3C3;--display:'Newsreader',Georgia,serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.85;min-height:100vh;position:relative;letter-spacing:0.015em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.03;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -3567,7 +3579,7 @@ const SITE_CSS_WARM = `
 
 const SITE_CSS_ATELIER = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400;1,500&family=Mulish:wght@300;400;500&display=swap');
-#cg-site{--bg:#F1ECE3;--paper:#F7F3EB;--ink:#29271F;--mid:#7E7767;--accent:#27384A;--gold:#5E7286;--line:#DED7C9;--display:'Cormorant Garamond',Georgia,serif;--body:'Mulish','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
+#cg-site{--bg:#F1ECE3;--paper:#F7F3EB;--ink:#29271F;--mid:#7E7767;--accent:#2E3B33;--gold:#A88A54;--line:#DED7C9;--display:'Cormorant Garamond',Georgia,serif;--body:'Mulish','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.012em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.035;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");}
 #cg-site a{color:inherit;text-decoration:none;}
@@ -3583,15 +3595,15 @@ const SITE_CSS_ATELIER = `
 #cg-site .menu a{font-size:0.64rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid);transition:color .3s;}
 #cg-site .menu a:hover{color:var(--ink);}
 #cg-site .hero{position:relative;min-height:90vh;display:flex;align-items:flex-end;overflow:hidden;}
-#cg-site .hero-img{position:absolute;inset:0;background:radial-gradient(120% 95% at 65% 25%,#E7DFD0,#C7CDD6 55%,#2E3D4E 100%);background-size:cover;background-position:center;}
+#cg-site .hero-img{position:absolute;inset:0;background:radial-gradient(120% 95% at 65% 25%,#E7DFD0,#CDBFA6 55%,#4B534A 100%);background-size:cover;background-position:center;}
 #cg-site .hero-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,34,29,0) 45%,rgba(28,31,27,0.55) 100%);}
 #cg-site .hero-cap{position:absolute;top:22px;right:24px;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:rgba(246,243,235,0.55);}
 #cg-site .hero-inner{position:relative;z-index:2;width:100%;padding-bottom:clamp(46px,8vh,100px);}
 #cg-site .hero-eye{color:rgba(238,232,220,0.75);}
 #cg-site .hero h1{font-family:var(--display);color:#F4F0E8;font-weight:300;font-size:clamp(3rem,8vw,6.6rem);line-height:1.04;margin:16px 0 20px;max-width:15ch;}
-#cg-site .hero h1 em{color:#B9CCD8;}
+#cg-site .hero h1 em{color:#D8C79E;}
 #cg-site .hero p.lede{color:rgba(244,240,232,0.85);font-size:1.06rem;max-width:44ch;margin:0 0 28px;}
-#cg-site .btn-line{display:inline-flex;align-items:center;gap:11px;color:#F4F0E8;font-size:0.66rem;letter-spacing:0.22em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid rgba(174,194,208,0.6);transition:gap .35s;}
+#cg-site .btn-line{display:inline-flex;align-items:center;gap:11px;color:#F4F0E8;font-size:0.66rem;letter-spacing:0.22em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid rgba(216,199,158,0.6);transition:gap .35s;}
 #cg-site .btn-line:hover{gap:18px;}
 #cg-site .intro{padding:clamp(90px,15vh,180px) 0;text-align:center;}
 #cg-site .intro-grid{display:block;max-width:60ch;margin:0 auto;}
@@ -3617,12 +3629,12 @@ const SITE_CSS_ATELIER = `
 #cg-site .card .meta{display:flex;justify-content:center;gap:12px;align-items:baseline;margin-top:4px;color:var(--mid);font-size:0.85rem;}
 #cg-site .card .price{color:var(--ink);}
 #cg-site .editorial{position:relative;min-height:72vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;}
-#cg-site .ed-bg{position:absolute;inset:0;background:linear-gradient(180deg,#27384A,#31465A 55%,#22303F);background-size:cover;background-position:center;}
-#cg-site .ed-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 55% at 50% 45%,rgba(94,114,134,0.16),transparent 70%);}
+#cg-site .ed-bg{position:absolute;inset:0;background:linear-gradient(180deg,#2E3B33,#39463C 55%,#2A342C);background-size:cover;background-position:center;}
+#cg-site .ed-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 55% at 50% 45%,rgba(168,138,84,0.14),transparent 70%);}
 #cg-site .ed-content{position:relative;z-index:2;width:100%;text-align:center;}
 #cg-site .ed-eye{color:rgba(239,233,220,0.6);}
 #cg-site .editorial p.big{font-family:var(--display);color:#EFE9DC;font-weight:300;font-size:clamp(2rem,4.8vw,3.8rem);line-height:1.22;max-width:20ch;margin:16px auto 0;}
-#cg-site .editorial p.big em{color:#AEC2D0;}
+#cg-site .editorial p.big em{color:#CDB98D;}
 #cg-site .quote{padding:clamp(70px,11vh,140px) 0;text-align:center;}
 #cg-site .quote blockquote{margin:0 auto;max-width:44ch;}
 #cg-site .quote .mark{font-family:var(--display);font-size:3rem;color:var(--gold);line-height:0.6;display:block;margin-bottom:16px;}
@@ -3650,7 +3662,7 @@ const SITE_CSS_ATELIER = `
 
 const SITE_CSS_GALLERY = `
 @import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap');
-#cg-site{--bg:#F6F5F2;--ink:#1B1B19;--mid:#8C8C88;--line:#E2E1DD;--accent:#1B1B19;--display:'Jost','Helvetica Neue',Arial,sans-serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.02em;-webkit-font-smoothing:antialiased;}
+#cg-site{--bg:#ECEAE3;--ink:#24231D;--mid:#847E71;--line:#D7D3C8;--accent:#24231D;--display:'Jost','Helvetica Neue',Arial,sans-serif;--body:'Jost','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:300;line-height:1.8;min-height:100vh;position:relative;letter-spacing:0.02em;-webkit-font-smoothing:antialiased;}
 #cg-site *{box-sizing:border-box;}
 #cg-site a{color:inherit;text-decoration:none;}
 #cg-site .wrap{max-width:1360px;margin:0 auto;padding:0 clamp(20px,4vw,56px);}
@@ -3665,7 +3677,7 @@ const SITE_CSS_GALLERY = `
 #cg-site .menu a{font-size:0.66rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid);transition:color .3s;}
 #cg-site .menu a:hover{color:var(--ink);}
 #cg-site .hero{position:relative;height:92vh;min-height:560px;overflow:hidden;display:flex;align-items:flex-end;}
-#cg-site .hero-img{position:absolute;inset:0;background:radial-gradient(120% 100% at 62% 30%,#D6D6D3 0%,#A6A6A3 52%,#4C4C49 100%);background-size:cover;background-position:center;}
+#cg-site .hero-img{position:absolute;inset:0;background:radial-gradient(120% 100% at 62% 30%,#CFC7B8 0%,#B3A891 52%,#5B5648 100%);background-size:cover;background-position:center;}
 #cg-site .hero-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,28,22,0) 52%,rgba(30,28,22,0.45) 100%);}
 #cg-site .hero-cap{position:absolute;top:18px;right:20px;font-size:0.56rem;letter-spacing:0.24em;text-transform:uppercase;color:rgba(245,242,234,0.55);}
 #cg-site .hero-inner{position:relative;z-index:2;width:100%;padding-bottom:clamp(34px,6vh,64px);}
@@ -3684,7 +3696,7 @@ const SITE_CSS_GALLERY = `
 #cg-site .rule{width:38px;height:1px;background:var(--ink);}
 #cg-site .about{padding:clamp(70px,12vh,150px) 0;}
 #cg-site .about-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:clamp(40px,7vw,90px);align-items:center;}
-#cg-site .about .ph{aspect-ratio:4/5;background:radial-gradient(110% 100% at 45% 30%,#DAD9D6,#8B8B88 62%);background-size:cover;background-position:center;}
+#cg-site .about .ph{aspect-ratio:4/5;background:radial-gradient(110% 100% at 45% 30%,#D5CDBD,#90836B 62%);background-size:cover;background-position:center;}
 #cg-site .about h2{font-family:var(--display);font-weight:300;font-size:clamp(1.7rem,3.4vw,2.6rem);line-height:1.16;margin:14px 0 18px;}
 #cg-site .about h2 em{font-style:normal;}
 #cg-site .about p{color:var(--mid);font-size:1.02rem;margin:0 0 16px;}
@@ -3692,7 +3704,7 @@ const SITE_CSS_GALLERY = `
 #cg-site .offer-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:40px;}
 #cg-site .offer-head h3{font-family:var(--display);font-weight:300;font-size:clamp(1.5rem,3vw,2.2rem);margin:8px 0 0;}
 #cg-site .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(14px,1.6vw,26px);}
-#cg-site .card .ph{aspect-ratio:4/3;position:relative;overflow:hidden;background:radial-gradient(110% 100% at 45% 30%,#DAD9D6,#8B8B88 62%);background-size:cover;background-position:center;}
+#cg-site .card .ph{aspect-ratio:4/3;position:relative;overflow:hidden;background:radial-gradient(110% 100% at 45% 30%,#D5CDBD,#90836B 62%);background-size:cover;background-position:center;}
 #cg-site .card .ph .tag{position:absolute;left:12px;bottom:12px;font-size:0.52rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(245,242,234,0.7);}
 #cg-site .cardcap{display:flex;justify-content:space-between;align-items:baseline;padding:14px 2px 0;}
 #cg-site .card .nm{font-family:var(--display);font-size:1.1rem;}
@@ -3700,11 +3712,11 @@ const SITE_CSS_GALLERY = `
 #cg-site .card .note{font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--mid);}
 #cg-site .card .price{font-size:0.9rem;color:var(--ink);}
 #cg-site .editorial{position:relative;min-height:70vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;}
-#cg-site .ed-bg{position:absolute;inset:0;background:linear-gradient(180deg,#1E1E1C,#2E2E2B);background-size:cover;background-position:center;}
+#cg-site .ed-bg{position:absolute;inset:0;background:linear-gradient(180deg,#2A2924,#3A382F);background-size:cover;background-position:center;}
 #cg-site .ed-content{position:relative;z-index:2;width:100%;text-align:center;}
 #cg-site .ed-eye{color:rgba(245,242,234,0.55);}
 #cg-site .editorial p.big{font-family:var(--display);color:#F1EFE8;font-weight:300;font-size:clamp(1.7rem,4vw,3rem);line-height:1.24;max-width:22ch;margin:16px auto 0;letter-spacing:0.01em;}
-#cg-site .editorial p.big em{font-style:normal;color:#C9C9C6;}
+#cg-site .editorial p.big em{font-style:normal;color:#CFC7B8;}
 #cg-site .quote{padding:clamp(70px,11vh,140px) 0;text-align:center;}
 #cg-site .quote blockquote{margin:0 auto;max-width:46ch;}
 #cg-site .quote .mark{display:none;}
@@ -3715,7 +3727,7 @@ const SITE_CSS_GALLERY = `
 #cg-site .contact-grid{display:block;max-width:60ch;}
 #cg-site .contact .eyebrow{color:rgba(237,233,222,0.5);}
 #cg-site .contact h2{font-family:var(--display);font-weight:300;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1.1;margin:16px 0 26px;max-width:16ch;}
-#cg-site .contact h2 em{font-style:normal;color:#C9C9C6;}
+#cg-site .contact h2 em{font-style:normal;color:#CFC7B8;}
 #cg-site .contact .line{display:block;padding:12px 0;border-top:1px solid rgba(237,233,222,0.16);font-size:0.98rem;color:rgba(237,233,222,0.82);max-width:40ch;}
 #cg-site .contact .line:last-child{border-bottom:1px solid rgba(237,233,222,0.16);}
 #cg-site .contact .cta{display:inline-flex;align-items:center;gap:12px;margin-top:26px;color:#F5F2EA;font-size:0.66rem;letter-spacing:0.22em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid rgba(245,242,234,0.45);transition:gap .35s;}
@@ -3761,6 +3773,14 @@ function buildCustomCSS(c){
   return css;
 }
 
+const THEME_IMG_STYLE = {
+  "editorial-porcelain":"warm porcelain, cream and soft ivory tones with a muted oxblood accent, soft natural window light, understated film-like editorial luxury",
+  "noir":"dark and moody, low-key dramatic lighting, deep charcoal-black setting with warm gold accents, cinematic high-end luxury",
+  "warm-minimal":"soft airy sun-washed neutrals in oat, sand and warm clay tones, gentle natural light, calm organic minimal luxury",
+  "atelier":"timeless and classic, ivory and deep emerald-green tones with subtle brass, refined soft studio lighting, heritage luxury",
+  "gallery":"clean and architectural, neutral greige, stone and charcoal tones, crisp even lighting, minimal gallery-like editorial luxury"
+};
+
 const DEMO_SITE = {
   theme: "editorial-porcelain",
   brand: { name: "Maren & Wilde", nav: [{label:"Shop"},{label:"Ritual"},{label:"Journal"},{label:"Contact"}], footerNote: "© 2026 · Made in Portland" },
@@ -3775,6 +3795,13 @@ const DEMO_SITE = {
   credit: true
 };
 
+function navHref(label){
+  const l=(label||"").toLowerCase();
+  if(/contact|visit|book|enquir|reach|appointment|reserve|hello|find us/.test(l)) return "#s-contact";
+  if(/shop|store|product|menu|collection|service|work|portfolio|gallery|price|offer/.test(l)) return "#s-offerings";
+  if(/about|story|studio|ritual|philosophy|team|who|journal|approach|maker/.test(l)) return "#s-about";
+  return "#s-top";
+}
 function SiteRender({ site }) {
   const s = site || {};
   const brand = s.brand || {};
@@ -3784,15 +3811,16 @@ function SiteRender({ site }) {
     <div id="cg-site" data-theme={s.theme || "editorial-porcelain"}>
       <style dangerouslySetInnerHTML={{ __html: (THEME_CSS[s.theme] || SITE_CSS_EDITORIAL) }} />
       {s.custom && <style dangerouslySetInnerHTML={{ __html: buildCustomCSS(s.custom) }} />}
+      <style dangerouslySetInnerHTML={{ __html: "html{scroll-behavior:smooth;}#cg-site section{scroll-margin-top:84px;}" }} />
       <header>
         <div className="wrap nav">
           {brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand serif">{brand.name || "Your Brand"}</div>}
-          <nav className="menu">{(brand.nav || []).map((n,i)=><a key={i} href={n.href||"#"}>{n.label}</a>)}</nav>
+          <nav className="menu">{(brand.nav || []).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
         </div>
       </header>
       {sections.map((sec,i)=>{
         if(sec.type==="hero") return (
-          <section className="hero" key={i}>
+          <section className="hero" id="s-top" key={i}>
             <div className="hero-img" style={bg(sec.image)}></div>
             {!(sec.image&&sec.image.url)&&<span className="hero-cap">Hero imagery</span>}
             <div className="wrap hero-inner">
@@ -3804,7 +3832,7 @@ function SiteRender({ site }) {
           </section>
         );
         if(sec.type==="philosophy") return (
-          <section className="intro" key={i}>
+          <section className="intro" id="s-about" key={i}>
             <div className="wrap intro-grid">
               <div className="col-l">
                 {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
@@ -3818,7 +3846,7 @@ function SiteRender({ site }) {
           </section>
         );
         if(sec.type==="about") return (
-          <section className="about" key={i}>
+          <section className="about" id="s-story" key={i}>
             <div className="wrap about-grid">
               <div className="ph" style={bg(sec.image)}></div>
               <div>
@@ -3830,7 +3858,7 @@ function SiteRender({ site }) {
           </section>
         );
         if(sec.type==="offerings") return (
-          <section className="offer wrap" key={i}>
+          <section className="offer wrap" id="s-offerings" key={i}>
             <div className="offer-head">
               <div>
                 {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
@@ -3869,7 +3897,7 @@ function SiteRender({ site }) {
           </section>
         );
         if(sec.type==="contact") return (
-          <section className="contact" key={i}>
+          <section className="contact" id="s-contact" key={i}>
             <div className="wrap contact-grid">
               <div className="col-l">
                 {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
@@ -3887,7 +3915,7 @@ function SiteRender({ site }) {
       <footer className="foot">
         <div className="wrap">
           <div className="brand serif">{brand.name || "Your Brand"}</div>
-          <nav className="fnav">{(brand.nav || []).map((n,i)=><a key={i} href={n.href||"#"}>{n.label}</a>)}</nav>
+          <nav className="fnav">{(brand.nav || []).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
           <div className="fine">{brand.footerNote || ""}</div>
         </div>
         {s.credit!==false&&<div className="credit"><span>Built by Chelgy</span></div>}
