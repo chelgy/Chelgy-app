@@ -6286,10 +6286,10 @@ export default function ChelgyApp() {
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
     { target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." },
     { target: "learn", title: "Learn", body: "Marketing strategies and The Chelgy Edit blog. Tap any strategy for a step-by-step deep dive." },
-    { target: "tools", title: "Tools", body: "Your AI toolkit: image creator, video studio, the new Viral Video Generator, voiceovers, content writer, Grant Finder, and the Business Builder." },
+    { target: "tools", title: "Tools", body: "Your AI toolkit — build and publish a whole website with the Website Maker, launch your entire business with the Business Launch Package, plus create images, flyers, videos, ads, content, voiceovers, and more." },
     { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
     { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
-    { target: null, title: "You're all set! ✨", body: "That's the grand tour. Dive in wherever you like — and remember, help is always one tap away in your Profile." },
+    { target: null, chooser: true, title: "Where would you like to start?", body: "Pick one and I'll take you straight there — you can always explore the rest whenever you like." },
   ];
   function endTour() { try { localStorage.setItem("chelgy_tour_done", "1"); } catch(e){} setTourStep(null); setSpotRect(null); }
   function nextTour() { if (tourStep === null) return; if (tourStep >= TOUR_STEPS.length - 1) endTour(); else setTourStep(tourStep + 1); }
@@ -6300,6 +6300,13 @@ export default function ChelgyApp() {
     let done=false; try{ done=!!localStorage.getItem("chelgy_tour_done"); }catch(e){}
     if(!done) setTourStep(0);
   },[page,isAdmin]);
+  // First-run tour begins once the intake questionnaire AND the generated plan are dismissed
+  useEffect(()=>{
+    if(page!=="app"||isAdmin||showIntake||showPlan||tourStep!==null) return;
+    let intakeDone=false, tourDone=false;
+    try{ intakeDone=!!localStorage.getItem("chelgy_intake_done"); tourDone=!!localStorage.getItem("chelgy_tour_done"); }catch(e){}
+    if(intakeDone && !tourDone) setTourStep(0);
+  },[page,isAdmin,showIntake,showPlan,tourStep]);
   useEffect(()=>{
     if (page!=="app" || isAdmin || showIntake) return;
     let intakeDone=false; try{ intakeDone=!!localStorage.getItem("chelgy_intake_done"); }catch(e){}
@@ -6332,7 +6339,7 @@ export default function ChelgyApp() {
     try{ localStorage.setItem("chelgy_last_seen", String(now)); }catch(e){}
   },[page,isAdmin]);
   function completeIntake(d){
-    try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_tour_done","1"); localStorage.setItem("chelgy_last_greeting", todayStr()); } catch(e){}
+    try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_last_greeting", todayStr()); } catch(e){}
     setIntake(d);
     if(d.what && (!myBusiness)) setMyBusiness(d.what);
     if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { intake: d });
@@ -6377,7 +6384,8 @@ Before listing tools, write 2 to 4 warm, confident sentences that make this poin
 
 ## Your Chelgy toolkit
 For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on how to use it for that step. Only use tools from this list:
-- Business Launch Package (full website copy, brand strategy, social plan, launch roadmap)
+- Business Launch Package (builds their entire business — a complete published website, logo, brand strategy, social plan, and launch roadmap)
+- Website Maker (writes and publishes a complete, ready-to-share website for their business)
 - AI Image Creator (logos, flyers, social graphics, product images)
 - AI Video Studio & Viral Video Generator (video scripts, viral ideas, AI video)
 - Ad Campaign Builder (ad copy, targeting, budget for Facebook/Instagram/TikTok)
@@ -6405,7 +6413,7 @@ Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no 
 `Based on this member's situation, list their 6 most important "big tasks" to grow toward their #1 goal, in priority order (highest impact first).
 Member: ${stage}; business/idea: ${d.what||"n/a"}; field: ${d.field||"n/a"}; location: ${d.location||"n/a"}; already has: ${haveStr}; #1 goal: ${d.goal||"n/a"}; biggest challenge: ${d.challenge||"n/a"}; hours/week: ${d.hours||"n/a"}.
 For each task also pick the single best Chelgy tool to accomplish it, by its id, or "" if none fits. Tool ids:
-launch = full website copy/brand/launch plan; images = make logos, flyers, graphics, product photos; video = video scripts & AI video; viral = viral video ideas; ads = paid ad campaigns; audit = scan presence & competitors; voiceover = voiceovers; business = stage-by-stage plan + AI coach; grants = find funding; content = write posts/captions/emails/blogs; dropshipping = find suppliers; platforms = set up Google Business & social profiles.
+launch = build the whole business (published website + logo + brand + social + launch plan); website = write & publish a complete website; images = make logos, flyers, graphics, product photos; video = video scripts & AI video; viral = viral video ideas; ads = paid ad campaigns; audit = scan presence & competitors; voiceover = voiceovers; business = stage-by-stage plan + AI coach; grants = find funding; content = write posts/captions/emails/blogs; dropshipping = find suppliers; platforms = set up Google Business & social profiles.
 Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item: {"title": short action under 9 words, "detail": one sentence on how or why, "time": estimate like "15 min" or "1 hour", "impact": integer 1-5, "tool": one tool id from the list or ""}.`;
     const raw = await callClaude(prompt, 1800, false);
     let tasks = [];
@@ -6716,7 +6724,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       "- Week 4: Growth (specific tasks)\n" +
       "- First 3 months milestones\n" +
       "- Key metrics to track\n" +
-      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
+      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Business Launch Package to build their entire business at once (a complete published website, logo, brand, social plan and launch roadmap) and the Website Maker to build and publish their website; the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
       "Make everything specific to THIS business. No generic advice. Real, usable copy they can implement immediately."
 
     const result = await callClaude(prompt, 8000);
@@ -8840,7 +8848,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>All your AI-powered business tools in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Fill out a form about your business and get a complete website copy, brand strategy, social media plan, and launch roadmap — powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Maker",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Maker",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -9400,6 +9408,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   )}
                 </div>
+                <div style={{background:B.white,padding:"26px"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>New here?</div>
+                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 14px",lineHeight:1.6}}>Take the quick guided tour again — it ends by pointing you to the right tool for whatever you want to do next.</p>
+                  <button onClick={()=>{ try{localStorage.removeItem("chelgy_tour_done");}catch(e){} goTab("home","feed"); setTourStep(0); }} style={{background:"none",border:"1px solid "+B.charcoal,padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.charcoal,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700}}>Replay the tour</button>
+                </div>
               </div>
             </div>
           )}
@@ -9482,10 +9495,18 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           ) : (
             <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.74)",zIndex:9991}} />
           )}
-          <div style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:BOT_H+24,width:"min(360px, calc(100% - 32px))",background:B.white,zIndex:9992,padding:"22px",boxShadow:"0 8px 30px rgba(0,0,0,0.3)"}}>
+          <div style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:BOT_H+24,width:"min(360px, calc(100% - 32px))",maxHeight:"72vh",overflowY:"auto",background:B.white,zIndex:9992,padding:"22px",boxShadow:"0 8px 30px rgba(0,0,0,0.3)"}}>
             <div style={{width:24,height:1,background:B.gold,marginBottom:12}} />
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:400,marginBottom:8,color:B.charcoal}}>{step.title}</div>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>{step.body}</p>
+            {step.chooser ? (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[{e:"🚀",l:"Build my entire business",go:()=>{endTour();openTool("launch");}},{e:"🌐",l:"Build my website",go:()=>{endTour();openTool("website");}},{e:"🎨",l:"Make flyers & social graphics",go:()=>{endTour();openTool("images");}},{e:"📣",l:"Run ads to get customers",go:()=>{endTour();openTool("ads");}},{e:"🧭",l:"Explore all the tools",go:()=>{endTour();goTab("tools","hub");}}].map((o,i)=>(
+                  <button key={i} onClick={o.go} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.stone,cursor:"pointer",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,padding:"12px 14px",letterSpacing:"0.01em"}}><span style={{fontSize:16,lineHeight:1}}>{o.e}</span>{o.l}</button>
+                ))}
+                <button onClick={endTour} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:"6px 0 0",letterSpacing:"0.06em"}}>Skip for now</button>
+              </div>
+            ) : (
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
               <button onClick={endTour} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.06em"}}>Exit tour</button>
               <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.1em"}}>{tourStep+1} / {TOUR_STEPS.length}</span>
@@ -9494,6 +9515,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <button onClick={nextTour} style={{background:B.charcoal,border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:"#fff",padding:"7px 14px",letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase"}}>{last?"Done":"Next"}</button>
               </div>
             </div>
+            )}
           </div>
         </div>
       ); })()}
