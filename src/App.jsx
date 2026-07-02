@@ -6166,9 +6166,9 @@ export default function ChelgyApp() {
   const [tab, setTab] = useState(()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); return ["home","learn","tools","community","profile"].includes(seg)?seg:"home"; }catch(e){ return "home"; } });  // home | learn | tools | community | profile
   const [profileView,setProfileView]=useState("main");
   useEffect(()=>{ try{ const path=tab==="home"?"/":("/"+tab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab]);
-  useEffect(()=>{ const h=()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); setTab(["home","learn","tools","community","profile"].includes(seg)?seg:"home"); }catch(e){} }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
+  useEffect(()=>{ const h=()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); const t=["home","learn","tools","community","profile"].includes(seg)?seg:"home"; setTab(t); setSubTab(({home:"feed",learn:"strategies",tools:"hub",community:"forum",profile:"overview"})[t]||"feed"); }catch(e){} }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
   useEffect(()=>{ if(tab!=="profile") setProfileView("main"); },[tab]);
-  const [subTab, setSubTab] = useState("feed"); // varies per tab
+  const [subTab, setSubTab] = useState(()=>{ try{ const seg=window.location.pathname.replace(/^\/+|\/+$/g,"").split("/")[0].toLowerCase(); return ({home:"feed",learn:"strategies",tools:"hub",community:"forum",profile:"overview"})[seg]||"feed"; }catch(e){ return "feed"; } }); // varies per tab
   const [libraryItems, setLibraryItems] = useState([]);
   const [libLoading, setLibLoading] = useState(false);
   const [mkStrat, setMkStrat] = useState(null);
