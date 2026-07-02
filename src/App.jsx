@@ -1084,6 +1084,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
+  const [edTab,setEdTab]=useState("business"); const [edFields,setEdFields]=useState({details:[]});
   const [edDomain,setEdDomain]=useState(""); const [edDomainDns,setEdDomainDns]=useState(null); const [edDomainMsg,setEdDomainMsg]=useState(""); const [edDomainLoad,setEdDomainLoad]=useState(false);
   async function connectDomain(){
     const d=(edDomain||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
@@ -1149,7 +1150,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       setWmExisting(x=>({ ...x, data })); setWmPreview(p=>p+1);
     }catch(e){ setWmErr("Couldn't save the look — please try again."); }
   }
-  function siteSlots(){ const out=[]; const secs=(wmExisting&&wmExisting.data&&wmExisting.data.sections)||[]; secs.forEach(s=>{ if(s.type==="hero")out.push(["hero","Hero image (top of site)"]); if(s.type==="about")out.push(["about","About photo"]); if(s.type==="editorial")out.push(["editorial","Feature image"]); if(s.type==="offerings"&&Array.isArray(s.items))s.items.forEach((it,i)=>out.push(["offering-"+i,"Product "+(i+1)+(it.name?" — "+it.name:"")])); }); return out; }
+  function siteSlots(){ const out=[]; const secs=(wmExisting&&wmExisting.data&&wmExisting.data.sections)||[]; secs.forEach(s=>{ if(s.type==="hero")out.push(["hero","Hero image (top of site)"]); if(s.type==="about")out.push(["about","About photo"]); if(s.type==="editorial")out.push(["editorial","Feature image"]); if(s.type==="offerings"&&Array.isArray(s.items))s.items.forEach((it,i)=>out.push(["offering-"+i,(it.name?it.name:("Item "+(i+1)))])); }); return out; }
   async function changeEditorTheme(themeId){
     if(!wmExisting) return;
     try{
@@ -1170,6 +1171,31 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       if(!up.ok){ setWmErr("Couldn't remove that — please try again."); return; }
       setWmExisting(x=>({ ...x, data })); setWmPreview(p=>p+1);
     }catch(e){ setWmErr("Couldn't remove that — please try again."); }
+  }
+  async function saveData(nextData){
+    if(!wmExisting) return false; setWmErr("");
+    try{
+      const tok=await freshToken(); if(!tok){ setWmErr("Your session expired — please log in again."); return false; }
+      const up=await fetch(SUPABASE_URL+"/rest/v1/websites?id=eq."+wmExisting.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ data:nextData, updated_at:new Date().toISOString() }) });
+      if(!up.ok){ setWmErr("Couldn't save — please try again."); return false; }
+      setWmExisting(x=>({ ...x, data:nextData })); setWmPreview(pv=>pv+1); setWmEditNote("Saved. Refresh your site link to see it."); return true;
+    }catch(e){ setWmErr("Couldn't save — please try again."); return false; }
+  }
+  async function saveBusinessInfo(){
+    const d=JSON.parse(JSON.stringify(wmExisting.data||{}));
+    d.brand=d.brand||{}; if(edFields.name!==undefined) d.brand.name=edFields.name;
+    const idx=t=>(d.sections||[]).findIndex(x=>x&&x.type===t);
+    const hi=idx("hero"); if(hi>=0){ d.sections[hi].headline=edFields.headline; d.sections[hi].sub=edFields.sub; }
+    const ai=idx("about"); if(ai>=0){ d.sections[ai].heading=edFields.aboutHeading; d.sections[ai].body=[edFields.aboutBody]; }
+    await saveData(d);
+  }
+  async function saveContactInfo(){
+    const d=JSON.parse(JSON.stringify(wmExisting.data||{}));
+    const rows=(edFields.details||[]).filter(r=>(r.k&&r.k.trim())||(r.v&&r.v.trim())).map(r=>({k:r.k,v:r.v}));
+    const ci=(d.sections||[]).findIndex(x=>x&&x.type==="contact");
+    if(ci>=0){ if(edFields.cHeading) d.sections[ci].heading=edFields.cHeading; d.sections[ci].details=rows; }
+    else { d.sections=d.sections||[]; d.sections.push({type:"contact",eyebrow:"Contact",heading:edFields.cHeading||"Get in touch",headingEm:"",details:rows,cta:{label:"Get in touch"}}); }
+    await saveData(d);
   }
   async function addEditorImage(){
     if(!edImgData||!wmExisting) return;
@@ -1266,6 +1292,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
   useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
+  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
@@ -1585,6 +1612,41 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Refreshes automatically after each change.</div>
           </div>
 
+          <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
+            {[["business","Business"],["contact","Contact"],["products","Products"],["photos","Photos"],["design","Theme"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+              <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
+            ))}
+          </div>
+          {edTab==="business"&&<div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:12}}>Business info</div>
+            <div style={wmLbl}>Business name</div>
+            <input value={edFields.name||""} onChange={e=>setEdFields(f=>({...f,name:e.target.value}))} style={wmInp} />
+            <div style={wmLbl}>Headline</div>
+            <input value={edFields.headline||""} onChange={e=>setEdFields(f=>({...f,headline:e.target.value}))} style={wmInp} />
+            <div style={wmLbl}>Sub-headline</div>
+            <input value={edFields.sub||""} onChange={e=>setEdFields(f=>({...f,sub:e.target.value}))} style={wmInp} />
+            <div style={wmLbl}>About heading</div>
+            <input value={edFields.aboutHeading||""} onChange={e=>setEdFields(f=>({...f,aboutHeading:e.target.value}))} style={wmInp} />
+            <div style={wmLbl}>About / your story</div>
+            <textarea value={edFields.aboutBody||""} onChange={e=>setEdFields(f=>({...f,aboutBody:e.target.value}))} rows={4} style={wmTa} />
+            <Btn dark small onClick={saveBusinessInfo}>Save business info</Btn>
+          </div>}
+          {edTab==="contact"&&<div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Contact info</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>What your customers see so they can reach you — phone, email, address, hours.</p>
+            <div style={wmLbl}>Section heading</div>
+            <input value={edFields.cHeading||""} onChange={e=>setEdFields(f=>({...f,cHeading:e.target.value}))} placeholder="e.g. Get in touch" style={wmInp} />
+            {(edFields.details||[]).map((r,i)=>(
+              <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+                <input value={r.k||""} onChange={e=>setEdFields(f=>({...f,details:(f.details||[]).map((x,j)=>j===i?{...x,k:e.target.value}:x)}))} placeholder="Label" style={{width:"32%",padding:"10px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                <input value={r.v||""} onChange={e=>setEdFields(f=>({...f,details:(f.details||[]).map((x,j)=>j===i?{...x,v:e.target.value}:x)}))} placeholder="e.g. (555) 123-4567" style={{flex:1,padding:"10px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                <button onClick={()=>setEdFields(f=>({...f,details:(f.details||[]).filter((_,j)=>j!==i)}))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"8px 12px",fontFamily:"sans-serif",fontSize:15,cursor:"pointer",lineHeight:1}}>×</button>
+              </div>
+            ))}
+            <button onClick={()=>setEdFields(f=>({...f,details:[...(f.details||[]),{k:"",v:""}]}))} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.06em",fontWeight:700,cursor:"pointer",marginBottom:16,display:"block"}}>+ Add a row</button>
+            <Btn dark small onClick={saveContactInfo}>Save contact info</Btn>
+          </div>}
+          {edTab==="design"&&<div>
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Theme</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -1593,6 +1655,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch your theme anytime — each one changes the whole look, fonts, and colours.</div>
           </div>
 
+          </div>}
+          {edTab==="products"&&<div>
           {(()=>{ const off=(wmExisting.data.sections||[]).find(x=>x&&x.type==="offerings"); const items=(off&&off.items)||[]; if(!items.length) return null; return (
             <div style={{marginBottom:24}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Your products / services</div>
@@ -1605,6 +1669,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6,lineHeight:1.5}}>To add one, use the chat below — e.g. &quot;Add a product called Body Oil for $52&quot;.</div>
             </div>
           ); })()}
+          </div>}
+          {edTab==="refine"&&<div>
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
           <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>This chat changes your <strong>words &amp; sections</strong> — headline, story, products, prices, contact, and adding, removing, or reordering sections. For example: "Make the headline punchier," "Add a product called Body Oil for $52," "Change my hours to Mon–Fri," "Remove the testimonial."</p>
           <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>To change <strong>colours &amp; fonts</strong>, switch your <strong>Theme</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
@@ -1615,6 +1681,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
           {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:12,lineHeight:1.5}}>{wmErr}</div>}
           {wmEditNote&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,marginTop:12,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.gold,padding:"10px 12px"}}>{wmEditNote}</div>}
+          </div>}
+          {edTab==="photos"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Add or replace a photo</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Upload a product or work photo and choose where it goes. Flip the polish on and Chelgy makes it studio-quality.</p>
@@ -1643,7 +1711,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Paste a checkout link for any product and it gets a <strong>Buy</strong> button. Easiest way: in your <strong>Stripe</strong> dashboard, create a <strong>Payment Link</strong> for the product, copy it, and paste it here — the money goes straight to your Stripe. (Any store link works too — Etsy, Shopify, etc.)</p>
               {items.map((it,i)=>(
                 <div key={i} style={{marginBottom:10}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,marginBottom:4}}>{it.name||("Product "+(i+1))}{it.price?" · "+it.price:""}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,marginBottom:4}}>{it.name||("Item "+(i+1))}{it.price?" · "+it.price:""}</div>
                   <input value={edLinks[i]||""} onChange={e=>setEdLinks(m=>({...m,[i]:e.target.value}))} placeholder="https://buy.stripe.com/…" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
                 </div>
               ))}
@@ -1651,6 +1719,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>
           ); })()}
 
+          </div>}
+          {edTab==="domain"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Your domain</div>
             {wmExisting.domain
@@ -1673,6 +1743,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>}
           </div>
 
+          </div>}
           {wmEditLog.length>0&&<div style={{marginTop:20}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Recent changes</div>
             {wmEditLog.map((c,i)=><div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"8px 0",borderTop:"1px solid "+B.stone}}>✓ {c}</div>)}
@@ -1706,7 +1777,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {wmStep===3&&<div>
             <div style={wmLbl}>Your {wmKind==="products"?"products":(wmKind==="both"?"products & services":"services")} · list them</div>
             <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={5} style={wmTa} />
-            <div style={wmLbl}>Product / work photos <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>{wmKind==="services"?"Photos":"Product / work photos"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{marginBottom:12}}>
               {wmPhotos.map((p,idx)=>(
                 <div key={idx} style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:8,position:"relative"}}>
@@ -1720,9 +1791,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                   <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
                 </div>
               ))}
-              {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Add a product / work photo<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
+              {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>{wmKind==="services"?"+ Add a photo":"+ Add a product / work photo"}<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
             </div>
-            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Add a photo for each product if you can. Services can just be listed. Anything you skip, Chelgy fills with matching AI imagery.</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>{wmKind==="services"?"Add photos to showcase your work. ":"Add a photo for each product if you can. Services can just be listed. "}Anything you skip, Chelgy fills with matching AI imagery.</div>
           </div>}
 
           {wmStep===4&&<div>
