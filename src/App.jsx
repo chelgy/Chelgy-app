@@ -1252,9 +1252,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }
     onPrefillDone();
   }, [prefill, tool]);
-  useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild, wmName, wmDesc]);
-  useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun, iBiz, iType]);
-  useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun, adBiz]);
+  useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
+  useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
+  useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
