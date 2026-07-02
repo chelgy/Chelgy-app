@@ -1029,7 +1029,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
-  const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false);
+  const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0);
   useEffect(()=>{
     if(tool!=="website"||!user||!user.id) return;
     let cancel=false;
@@ -1049,7 +1049,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     try{
       const cur = JSON.stringify(wmExisting.data);
       const prompt = "You are editing a published luxury website that is stored as JSON. Apply ONLY the change the owner asks for and return the COMPLETE updated JSON (identical schema). Do not change anything they didn't ask about. CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY as-is — never remove, invent, or alter image urls. Keep all copy in the same upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nReturn ONLY the updated JSON object — no markdown, no commentary.";
-      const raw = await callClaude(prompt, 4000);
+      const raw = await callClaude(prompt, 8000);
       let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1);
       let updated; try{ updated=JSON.parse(t); }catch(pe){ throw new Error("That edit didn't come back cleanly — try rephrasing it."); }
@@ -1061,6 +1061,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       setWmExisting(x=>({ ...x, data:updated }));
       setWmEditLog(l=>[wmEdit.trim(), ...l].slice(0,8));
       setWmEdit("");
+      setWmPreview(p=>p+1);
     }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong — please try again."); }
     setWmEditLoad(false);
   }
@@ -1073,7 +1074,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     try{
       const schema = '{"theme":string (choose exactly one best fit: editorial-porcelain = classic/boutique/beauty/editorial; noir = dark & dramatic for restaurants, nightlife, fashion, barbers, bold brands; warm-minimal = soft, airy, calm for wellness, ceramics, cafes, makers; atelier = timeless & classic for jewelry, tailors, law, consulting, heritage; gallery = image-forward & minimal for photographers, designers, architects, real estate),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
-      const raw = await callClaude(prompt, 4000);
+      const raw = await callClaude(prompt, 8000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const first = jsonText.indexOf("{"); const last = jsonText.lastIndexOf("}");
       if(first>=0&&last>first) jsonText = jsonText.slice(first,last+1);
@@ -1355,6 +1356,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               <a href={window.location.origin+"/?site="+wmExisting.slug} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
               <button onClick={()=>{try{navigator.clipboard.writeText(window.location.origin+"/?site="+wmExisting.slug);}catch(e){}}} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
             </div>
+          </div>
+
+          <div style={{marginBottom:22}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Live preview</div>
+            <div style={{border:"1px solid "+B.stone,background:"#fff",height:520,overflow:"hidden"}}>
+              <iframe key={wmPreview} title="Site preview" src={window.location.origin+"/?site="+wmExisting.slug} style={{width:"100%",height:"100%",border:"none"}} />
+            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Refreshes automatically after each change.</div>
           </div>
 
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
