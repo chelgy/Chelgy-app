@@ -1330,6 +1330,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   // standard image (120 cr) per section and offering, minus any photos the user
   // uploads (those replace AI images), capped at the 20-image ceiling, plus any
   // "pro" photo enhancements. Kept in sync with the actual build loop below.
+  const WM_HARD_CAP = 2500; // a build can never spend more than this (≈20 images @120)
   function wmEstimate(){
     const IMG = CREDIT_COSTS.image; // 120
     const offCount = (wmOfferings||"").split(/\n/).map(s=>s.trim()).filter(Boolean).length || 5;
@@ -1339,7 +1340,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     aiImgs = Math.min(aiImgs, 20);
     const proCount = ((wmPhotos||[]).filter(p=>p&&p.pro)).length;
     const logoCost = wmLogo ? 0 : IMG;
-    return aiImgs*IMG + proCount*IMG + logoCost;
+    return Math.min(WM_HARD_CAP, aiImgs*IMG + proCount*IMG + logoCost);
   }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
@@ -1364,19 +1365,19 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       // Upload any photos the person provided, then place them into the site
       setWmStage("Adding your photos…");
       const uid = user.id;
-      let logoUrl=null, selfUrl=null; const photoUrls=[];
+      let logoUrl=null, selfUrl=null, spent=0; const photoUrls=[];
       try{ if(wmLogo){ logoUrl = await uploadSiteImage(wmLogo, uid+"/logo-"+Date.now()+".png"); } }catch(e){}
-      if(!logoUrl){ setWmStage("Designing your logo…"); try{ const lp="A clean, minimal, modern logo for "+wmName+(wmDesc?(", "+wmDesc):"")+(wmTone.trim()?(". Style: "+wmTone.trim()):"")+". A simple elegant wordmark or a tasteful symbol, crisp and high-contrast, perfectly centered, isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no photo, no scene). No tagline, no extra text."; const lr=await generateOpenAIImage(lp, null, "1:1", "standard", "transparent"); if(lr&&lr.image){ if(typeof lr.balance==="number") onBalance(lr.balance); const lu=await uploadSiteImage(lr.image, uid+"/logo-"+Date.now()+".png"); if(lu){ logoUrl=lu; try{ doSaveMedia("logo",(wmName||"Brand")+" Logo",lu); }catch(e){} try{ onBrandProgress("logo"); }catch(e){} } } }catch(e){} }
+      if(!logoUrl && spent + CREDIT_COSTS.image <= WM_HARD_CAP){ setWmStage("Designing your logo…"); try{ const lp="A clean, minimal, modern logo for "+wmName+(wmDesc?(", "+wmDesc):"")+(wmTone.trim()?(". Style: "+wmTone.trim()):"")+". A simple elegant wordmark or a tasteful symbol, crisp and high-contrast, perfectly centered, isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no photo, no scene). No tagline, no extra text."; const lr=await generateOpenAIImage(lp, null, "1:1", "standard", "transparent"); if(lr&&lr.image){ spent += CREDIT_COSTS.image; if(typeof lr.balance==="number") onBalance(lr.balance); const lu=await uploadSiteImage(lr.image, uid+"/logo-"+Date.now()+".png"); if(lu){ logoUrl=lu; try{ doSaveMedia("logo",(wmName||"Brand")+" Logo",lu); }catch(e){} try{ onBrandProgress("logo"); }catch(e){} } } }catch(e){} }
       try{ if(wmSelf){ selfUrl = await uploadSiteImage(wmSelf, uid+"/about-"+Date.now()+".png"); } }catch(e){}
       for(const ph of wmPhotos){
         try{
           let dataUrl = (ph && ph.data) ? ph.data : ph;
-          if(ph && ph.pro && ph.data){
+          if(ph && ph.pro && ph.data && spent + CREDIT_COSTS.image <= WM_HARD_CAP){
             setWmStage("Polishing your photos…");
             const desc = (ph.use||"the item").trim();
             const isApparel = /(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
             const proPrompt = "Re-create this as professional, editorial catalogue photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Set and light it to match this mood and palette: "+themeStyle+" (keep the real product and subject true to the uploaded photo — if a person is shown, preserve their likeness). No text, no words, no logos.";
-            try{ const r=await generateGeminiImage(proPrompt, ph.data, "1:1", "standard"); if(r&&r.image){ dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
+            try{ const r=await generateGeminiImage(proPrompt, ph.data, "1:1", "standard"); if(r&&r.image){ spent += CREDIT_COSTS.image; dataUrl=r.image; if(typeof r.balance==="number") onBalance(r.balance); } }catch(e){}
           }
           const u=await uploadSiteImage(dataUrl, uid+"/photo-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) photoUrls.push(u);
         }catch(e){}
@@ -1386,7 +1387,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const dna = (site.styleDNA?String(site.styleDNA)+" ":"") + themeStyle + (wmTone.trim()?(" Overall vibe: "+wmTone.trim()+"."):"");
       const IMGX = " — One cohesive brand shoot: every image shares the same palette, lighting, photographic style and finish. "+dna+" No text, no words, no logos, no watermarks.";
       let gens=0; const MAXGEN=20;
-      async function genImg(promptText, ar){ if(gens>=MAXGEN) return null; gens++; try{ const r=await generateGeminiImage(String(promptText)+IMGX, null, ar||"4:5", "standard"); if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, uid+"/img-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); return u||null; } }catch(e){} return null; }
+      async function genImg(promptText, ar){ if(gens>=MAXGEN || spent + CREDIT_COSTS.image > WM_HARD_CAP) return null; gens++; try{ const r=await generateGeminiImage(String(promptText)+IMGX, null, ar||"4:5", "standard"); if(r&&r.image){ spent += CREDIT_COSTS.image; if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, uid+"/img-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); return u||null; } }catch(e){} return null; }
       const hasUrl=im=>!!(im&&im.url&&String(im.url).indexOf("http")===0);
       // 1) Place any uploaded work photos first — they take priority over AI
       const q = [...photoUrls];
