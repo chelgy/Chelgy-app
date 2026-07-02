@@ -1028,13 +1028,15 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("editorial-porcelain");
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
+  const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
+  function wmRead(file,cb){ if(!file) return; const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsDataURL(file); }
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
+      const schema = '{"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business)},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service)}] (exactly 3)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail)},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (2-3 rows: address, email, hours),"cta":{"label":string}}],"credit":true}';
       const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":"service business")+(wmOfferings.trim()?("\nKEY OFFERINGS (use these for the 3 offering items):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 4000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
@@ -1044,6 +1046,22 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
       site.theme = wmTheme; if(site.credit===undefined) site.credit = true;
+      // Upload any photos the person provided, then place them into the site
+      setWmStage("Adding your photos…");
+      const uid = user.id;
+      let logoUrl=null, selfUrl=null; const photoUrls=[];
+      try{ if(wmLogo){ logoUrl = await uploadSiteImage(wmLogo, uid+"/logo-"+Date.now()+".png"); } }catch(e){}
+      try{ if(wmSelf){ selfUrl = await uploadSiteImage(wmSelf, uid+"/about-"+Date.now()+".png"); } }catch(e){}
+      for(const ph of wmPhotos){ try{ const u=await uploadSiteImage(ph, uid+"/photo-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) photoUrls.push(u); }catch(e){} }
+      if(logoUrl){ site.brand = site.brand||{}; site.brand.logo = logoUrl; }
+      // About section: keep it only if there's a photo of the person; attach it
+      const aboutIdx = site.sections.findIndex(x=>x&&x.type==="about");
+      if(aboutIdx>=0){ if(selfUrl){ site.sections[aboutIdx].image = { url:selfUrl }; } else { site.sections.splice(aboutIdx,1); } }
+      // Distribute business/work photos: product cards first, then editorial, then hero
+      const q = [...photoUrls];
+      const offSec = site.sections.find(x=>x&&x.type==="offerings"); if(offSec && Array.isArray(offSec.items)){ offSec.items.forEach(it=>{ if(q.length) it.image = { url:q.shift() }; }); }
+      const edSec = site.sections.find(x=>x&&x.type==="editorial"); if(edSec && q.length){ edSec.image = { url:q.shift() }; }
+      const heroUp = site.sections.find(x=>x&&x.type==="hero"); if(heroUp && q.length){ heroUp.image = { url:q.shift() }; }
       // Generate a real hero image (best-effort — the site still publishes if this fails)
       setWmStage("Creating your hero image…");
       try{
@@ -1316,6 +1334,23 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Contact details <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
           <textarea value={wmContact} onChange={e=>setWmContact(e.target.value)} placeholder={"Address, email, hours — whatever you'd like shown.\nWe'll use tasteful placeholders if you skip this."} rows={2} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:22,resize:"vertical",lineHeight:1.5}} />
+
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Your photos <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div>{wmLogo
+              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:84}}><img src={wmLogo} alt="logo" style={{maxHeight:66,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:84,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
+            <div>{wmSelf
+              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:84}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:84,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for About)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+            {wmPhotos.map((p,idx)=>(
+              <div key={idx} style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff"}}><img src={p} alt="" style={{width:64,height:64,objectFit:"cover",display:"block"}} /><button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+            ))}
+            {wmPhotos.length<4&&<label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",width:64,height:64,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.goldDark,textAlign:"center"}}>+ Work<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,4-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,d].slice(0,4)))); }} style={{display:"none"}} /></label>}
+          </div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:22,lineHeight:1.55}}>Optional. Your logo goes in the header, your photo into an About section, and business/work photos fill product and feature spots. Anything you skip, Chelgy fills with AI imagery.</div>
 
           <Btn dark disabled={wmLoad} onClick={act(genWebsite)}>{wmLoad?(wmStage||"Working…"):"Build My Website"}</Btn>
           {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:14,lineHeight:1.5}}>{wmErr}</div>}
@@ -3160,6 +3195,14 @@ const SITE_CSS_EDITORIAL = `
 #cg-site .foot .fine{font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;color:rgba(237,230,217,0.35);}
 #cg-site .credit{text-align:center;padding:16px 0 24px;border-top:1px solid rgba(237,230,217,0.12);}
 #cg-site .credit span{font-family:var(--body);font-size:0.58rem;letter-spacing:0.24em;text-transform:uppercase;color:rgba(237,230,217,0.4);}
+#cg-site .brandlogo{height:38px;width:auto;max-width:190px;display:block;object-fit:contain;}
+#cg-site .about{padding:clamp(70px,12vh,150px) 0;}
+#cg-site .about-grid{display:grid;grid-template-columns:0.9fr 1.1fr;gap:clamp(40px,7vw,100px);align-items:center;}
+#cg-site .about .ph{aspect-ratio:4/5;background:radial-gradient(110% 90% at 40% 25%,#D4C6B2 0%,#B7A48D 60%,#94826C 100%);background-size:cover;background-position:center;}
+#cg-site .about h2{font-family:var(--display);font-weight:400;font-size:clamp(1.8rem,4vw,3rem);line-height:1.14;margin:14px 0 20px;letter-spacing:-0.01em;}
+#cg-site .about h2 em{color:var(--accent);}
+#cg-site .about p{color:var(--mid);font-size:1.02rem;margin:0 0 16px;}
+@media (max-width:820px){#cg-site .about-grid{grid-template-columns:1fr;gap:30px;}#cg-site .about .ph{aspect-ratio:4/3;}}
 @media (max-width:820px){#cg-site .menu{display:none;}#cg-site .intro-grid{grid-template-columns:1fr;gap:34px;}#cg-site .cards{grid-template-columns:1fr;gap:30px;}#cg-site .card .ph{aspect-ratio:4/3;}#cg-site .contact-grid{grid-template-columns:1fr;gap:30px;}#cg-site .hero h1{max-width:100%;}}
 `;
 
@@ -3187,7 +3230,7 @@ function SiteRender({ site }) {
       <style dangerouslySetInnerHTML={{ __html: SITE_CSS_EDITORIAL }} />
       <header>
         <div className="wrap nav">
-          <div className="brand serif">{brand.name || "Your Brand"}</div>
+          {brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand serif">{brand.name || "Your Brand"}</div>}
           <nav className="menu">{(brand.nav || []).map((n,i)=><a key={i} href={n.href||"#"}>{n.label}</a>)}</nav>
         </div>
       </header>
@@ -3213,6 +3256,18 @@ function SiteRender({ site }) {
               </div>
               <div className="col-r">
                 <div className="rule" style={{marginBottom:22}}></div>
+                {(sec.body||[]).map((p,j)=><p key={j}>{p}</p>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="about") return (
+          <section className="about" key={i}>
+            <div className="wrap about-grid">
+              <div className="ph" style={bg(sec.image)}></div>
+              <div>
+                {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+                <h2>{sec.heading}{sec.headingEm&&<em>{" "+sec.headingEm}</em>}</h2>
                 {(sec.body||[]).map((p,j)=><p key={j}>{p}</p>)}
               </div>
             </div>
