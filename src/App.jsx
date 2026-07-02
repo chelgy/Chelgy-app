@@ -1072,13 +1072,13 @@ function ShareBar({ url, title, text, file, filename }){
   );
 }
 
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{} }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Maker state ──
   const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
-  const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState("");
+  const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState(""); const [wmAutoBuild,setWmAutoBuild]=useState(false);
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
   const [wmExisting,setWmExisting]=useState(null); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
@@ -1236,6 +1236,23 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const wmLbl={fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"};
   const wmInp={width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18};
   const wmTa={width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:18,resize:"vertical",lineHeight:1.5};
+  useEffect(()=>{
+    if(!prefill || prefill.tool!==tool) return;
+    const d=prefill.data||{};
+    if(tool==="website"){
+      if(d.name!==undefined)setWmName(d.name); if(d.desc!==undefined)setWmDesc(d.desc);
+      if(d.kind)setWmKind(d.kind); if(d.offerings!==undefined)setWmOfferings(d.offerings);
+      if(d.contact!==undefined)setWmContact(d.contact); if(d.audience!==undefined)setWmAudience(d.audience);
+      if(d.diff!==undefined)setWmDiff(d.diff); if(d.tone!==undefined)setWmTone(d.tone);
+      setWmStep(5); if(prefill.auto) setWmAutoBuild(true);
+    } else if(tool==="images"){
+      if(d.iType)setIType(d.iType); if(d.iBiz!==undefined)setIBiz(d.iBiz); if(d.ipwIdea!==undefined)setIpwIdea(d.ipwIdea);
+    } else if(tool==="ads"){
+      if(d.adBiz!==undefined)setAdBiz(d.adBiz); if(d.adProduct!==undefined)setAdProduct(d.adProduct); if(d.adCity!==undefined)setAdCity(d.adCity); if(d.adGoal)setAdGoal(d.adGoal); if(d.adPlat)setAdPlat(d.adPlat);
+    }
+    onPrefillDone();
+  }, [prefill, tool]);
+  useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild, wmName, wmDesc]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
@@ -6421,6 +6438,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [launchResult, setLaunchResult] = useState(null);
   const [launchLoading, setLaunchLoading] = useState(false);
   const [launchSection, setLaunchSection] = useState("website");
+  const [prefill, setPrefill] = useState(null);
 
   async function generateLaunchPackage() {
     track("launch_package_generated", {biz_type:launchData.bizType, niche:launchData.niche});
@@ -8608,7 +8626,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} />
+              <ToolsPage tool={subTab} onBack={()=>setSubTab("hub")} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} />
             </div>
           )}
 
@@ -8734,6 +8752,17 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   </div>
                   <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
                     This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
+                  </div>
+                  <div style={{background:B.charcoal,padding:"22px 20px",marginTop:14}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Bring your brand to life</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Turn this into the real thing</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:16}}>Chelgy can draft your website, logo, and ads straight from these answers — then you refine.</div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      <button onClick={()=>{ setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✨ Draft my website</button>
+                      <button onClick={()=>{ setPrefill({tool:"images",auto:false,data:{iType:"logo",iBiz:launchData.bizName,ipwIdea:"A minimal, elegant logo for "+launchData.bizName+(launchData.bizType?(", "+launchData.bizType):"")+(launchData.tone?(". Style: "+launchData.tone):"")+(launchData.colors?(". Colors: "+launchData.colors):"")}}); setSubTab("images"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Create my logo</button>
+                      <button onClick={()=>{ setPrefill({tool:"ads",auto:false,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Build my ads</button>
+                      <button onClick={()=>setSubTab("hub")} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
+                    </div>
                   </div>
                   <Upsell variant="both" />
                 </div>
