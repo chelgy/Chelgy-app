@@ -1326,9 +1326,26 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
   useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
+  // Estimated credit cost of a build — a logo (unless one is uploaded) plus one
+  // standard image (120 cr) per section and offering, minus any photos the user
+  // uploads (those replace AI images), capped at the 20-image ceiling, plus any
+  // "pro" photo enhancements. Kept in sync with the actual build loop below.
+  function wmEstimate(){
+    const IMG = CREDIT_COSTS.image; // 120
+    const offCount = (wmOfferings||"").split(/\n/).map(s=>s.trim()).filter(Boolean).length || 5;
+    let aiImgs = offCount + 3; // hero + about + editorial + one per offering
+    const uploads = ((wmPhotos&&wmPhotos.length)||0) + (wmSelf?1:0);
+    aiImgs = Math.max(0, aiImgs - uploads);
+    aiImgs = Math.min(aiImgs, 20);
+    const proCount = ((wmPhotos||[]).filter(p=>p&&p.pro)).length;
+    const logoCost = wmLogo ? 0 : IMG;
+    return aiImgs*IMG + proCount*IMG + logoCost;
+  }
   async function genWebsite(){
     if(!wmName.trim()||!wmDesc.trim()){ setWmErr("Please add your business name and a short description."); return; }
     if(!user||!user.id){ setWmErr("Please log in again to save your site."); return; }
+    const estCost = wmEstimate();
+    if(Number(credits) < estCost){ setWmErr("This build needs about "+estCost.toLocaleString()+" credits — a logo plus one image per section and offering, at "+CREDIT_COSTS.image+" credits each. You have "+Number(credits).toLocaleString()+". Add a credit pack, then come right back and build."); onBuyCredits(); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
       const schema = '{"theme":string (choose exactly one best fit: fog = cool elegant grey high-fashion for beauty & marketing agencies; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site — palette, lighting, mood, finish — so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (3-4 rows covering Phone, Email, Address and Hours, using the contact details the owner provided),"cta":{"label":string}}],"credit":true}';
@@ -1368,7 +1385,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       // Shared photography art-direction so every image reads as one cohesive shoot
       const dna = (site.styleDNA?String(site.styleDNA)+" ":"") + themeStyle + (wmTone.trim()?(" Overall vibe: "+wmTone.trim()+"."):"");
       const IMGX = " — One cohesive brand shoot: every image shares the same palette, lighting, photographic style and finish. "+dna+" No text, no words, no logos, no watermarks.";
-      let gens=0; const MAXGEN=12;
+      let gens=0; const MAXGEN=20;
       async function genImg(promptText, ar){ if(gens>=MAXGEN) return null; gens++; try{ const r=await generateGeminiImage(String(promptText)+IMGX, null, ar||"4:5", "standard"); if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, uid+"/img-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); return u||null; } }catch(e){} return null; }
       const hasUrl=im=>!!(im&&im.url&&String(im.url).indexOf("http")===0);
       // 1) Place any uploaded work photos first — they take priority over AI
@@ -1875,6 +1892,10 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:90}}><img src={wmLogo} alt="logo" style={{maxHeight:72,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
               : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:90,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Your logo goes in the header. Skip it and Chelgy shows your name in a beautiful typeface.</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,marginTop:16,padding:"12px 14px",background:B.goldLight,border:"1px solid "+B.gold,lineHeight:1.65}}>
+              <span style={{color:B.goldDark,fontWeight:700,letterSpacing:"0.04em"}}>WHAT THIS COSTS</span><br/>
+              About <strong>{wmEstimate().toLocaleString()} credits</strong> — a logo plus one custom image per section and offering ({CREDIT_COSTS.image} credits each, up to 20 images). Most sites use fewer, and you're only charged for what's actually created. You have {Number(credits).toLocaleString()} credits.
+            </div>
           </div>}
 
           <div style={{display:"flex",gap:10,marginTop:16,alignItems:"center",flexWrap:"wrap"}}>
