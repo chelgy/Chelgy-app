@@ -1536,6 +1536,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [vRes,setVRes]=useState("");const [vLoad,setVLoad]=useState(false);
   const [vVidUrl,setVVidUrl]=useState("");const [vVidLoad,setVVidLoad]=useState(false);const [vVidErr,setVVidErr]=useState("");const [vVidStatus,setVVidStatus]=useState("");
   const [vVidPhotos,setVVidPhotos]=useState([]);
+  const [vRefVidLoad,setVRefVidLoad]=useState(false);
   const [vStyle,setVStyle]=useState("");
   const VIDEO_STYLES=[
     {id:"apple",label:"Luxury Apple Ad",suffix:"in the style of a premium Apple product commercial — ultra-clean minimalist set, dramatic studio lighting, glossy reflections, slow elegant camera moves, shallow depth of field, sleek and high-end"},
@@ -1630,6 +1631,35 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     setVVidLoad(false);
   }
   function onUploadVid(e){const files=Array.from((e.target&&e.target.files)||[]);files.forEach(f=>{const r=new FileReader();r.onload=()=>setVVidPhotos(p=>p.length>=3?p:[...p,r.result]);r.readAsDataURL(f);});if(e.target)e.target.value="";}
+  function onUploadRefVideo(e){
+    const f=(e.target&&e.target.files&&e.target.files[0])||null;
+    if(e.target)e.target.value="";
+    if(!f)return;
+    setVRefVidLoad(true);
+    try{
+      const url=URL.createObjectURL(f);
+      const vid=document.createElement("video");
+      vid.preload="auto";vid.muted=true;vid.playsInline=true;vid.src=url;
+      const cleanup=()=>{try{URL.revokeObjectURL(url);}catch(err){}setVRefVidLoad(false);};
+      const grab=()=>{
+        try{
+          const c=document.createElement("canvas");
+          c.width=vid.videoWidth||720;c.height=vid.videoHeight||1280;
+          c.getContext("2d").drawImage(vid,0,0,c.width,c.height);
+          const data=c.toDataURL("image/jpeg",0.85);
+          setVVidPhotos(p=>p.length>=3?p:[...p,data]);
+        }catch(err){}
+        cleanup();
+      };
+      vid.onloadeddata=()=>{
+        const seekTo=Math.min(1,(vid.duration||2)/2);
+        const onSeek=()=>{vid.removeEventListener("seeked",onSeek);grab();};
+        vid.addEventListener("seeked",onSeek);
+        try{vid.currentTime=seekTo;}catch(err){grab();}
+      };
+      vid.onerror=cleanup;
+    }catch(err){setVRefVidLoad(false);}
+  }
   function durOptionsFor(q){if(q==="veo")return [4,6,8];if(q==="kling4k"||q==="seedance4k"||q==="1080p")return [5,10,15];return [5,10];}
   function vidCost(){const d=Number(vDuration);if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality==="seedance4k")return CREDIT_COSTS.seedanceSec*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
   async function genVoice(){
@@ -2097,6 +2127,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               ))}
             </div>}
             {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{vVidPhotos.length===0?(vType==="generate"?"Tap to upload a product photo — the AI will animate it into a video":"Tap to upload a reference photo — Claude will study it and write your prompt from what it sees"):"Add another photo"}<input type="file" accept="image/*" multiple onChange={onUploadVid} style={{display:"none"}} /></label>}
+            {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"12px",textAlign:"center",cursor:vRefVidLoad?"default":"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em",marginTop:8,opacity:vRefVidLoad?0.6:1}}>{vRefVidLoad?"Grabbing a frame…":"Or upload a reference video — we'll grab a frame from it"}<input type="file" accept="video/*" disabled={vRefVidLoad} onChange={onUploadRefVideo} style={{display:"none"}} /></label>}
+            <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>Uploading a video pulls one frame to guide the <strong>look</strong> — the engine references the still, not the video's motion.</div>
             {vType==="generate"&&vVidPhotos.length>1&&<div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>The <strong>Featured</strong> photo is the one brought to life in the video. Remove it to feature the next one.</div>}
           </div>}
           {vType==="generate"&&<div style={{marginBottom:14}}>
