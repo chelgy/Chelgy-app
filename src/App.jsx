@@ -314,6 +314,8 @@ const B = {
   mid:"#6B6B6B", charcoal:"#111111", gold:"#111111", goldLight:"#F2F2F0",
   goldDark:"#555555", green:"#4CAF82", red:"#C0392B",
 };
+// Gold accent — used ONLY on dark/black blocks & buttons (light UI stays black/white/grey)
+const GOLD = "#B8955A";
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/dRm00i1Qg2eXectewKdEs00";
 const cleanTitle = (t) => String(t||"").replace(/^#{1,6}\s+/,"");
 function adminRelTime(d){ try{ const s=Math.floor((Date.now()-d.getTime())/1000); if(s<0)return "just now"; if(s<60)return "just now"; const m=Math.floor(s/60); if(m<60)return m+"m ago"; const h=Math.floor(m/60); if(h<24)return h+"h ago"; const dd=Math.floor(h/24); if(dd<30)return dd+"d ago"; return d.toLocaleDateString(); }catch(e){ return ""; } }
@@ -975,16 +977,16 @@ const Rb=({label,content,loading})=>{
 const Upsell = ({ variant="both" }) => {
   const course = variant==="course"||variant==="both";
   const services = variant==="services"||variant==="both";
-  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:B.gold,color:"#fff",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
+  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:GOLD,color:"#fff",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
   return (
     <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid #fff"}}>
       {course&&<div style={{marginBottom:services?18:0}}>
-        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Go Deeper</div>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Go Deeper</div>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Want an in-depth deep dive into every step of marketing your business? It's all in our 138-page course book, <span style={{color:"#fff",fontWeight:700}}>The Profitable Business Blueprint</span>.</p>
         {link("https://chelgy.com/course","Get the Course Book")}
       </div>}
       {services&&<div>
-        <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Short on Time?</div>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Short on Time?</div>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Too busy or not sure where to start? Let us handle your marketing for you with professional done-for-you services.</p>
         {link("https://chelgy.com","Explore Marketing Services")}
       </div>}
@@ -1389,6 +1391,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       if(d.iType)setIType(d.iType); if(d.iBiz!==undefined)setIBiz(d.iBiz); if(d.iExtra!==undefined)setIExtra(d.iExtra); if(d.ipwIdea!==undefined)setIpwIdea(d.ipwIdea); if(prefill.auto)setIAutoRun(true);
     } else if(tool==="ads"){
       if(d.adBiz!==undefined)setAdBiz(d.adBiz); if(d.adProduct!==undefined)setAdProduct(d.adProduct); if(d.adCity!==undefined)setAdCity(d.adCity); if(d.adGoal)setAdGoal(d.adGoal); if(d.adPlat)setAdPlat(d.adPlat); if(prefill.auto)setAdAutoRun(true);
+    } else if(tool==="grants"){
+      if(d.grBiz!==undefined)setGrBiz(d.grBiz); if(d.grLoc!==undefined)setGrLoc(d.grLoc); if(d.grDetails!==undefined)setGrDetails(d.grDetails);
     }
     onPrefillDone();
   }, [prefill, tool]);
@@ -1729,12 +1733,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>
             <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Make another website</button>
           </div>}
-          <div style={{background:B.offwhite,border:"1px solid "+B.gold,padding:"22px",marginBottom:22}}>
+          <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"22px",marginBottom:22}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>Your website is live</div>
             <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:14,wordBreak:"break-all"}}>{window.location.origin+"/?site="+wmExisting.slug}</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               <a href={window.location.origin+"/?site="+wmExisting.slug} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
-              <button onClick={()=>{try{navigator.clipboard.writeText(window.location.origin+"/?site="+wmExisting.slug);}catch(e){}}} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
+              <button onClick={()=>{try{navigator.clipboard.writeText(window.location.origin+"/?site="+wmExisting.slug);}catch(e){}}} style={{background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
               <ShareBar url={(wmExisting.domain?("https://"+wmExisting.domain):(window.location.origin+"/?site="+wmExisting.slug))} title={(wmExisting.data&&wmExisting.data.brand&&wmExisting.data.brand.name)||"my site"} text={"Come visit my site!"} />
             </div>
           </div>
@@ -1993,13 +1997,13 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {wmLoad&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:12}}>This can take a minute or two — Chelgy is writing every section and creating all your images.</div>}
         </div>}
 
-        {wmResult&&<div style={{background:B.offwhite,border:"1px solid "+B.gold,padding:"26px"}}>
+        {wmResult&&<div style={{background:"#fff",border:"1px solid "+B.stone,padding:"26px"}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>Your site is live</div>
           <div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,marginBottom:8}}>{wmName}</div>
           <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:18,wordBreak:"break-all"}}>{wmResult.url}</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             <a href={wmResult.url} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
-            <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
+            <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
             <button onClick={()=>{ setWmResult(null); setWmMode("view"); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Refine My Site</button>
           </div>
           <div style={{marginTop:16}}><ShareBar url={wmResult.url} title={wmName} text={"I just launched my new website — "+wmName+"!"} /></div>
@@ -2044,7 +2048,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
-        {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>{["logo","flyer","social","banner"].includes(iType)?"Generated by GPT Image 2":"Generated by Nano Banana 2"}</div><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><a href={iRes} download="chelgy-image.png"><Btn dark small>DOWNLOAD IMAGE</Btn></a> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}<div style={{marginTop:14}}><ShareBar file={iRes} filename="chelgy-image.png" title="Made with Chelgy" text="" /></div></div>}
+        {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>{["logo","flyer","social","banner"].includes(iType)?"Generated by GPT Image 2":"Generated by Nano Banana 2"}</div><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><a href={iRes} download="chelgy-image.png"><Btn dark small>DOWNLOAD IMAGE</Btn></a> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}<div style={{marginTop:14}}><ShareBar file={iRes} filename="chelgy-image.png" title="Made with Chelgy" text="" /></div></div>}
       </div>}
 
       {tool==="video"&&<div>
@@ -2106,7 +2110,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           ? <div>
               {vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{vVidStatus||"Working..."}</div></div>}
               {vVidErr&&!vVidLoad&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C",letterSpacing:"0.02em"}}>{vVidErr}</div></div>}
-              {vVidUrl&&!vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI-Generated Video</div><video src={vVidUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><Btn dark small onClick={dlVideo}>DOWNLOAD VIDEO</Btn> <button onClick={()=>doSaveMedia("video",(vTopic?vTopic.slice(0,60):"Video"),vVidUrl)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.gold,color:B.goldDark,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}</div>}
+              {vVidUrl&&!vVidLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your AI-Generated Video</div><video src={vVidUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><Btn dark small onClick={dlVideo}>DOWNLOAD VIDEO</Btn> <button onClick={()=>doSaveMedia("video",(vTopic?vTopic.slice(0,60):"Video"),vVidUrl)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}</div>}
             </div>
           : <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />}
       </div>}
@@ -6882,7 +6886,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [launchSection, setLaunchSection] = useState(()=>{ try{ return localStorage.getItem("chelgy_launch_section")||"brand"; }catch(e){ return "brand"; } });
   const [prefill, setPrefill] = useState(null);
   const [brandProgress, setBrandProgress] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("chelgy_brand_progress")||"{}"); }catch(e){ return {}; } });
-  const markBrand = (k)=> setBrandProgress(prev=>{ const n={...prev,[k]:true}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} return n; });
+  const markBrand = (k)=> setBrandProgress(prev=>{ const n={...prev,[k]:true}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} try{ if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { brand_progress:n }); }catch(e){} return n; });
   const [profileKit, setProfileKit] = useState(null);
   const [profileKitLoad, setProfileKitLoad] = useState(false);
   async function finishLaunch(){
@@ -7158,6 +7162,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.plan){ setPlan(m.plan); try{ localStorage.setItem("chelgy_plan", m.plan); }catch(e){} }
       if(m.launch_data && typeof m.launch_data === "object"){ setLaunchData(ld=>({ ...ld, ...m.launch_data })); }
       if(m.launch_result && typeof m.launch_result === "object" && Object.keys(m.launch_result).length){ setLaunchResult(m.launch_result); }
+      if(m.brand_progress && typeof m.brand_progress === "object"){ setBrandProgress(bp=>{ const n={...bp, ...m.brand_progress}; try{ localStorage.setItem("chelgy_brand_progress", JSON.stringify(n)); }catch(e){} return n; }); }
       if(Array.isArray(m.tasks) && m.tasks.length){ setBigTasks(m.tasks); lsSet("chelgy_tasks", m.tasks); }
       if(Array.isArray(m.advisor) && m.advisor.length){ setAdvisorMsgs(m.advisor); }
       if(m.marketer_status){ setMarketerStatus(m.marketer_status); }
@@ -8561,14 +8566,14 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",letterSpacing:"0.01em"}}>Here are your tasks for today.</p>
             {hero&&(
               <div style={{background:B.charcoal,padding:"20px 22px",marginBottom:16}}>
-                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:B.gold,fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Today's Highest-Impact Task</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:GOLD,fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Today's Highest-Impact Task</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:19,color:"#fff",lineHeight:1.3,marginBottom:10}}>{hero.title}</div>
                 {hero.detail&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:12}}>{hero.detail}</div>}
                 <div style={{display:"flex",gap:22}}>
                   {hero.time&&<div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Time</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#fff"}}>{hero.time}</div></div>}
                   <div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:"#fff",fontSize:12}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
                 </div>
-                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:B.gold,color:"#fff",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
+                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:GOLD,color:"#fff",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
               </div>
             )}
             <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",marginBottom:12}}>Today's Quick Wins</div>
@@ -8792,10 +8797,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {/* Toolkit promo */}
               <div style={{background:B.charcoal,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
                 <div>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.gold,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
                   <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Ads · Audits · Voiceover</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Latest client-acquisition strategies */}
               <div style={{paddingTop:20}}>
@@ -8893,6 +8898,20 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="home"&&subTab==="feed"&&!(isTeamSpace&&marketerStatus==="approved")&&(
             <div style={{paddingTop:28}}>
+              {/* Hero card */}
+              <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
+              <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0.12) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)"}} />
+                <div style={{position:"relative"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+                    <div style={{width:24,height:1,background:"rgba(255,255,255,0.5)"}} />
+                    <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.2em",color:"rgba(255,255,255,0.6)",fontWeight:700}}>FEATURED THIS WEEK</span>
+                  </div>
+                  <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(24px,4vw,40px)",fontWeight:400,color:"#fff",margin:"0 0 14px",lineHeight:1.2}}>{cleanTitle(appWeeklyPosts[0].title)}</h1>
+                  <p style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.55)",margin:"0 0 24px",lineHeight:1.7,maxWidth:520,letterSpacing:"0.01em"}}>{appWeeklyPosts[0].content.split("\n")[0].slice(0,160)}...</p>
+                  <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
+                </div>
+              </div>
               {gift ? (
                 <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
@@ -8914,20 +8933,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's freebie for your business…</div>
                 </div>
               ) : null}
-              {/* Hero card */}
-              <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
-              <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0.12) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)"}} />
-                <div style={{position:"relative"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-                    <div style={{width:24,height:1,background:"rgba(255,255,255,0.5)"}} />
-                    <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.2em",color:"rgba(255,255,255,0.6)",fontWeight:700}}>FEATURED THIS WEEK</span>
-                  </div>
-                  <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(24px,4vw,40px)",fontWeight:400,color:"#fff",margin:"0 0 14px",lineHeight:1.2}}>{cleanTitle(appWeeklyPosts[0].title)}</h1>
-                  <p style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.55)",margin:"0 0 24px",lineHeight:1.7,maxWidth:520,letterSpacing:"0.01em"}}>{appWeeklyPosts[0].content.split("\n")[0].slice(0,160)}...</p>
-                  <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
-                </div>
-              </div>
               {/* Points card + quick actions */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2}}>
                 <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
@@ -8948,10 +8953,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {/* AI Tools promo */}
               <div style={{background:B.charcoal,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
                 <div>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.gold,fontWeight:700,marginBottom:8}}>AI TOOLS SUITE</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>AI TOOLS SUITE</div>
                   <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Business · Dropshipping · Platforms</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Recent strategies */}
               <div style={{paddingTop:20}}>
@@ -9293,7 +9298,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
               {launchLoading&&(
                 <div style={{background:B.charcoal,padding:"48px 32px",textAlign:"center"}}>
-                  <div style={{width:32,height:1,background:B.gold,margin:"0 auto 20px"}} />
+                  <div style={{width:32,height:1,background:GOLD,margin:"0 auto 20px"}} />
                   <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff",marginBottom:10}}>Building your launch package...</div>
                   <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.5)",letterSpacing:"0.04em"}}>This takes about 15 seconds. Your complete package is being written now.</div>
                 </div>
@@ -9302,24 +9307,26 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {launchResult&&!launchLoading&&(
                 <div>
                   <div style={{background:B.charcoal,padding:"22px 20px",marginBottom:22}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Bring your launch to life</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Bring your launch to life</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your launch is ready — open and edit it</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy drafts each of these from your answers — click any one to see it and make it yours.</div>
                     <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.06em"}}>
-                      {[["website","Website"],["logo","Logo"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?"#fff":"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
+                      {[["website","Website"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?GOLD:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
                     </div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
-                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"images",auto:true,data:{iType:"logo",iBiz:launchData.bizName,iExtra:"A minimal, elegant logo for "+launchData.bizName+(launchData.bizType?(", "+launchData.bizType):"")+(launchData.tone?(". Style: "+launchData.tone):"")+(launchData.colors?(". Colors: "+launchData.colors):"")+". Simple, professional, isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no scene)."}}); setSubTab("images"); }} style={{background:brandProgress.logo?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.logo?"See & edit your logo":"Draft my logo"}</button>
-                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"ads",auto:true,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"See & edit your ads":"Draft my ads"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:!brandProgress.website,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:GOLD,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"images",data:{iType:"flyer",iBiz:launchData.bizName,iExtra:"A social media flyer promoting "+launchData.bizName+(launchData.services?(" — "+launchData.services):(launchData.bizType?(" — "+launchData.bizType):""))+". Eye-catching and on-brand, with a bold headline and a clear call to action."+(launchData.tone?(" Style: "+launchData.tone+"."):"")}}); setSubTab("images"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✨ Make a social flyer</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"grants",data:{grBiz:launchData.bizName,grLoc:launchData.location,grDetails:[launchData.bizType,launchData.targetCustomer].filter(Boolean).join(" — ")}}); setSubTab("grants"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Find grants</button>
+                      <button onClick={()=>{ setFromLaunch(true); setSubTab("platforms"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Platform guides</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"ads",auto:!brandProgress.ads,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"See & edit your ads":"Draft my ads"}</button>
                     </div>
                   </div>
                   <div style={{background:B.charcoal,padding:"22px 20px",marginTop:14}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Get found online</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Get found online</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy writes everything to paste into each profile — you just create the accounts.</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:B.gold,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
+                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:GOLD,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
                       <button onClick={()=>{ setFromLaunch(false); setSubTab("hub"); }} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
                     </div>
                   </div>
@@ -9598,20 +9605,20 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:(total>0?20:0)}}>{streak>0?("You've stayed consistent for "+streak+" day"+(streak===1?"":"s")+". Keep it alive."):"Check off a task today to start your streak."}</div>
                   {total>0&&(<>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
-                      <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:"rgba(255,255,255,0.5)",textTransform:"uppercase",fontWeight:700}}>Roadmap momentum</span>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:16,color:"#fff"}}>{pct}%</span>
+                      <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:GOLD,textTransform:"uppercase",fontWeight:700}}>Roadmap momentum</span>
+                      <span style={{fontFamily:"Georgia,serif",fontSize:16,color:GOLD}}>{pct}%</span>
                     </div>
-                    <div style={{height:6,background:"rgba(255,255,255,0.14)",marginBottom:16,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:"#fff",transition:"width 0.4s"}} /></div>
+                    <div style={{height:6,background:"rgba(255,255,255,0.14)",marginBottom:16,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:GOLD,transition:"width 0.4s"}} /></div>
                     {next.title&&(
                       <button onClick={()=>setShowTasks(true)} style={{width:"100%",textAlign:"left",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.14)",padding:"13px 15px",cursor:"pointer"}}>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:"rgba(255,255,255,0.6)",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Next milestone</div>
-                        <div style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>{next.title}<span style={{color:"#fff"}}>→</span></div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:GOLD,textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Next milestone</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>{next.title}<span style={{color:GOLD}}>→</span></div>
                       </button>
                     )}
                     <div style={{display:"flex",gap:24,marginTop:18}}>
                       <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{sumCompletions(7)}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>This week</div></div>
                       <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{sumCompletions(30)}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>This month</div></div>
-                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{streak}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>Day streak</div></div>
+                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:GOLD}}>{streak}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>Day streak</div></div>
                     </div>
                   </>)}
                 </div>
