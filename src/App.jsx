@@ -27,6 +27,9 @@ const AUTH_URL = SUPABASE_URL + "/auth/v1";
 // Capture the URL path ONCE at load, before any in-app navigation rewrites it — used for the public /privacy and /terms pages
 const CHELGY_INITIAL_PATH = (typeof window !== "undefined" ? (window.location.pathname || "") : "").toLowerCase().replace(/\/+$/, "");
 const CHELGY_IS_LEGAL_PATH = (CHELGY_INITIAL_PATH === "/privacy" || CHELGY_INITIAL_PATH === "/terms");
+// Capture the OAuth return token from the URL hash ONCE at load, before any render/effect can clear it (fixes Apple/Google sign-in bouncing to onboarding)
+const CHELGY_INITIAL_HASH = (typeof window !== "undefined" ? (window.location.hash || "") : "");
+const CHELGY_HAS_OAUTH_RETURN = CHELGY_INITIAL_HASH.includes("access_token=");
 async function authSignup(email, password, name) {
   try {
     const res = await fetch(AUTH_URL + "/signup", {
@@ -6312,7 +6315,7 @@ function buildNavPath(tab, sub){
 }
 
 export default function ChelgyApp() {
-  const [page, setPage] = useState("onboarding");
+  const [page, setPage] = useState(CHELGY_HAS_OAUTH_RETURN ? "app" : "onboarding");
   useEffect(()=>{
     const s=document.createElement("style");
     s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}h1,h2,h3,h4,h5,h6{color:#111111;}:root{color-scheme:light;background-color:#ffffff;}body{margin:0;background-color:#ffffff;}#root{max-width:none;width:100%;margin:0;padding:0;text-align:left;}.cg-main{padding:0 40px;}@media(max-width:640px){.cg-main{padding:0 14px;}}";
@@ -7081,8 +7084,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
 
   useEffect(()=>{
-    // ─── Returning from a Google (OAuth) sign-in? Supabase sends the session in the URL hash ───
-    const hash = window.location.hash || "";
+    // ─── Returning from an OAuth sign-in (Apple/Google)? Token was captured at load, before any URL rewrite ───
+    const hash = CHELGY_INITIAL_HASH;
     if (hash.includes("access_token=")) {
       const hp = new URLSearchParams(hash.replace(/^#/, ""));
       const at = hp.get("access_token"); const rt = hp.get("refresh_token");
