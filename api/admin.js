@@ -92,6 +92,11 @@ export default async function handler(req, res) {
       const rows = await r.json();
       return res.status(200).json({ marketers: Array.isArray(rows) ? rows : [] });
     }
+    if (action === "member-stats") {
+      const r = await svc("rpc/member_spend_stats", { method: "POST", body: "{}" });
+      const rows = await r.json();
+      return res.status(200).json({ stats: Array.isArray(rows) ? rows : [] });
+    }
     if (action === "set-member-flags") {
       const targetId = body.user_id;
       if (!targetId) return res.status(400).json({ error: "Missing user_id" });
