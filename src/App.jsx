@@ -8588,6 +8588,22 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               ))}
             </div>
+            {gift && (
+              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"18px 20px",marginBottom:24}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12}}>{giftTip(gift.type)}</div>
+                {gift.kind==="image"
+                  ? <img src={gift.content} alt={gift.noun} style={{width:"100%",display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
+                  : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {gift.kind==="image"
+                    ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
+                    : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
+                  <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                </div>
+              </div>
+            )}
             <Btn dark full onClick={()=>{setShowGreeting(false);setShowTasks(true);}}>OPEN MY TASKS</Btn>
             <button onClick={()=>setShowGreeting(false)} style={{width:"100%",background:"none",border:"none",padding:"12px",marginTop:4,fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>MAYBE LATER</button>
           </div>
