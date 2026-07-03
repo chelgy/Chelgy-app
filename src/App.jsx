@@ -820,7 +820,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
             <button onClick={onLogin} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.55)",border:"none",padding:"6px",fontSize:12,fontFamily:"sans-serif",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></button>
           </>
         ):(
-          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:"#B8955A",color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
+          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:"#B8955A",color:"#111",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
         )}
       </div>
     </div>
@@ -977,7 +977,7 @@ const Rb=({label,content,loading})=>{
 const Upsell = ({ variant="both" }) => {
   const course = variant==="course"||variant==="both";
   const services = variant==="services"||variant==="both";
-  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:GOLD,color:"#fff",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
+  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:GOLD,color:"#111",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
   return (
     <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid #fff"}}>
       {course&&<div style={{marginBottom:services?18:0}}>
@@ -8573,7 +8573,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {hero.time&&<div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Time</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#fff"}}>{hero.time}</div></div>}
                   <div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:"#fff",fontSize:12}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
                 </div>
-                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:GOLD,color:"#fff",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
+                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:GOLD,color:"#111",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
               </div>
             )}
             <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",marginBottom:12}}>Today's Quick Wins</div>
@@ -8800,7 +8800,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
                   <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Ads · Audits · Voiceover</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#111",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Latest client-acquisition strategies */}
               <div style={{paddingTop:20}}>
@@ -8912,35 +8912,37 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
                 </div>
               </div>
-              {gift ? (
-                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>{giftTip(gift.type)}</div>
-                  {gift.kind==="image"
-                    ? <img src={gift.content} alt={gift.noun} style={{width:"100%",maxWidth:360,display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
-                    : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    {gift.kind==="image"
-                      ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
-                      : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
-                    <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
-                  </div>
+              {/* Today's Tasks + Freebie (left column) · Quick Actions (right) */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2,alignItems:"start"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Today's Tasks</div>
+                    <div style={{fontSize:34,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:4,color:B.charcoal}}>{bigTasks.filter(t=>t.done).length+Object.keys(dailyDone).filter(k=>k.indexOf("daily-"+todayStr())===0).length}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:14}}>completed today</div>
+                    <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.04em",fontWeight:700}}>View my tasks →</span>
+                  </button>
+                  {gift ? (
+                    <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px"}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
+                      <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:14}}>{giftTip(gift.type)}</div>
+                      {gift.kind==="image"
+                        ? <img src={gift.content} alt={gift.noun} style={{width:"100%",display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
+                        : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
+                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                        {gift.kind==="image"
+                          ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
+                          : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
+                        <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                      </div>
+                    </div>
+                  ) : giftLoading ? (
+                    <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px"}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:17,color:B.charcoal}}>Crafting today's freebie for your business…</div>
+                    </div>
+                  ) : null}
                 </div>
-              ) : giftLoading ? (
-                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's freebie for your business…</div>
-                </div>
-              ) : null}
-              {/* Points card + quick actions */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2}}>
-                <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Today's Tasks</div>
-                  <div style={{fontSize:34,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:4,color:B.charcoal}}>{bigTasks.filter(t=>t.done).length+Object.keys(dailyDone).filter(k=>k.indexOf("daily-"+todayStr())===0).length}</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:14}}>completed today</div>
-                  <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.04em",fontWeight:700}}>View my tasks →</span>
-                </button>
                 <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase"}}>Quick Actions</div>
                   {[["Browse strategies","learn","strategies"],["Ask AI Advisor","community","advisor"],["Open Tools Hub","tools","hub"]].map(([l,t,s])=>(
@@ -8956,7 +8958,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>AI TOOLS SUITE</div>
                   <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Business · Dropshipping · Platforms</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#111",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Recent strategies */}
               <div style={{paddingTop:20}}>
@@ -9314,7 +9316,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       {[["website","Website"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?GOLD:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
                     </div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:!brandProgress.website,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:GOLD,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:!brandProgress.website,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:GOLD,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"images",data:{iType:"flyer",iBiz:launchData.bizName,iExtra:"A social media flyer promoting "+launchData.bizName+(launchData.services?(" — "+launchData.services):(launchData.bizType?(" — "+launchData.bizType):""))+". Eye-catching and on-brand, with a bold headline and a clear call to action."+(launchData.tone?(" Style: "+launchData.tone+"."):"")}}); setSubTab("images"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✨ Make a social flyer</button>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"grants",data:{grBiz:launchData.bizName,grLoc:launchData.location,grDetails:[launchData.bizType,launchData.targetCustomer].filter(Boolean).join(" — ")}}); setSubTab("grants"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Find grants</button>
                       <button onClick={()=>{ setFromLaunch(true); setSubTab("platforms"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Platform guides</button>
@@ -9326,7 +9328,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy writes everything to paste into each profile — you just create the accounts.</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:GOLD,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
+                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:GOLD,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
                       <button onClick={()=>{ setFromLaunch(false); setSubTab("hub"); }} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
                     </div>
                   </div>
