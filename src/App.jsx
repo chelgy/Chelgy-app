@@ -6386,7 +6386,16 @@ function StoreBuilderTab({ user }) {
     }
   }, []);
 
-  const normOk = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop.trim().toLowerCase());
+  const normShop = (raw) => {
+    let v = String(raw || "").trim().toLowerCase().replace(/^https?:\/\//, "");
+    const m = v.match(/admin\.shopify\.com\/store\/([a-z0-9-]+)/); // new admin URL form
+    if (m) return m[1] + ".myshopify.com";
+    v = v.replace(/\/.*$/, ""); // drop any path
+    if (/^[a-z0-9][a-z0-9-]*$/.test(v)) v = v + ".myshopify.com"; // bare handle
+    return v;
+  };
+  const cleanShop = normShop(shop);
+  const normOk = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(cleanShop);
   const canConnect = !!niche && normOk && !busy;
 
   const connect = async () => {
@@ -6398,7 +6407,7 @@ function StoreBuilderTab({ user }) {
       const res = await fetch("/api/shopify-connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: tok, niche, shop: shop.trim().toLowerCase() }),
+        body: JSON.stringify({ access_token: tok, niche, shop: cleanShop }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) { setErr(data.error || "Couldn't start the connection."); setBusy(false); return; }
@@ -6476,6 +6485,9 @@ function StoreBuilderTab({ user }) {
           Enter your store URL and we'll install the builder and stock your store.
         </div>
         <input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="your-store.myshopify.com" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid " + B.stone, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 12, color: B.charcoal }} />
+        {!niche && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, marginBottom: 10 }}>Pick a niche above first.</div>}
+        {niche && shop.trim() && !normOk && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, marginBottom: 10 }}>Paste your store link  it can be your-store.myshopify.com or your admin.shopify.com link.</div>}
+        {niche && normOk && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.green, marginBottom: 10 }}>Ready to connect: {cleanShop}</div>}
         {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
         <button onClick={connect} disabled={!canConnect} style={{ padding: "12px 20px", background: canConnect ? B.charcoal : B.stone, color: canConnect ? "#fff" : B.mid, border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: canConnect ? "pointer" : "not-allowed" }}>
           {busy ? "Connecting..." : "Connect my store & build"}
