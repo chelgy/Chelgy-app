@@ -92,6 +92,22 @@ export default async function handler(req, res) {
       const rows = await r.json();
       return res.status(200).json({ marketers: Array.isArray(rows) ? rows : [] });
     }
+    if (action === "set-member-flags") {
+      const targetId = body.user_id;
+      if (!targetId) return res.status(400).json({ error: "Missing user_id" });
+      const patch = {};
+      if (typeof body.banned === "boolean") patch.banned = body.banned;
+      if (typeof body.muted === "boolean") patch.muted = body.muted;
+      if (!Object.keys(patch).length) return res.status(400).json({ error: "Nothing to change" });
+      // Safety: an admin can't ban themselves out of the panel.
+      if (patch.banned === true && String(targetId) === String(uid)) return res.status(400).json({ error: "You can't ban your own account." });
+      await svc("members?user_id=eq." + encodeURIComponent(targetId), {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(patch)
+      });
+      return res.status(200).json({ ok: true });
+    }
     if (action === "marketer-set") {
       const targetId = body.user_id;
       const status = body.status;

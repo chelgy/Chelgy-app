@@ -3018,11 +3018,17 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
                         <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#1A1A1A"}}>{m.name||"(no name)"}</span>
                         <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:m.status==="paid"?"#1A1A1A":"#F0EEE9",color:m.status==="paid"?"#fff":"#6B6B6B"}}>{m.status||"trial"}</span>
+                        {m.banned&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#C0392B",color:"#fff"}}>Banned</span>}
+                        {m.muted&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#F2EBE0",color:"#8A6D3B",border:"1px solid #B8955A"}}>Muted</span>}
                       </div>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{m.created_at?new Date(m.created_at).toLocaleString():""}</div>
                     </div>
                     <a href={"mailto:"+m.email} style={{fontFamily:"sans-serif",fontSize:12,color:"#B8955A",textDecoration:"none"}}>{m.email}</a>
                     {(m.business||m.bio)&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",marginTop:6,lineHeight:1.6}}>{m.business?<span><strong>Business:</strong> {m.business}</span>:null}{m.business&&m.bio?<br/>:null}{m.bio?<span>{m.bio}</span>:null}</div>}
+                    <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
+                      <button onClick={async()=>{ if(!m.user_id){alert("This member has no linked account id yet.");return;} if(!m.banned&&!window.confirm("Suspend "+(m.name||m.email||"this member")+"? They won't be able to log in. This is fully reversible — their data and payments are kept.")) return; const tok=await freshToken(); try{ const r=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"set-member-flags",user_id:m.user_id,banned:!m.banned})}); if(r.ok){ loadFromDB(); } else { const d=await r.json().catch(()=>null); alert((d&&d.error)||"Couldn't update — try again."); } }catch(e){ alert("Couldn't update — try again."); } }} style={{background:m.banned?"#fff":"#C0392B",color:m.banned?"#C0392B":"#fff",border:"1px solid #C0392B",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{m.banned?"Unban":"Ban"}</button>
+                      <button onClick={async()=>{ if(!m.user_id){alert("This member has no linked account id yet.");return;} const tok=await freshToken(); try{ const r=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"set-member-flags",user_id:m.user_id,muted:!m.muted})}); if(r.ok){ loadFromDB(); } else { const d=await r.json().catch(()=>null); alert((d&&d.error)||"Couldn't update — try again."); } }catch(e){ alert("Couldn't update — try again."); } }} style={{background:"none",color:"#8A6D3B",border:"1px solid #B8955A",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{m.muted?"Unmute":"Mute"}</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -6271,6 +6277,7 @@ export default function ChelgyApp() {
   const [isTrial, setIsTrial] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [pastDue, setPastDue] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
@@ -7087,6 +7094,15 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     let cancelled = false;
     freshToken().then(tok=> tok ? getMyMember(tok, user.id) : null).then(m=>{
       if(cancelled || !m) return;
+      // Soft ban: suspended members are signed out immediately. Reversible; data + payments are untouched.
+      if(m.banned===true){
+        try{ clearSession(); }catch(e){}
+        try{ localStorage.removeItem("chelgy_member"); }catch(e){}
+        setUser(null); setIsPaid(false); setIsTrial(false); setMuted(false);
+        setAuthError("This account has been suspended. If you think this is a mistake, contact support.");
+        return;
+      }
+      setMuted(m.muted===true);
       // Membership is decided by the database, not a browser flag. Paid/comp/admin = full access.
       if(m.status && ["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){
         setIsTrial(false); setIsPaid(true); setPastDue(false); try{ localStorage.setItem("chelgy_member","1"); }catch{}
@@ -9327,10 +9343,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 4px"}}>Community Forum</h2>
                   <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:0,letterSpacing:"0.01em"}}>Ask questions, share wins, connect with members.</p>
                 </div>
-                <button onClick={()=>isTrial?setShowPaywall(true):setShowNewPost(true)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 18px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
+                <button onClick={()=>{ if(muted){ pushNotif("You've been muted by an admin, so you can't post or comment right now. You still have full access to everything else."); return; } isTrial?setShowPaywall(true):setShowNewPost(true); }} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 18px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
                   {isTrial?<><Icons.Lock /> NEW POST</>:<><Icons.Plus /> NEW POST</>}
                 </button>
               </div>
+              {muted&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 14px",marginBottom:16,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>You've been muted by an admin, so posting and commenting are paused for now. You can still read everything and use the rest of Chelgy. Reach out to support if you think this is a mistake.</div>}
               <div style={{display:"flex",gap:0,borderBottom:"1px solid "+B.stone,marginBottom:18,overflowX:"auto"}}>
                 {["all","wins","questions","working","ai","memes","intros","life"].map(c=>(
                   <button key={c} onClick={()=>setForumCat(c)} style={{background:"none",color:forumCat===c?B.charcoal:B.mid,border:"none",borderBottom:forumCat===c?"1.5px solid "+B.charcoal:"1.5px solid transparent",padding:"9px 13px",fontSize:9,fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:forumCat===c?700:400,whiteSpace:"nowrap"}}>{c==="all"?"All":c}</button>
@@ -9414,7 +9431,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div>
                     <input value={forumReplyName} onChange={e=>setForumReplyName(e.target.value)} placeholder="Your name" style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:7,boxSizing:"border-box",background:B.white}} />
                     <textarea value={forumReply} onChange={e=>setForumReply(e.target.value)} placeholder="Write a reply..." rows={3} style={{width:"100%",padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",resize:"vertical",marginBottom:10,boxSizing:"border-box",background:B.white}} />
-                    <Btn dark small onClick={async ()=>{if(!forumReply.trim())return;const name=(forumReplyName.trim()||myName||"Member");if(selectedForumPost.real){const tok=await freshToken();if(tok){try{await fetch(SUPABASE_URL+"/rest/v1/rpc/add_comment",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({p_post:selectedForumPost.dbId,p_body:forumReply})});}catch(e){}}}const nr=[...selectedForumPost.replies,{author:name,text:forumReply,time:"Just now"}];setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));setForumReply("");setForumReplyName("");}}>POST REPLY</Btn>
+                    <Btn dark small onClick={async ()=>{if(!forumReply.trim())return;if(muted){pushNotif("You've been muted by an admin, so you can't post or comment right now.");return;}const name=(forumReplyName.trim()||myName||"Member");if(selectedForumPost.real){const tok=await freshToken();if(tok){try{await fetch(SUPABASE_URL+"/rest/v1/rpc/add_comment",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({p_post:selectedForumPost.dbId,p_body:forumReply})});}catch(e){}}}const nr=[...selectedForumPost.replies,{author:name,text:forumReply,time:"Just now"}];setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));setForumReply("");setForumReplyName("");}}>POST REPLY</Btn>
                   </div>
                 )}
               </div>
