@@ -6107,20 +6107,42 @@ function PublicSite({ slug, domain, onNotFound }) {
   </>);
 }
 
-// Daily "on the house" marketing gift — free, fresh content types that rotate by day.
-// (Text types are free via Claude; flyer/graphic image types are added later with a weekly cap.)
+// Daily "on the house" marketing gift — a finished, ready-to-use product each day,
+// rotating across all of Chelgy's tools. Text gifts are free (Claude); image gifts
+// (flyer/graphic/quote) are free to the member but capped server-side (3/week).
 const GIFT_TYPES = [
-  { key:"caption", noun:"social post",      tool:"content" },
-  { key:"viral",   noun:"viral video idea", tool:"viral"   },
-  { key:"content", noun:"content idea",     tool:"content" },
-  { key:"ad",      noun:"ad hook",          tool:"ads"     },
+  { key:"caption",  kind:"text",  noun:"social post",      tool:"content",  label:"Content Writer" },
+  { key:"viral",    kind:"text",  noun:"viral video idea", tool:"viral",    label:"Viral Video Generator" },
+  { key:"flyer",    kind:"image", noun:"promo flyer",      tool:"images",   label:"Image Creator" },
+  { key:"ad",       kind:"text",  noun:"ad hook",          tool:"ads",      label:"Ad Campaign Builder" },
+  { key:"grant",    kind:"text",  noun:"grant alert",      tool:"grants",   label:"Grant Finder" },
+  { key:"graphic",  kind:"image", noun:"branded graphic",  tool:"images",   label:"Image Creator" },
+  { key:"content",  kind:"text",  noun:"content idea",     tool:"content",  label:"Content Writer" },
+  { key:"quote",    kind:"image", noun:"quote post",       tool:"images",   label:"Image Creator" },
+  { key:"audit",    kind:"text",  noun:"marketing tip",    tool:"audit",    label:"Business Audit" },
+  { key:"platform", kind:"text",  noun:"growth nudge",     tool:"platforms",label:"Platform Setup Guides" },
 ];
-function todaysGiftType(){
-  try{
-    const d = new Date();
-    const dayIndex = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
-    return GIFT_TYPES[dayIndex % GIFT_TYPES.length];
-  }catch(e){ return GIFT_TYPES[0]; }
+function giftTypeAt(idx){ const n=GIFT_TYPES.length; return GIFT_TYPES[((idx%n)+n)%n]; }
+function giftTextPrompt(key, ctx){
+  const P = {
+    caption: "Write ONE ready-to-post social media caption for this business — punchy, on-brand, strong hook, 2-4 short lines, and 3-5 relevant hashtags. Return ONLY the caption, no preamble or labels.",
+    viral: "Give ONE ready-to-film short-video idea with viral potential — the 3-second hook line, what to show on screen, and the on-screen text. Doable on a phone. Return ONLY the idea, no preamble.",
+    content: "Give ONE fresh content idea this business can post this week — the angle, why it works in one line, and a one-line example. Return ONLY that, no preamble.",
+    ad: "Write ONE scroll-stopping ad hook plus one line of benefit-led body copy for this business. Return ONLY the hook and the line, no preamble.",
+    grant: "Suggest ONE specific type of grant or funding program this business could realistically pursue right now — name the grant/program or category, who it's for, roughly how much, and where to start applying. Write it as a short, exciting 'grant alert' the owner can act on today. Return ONLY that.",
+    audit: "Give ONE specific, high-impact marketing improvement this business could make THIS WEEK to win more customers — concrete and actionable, one short paragraph. Return ONLY that tip.",
+    platform: "Give ONE specific growth action for a platform this business should do this week (e.g. Google Business Profile, Instagram, TikTok, Nextdoor) — name the platform and the exact step. Return ONLY that.",
+  };
+  return (P[key] || P.caption) + "\n\n" + ctx;
+}
+function giftImagePrompt(key, ctx){
+  const base = "Design a polished, professional marketing image for this business that's ready to post. Clean modern layout, tasteful colors, legible text, no watermark. ";
+  const V = {
+    flyer: "Make a PROMO FLYER (portrait) announcing a sale or special offer — bold headline, the offer, and a clear call to action that fits this business.",
+    graphic: "Make a BRANDED SOCIAL GRAPHIC (square) highlighting what this business offers — one strong line of text with clean supporting design.",
+    quote: "Make a QUOTE / TIP POST (square) — one short, motivating or helpful line relevant to this business's audience, beautifully typeset.",
+  };
+  return base + (V[key] || V.flyer) + "\n\nBusiness details:\n" + ctx;
 }
 
 const NAV_TABS = ["home","learn","tools","community","profile"];
@@ -6330,7 +6352,7 @@ export default function ChelgyApp() {
   const [showTasks, setShowTasks] = useState(false);
   const [showGreeting, setShowGreeting] = useState(false);
   const [giftLoading, setGiftLoading] = useState(false);
-  const [giftContent, setGiftContent] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_gift_"+todayStr()); return v?(JSON.parse(v).content||""):""; }catch(e){ return ""; } });
+  const [gift, setGift] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_gift_payload"); const day=localStorage.getItem("chelgy_gift_day"); return (v&&day===todayStr())?JSON.parse(v):null; }catch(e){ return null; } });
   const [celebrate, setCelebrate] = useState("");
   const [completions, setCompletions] = useState(()=>lsGetJSON("chelgy_completions", {}));
   const [showJournal, setShowJournal] = useState(false);
@@ -6498,23 +6520,43 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   function toggleBigTask(id){ setBigTasks(ts=>ts.map(t=>{ if(t.id===id){ const nd=!t.done; if(nd){ celebrateDone(); logCompletion(1); addPts(PTS.bigTask); } else logCompletion(-1); return {...t,done:nd}; } return t; })); }
   function toggleDaily(id){ setDailyDone(dd=>{ const nd={...dd}; if(nd[id]){ delete nd[id]; logCompletion(-1); } else { nd[id]=true; celebrateDone(); logCompletion(1); addPts(PTS.daily); } return nd; }); }
   function openTool(toolId){ if(!toolId||!TOOL_LABELS[toolId]) return; setShowTasks(false); setShowGreeting(false); goTab("tools", toolId); }
-  // Generate today's free "on the house" marketing gift (text — free via Claude)
-  async function makeDailyGift(){
+  // Generate today's free "on the house" gift. Rollover: the rotation only advances
+  // the first time the member opens the app on a new day, so being away doesn't skip gifts.
+  async function generateGift(){
     if(giftLoading) return;
+    let idx, day=null;
+    try{ idx = parseInt(localStorage.getItem("chelgy_gift_idx")||"NaN",10); day = localStorage.getItem("chelgy_gift_day"); }catch(e){}
+    if(day !== todayStr()){
+      idx = isNaN(idx) ? 0 : idx + 1;               // advance to the next gift for a new active day
+      try{ localStorage.setItem("chelgy_gift_idx", String(idx)); localStorage.setItem("chelgy_gift_day", todayStr()); localStorage.removeItem("chelgy_gift_payload"); }catch(e){}
+    } else if(isNaN(idx)){ idx = 0; }
+    const g = giftTypeAt(idx);
     setGiftLoading(true);
     const ctx = bizContext();
-    const g = todaysGiftType();
-    let prompt;
-    if(g.key==="caption") prompt = "Write ONE ready-to-post social media caption for this business — punchy, on-brand, with a strong hook, 2-4 short lines, and 3-5 relevant hashtags. Return ONLY the caption, no preamble or labels.\n\n"+ctx;
-    else if(g.key==="viral") prompt = "Give ONE specific, ready-to-film short-video idea for this business with viral potential. Include: the hook line (first 3 seconds), what to show on screen, and the on-screen text. Keep it tight and doable on a phone. Return ONLY the idea, no preamble.\n\n"+ctx;
-    else if(g.key==="content") prompt = "Give ONE fresh content idea this business can post this week — the angle, why it works in one line, and a one-line example. Return ONLY that, no preamble.\n\n"+ctx;
-    else prompt = "Write ONE scroll-stopping ad hook plus one line of benefit-led body copy for this business. Return ONLY the hook and the line, no preamble.\n\n"+ctx;
+    let payload = null;
     try{
-      const out = await callClaude(prompt, 500);
-      const text = (out||"").trim();
-      setGiftContent(text);
-      try{ localStorage.setItem("chelgy_gift_"+todayStr(), JSON.stringify({ type:g.key, content:text })); }catch(e){}
-    }catch(e){ setGiftContent("Couldn't make your gift right now — please try again in a moment."); }
+      if(g.kind === "text"){
+        const out = await callClaude(giftTextPrompt(g.key, ctx), 500);
+        payload = { type:g.key, kind:"text", noun:g.noun, tool:g.tool, label:g.label, content:(out||"").trim() };
+      } else {
+        // Free image gift (server enforces the 3/week cap). If capped/failed, fall back to a free text gift.
+        const tok = await freshToken();
+        const res = await fetch("/api/gift-image", { method:"POST", headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) }, body:JSON.stringify({ prompt: giftImagePrompt(g.key, ctx), aspectRatio: g.key==="flyer"?"4:5":"1:1" }) });
+        const d = await res.json().catch(()=>null);
+        if(d && d.image){
+          let url = d.image;
+          try{ const up = await uploadSiteImage(d.image, ((user&&user.id)||"u")+"/gift-"+todayStr()+"-"+Math.random().toString(36).slice(2,6)+".png"); if(up) url = up; }catch(e){}
+          payload = { type:g.key, kind:"image", noun:g.noun, tool:g.tool, label:g.label, content:url };
+        }
+        else {
+          const fb = await callClaude(giftTextPrompt("caption", ctx), 500);
+          payload = { type:"caption", kind:"text", noun:"social post", tool:"content", label:"Content Writer", content:(fb||"").trim(), fellBack:true };
+        }
+      }
+    }catch(e){
+      try{ const fb = await callClaude(giftTextPrompt("caption", ctx), 500); payload = { type:"caption", kind:"text", noun:"social post", tool:"content", label:"Content Writer", content:(fb||"").trim(), fellBack:true }; }catch(e2){}
+    }
+    if(payload){ setGift(payload); try{ localStorage.setItem("chelgy_gift_payload", JSON.stringify(payload)); localStorage.setItem("chelgy_gift_day", todayStr()); }catch(e){} }
     setGiftLoading(false);
   }
   // Short description of the member's business — fed to the AI so it "knows" them
@@ -7024,6 +7066,15 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     });
     return ()=>{ cancelled=true; };
   },[user, isPaid]);
+  // Auto-make today's free gift so it's a finished product waiting for them (once per active day)
+  useEffect(()=>{
+    if(!(user && user.email)) return;
+    let done=false; try{ done = localStorage.getItem("chelgy_intake_done")==="1"; }catch(e){}
+    if(!done) return;
+    let day=null; try{ day=localStorage.getItem("chelgy_gift_day"); }catch(e){}
+    if(gift && day===todayStr()) return;
+    generateGift();
+  },[user]);
   // ─── Notify when a genuinely NEW weekly update appears (not on every load) ───
   const weeklyReady = useRef(false);
   useEffect(()=>{ const t=setTimeout(()=>{ weeklyReady.current=true; }, 4000); return ()=>clearTimeout(t); },[]);
@@ -8383,21 +8434,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{width:32,height:1,background:B.gold,marginBottom:16}} />
             <h2 style={{fontSize:23,fontFamily:"Georgia,serif",fontWeight:400,margin:"0 0 4px"}}>Welcome back{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",letterSpacing:"0.01em"}}>Here are your tasks for today.</p>
-            {(()=>{ const g=todaysGiftType(); return (
-              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"18px 20px",marginBottom:18}}>
-                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>On the house</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:5}}>Your free {g.noun} for today</div>
-                <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>Fresh and made just for your business — yours to use, no credits.</div>
-                {!giftContent && <button onClick={makeDailyGift} disabled={giftLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",cursor:giftLoading?"default":"pointer",textTransform:"uppercase"}}>{giftLoading?"Making it…":"Make my free "+g.noun}</button>}
-                {giftContent && <div>
-                  <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{giftContent}</div>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    <button onClick={()=>{try{navigator.clipboard.writeText(giftContent);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 14px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>
-                    <button onClick={()=>openTool(g.tool)} style={{background:B.gold,color:"#111",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Use it in the {TOOL_LABELS[g.tool]} →</button>
-                  </div>
-                </div>}
-              </div>
-            ); })()}
             {hero&&(
               <div style={{background:B.charcoal,padding:"20px 22px",marginBottom:16}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:B.gold,fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Today's Highest-Impact Task</div>
@@ -8732,6 +8768,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="home"&&subTab==="feed"&&!(isTeamSpace&&marketerStatus==="approved")&&(
             <div style={{paddingTop:28}}>
+              {gift ? (
+                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>On the house</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>Made just for your business — yours to use, no credits. Made with the {gift.label}.</div>
+                  {gift.kind==="image"
+                    ? <img src={gift.content} alt={gift.noun} style={{width:"100%",maxWidth:360,display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
+                    : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {gift.kind==="image"
+                      ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
+                      : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
+                    <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                  </div>
+                </div>
+              ) : giftLoading ? (
+                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>On the house</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's free gift for your business…</div>
+                </div>
+              ) : null}
               {/* Hero card */}
               <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
