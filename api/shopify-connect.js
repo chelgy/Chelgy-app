@@ -20,7 +20,7 @@ const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
 const SCOPES = "write_products,write_content"; // products, collections, pages
 
-const NICHES = ["clothes", "electronics", "home", "pets", "sports"];
+const NICHES = ["clothes", "beauty", "skincare", "hair", "jewelry", "homedecor", "home", "kitchen", "pets", "baby", "electronics", "phone", "car", "sports"];
 
 async function getUser(token) {
   if (!token) return null;
@@ -69,7 +69,15 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: "You already have a connected store." });
     }
 
-    const patch = { niche, shop_domain: shop, owner_email: user.email || null, oauth_state: state, admin_token: null, status: "connecting", error: null, updated_at: new Date().toISOString() };
+    const picks = Array.isArray(body.products)
+      ? body.products.slice(0, 30).map((p) => ({
+          name: String((p && p.name) || "").slice(0, 120),
+          blurb: String((p && p.blurb) || "").slice(0, 400),
+          price: Number((p && p.price) || 0) || 24.99,
+          tag: String((p && p.tag) || "").slice(0, 40),
+        })).filter((p) => p.name)
+      : [];
+    const patch = { niche, shop_domain: shop, owner_email: user.email || null, oauth_state: state, admin_token: null, status: "connecting", error: null, products: picks, updated_at: new Date().toISOString() };
     if (open) {
       await svc("store_builds?id=eq." + open.id, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(patch) });
     } else {
