@@ -729,7 +729,7 @@ function IntakeFlow({ name, onComplete, onSkip }) {
   return (
     <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
       <div style={{maxWidth:560,margin:"0 auto",padding:"40px 24px 60px"}}>
-        <div style={{width:32,height:1,background:B.gold,marginBottom:18}} />
+        <div style={{width:32,height:1,background:"#B8955A",marginBottom:18}} />
         <h2 style={{fontSize:24,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 12px",lineHeight:1.25}}>Let's build your plan{name&&name!=="You"&&name!=="Member"?", "+name:""}.</h2>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 8px"}}>A few quick questions first. I'm asking because your answers let me build you a personalized business plan and a step-by-step roadmap right here inside Chelgy — and point you to the exact tools to use for each step.</p>
         <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:"0 0 4px",fontStyle:"italic"}}>Takes about two minutes.</p>
@@ -809,7 +809,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
       </div>
       <div style={{padding:"0 32px 44px",display:"flex",flexDirection:"column",alignItems:"center",gap:11,position:"relative",zIndex:2}}>
         <div style={{display:"flex",gap:8,marginBottom:18}}>
-          {SLIDES.map((_,i)=><div key={i} style={{width:i===idx?28:5,height:1,background:i===idx?B.gold:"rgba(255,255,255,0.2)",transition:"all 0.3s"}} />)}
+          {SLIDES.map((_,i)=><div key={i} style={{width:i===idx?28:5,height:1,background:i===idx?"#B8955A":"rgba(255,255,255,0.2)",transition:"all 0.3s"}} />)}
         </div>
         {s.isFinal?(
           <>
@@ -818,7 +818,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
             <button onClick={onLogin} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.55)",border:"none",padding:"6px",fontSize:12,fontFamily:"sans-serif",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></button>
           </>
         ):(
-          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:B.gold,color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
+          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:"#B8955A",color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
         )}
       </div>
     </div>
@@ -977,10 +977,10 @@ const Upsell = ({ variant="both" }) => {
   const services = variant==="services"||variant==="both";
   const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:B.gold,color:"#fff",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
   return (
-    <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid "+B.gold}}>
+    <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid #fff"}}>
       {course&&<div style={{marginBottom:services?18:0}}>
         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Go Deeper</div>
-        <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Want an in-depth deep dive into every step of marketing your business? It's all in our 138-page course book, <span style={{color:B.gold,fontWeight:700}}>The Profitable Business Blueprint</span>.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Want an in-depth deep dive into every step of marketing your business? It's all in our 138-page course book, <span style={{color:"#fff",fontWeight:700}}>The Profitable Business Blueprint</span>.</p>
         {link("https://chelgy.com/course","Get the Course Book")}
       </div>}
       {services&&<div>
@@ -8566,7 +8566,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 {hero.detail&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:12}}>{hero.detail}</div>}
                 <div style={{display:"flex",gap:22}}>
                   {hero.time&&<div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Time</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#fff"}}>{hero.time}</div></div>}
-                  <div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:B.gold,fontSize:12}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
+                  <div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:"#fff",fontSize:12}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
                 </div>
                 {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:B.gold,color:"#fff",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
               </div>
@@ -9306,7 +9306,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your launch is ready — open and edit it</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy drafts each of these from your answers — click any one to see it and make it yours.</div>
                     <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.06em"}}>
-                      {[["website","Website"],["logo","Logo"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?B.gold:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
+                      {[["website","Website"],["logo","Logo"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?"#fff":"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
                     </div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
@@ -9599,19 +9599,19 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {total>0&&(<>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
                       <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:"rgba(255,255,255,0.5)",textTransform:"uppercase",fontWeight:700}}>Roadmap momentum</span>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:16,color:B.gold}}>{pct}%</span>
+                      <span style={{fontFamily:"Georgia,serif",fontSize:16,color:"#fff"}}>{pct}%</span>
                     </div>
-                    <div style={{height:6,background:"rgba(255,255,255,0.14)",marginBottom:16,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.4s"}} /></div>
+                    <div style={{height:6,background:"rgba(255,255,255,0.14)",marginBottom:16,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:"#fff",transition:"width 0.4s"}} /></div>
                     {next.title&&(
                       <button onClick={()=>setShowTasks(true)} style={{width:"100%",textAlign:"left",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.14)",padding:"13px 15px",cursor:"pointer"}}>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Next milestone</div>
-                        <div style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>{next.title}<span style={{color:B.gold}}>→</span></div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:"rgba(255,255,255,0.6)",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Next milestone</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>{next.title}<span style={{color:"#fff"}}>→</span></div>
                       </button>
                     )}
                     <div style={{display:"flex",gap:24,marginTop:18}}>
                       <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{sumCompletions(7)}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>This week</div></div>
                       <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{sumCompletions(30)}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>This month</div></div>
-                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.gold}}>{streak}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>Day streak</div></div>
+                      <div><div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff"}}>{streak}</div><div style={{fontFamily:"sans-serif",fontSize:9,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>Day streak</div></div>
                     </div>
                   </>)}
                 </div>
@@ -9773,7 +9773,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{background:B.charcoal,padding:"24px",marginBottom:16}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Level {lv.level} · {lv.title}</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:36,color:"#fff",fontWeight:400,marginBottom:0}}>{myPoints} <span style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>points</span></div>
-                  {nl?(<><div style={{height:4,background:"rgba(255,255,255,0.15)",margin:"14px 0 8px"}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.5s"}} /></div><div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)"}}>{toNext} more to Level {nl.level} · {nl.title}</div></>):(<div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:10}}>You've reached the top level. Incredible work.</div>)}
+                  {nl?(<><div style={{height:4,background:"rgba(255,255,255,0.15)",margin:"14px 0 8px"}}><div style={{height:"100%",width:pct+"%",background:"#fff",transition:"width 0.5s"}} /></div><div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)"}}>{toNext} more to Level {nl.level} · {nl.title}</div></>):(<div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:10}}>You've reached the top level. Incredible work.</div>)}
                 </div>
               ); })()}
               <div style={{background:B.white,border:"1px solid "+B.stone,padding:"18px 20px",marginBottom:18}}>
