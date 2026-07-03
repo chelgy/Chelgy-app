@@ -1090,7 +1090,7 @@ function ShareBar({ url, title, text, file, filename }){
   );
 }
 
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{} }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={} }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
@@ -1698,6 +1698,14 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       </div>
       {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
+      {toolMedia && toolMedia[tool] && (()=>{ const u=String(toolMedia[tool]); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
+        <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
+          {isVid
+            ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,background:"#000"}} />
+            : <img src={u} alt="How to use this tool" style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
+        </div>
+      ); })()}
+
       {tool==="content"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Content Writer</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Generate high-converting content for every platform in seconds.</p>
@@ -1723,7 +1731,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         </div>
 
         {!wmResult && wmExisting && wmMode==="view" && <div>
-          <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"14px 16px",marginBottom:20,fontFamily:"sans-serif",fontSize:12.5,color:B.goldDark,lineHeight:1.65}}><strong style={{color:B.charcoal}}>This is your ready-made website.</strong> Don't love it? Browse the themes below to change the whole look — and use the tools underneath to swap your photos, products, and text until it feels like yours.</div>
+          <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20,fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.65}}><strong style={{color:B.charcoal}}>This is your ready-made website.</strong> Don't love it? Browse the themes below to change the whole look — and use the tools underneath to swap your photos, products, and text until it feels like yours.</div>
           {multiSite && <div style={{marginBottom:22,paddingBottom:20,borderBottom:"1px solid "+B.stone}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>Your websites ({wmSites.length})</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
@@ -2539,6 +2547,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
   const [heroForm, setHeroForm] = useState({ hero_image:"", home_hero:"" });
   const [heroSaved, setHeroSaved] = useState(false);
+  const [toolMediaForm, setToolMediaForm] = useState({});
+  const [toolMediaSaved, setToolMediaSaved] = useState(false);
   const [marketerApps, setMarketerApps] = useState([]);
   const [marketerLoading, setMarketerLoading] = useState(false);
   const [marketerErr, setMarketerErr] = useState("");
@@ -2595,7 +2605,18 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" })); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ setToolMediaForm(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } }); },[]);
+  async function saveToolMedia(){
+    setDbLoading(true);
+    try{
+      const tok=await freshToken();
+      const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
+      const clean={}; Object.keys(toolMediaForm||{}).forEach(k=>{ const v=(toolMediaForm[k]||"").trim(); if(v) clean[k]=v; });
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"tool_media",value:JSON.stringify(clean)})});
+      setToolMediaSaved(true); setTimeout(()=>setToolMediaSaved(false),2500);
+    }catch(e){}
+    setDbLoading(false);
+  }
   async function saveHeroImages(){
     setDbLoading(true);
     try{
@@ -3219,6 +3240,19 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Home page hero</div>
               <input value={heroForm.home_hero} onChange={e=>setHeroForm(f=>({...f,home_hero:e.target.value}))} placeholder="https://... (image URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:16,boxSizing:"border-box",background:"#fff"}} />
               <button onClick={saveHeroImages} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{heroSaved?"Saved ✓":"Save Hero Images"}</button>
+            </div>
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Tool Demo Media</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Paste a photo or video URL for any tool. It shows at the top of that tool, above the description, to illustrate how to use it. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave blank to hide.</p>
+              <div style={{maxHeight:340,overflowY:"auto",marginBottom:16,paddingRight:4}}>
+                {Object.keys(TOOL_LABELS).filter(k=>k!=="launch").map(k=>(
+                  <div key={k} style={{marginBottom:12}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:5,textTransform:"uppercase"}}>{TOOL_LABELS[k]}</div>
+                    <input value={toolMediaForm[k]||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:e.target.value}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                  </div>
+                ))}
+              </div>
+              <button onClick={saveToolMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{toolMediaSaved?"Saved ✓":"Save Tool Demos"}</button>
             </div>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>App Info</div>
@@ -6782,7 +6816,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [guideChapter, setGuideChapter] = useState(null);
   const [heroImg, setHeroImg] = useState(HERO_IMG);
   const [homeHero, setHomeHero] = useState(HOME_HERO);
-  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); }); },[]);
+  const [toolMedia, setToolMedia] = useState({});
+  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } }); },[]);
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
   const [selectedForumPost, setSelectedForumPost] = useState(null);
@@ -8661,6 +8696,22 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               ))}
             </div>
+            {gift && (
+              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"18px 20px",marginTop:26}}>
+                <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12}}>{giftTip(gift.type)}</div>
+                {gift.kind==="image"
+                  ? <img src={gift.content} alt={gift.noun} style={{width:"100%",display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
+                  : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {gift.kind==="image"
+                    ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
+                    : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
+                  <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                </div>
+              </div>
+            )}
             <div style={{marginTop:28}}><Btn dark full onClick={()=>setShowTasks(false)}>DONE</Btn></div>
           </div>
         </div>
@@ -8928,37 +8979,14 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <button onClick={()=>{setSelectedPost(appWeeklyPosts[0]);goTab("learn","weekly");addPts(PTS.weekly);}} style={{background:"#fff",color:"#000",border:"none",padding:"11px 24px",fontSize:10,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>READ NOW</button>
                 </div>
               </div>
-              {/* Today's Tasks + Freebie (left column) · Quick Actions (right) */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2,alignItems:"start"}}>
-                <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                  <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Today's Tasks</div>
-                    <div style={{fontSize:34,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:4,color:B.charcoal}}>{bigTasks.filter(t=>t.done).length+Object.keys(dailyDone).filter(k=>k.indexOf("daily-"+todayStr())===0).length}</div>
-                    <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:14}}>completed today</div>
-                    <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.04em",fontWeight:700}}>View my tasks →</span>
-                  </button>
-                  {gift ? (
-                    <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px"}}>
-                      <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
-                      <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
-                      <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:14}}>{giftTip(gift.type)}</div>
-                      {gift.kind==="image"
-                        ? <img src={gift.content} alt={gift.noun} style={{width:"100%",display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
-                        : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                        {gift.kind==="image"
-                          ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
-                          : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
-                        <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
-                      </div>
-                    </div>
-                  ) : giftLoading ? (
-                    <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px"}}>
-                      <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
-                      <div style={{fontFamily:"Georgia,serif",fontSize:17,color:B.charcoal}}>Crafting today's freebie for your business…</div>
-                    </div>
-                  ) : null}
-                </div>
+              {/* Points card + quick actions */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginBottom:2}}>
+                <button onClick={()=>setShowTasks(true)} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"22px",cursor:"pointer"}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Today's Tasks</div>
+                  <div style={{fontSize:34,fontFamily:"Georgia,serif",fontWeight:400,marginBottom:4,color:B.charcoal}}>{bigTasks.filter(t=>t.done).length+Object.keys(dailyDone).filter(k=>k.indexOf("daily-"+todayStr())===0).length}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:14}}>completed today</div>
+                  <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.04em",fontWeight:700}}>View my tasks →</span>
+                </button>
                 <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase"}}>Quick Actions</div>
                   {[["Browse strategies","learn","strategies"],["Ask AI Advisor","community","advisor"],["Open Tools Hub","tools","hub"]].map(([l,t,s])=>(
@@ -8993,6 +9021,28 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   ))}
                 </div>
               </div>
+              {/* Business Grower Freebie — bottom of feed */}
+              {gift ? (
+                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginTop:20}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>{giftTip(gift.type)}</div>
+                  {gift.kind==="image"
+                    ? <img src={gift.content} alt={gift.noun} style={{width:"100%",maxWidth:360,display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
+                    : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {gift.kind==="image"
+                      ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
+                      : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
+                    <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                  </div>
+                </div>
+              ) : giftLoading ? (
+                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginTop:20}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's freebie for your business…</div>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -9218,7 +9268,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
             </div>
           )}
 
