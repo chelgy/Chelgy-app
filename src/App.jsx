@@ -1098,6 +1098,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
   const [wmExisting,setWmExisting]=useState(null); const [wmSites,setWmSites]=useState([]); const [wmNewSite,setWmNewSite]=useState(false); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
+  const [edMgrBusy,setEdMgrBusy]=useState(null);
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
   const [edTab,setEdTab]=useState("design"); const [edFields,setEdFields]=useState({details:[]}); const [edProducts,setEdProducts]=useState([]); const [edProdBusy,setEdProdBusy]=useState(-1);
   const [edDomain,setEdDomain]=useState(""); const [edDomainDns,setEdDomainDns]=useState(null); const [edDomainMsg,setEdDomainMsg]=useState(""); const [edDomainLoad,setEdDomainLoad]=useState(false);
@@ -1269,6 +1270,60 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       setEdImgData(null); setEdImgUse(""); setEdImgPro(false); setWmPreview(p=>p+1);
     }catch(e){ setWmErr(e&&e.message?e.message:"Something went wrong — please try again."); }
     setEdImgLoad(false);
+  }
+  // ─── Photo manager: see every photo on the site + replace / regenerate / delete ───
+  function sitePhotoSlots(){
+    const secs=(wmExisting&&wmExisting.data&&wmExisting.data.sections)||[]; const out=[];
+    const hero=secs.find(x=>x&&x.type==="hero"); if(hero) out.push({key:"hero",label:"Hero image",sub:"Top of your site",url:(hero.image&&hero.image.url)||"",prompt:(hero.image&&hero.image.prompt)||"",ar:"16:9"});
+    const about=secs.find(x=>x&&x.type==="about"); if(about) out.push({key:"about",label:"About photo",sub:"Your story section",url:(about.image&&about.image.url)||"",prompt:(about.image&&about.image.prompt)||"",ar:"4:5"});
+    const ed=secs.find(x=>x&&x.type==="editorial"); if(ed) out.push({key:"editorial",label:"Feature image",sub:"Editorial banner",url:(ed.image&&ed.image.url)||"",prompt:(ed.image&&ed.image.prompt)||"",ar:"16:9"});
+    const off=secs.find(x=>x&&x.type==="offerings"); if(off&&Array.isArray(off.items)) off.items.forEach((it,i)=>out.push({key:"offering-"+i,label:(it.name?it.name:("Item "+(i+1))),sub:"Product / service photo",url:(it.image&&it.image.url)||"",prompt:(it.image&&it.image.prompt)||"",ar:"1:1"}));
+    return out;
+  }
+  function defaultPhotoPrompt(slot){
+    const name=(wmExisting&&wmExisting.data&&wmExisting.data.brand&&wmExisting.data.brand.name)||"this business";
+    if(slot.key==="hero") return "A striking luxury editorial hero image for "+name;
+    if(slot.key==="about") return "An atmospheric scene representing the world of "+name+" — workspace, materials and environment";
+    if(slot.key==="editorial") return "An atmospheric brand scene for "+name;
+    return "A clean, elegant photograph of "+slot.label;
+  }
+  async function placeSitePhoto(key, url, prompt){
+    const d=JSON.parse(JSON.stringify(wmExisting.data||{})); const secs=d.sections||[];
+    const setImg=(obj)=>{ obj.image = (prompt!==undefined) ? {url, prompt} : {...(obj.image||{}), url}; };
+    const clrImg=(obj)=>{ delete obj.image; };
+    const act = (url===null) ? clrImg : setImg;
+    if(key==="hero"){ const s=secs.find(x=>x.type==="hero"); if(s) act(s); }
+    else if(key==="about"){ const s=secs.find(x=>x.type==="about"); if(s) act(s); }
+    else if(key==="editorial"){ const s=secs.find(x=>x.type==="editorial"); if(s) act(s); }
+    else if(key.indexOf("offering-")===0){ const oi=parseInt(key.split("-")[1],10); const off=secs.find(x=>x.type==="offerings"); if(off&&off.items&&off.items[oi]) act(off.items[oi]); }
+    return await saveData(d);
+  }
+  function replaceSitePhoto(key, file){
+    if(!file||!wmExisting) return; setEdMgrBusy(key); setWmErr("");
+    wmRead(file, async(dataUrl)=>{
+      try{ const u=await uploadSiteImage(dataUrl, user.id+"/site-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u){ await placeSitePhoto(key,u); setWmPreview(p=>p+1); } else setWmErr("Couldn't upload that image — please try again."); }
+      catch(e){ setWmErr("Couldn't upload that image — please try again."); }
+      setEdMgrBusy(null);
+    });
+  }
+  async function regenSitePhoto(slot){
+    if(!wmExisting||edMgrBusy) return; setEdMgrBusy(slot.key); setWmErr("");
+    try{
+      const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)]||THEME_IMG_STYLE["editorial-porcelain"];
+      const dna=((wmExisting.data&&wmExisting.data.styleDNA)?String(wmExisting.data.styleDNA)+" ":"")+themeStyle;
+      const basePrompt=(slot.prompt&&slot.prompt.trim())||defaultPhotoPrompt(slot);
+      const prompt=basePrompt+" "+dna+" No text, no words, no logos.";
+      const r=await generateGeminiImage(prompt, null, slot.ar||"1:1", "standard");
+      if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/site-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u){ await placeSitePhoto(slot.key,u,basePrompt); setWmPreview(p=>p+1); } else setWmErr("Couldn't save the new image — please try again."); }
+      else setWmErr("Couldn't generate that image — please try again.");
+    }catch(e){ setWmErr("Couldn't generate that image — please try again."); }
+    setEdMgrBusy(null);
+  }
+  async function deleteSitePhoto(key){
+    if(!wmExisting||edMgrBusy) return; setEdMgrBusy(key); setWmErr("");
+    try{ await placeSitePhoto(key,null); setWmPreview(p=>p+1); }
+    catch(e){ setWmErr("Couldn't remove that photo — please try again."); }
+    setEdMgrBusy(null);
   }
   useEffect(()=>{
     if(tool!=="website"||!user||!user.id) return;
@@ -1784,9 +1839,29 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {wmEditNote&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,marginTop:12,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.gold,padding:"10px 12px"}}>{wmEditNote}</div>}
           </div>}
           {edTab==="photos"&&<div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Your photos</div>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Every photo on your site, and where each one is used. Swap in your own, regenerate a fresh one in your site's style, or remove it.</p>
+          {sitePhotoSlots().map((slot)=>{ const busy=edMgrBusy===slot.key; return (
+            <div key={slot.key} style={{border:"1px solid "+B.stone,background:"#fff",padding:14,marginBottom:12,display:"flex",gap:12,alignItems:"flex-start"}}>
+              <div style={{width:78,height:78,flexShrink:0,border:"1px solid "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",...(slot.url?{backgroundImage:"url("+slot.url+")",backgroundSize:"cover",backgroundPosition:"center"}:{background:B.offwhite})}}>
+                {busy?<span style={{fontFamily:"sans-serif",fontSize:9,color:B.mid}}>…</span>:(!slot.url&&<span style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,textAlign:"center",lineHeight:1.3,padding:4}}>No photo yet</span>)}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal}}>{slot.label}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginBottom:9,letterSpacing:"0.03em"}}>{slot.sub}</div>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                  <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>{slot.url?"Replace":"Upload"}<input type="file" accept="image/*" disabled={busy} onChange={e=>replaceSitePhoto(slot.key,(e.target.files||[])[0])} style={{display:"none"}} /></label>
+                  <button disabled={busy} onClick={()=>regenSitePhoto(slot)} style={{background:B.gold,color:"#111",border:"none",padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.6:1}}>{busy?"Working…":"\u2728 Regenerate similar"}</button>
+                  {slot.url&&<button disabled={busy} onClick={()=>{ if(window.confirm("Remove this photo?")) deleteSitePhoto(slot.key); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>Delete</button>}
+                </div>
+              </div>
+            </div>
+          ); })}
+          {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red,margin:"4px 0 8px"}}>{wmErr}</div>}
+          <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.stone,padding:"9px 11px"}}><strong>Regenerate similar</strong> makes a brand-new AI photo in your site's style (uses image credits). <strong>Replace</strong> uploads your own exact photo.</div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
-            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Add or replace a photo</div>
-            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Upload a product, service or work photo and choose where it goes. Flip the polish on and Chelgy makes it studio-quality.</p>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Upload &amp; polish a photo</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Have a real product, service or work photo? Upload it and choose where it goes. Flip the polish on and Chelgy makes it studio-quality first.</p>
             {!edImgData
               ? <label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Upload a photo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setEdImgData)} style={{display:"none"}} /></label>
               : <div>
