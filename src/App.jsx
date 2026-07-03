@@ -6346,6 +6346,137 @@ function buildNavPath(tab, sub){
   return "/"+tab+((sub && sub!==d) ? "/"+sub : "");
 }
 
+// ── Shopify Store Builder (added) ──────────────────────────────────────────────
+// Replace AFFILIATE_LINK with your Shopify Impact affiliate link once approved, so
+// stores your members create earn you commission. The free-trial URL below works
+// for testing in the meantime.
+const CHELGY_SHOPIFY_AFFILIATE_LINK = "https://www.shopify.com/free-trial";
+const CHELGY_STORE_NICHES = [
+  { id: "clothes", label: "Clothes" },
+  { id: "electronics", label: "Electronics" },
+  { id: "home", label: "Home & Garden" },
+  { id: "pets", label: "Pets" },
+  { id: "sports", label: "Sport & Fitness" },
+];
+
+function StoreBuilderTab({ user }) {
+  const [niche, setNiche] = useState("");
+  const [shop, setShop] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("store") || ""; } catch (e) { return ""; }
+  });
+  useEffect(() => {
+    if (result) {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.delete("store");
+        window.history.replaceState({}, "", u.pathname + u.search);
+      } catch (e) {}
+    }
+  }, []);
+
+  const normOk = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop.trim().toLowerCase());
+  const canConnect = !!niche && normOk && !busy;
+
+  const connect = async () => {
+    setErr("");
+    setBusy(true);
+    try {
+      const tok = await freshToken();
+      if (!tok) { setErr("Please log in again."); setBusy(false); return; }
+      const res = await fetch("/api/shopify-connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: tok, niche, shop: shop.trim().toLowerCase() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) { setErr(data.error || "Couldn't start the connection."); setBusy(false); return; }
+      window.location.href = data.url;
+    } catch (e) {
+      setErr("Something went wrong. Try again.");
+      setBusy(false);
+    }
+  };
+
+  const H = ({ children }) => (
+    <h2 style={{ fontSize: 24, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 6px", lineHeight: 1.25, color: B.charcoal }}>{children}</h2>
+  );
+  const Sub = ({ children }) => (
+    <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 22 }}>{children}</div>
+  );
+  const StepCard = ({ n, title, done, active, children }) => (
+    <div style={{ background: active ? B.white : B.offwhite, border: "1px solid " + (active ? B.charcoal : B.stone), borderRadius: 4, padding: 18, marginBottom: 12, opacity: active || done ? 1 : 0.55 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: children ? 14 : 0 }}>
+        <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: done ? B.green : "none", border: done ? "none" : "1.5px " + (active ? "solid" : "dashed") + " " + (active ? B.charcoal : B.mid), color: "#fff", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700 }}>
+          {done ? "\u2713" : <span style={{ color: active ? B.charcoal : B.mid }}>{n}</span>}
+        </div>
+        <div style={{ fontFamily: "sans-serif", fontSize: 14, fontWeight: 700, color: B.charcoal }}>{title}</div>
+      </div>
+      {children && <div style={{ paddingLeft: 36 }}>{children}</div>}
+    </div>
+  );
+
+  if (result) {
+    const good = result === "ready";
+    const partial = result === "partial";
+    return (
+      <div>
+        <div style={{ width: 32, height: 1, background: "#B8955A", marginBottom: 18 }} />
+        <H>{good ? "Your store is stocked." : partial ? "Almost there." : "That didn't finish."}</H>
+        <Sub>
+          {good && "Products, pages, and a collection are in your Shopify store. Log into your Shopify admin to see it, add your branding, and set it live."}
+          {partial && "Your store connected and most of it built, but a couple of items didn't load. Head to your Shopify admin to check, or reach out and we'll finish it."}
+          {!good && !partial && "The connection didn't complete. Double-check your store URL and try connecting again."}
+        </Sub>
+        <button onClick={() => setResult("")} style={{ padding: "12px 20px", background: B.charcoal, color: "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: "pointer" }}>
+          {good ? "Build another" : "Try again"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ width: 32, height: 1, background: "#B8955A", marginBottom: 18 }} />
+      <H>Build your Shopify store.</H>
+      <Sub>Pick a niche, spin up your store, and we'll stock it with products, pages, and a collection automatically.</Sub>
+
+      <StepCard n={1} title="Choose your niche" done={!!niche} active={!niche}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {CHELGY_STORE_NICHES.map((x) => (
+            <button key={x.id} onClick={() => setNiche(x.id)} style={{ padding: "8px 14px", border: "1px solid " + (niche === x.id ? B.charcoal : B.stone), background: niche === x.id ? B.charcoal : B.white, color: niche === x.id ? "#fff" : B.charcoal, fontFamily: "sans-serif", fontSize: 12, letterSpacing: "0.02em", cursor: "pointer", borderRadius: 2 }}>
+              {x.label}
+            </button>
+          ))}
+        </div>
+      </StepCard>
+
+      <StepCard n={2} title="Create your store" done={false} active={!!niche}>
+        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
+          Don't have a Shopify store yet? Create one free with your discount. Already have one? Skip to step 3.
+        </div>
+        <a href={CHELGY_SHOPIFY_AFFILIATE_LINK} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 18px", background: B.white, color: B.charcoal, border: "1px solid " + B.charcoal, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}>
+          Create my Shopify store
+        </a>
+      </StepCard>
+
+      <StepCard n={3} title="Connect it & build" done={false} active={!!niche}>
+        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 10 }}>
+          Enter your store URL and we'll install the builder and stock your store.
+        </div>
+        <input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="your-store.myshopify.com" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid " + B.stone, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 12, color: B.charcoal }} />
+        {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
+        <button onClick={connect} disabled={!canConnect} style={{ padding: "12px 20px", background: canConnect ? B.charcoal : B.stone, color: canConnect ? "#fff" : B.mid, border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: canConnect ? "pointer" : "not-allowed" }}>
+          {busy ? "Connecting..." : "Connect my store & build"}
+        </button>
+      </StepCard>
+    </div>
+  );
+}
+
+
 export default function ChelgyApp() {
   const [page, setPage] = useState(CHELGY_HAS_OAUTH_RETURN ? "app" : "onboarding");
   useEffect(()=>{
@@ -9319,7 +9450,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"storebuilder",Icon:Icons.Package,title:"Shopify Store Builder",desc:"Spin up a real Shopify dropshipping store in minutes  pick a niche, connect your store, and we stock it with products, pages, and a collection automatically."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -9339,9 +9470,15 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&(
+          {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&(
             <div style={{paddingTop:28}}>
               <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
+            </div>
+          )}
+
+          {tab==="tools"&&subTab==="storebuilder"&&(
+            <div style={{paddingTop:28,maxWidth:640,margin:"0 auto",paddingLeft:20,paddingRight:20}}>
+              <StoreBuilderTab user={user} />
             </div>
           )}
 
