@@ -113,6 +113,7 @@ async function createProduct(shop, token, p) {
     productType: p.type || "",
     productOptions: [{ name: "Title", values: [{ name: "Default Title" }] }],
     variants: [{ optionValues: [{ optionName: "Title", name: "Default Title" }], price: p.price }],
+    ...(p.image ? { files: [{ originalSource: p.image, contentType: "IMAGE" }] } : {}),
   };
   const { ok, j } = await gql(shop, token, query, { input });
   const errs = (j && j.data && j.data.productSet && j.data.productSet.userErrors) || [];
@@ -151,6 +152,7 @@ export async function populateStore(shop, adminToken, niche, products) {
         desc: String(p.blurb || p.desc || "A must-have pick for your store.").slice(0, 400),
         type: String(p.tag || p.type || "").slice(0, 40),
         price: (Number(p.price) > 0 ? Number(p.price).toFixed(2) : "24.99"),
+        image: (p.image || p.imageUrl || null),
       }))
     : (CATALOG[niche] || CATALOG.clothes);
   const failures = [];
