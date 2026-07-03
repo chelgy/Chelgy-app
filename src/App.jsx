@@ -311,8 +311,8 @@ function track(event, props = {}) {
 // ─── BRAND ─── v2.1 wide─────────────────────────────────────────────────────────────────
 const B = {
   cream:"#FFFFFF", white:"#FFFFFF", offwhite:"#F7F6F4", stone:"#E8E6E1",
-  mid:"#6B6B6B", charcoal:"#111111", gold:"#B8955A", goldLight:"#F2EBE0",
-  goldDark:"#8A6D3B", green:"#4CAF82", red:"#C0392B",
+  mid:"#6B6B6B", charcoal:"#111111", gold:"#111111", goldLight:"#F2F2F0",
+  goldDark:"#555555", green:"#4CAF82", red:"#C0392B",
 };
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/dRm00i1Qg2eXectewKdEs00";
 const cleanTitle = (t) => String(t||"").replace(/^#{1,6}\s+/,"");
@@ -818,7 +818,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
             <button onClick={onLogin} style={{width:"100%",maxWidth:340,background:"none",color:"rgba(255,255,255,0.55)",border:"none",padding:"6px",fontSize:12,fontFamily:"sans-serif",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></button>
           </>
         ):(
-          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:B.gold,color:"#111",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
+          <button onClick={()=>{track("onboarding_next",{slide:idx});idx<SLIDES.length-1?next():onSubscribe();}} style={{width:"100%",maxWidth:340,background:B.gold,color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{idx===0?"GET STARTED":"NEXT"}</button>
         )}
       </div>
     </div>
@@ -975,7 +975,7 @@ const Rb=({label,content,loading})=>{
 const Upsell = ({ variant="both" }) => {
   const course = variant==="course"||variant==="both";
   const services = variant==="services"||variant==="both";
-  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:B.gold,color:B.charcoal,textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
+  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:B.gold,color:"#fff",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
   return (
     <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid "+B.gold}}>
       {course&&<div style={{marginBottom:services?18:0}}>
@@ -1727,7 +1727,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 <button key={st.id} onClick={()=>{ setWmExisting(st); setWmMode("view"); setWmResult(null); }} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(st.data&&st.data.brand&&st.data.brand.name)||st.slug}</button>
               ); })}
             </div>
-            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:"#111",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Make another website</button>
+            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Make another website</button>
           </div>}
           <div style={{background:B.offwhite,border:"1px solid "+B.gold,padding:"22px",marginBottom:22}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>Your website is live</div>
@@ -1813,7 +1813,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                     </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
-                      <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#111",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
+                      <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
                       <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
                   </div>
@@ -1852,7 +1852,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginBottom:9,letterSpacing:"0.03em"}}>{slot.sub}</div>
                 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                   <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>{slot.url?"Replace":"Upload"}<input type="file" accept="image/*" disabled={busy} onChange={e=>replaceSitePhoto(slot.key,(e.target.files||[])[0])} style={{display:"none"}} /></label>
-                  <button disabled={busy} onClick={()=>regenSitePhoto(slot)} style={{background:B.gold,color:"#111",border:"none",padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.6:1}}>{busy?"Working…":"\u2728 Regenerate similar"}</button>
+                  <button disabled={busy} onClick={()=>regenSitePhoto(slot)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.6:1}}>{busy?"Working…":"\u2728 Regenerate similar"}</button>
                   {slot.url&&<button disabled={busy} onClick={()=>{ if(window.confirm("Remove this photo?")) deleteSitePhoto(slot.key); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>Delete</button>}
                 </div>
               </div>
@@ -2393,13 +2393,13 @@ function ReviewPrompt({ onClose, onReview }) {
         {/* Stars */}
         <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:20}}>
           {[1,2,3,4,5].map(i=>(
-            <svg key={i} width="32" height="32" viewBox="0 0 24 24" fill="#B8955A" stroke="#B8955A" strokeWidth="1">
+            <svg key={i} width="32" height="32" viewBox="0 0 24 24" fill="#111111" stroke="#111111" strokeWidth="1">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
             </svg>
           ))}
         </div>
 
-        <div style={{width:28,height:1,background:"#B8955A",margin:"0 auto 16px"}} />
+        <div style={{width:28,height:1,background:"#111111",margin:"0 auto 16px"}} />
         <h2 style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:400,margin:"0 0 10px",color:"#111"}}>Enjoying Chelgy?</h2>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px",lineHeight:1.75,letterSpacing:"0.01em"}}>Your review helps other business owners discover Chelgy and join our community. It takes less than 30 seconds.</p>
 
@@ -2727,7 +2727,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       <div style={{background:"#111",padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <img src={LOGO_B64} alt="Chelgy" style={{height:22,objectFit:"contain",filter:"invert(1)"}} />
         <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <span style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",fontWeight:700}}>ADMIN</span>
+          <span style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.18em",fontWeight:700}}>ADMIN</span>
           <button onClick={onExit} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",cursor:"pointer"}}>EXIT</button>
         </div>
       </div>
@@ -2748,7 +2748,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {/* DASHBOARD */}
         {view==="home"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back.</h1>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Your Chelgy admin dashboard.</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
@@ -2761,12 +2761,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,background:"#E8E6E1"}}>
               <div onClick={()=>setView("strategies")} style={{background:"#111",padding:"24px",cursor:"pointer"}}>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Manage Strategies</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.45)"}}>Add, edit, or delete strategy posts</div>
               </div>
               <div onClick={()=>setView("weekly")} style={{background:"#fff",padding:"24px",cursor:"pointer",border:"1px solid #E8E6E1"}}>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>The Chelgy Edit</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>Publish new weekly content</div>
               </div>
@@ -2792,7 +2792,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#111"}}>{h.name}</div>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{h.created_at?new Date(h.created_at).toLocaleString():(h.time||"")}</div>
                     </div>
-                    <a href={"mailto:"+h.email} style={{fontFamily:"sans-serif",fontSize:11,color:"#B8955A",textDecoration:"none",display:"inline-block",marginBottom:10}}>{h.email}</a>
+                    <a href={"mailto:"+h.email} style={{fontFamily:"sans-serif",fontSize:11,color:"#111111",textDecoration:"none",display:"inline-block",marginBottom:10}}>{h.email}</a>
                     <div style={{fontFamily:"sans-serif",fontSize:13,color:"#333",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{h.message}</div>
                   </div>
                 ))}
@@ -2804,7 +2804,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {/* SUBSCRIBERS */}
         {view==="showcase"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>"Made with Chelgy" Showcase</h2>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 20px",lineHeight:1.6}}>Add example images and videos so members can see what each tool can do. Paste an image URL, an mp4 link, or a YouTube/Vimeo link. Tip: make something in your own Image or Video tool, then copy that result's link here.</p>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px",marginBottom:24}}>
@@ -2821,7 +2821,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <div key={it.id} style={{background:"#fff",border:"1px solid #E8E6E1"}}>
                   <ShowcaseMedia item={it} />
                   <div style={{padding:"10px 12px"}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{it.tool==="video"?"Video Studio":"Image Creator"}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{it.tool==="video"?"Video Studio":"Image Creator"}</div>
                     {it.caption&&<div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,marginBottom:3}}>{it.caption}</div>}
                     {it.prompt&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",lineHeight:1.5,marginBottom:8}}>Prompt: {it.prompt}</div>}
                     <button onClick={()=>delShowcase(it.id)} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
@@ -2835,7 +2835,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="marketers"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Applications</h2>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.6}}>People who applied to become Chelgy Marketers. Approve to unlock their workspace at the team site.</p>
             <button onClick={loadMarketers} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:14}}>↻ Refresh</button>
@@ -2848,9 +2848,9 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   <div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:17}}>{info.name||"(no name)"}</div>
                     <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>{a.email||info.email||""}{info.location?(" · "+info.location):""}{info.phone?(" · "+info.phone):""}</div>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,color:"#B8955A",fontWeight:700,letterSpacing:"0.04em",marginTop:4}}>{info.start==="now"?"Wants to start paid now ($100/mo)":"Free until first client"}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,color:"#111111",fontWeight:700,letterSpacing:"0.04em",marginTop:4}}>{info.start==="now"?"Wants to start paid now ($100/mo)":"Free until first client"}</div>
                   </div>
-                  <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",padding:"4px 10px",color:a.marketer_status==="approved"?"#2E7D32":a.marketer_status==="denied"?"#C0392B":"#B8955A",border:"1px solid "+(a.marketer_status==="approved"?"#2E7D32":a.marketer_status==="denied"?"#C0392B":"#B8955A")}}>{a.marketer_status}</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",padding:"4px 10px",color:a.marketer_status==="approved"?"#2E7D32":a.marketer_status==="denied"?"#C0392B":"#111111",border:"1px solid "+(a.marketer_status==="approved"?"#2E7D32":a.marketer_status==="denied"?"#C0392B":"#111111")}}>{a.marketer_status}</span>
                 </div>
                 {info.experience&&<div style={{marginBottom:8}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:3}}>Experience</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#333",lineHeight:1.55}}>{info.experience}</div></div>}
                 {info.why&&<div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:3}}>Why join</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#333",lineHeight:1.55}}>{info.why}</div></div>}
@@ -2866,7 +2866,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="pricing"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Chelgy Marketer Pricing</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>All marketers offer standardized service tiers. View approved marketers and their revenue potential.</p>
             
@@ -2907,7 +2907,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       <tr key={i} style={{borderBottom:"1px solid #E8E6E1"}}>
                         <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.name||"(unnamed)"}</td>
                         <td style={{padding:"12px 16px",fontFamily:"sans-serif"}}>{m.status==="paid"?"Paid":"Pending"}</td>
-                        <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",fontWeight:600,color:"#B8955A"}}>${minMo.toLocaleString()}–${maxMo.toLocaleString()}</td>
+                        <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",fontWeight:600,color:"#111111"}}>${minMo.toLocaleString()}–${maxMo.toLocaleString()}</td>
                         <td style={{padding:"12px 16px",textAlign:"center",fontFamily:"sans-serif",color:"#999"}}>${Math.round(minMo*12/1000)}K–${Math.round(maxMo*12/1000)}K</td>
                       </tr>
                     );
@@ -2928,7 +2928,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="inquiries"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Client Inquiries</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Review inquiries from marketers. Approve to activate the contract, deny to skip.</p>
             <button onClick={loadInquiries} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
@@ -2954,7 +2954,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     </div>
 
                     {inquiry.notes&&(
-                      <div style={{background:"#FFFBF0",padding:"12px 14px",marginBottom:14,borderRadius:3,borderLeft:"3px solid #B8955A"}}>
+                      <div style={{background:"#FFFBF0",padding:"12px 14px",marginBottom:14,borderRadius:3,borderLeft:"3px solid #111111"}}>
                         <p style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",margin:"0"}}><strong>Notes:</strong> {inquiry.notes}</p>
                       </div>
                     )}
@@ -2974,7 +2974,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="deliverables"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Deliverables</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Documents your marketers generated and sent in for review.</p>
             <button onClick={loadDeliverables} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
@@ -2994,7 +2994,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       <span style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",whiteSpace:"nowrap"}}>{new Date(d.created_at).toLocaleString()}</span>
                     </div>
                     <details>
-                      <summary style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#B8955A",cursor:"pointer",marginBottom:8}}>View document</summary>
+                      <summary style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#111111",cursor:"pointer",marginBottom:8}}>View document</summary>
                       <div style={{background:"#F9F7F2",padding:"14px 16px",marginTop:10,fontFamily:"sans-serif",fontSize:12,color:"#333",lineHeight:1.6,whiteSpace:"pre-wrap",maxHeight:360,overflowY:"auto"}}>{d.content}</div>
                     </details>
                   </div>
@@ -3026,11 +3026,11 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                         <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#1A1A1A"}}>{m.name||"(no name)"}</span>
                         <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:m.status==="paid"?"#1A1A1A":"#F0EEE9",color:m.status==="paid"?"#fff":"#6B6B6B"}}>{m.status||"trial"}</span>
                         {m.banned&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#C0392B",color:"#fff"}}>Banned</span>}
-                        {m.muted&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#F2EBE0",color:"#8A6D3B",border:"1px solid #B8955A"}}>Muted</span>}
+                        {m.muted&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#F2F2F0",color:"#555555",border:"1px solid #111111"}}>Muted</span>}
                       </div>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{m.created_at?new Date(m.created_at).toLocaleString():""}</div>
                     </div>
-                    <a href={"mailto:"+m.email} style={{fontFamily:"sans-serif",fontSize:12,color:"#B8955A",textDecoration:"none"}}>{m.email}</a>
+                    <a href={"mailto:"+m.email} style={{fontFamily:"sans-serif",fontSize:12,color:"#111111",textDecoration:"none"}}>{m.email}</a>
                     {(m.business||m.bio)&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",marginTop:6,lineHeight:1.6}}>{m.business?<span><strong>Business:</strong> {m.business}</span>:null}{m.business&&m.bio?<br/>:null}{m.bio?<span>{m.bio}</span>:null}</div>}
                     {(()=>{ const st=memberStats[m.user_id]||null; const la=m.last_active?new Date(m.last_active):null; const tt=(st&&Array.isArray(st.top_tools))?st.top_tools:[]; return (
                       <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:"4px 16px",fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>
@@ -3041,7 +3041,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     ); })()}
                     <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
                       <button onClick={async()=>{ if(!m.user_id){alert("This member has no linked account id yet.");return;} if(!m.banned&&!window.confirm("Suspend "+(m.name||m.email||"this member")+"? They won't be able to log in. This is fully reversible — their data and payments are kept.")) return; const tok=await freshToken(); try{ const r=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"set-member-flags",user_id:m.user_id,banned:!m.banned})}); if(r.ok){ loadFromDB(); } else { const d=await r.json().catch(()=>null); alert((d&&d.error)||"Couldn't update — try again."); } }catch(e){ alert("Couldn't update — try again."); } }} style={{background:m.banned?"#fff":"#C0392B",color:m.banned?"#C0392B":"#fff",border:"1px solid #C0392B",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{m.banned?"Unban":"Ban"}</button>
-                      <button onClick={async()=>{ if(!m.user_id){alert("This member has no linked account id yet.");return;} const tok=await freshToken(); try{ const r=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"set-member-flags",user_id:m.user_id,muted:!m.muted})}); if(r.ok){ loadFromDB(); } else { const d=await r.json().catch(()=>null); alert((d&&d.error)||"Couldn't update — try again."); } }catch(e){ alert("Couldn't update — try again."); } }} style={{background:"none",color:"#8A6D3B",border:"1px solid #B8955A",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{m.muted?"Unmute":"Mute"}</button>
+                      <button onClick={async()=>{ if(!m.user_id){alert("This member has no linked account id yet.");return;} const tok=await freshToken(); try{ const r=await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"set-member-flags",user_id:m.user_id,muted:!m.muted})}); if(r.ok){ loadFromDB(); } else { const d=await r.json().catch(()=>null); alert((d&&d.error)||"Couldn't update — try again."); } }catch(e){ alert("Couldn't update — try again."); } }} style={{background:"none",color:"#555555",border:"1px solid #111111",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{m.muted?"Unmute":"Mute"}</button>
                     </div>
                   </div>
                 ))}
@@ -3066,7 +3066,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{display:"flex",flexDirection:"column",gap:2,background:"#E8E6E1"}}>
                 {subsList.map(s=>(
                   <div key={s.id} style={{background:"#fff",padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}}>
-                    <a href={"mailto:"+s.email} style={{fontFamily:"sans-serif",fontSize:13,color:"#B8955A",textDecoration:"none"}}>{s.email}</a>
+                    <a href={"mailto:"+s.email} style={{fontFamily:"sans-serif",fontSize:13,color:"#111111",textDecoration:"none"}}>{s.email}</a>
                     <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{s.created_at?new Date(s.created_at).toLocaleString():""}</div>
                   </div>
                 ))}
@@ -3123,7 +3123,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   ):(
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                       <div style={{flex:1}}>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.1em",marginBottom:5}}>{s.category} · {s.level}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.1em",marginBottom:5}}>{s.category} · {s.level}</div>
                         <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,marginBottom:3}}>{s.title}</div>
                         <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>{s.summary?.slice(0,80)}{s.summary?.length>80&&"..."}</div>
                       </div>
@@ -3186,7 +3186,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   ):(
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                       <div style={{flex:1}}>
-                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.1em",marginBottom:5}}>{p.tag} · {p.week}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.1em",marginBottom:5}}>{p.tag} · {p.week}</div>
                         <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,marginBottom:3}}>{p.title}</div>
                         <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>{p.readTime}</div>
                       </div>
@@ -3205,7 +3205,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {/* SETTINGS */}
         {view==="settings"&&(
           <div>
-            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 22px"}}>Settings</h2>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Hero Images</div>
@@ -6221,6 +6221,21 @@ function giftTextPrompt(key, ctx){
   };
   return (P[key] || P.caption) + "\n\n" + ctx;
 }
+function giftTip(type){
+  const T={
+    caption:"Post this to your Instagram or Facebook story to boost engagement.",
+    content:"Share this as a post this week — tag a few people who'd find it useful.",
+    viral:"Film this today while the idea's fresh and post it as a Reel.",
+    ad:"Drop this hook into your next boosted post or ad.",
+    grant:"Set aside 15 minutes this week to start the application.",
+    audit:"Pick one fix from this and knock it out today.",
+    platform:"Do this one platform action today — it only takes a few minutes.",
+    flyer:"Share this to your stories and feed to catch new eyes.",
+    graphic:"Post this to your feed and pin it to your profile.",
+    quote:"Share this to your story — quote posts spark lots of replies.",
+  };
+  return T[type]||"Use this in your marketing this week to get more eyes on your business.";
+}
 function giftImagePrompt(key, ctx){
   const base = "Design a polished, professional marketing image for this business that's ready to post. Clean modern layout, tasteful colors, legible text, no watermark. ";
   const V = {
@@ -7859,7 +7874,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Get a launch plan for this client</div>
                 </button>
               </div>
-              <button onClick={()=>{ setInquiryForm({ clientName:(clientDraft.business||clientDraft.name||"").trim(), businessType:(clientDraft.industry||"").trim(), serviceTier:"foundation", pricingModel:"contract", notes:[clientDraft.goals&&("Goals: "+clientDraft.goals), clientDraft.notes&&("Notes: "+clientDraft.notes), clientDraft.contact&&("Contact: "+clientDraft.contact)].filter(Boolean).join(" · ") }); setInquiryErr(""); setMarketerView("contracts"); }} style={{width:"100%",marginTop:8,background:B.gold,color:"#111",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send this client to Chelgy →</button>
+              <button onClick={()=>{ setInquiryForm({ clientName:(clientDraft.business||clientDraft.name||"").trim(), businessType:(clientDraft.industry||"").trim(), serviceTier:"foundation", pricingModel:"contract", notes:[clientDraft.goals&&("Goals: "+clientDraft.goals), clientDraft.notes&&("Notes: "+clientDraft.notes), clientDraft.contact&&("Contact: "+clientDraft.contact)].filter(Boolean).join(" · ") }); setInquiryErr(""); setMarketerView("contracts"); }} style={{width:"100%",marginTop:8,background:B.gold,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send this client to Chelgy →</button>
             </div>, false, true);
         }
         return teamWrap(
@@ -8300,7 +8315,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <input value={teamAuth.email} onChange={e=>setTeamAuth(a=>({...a,email:e.target.value}))} placeholder="Email" type="email" style={{width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
         <input value={teamAuth.password} onChange={e=>setTeamAuth(a=>({...a,password:e.target.value}))} placeholder="Password" type="password" style={{width:"100%",padding:"13px 15px",marginBottom:16,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"}} />
         {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#FCA5A5",marginBottom:14}}>{teamErr}</div>}
-        <button onClick={teamMode==="signup"?doTeamSignup:doTeamLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#000",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
+        <button onClick={teamMode==="signup"?doTeamSignup:doTeamLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
         <div style={{textAlign:"center",marginTop:18}}>
           <button onClick={()=>{setTeamErr("");setTeamMode(teamMode==="signup"?"login":"signup");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.02em"}}>{teamMode==="signup"?"Already have a marketer account? Log in":"New here? Create a marketer account"}</button>
         </div>
@@ -8314,7 +8329,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>Welcome, Chelgy Marketer</div>
         <h1 style={{color:"#fff",fontSize:28,fontWeight:400,margin:"0 0 12px"}}>Ready to start?</h1>
         <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.7,margin:"0 auto 28px",maxWidth:400}}>You're approved to become a Chelgy Marketer. Start your $100/mo membership to access your workspace, tools, and everything you need to land clients.</p>
-        <button onClick={startMarketerMembership} disabled={mkPayLoading} style={{background:B.gold,color:B.charcoal,border:"none",padding:"13px 24px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPayLoading?"default":"pointer",textTransform:"uppercase",marginBottom:14}}>{mkPayLoading?"Starting…":"Start Membership Now"}</button>
+        <button onClick={startMarketerMembership} disabled={mkPayLoading} style={{background:B.gold,color:"#fff",border:"none",padding:"13px 24px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPayLoading?"default":"pointer",textTransform:"uppercase",marginBottom:14}}>{mkPayLoading?"Starting…":"Start Membership Now"}</button>
         {teamErr&&<p style={{fontFamily:"sans-serif",color:"#FCA5A5",fontSize:12,margin:"0 0 12px"}}>{teamErr}</p>}
         <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.4)",fontSize:11,lineHeight:1.6,margin:"0"}}>Full workspace access • All marketing tools • AI coach & deliverables • Client CRM</p>
       </div>, true);
@@ -8553,7 +8568,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {hero.time&&<div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Time</div><div style={{fontFamily:"sans-serif",fontSize:12,color:"#fff"}}>{hero.time}</div></div>}
                   <div><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:B.gold,fontSize:12}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
                 </div>
-                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:B.gold,color:"#111",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
+                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:B.gold,color:"#fff",border:"none",padding:"11px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
               </div>
             )}
             <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",marginBottom:12}}>Today's Quick Wins</div>
@@ -8780,7 +8795,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.gold,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
                   <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Ads · Audits · Voiceover</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#111",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Latest client-acquisition strategies */}
               <div style={{paddingTop:20}}>
@@ -8880,9 +8895,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{paddingTop:28}}>
               {gift ? (
                 <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>On the house</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
-                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>Made just for your business — yours to use, no credits. Made with the {gift.label}.</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>{giftTip(gift.type)}</div>
                   {gift.kind==="image"
                     ? <img src={gift.content} alt={gift.noun} style={{width:"100%",maxWidth:360,display:"block",border:"1px solid "+B.stone,marginBottom:12}} />
                     : <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:12}}>{gift.content}</div>}
@@ -8895,8 +8910,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               ) : giftLoading ? (
                 <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginBottom:14}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>On the house</div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's free gift for your business…</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's freebie for your business…</div>
                 </div>
               ) : null}
               {/* Hero card */}
@@ -8936,7 +8951,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.gold,fontWeight:700,marginBottom:8}}>AI TOOLS SUITE</div>
                   <div style={{color:"#fff",fontFamily:"Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Business · Dropshipping · Platforms</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#111",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Recent strategies */}
               <div style={{paddingTop:20}}>
@@ -9294,7 +9309,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       {[["website","Website"],["logo","Logo"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?B.gold:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
                     </div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:true,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:B.gold,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"images",auto:true,data:{iType:"logo",iBiz:launchData.bizName,iExtra:"A minimal, elegant logo for "+launchData.bizName+(launchData.bizType?(", "+launchData.bizType):"")+(launchData.tone?(". Style: "+launchData.tone):"")+(launchData.colors?(". Colors: "+launchData.colors):"")+". Simple, professional, isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no scene)."}}); setSubTab("images"); }} style={{background:brandProgress.logo?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.logo?"See & edit your logo":"Draft my logo"}</button>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"ads",auto:true,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"See & edit your ads":"Draft my ads"}</button>
                     </div>
@@ -9304,7 +9319,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy writes everything to paste into each profile — you just create the accounts.</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:B.gold,color:"#111",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
+                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:B.gold,color:"#fff",border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
                       <button onClick={()=>{ setFromLaunch(false); setSubTab("hub"); }} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
                     </div>
                   </div>
@@ -9798,7 +9813,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {isAdmin && !adminPanelOpen && (
         <div style={{position:"fixed",right:14,bottom:BOT_H+14,zIndex:350,display:"flex",alignItems:"center",gap:8,background:B.charcoal,padding:"8px 10px 8px 14px",borderRadius:30,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
           <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase"}}>Admin</span>
-          <button onClick={()=>setAdminPanelOpen(true)} style={{background:B.gold,color:B.charcoal,border:"none",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Panel</button>
+          <button onClick={()=>setAdminPanelOpen(true)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Panel</button>
           <button onClick={()=>{setIsAdmin(false);setAdminAuthed(false);setAdminPanelOpen(true);}} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.25)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Exit</button>
         </div>
       )}
