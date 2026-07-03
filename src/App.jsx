@@ -1698,11 +1698,11 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {!locked&&(
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.06em"}}>{credits.toLocaleString()} credits</span>
-          <button onClick={onBuyCredits} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark}}>TOP UP</button>
+          <button onClick={onBuyCredits} style={{background:B.white,border:"1px solid "+B.stone,padding:"4px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark}}>TOP UP</button>
         </div>
         )}
       </div>
-      {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
+      {locked&&<div style={{background:B.white,border:"1px solid "+B.stone,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
       {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[tool],"full"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
         <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
@@ -1882,7 +1882,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Upload &amp; polish a photo</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Have a real product, service or work photo? Upload it and choose where it goes. Flip the polish on and Chelgy makes it studio-quality first.</p>
             {!edImgData
-              ? <label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Upload a photo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setEdImgData)} style={{display:"none"}} /></label>
+              ? <label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>+ Upload a photo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setEdImgData)} style={{display:"none"}} /></label>
               : <div>
                   <div style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:10}}>
                     <img src={edImgData} alt="" style={{width:70,height:70,objectFit:"cover",flexShrink:0}} />
@@ -1972,7 +1972,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                   <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
                 </div>
               ))}
-              {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>{wmKind==="services"?"+ Add a photo":"+ Add a product / work photo"}<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
+              {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>{wmKind==="services"?"+ Add a photo":"+ Add a product / work photo"}<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
             </div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>{wmKind==="services"?"Add photos to showcase your work. ":"Add a photo for each product if you can. Services can just be listed. "}Anything you skip, Chelgy fills with matching AI imagery.</div>
           </div>}
@@ -1983,7 +1983,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={wmLbl}>Photo of you <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{maxWidth:200,marginBottom:10}}>{wmSelf
               ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:120}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
-              : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:120,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for your About section)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
+              : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:120,border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for your About section)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Chelgy never invents people — a photo of you or your team only appears if you upload one here.</div>
           </div>}
 
@@ -1993,9 +1993,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={wmLbl}>Logo <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{maxWidth:220,marginBottom:10}}>{wmLogo
               ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:90}}><img src={wmLogo} alt="logo" style={{maxHeight:72,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
-              : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:90,border:"1px dashed "+B.gold,background:B.goldLight,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
+              : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:90,border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Your logo goes in the header. Skip it and Chelgy shows your name in a beautiful typeface.</div>
-            <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,marginTop:16,padding:"12px 14px",background:B.goldLight,border:"1px solid "+B.gold,lineHeight:1.65}}>
+            <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,marginTop:16,padding:"12px 14px",background:B.white,border:"1px solid "+B.stone,lineHeight:1.65}}>
               <span style={{color:B.goldDark,fontWeight:700,letterSpacing:"0.04em"}}>WHAT THIS COSTS</span><br/>
               About <strong>{wmEstimate().toLocaleString()} credits</strong> — a logo plus one custom image per section and offering ({CREDIT_COSTS.image} credits each, up to 20 images). Most sites use fewer, and you're only charged for what's actually created. You have {Number(credits).toLocaleString()} credits.
             </div>
@@ -2028,7 +2028,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       {tool==="images"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Image Creator</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 6px",letterSpacing:"0.02em"}}>{["logo","flyer","social","banner"].includes(iType)?"Powered by GPT Image 2 — best for crisp text & logos":"Powered by Nano Banana 2 (Google Gemini)"}</p>
-        <div style={{background:B.goldLight,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
+        <div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
           {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
@@ -2054,7 +2054,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 </div>
               ))}
             </div>}
-            {iUploads.length<5&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{iUploads.length?"Add another photo":"Tap to upload photo(s) — the AI will build your design around them. You can add several (e.g. a product + your logo)."}<input type="file" accept="image/*" multiple onChange={onUploadImg} style={{display:"none"}} /></label>}
+            {iUploads.length<5&&<label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{iUploads.length?"Add another photo":"Tap to upload photo(s) — the AI will build your design around them. You can add several (e.g. a product + your logo)."}<input type="file" accept="image/*" multiple onChange={onUploadImg} style={{display:"none"}} /></label>}
           </div>
           <Fl label="Orientation"><Ss value={iAspect} onChange={e=>setIAspect(e.target.value)}><option value="1:1">Square (1:1)</option><option value="4:5">Portrait (4:5)</option><option value="9:16">Tall / Story (9:16)</option><option value="16:9">Landscape (16:9)</option><option value="4:3">Standard (4:3)</option></Ss></Fl>
           <Fl label="Quality"><Ss value={iQuality} onChange={e=>setIQuality(e.target.value)}><option value="standard">Standard — fast & economical ({CREDIT_COSTS.image} cr)</option><option value="2K">HD 2K — sharper, better text ({CREDIT_COSTS.imageHD} cr)</option><option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option></Ss></Fl>
@@ -2093,7 +2093,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 </div>
               ))}
             </div>}
-            {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.gold,background:B.goldLight,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{vVidPhotos.length===0?(vType==="generate"?"Tap to upload a product photo — the AI will animate it into a video":"Tap to upload a reference photo — Claude will study it and write your prompt from what it sees"):"Add another photo"}<input type="file" accept="image/*" multiple onChange={onUploadVid} style={{display:"none"}} /></label>}
+            {vVidPhotos.length<3&&<label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{vVidPhotos.length===0?(vType==="generate"?"Tap to upload a product photo — the AI will animate it into a video":"Tap to upload a reference photo — Claude will study it and write your prompt from what it sees"):"Add another photo"}<input type="file" accept="image/*" multiple onChange={onUploadVid} style={{display:"none"}} /></label>}
             {vType==="generate"&&vVidPhotos.length>1&&<div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>The <strong>Featured</strong> photo is the one brought to life in the video. Remove it to feature the next one.</div>}
           </div>}
           {vType==="generate"&&<div style={{marginBottom:14}}>
@@ -2271,7 +2271,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>
           ))}
         </div>
-        <div style={{background:B.goldLight,padding:"16px 18px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.85,borderLeft:"2px solid "+B.gold}}>
+        <div style={{background:B.white,padding:"16px 18px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.85,borderLeft:"2px solid "+B.gold}}>
           <div style={{fontWeight:700,marginBottom:6,color:B.goldDark,fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase"}}>Quick Tips</div>
           Always order samples before selling. Start with 3-5 products max. For fast US shipping use Spocket or Zendrop. For print on demand use Printful or Printify.
         </div>
@@ -8360,7 +8360,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
             </button>
           </div>
-          <div style={{background:B.goldLight,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
         </div>, false, true);
       }
 
@@ -8666,7 +8666,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ))}
             </div>
             {gift && (
-              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"18px 20px",marginBottom:24}}>
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"18px 20px",marginBottom:24}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
                 <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12}}>{giftTip(gift.type)}</div>
@@ -8739,7 +8739,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ))}
             </div>
             {gift && (
-              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"18px 20px",marginTop:26}}>
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"18px 20px",marginTop:26}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
                 <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12}}>{giftTip(gift.type)}</div>
@@ -8780,7 +8780,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <Btn dark onClick={saveJournal} disabled={jSaving}>{jSaving?"SAVING...":"SAVE TODAY'S ENTRY"}</Btn>
             </div>
             {jResp&&(
-              <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px",marginBottom:20}}>
+              <div style={{background:B.white,border:"1px solid "+B.stone,padding:"20px",marginBottom:20}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.goldDark,letterSpacing:"0.16em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>A note from Chelgy</div>
                 <Rich text={jResp} />
               </div>
@@ -8828,7 +8828,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <button onClick={()=>setShowPaywall(true)} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:"#fff"}}>UPGRADE MEMBERSHIP</button>
             )}
             {!isTrial&&(
-              <button onClick={()=>setShowCredits(true)} style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark,display:"flex",alignItems:"center",gap:5}}>
+              <button onClick={()=>setShowCredits(true)} style={{background:B.white,border:"1px solid "+B.stone,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark,display:"flex",alignItems:"center",gap:5}}>
                 <Icons.Star />{credits.toLocaleString()}
               </button>
             )}
@@ -9065,7 +9065,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
               {/* Business Grower Freebie — bottom of feed */}
               {gift ? (
-                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginTop:20}}>
+                <div style={{background:B.white,border:"1px solid "+B.stone,padding:"20px 22px",marginTop:20}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:4}}>Your free {gift.noun}</div>
                   <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,marginBottom:14}}>{giftTip(gift.type)}</div>
@@ -9080,7 +9080,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   </div>
                 </div>
               ) : giftLoading ? (
-                <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"20px 22px",marginTop:20}}>
+                <div style={{background:B.white,border:"1px solid "+B.stone,padding:"20px 22px",marginTop:20}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:B.goldDark,fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Business Grower Freebie</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Crafting today's freebie for your business…</div>
                 </div>
@@ -9401,7 +9401,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       </select></div>
                       <div style={{marginBottom:12,marginTop:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Brand colors (optional)</div><input value={launchData.colors} onChange={e=>setLaunchData(d=>({...d,colors:e.target.value}))} placeholder="e.g. Sage green and cream, black and gold, coral and white..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
                       <div style={{marginBottom:16}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your main goal right now</div><textarea value={launchData.goal} onChange={e=>setLaunchData(d=>({...d,goal:e.target.value}))} placeholder="e.g. Get my first 10 clients, launch my online store, build my brand presence in Tampa..." rows={3} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:B.white}} /></div>
-                      <div style={{background:B.goldLight,padding:"14px 16px",marginBottom:18,borderLeft:"2px solid "+B.gold}}>
+                      <div style={{background:B.white,padding:"14px 16px",marginBottom:18,borderLeft:"2px solid "+B.gold}}>
                         <div style={{fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>Your launch package will include: complete website copy, brand strategy, social media bios and content plan, and a 30-day launch roadmap. All specific to your business.</div>
                       </div>
                       <div style={{display:"flex",gap:10}}>
@@ -9471,7 +9471,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                         ))}
                       </div>
                     ))}
-                    <div style={{background:B.goldLight,padding:"12px 14px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.6}}>Use your logo as the profile photo on each. You finish signup and verification on each platform — Chelgy fills in everything to paste. Google verifies your address; Instagram is set up in its app.</div>
+                    <div style={{background:B.white,padding:"12px 14px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.6}}>Use your logo as the profile photo on each. You finish signup and verification on each platform — Chelgy fills in everything to paste. Google verifies your address; Instagram is set up in its app.</div>
                   </div>}
                   {profileKit&&profileKit._raw&&!profileKitLoad&&<div style={{marginTop:14,background:B.offwhite,border:"1px solid "+B.stone,padding:"18px"}}><Md text={profileKit._raw} /></div>}
                   <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone,overflowX:"auto"}}>
@@ -9492,7 +9492,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <button onClick={()=>{setLaunchResult(null);setLaunchStep(1);setLaunchData({bizName:"",bizType:"",niche:"",targetCustomer:"",location:"",uniqueValue:"",services:"",priceRange:"",tone:"Professional and Warm",colors:"",competitors:"",goal:""}); setLaunchSection("brand"); if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { launch_data:null, launch_result:null });}} style={{background:"none",border:"1px solid "+B.stone,padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Start Over</button>
                     </div>
                   </div>
-                  <div style={{background:B.goldLight,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
+                  <div style={{background:B.white,padding:"14px 16px",borderLeft:"2px solid "+B.gold,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,lineHeight:1.7}}>
                     This is your AI-generated launch package based on the information you provided. Copy each section and use it directly for your website, social media, and launch plan. Come back anytime to regenerate with updated information.
                   </div>
                   <Upsell variant="both" />
@@ -9514,7 +9514,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {isTrial?<><Icons.Lock /> NEW POST</>:<><Icons.Plus /> NEW POST</>}
                 </button>
               </div>
-              {muted&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 14px",marginBottom:16,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>You've been muted by an admin, so posting and commenting are paused for now. You can still read everything and use the rest of Chelgy. Reach out to support if you think this is a mistake.</div>}
+              {muted&&<div style={{background:B.white,border:"1px solid "+B.stone,padding:"12px 14px",marginBottom:16,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>You've been muted by an admin, so posting and commenting are paused for now. You can still read everything and use the rest of Chelgy. Reach out to support if you think this is a mistake.</div>}
               <div style={{display:"flex",gap:0,borderBottom:"1px solid "+B.stone,marginBottom:18,overflowX:"auto"}}>
                 {["all","wins","questions","working","ai","memes","intros","life"].map(c=>(
                   <button key={c} onClick={()=>setForumCat(c)} style={{background:"none",color:forumCat===c?B.charcoal:B.mid,border:"none",borderBottom:forumCat===c?"1.5px solid "+B.charcoal:"1.5px solid transparent",padding:"9px 13px",fontSize:9,fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:forumCat===c?700:400,whiteSpace:"nowrap"}}>{c==="all"?"All":c}</button>
@@ -9683,7 +9683,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Ask anything about marketing, strategy, tools, or your business. Chelgy remembers your conversation.</p>
               {isTrial&&(
-                <div style={{background:B.goldLight,padding:"10px 14px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>
+                <div style={{background:B.white,border:"1px solid "+B.stone,padding:"10px 14px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>
                   AI Advisor is available to members.{" "}
                   <button onClick={()=>setShowPaywall(true)} style={{background:"none",border:"none",color:B.goldDark,fontWeight:700,cursor:"pointer",padding:0,fontSize:11,textDecoration:"underline"}}>Subscribe to unlock</button>
                 </div>
@@ -9867,7 +9867,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Need Help?</div>
                   <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 16px",lineHeight:1.6}}>Stuck on something or have a question? Send us a message and we'll get back to you by email.</p>
                   {helpDone?(
-                    <div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"16px",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>
+                    <div style={{background:B.white,border:"1px solid "+B.stone,padding:"16px",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>
                       Thanks{helpName?(", "+helpName):""}! Your message is on its way — we'll reply to your email soon.
                       <div style={{marginTop:12}}><button onClick={()=>{setHelpDone(false);setHelpErr("");}} style={{background:"none",border:"1px solid "+B.gold,padding:"7px 14px",fontFamily:"sans-serif",fontSize:10,cursor:"pointer",color:B.goldDark,letterSpacing:"0.1em",textTransform:"uppercase"}}>Send another</button></div>
                     </div>
