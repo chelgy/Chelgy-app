@@ -44,6 +44,51 @@ export const CATALOG = {
     { title: "Insulated Sport Bottle 32oz", price: "22.99", type: "Fitness", desc: "Ice-cold for 24 hours, sweat-free grip, leak-proof lid built for the gym bag." },
     { title: "Adjustable Speed Jump Rope", price: "14.99", type: "Fitness", desc: "Weighted, tangle-free, cut-to-fit. The cardio tool that goes anywhere." },
   ],
+  beauty: [
+    { title: "Magnetic Lash Kit", price: "24.99", type: "Beauty", desc: "Reusable magnetic lashes with a no-glue liner. Full-glam eyes in 30 seconds." },
+    { title: "12-Color Matte Lip Set", price: "19.99", type: "Beauty", desc: "Long-wear liquid mattes that do not budge. A shade for every mood." },
+    { title: "Blackhead Vacuum Tool", price: "29.99", type: "Beauty", desc: "Pore-clearing suction with adjustable levels. Smoother skin, satisfying results." },
+  ],
+  skincare: [
+    { title: "Ice Roller Face Globes", price: "18.99", type: "Skincare", desc: "Depuff, tighten, and calm in minutes. Your morning glow-up ritual." },
+    { title: "Vitamin C Brightening Serum", price: "22.99", type: "Skincare", desc: "Fades dark spots and wakes up dull skin. The bottle everyone reorders." },
+    { title: "LED Light Therapy Mask", price: "49.99", type: "Skincare", desc: "Spa-grade light therapy at home. Clearer, calmer skin on a schedule." },
+  ],
+  hair: [
+    { title: "Heatless Curl Rod Set", price: "16.99", type: "Hair", desc: "Wake up to soft, bouncy curls with no heat and no damage." },
+    { title: "Anti-Frizz Hair Oil", price: "19.99", type: "Hair", desc: "A few drops for glass-smooth shine and tamed flyaways." },
+    { title: "Scalp Massager Shampoo Brush", price: "12.99", type: "Hair", desc: "Deep-clean roots and boost growth. Weirdly relaxing, seriously effective." },
+  ],
+  jewelry: [
+    { title: "Dainty Layered Necklace Set", price: "21.99", type: "Jewelry", desc: "Three delicate chains, one effortless look. Tarnish-free and everyday-ready." },
+    { title: "Hypoallergenic Huggie Hoops", price: "17.99", type: "Jewelry", desc: "Lightweight gold-tone huggies that never turn your ears green." },
+    { title: "Stackable Ring Set (6-Piece)", price: "15.99", type: "Jewelry", desc: "Mix, match, and stack. Six rings for a curated hand every day." },
+  ],
+  homedecor: [
+    { title: "Sunset Projection Lamp", price: "27.99", type: "Decor", desc: "Bathes any room in golden-hour light. The shelf-and-selfie favorite." },
+    { title: "Boho Woven Wall Hanging", price: "24.99", type: "Decor", desc: "Handwoven texture that warms up any blank wall instantly." },
+    { title: "Flameless LED Candle Set", price: "22.99", type: "Decor", desc: "Real-flicker glow, zero fire risk. Cozy on a timer, every night." },
+  ],
+  kitchen: [
+    { title: "Rapid Egg Cooker", price: "26.99", type: "Kitchen", desc: "Perfect eggs six ways, hands-off. Breakfast solved in minutes." },
+    { title: "Reusable Silicone Food Bags", price: "18.99", type: "Kitchen", desc: "Leakproof, dishwasher-safe, waste-free. Ditch single-use for good." },
+    { title: "Electric Milk Frother Wand", price: "14.99", type: "Kitchen", desc: "Cafe-style foam in seconds. Your lattes just leveled up." },
+  ],
+  baby: [
+    { title: "Silicone Bib & Plate Set", price: "21.99", type: "Baby", desc: "Suction-locked, mess-proof, dishwasher-safe. Mealtime, minus the cleanup." },
+    { title: "Nursery White Noise Soother", price: "27.99", type: "Baby", desc: "Gentle sounds and soft light for longer naps. A parent secret weapon." },
+    { title: "Sensory Suction Spinner Toy", price: "13.99", type: "Baby", desc: "Sticks to the highchair and keeps little hands busy. Travel-day lifesaver." },
+  ],
+  phone: [
+    { title: "MagSafe Grip & Stand", price: "16.99", type: "Accessories", desc: "Grip, prop, and charge-friendly. One accessory, endless angles." },
+    { title: "Anti-Glare Screen Protector 2-Pack", price: "12.99", type: "Accessories", desc: "Bubble-free, matte, fingerprint-proof. Crisp screen, zero smudge." },
+    { title: "6-in-1 Fast Charging Cable", price: "15.99", type: "Accessories", desc: "Every port in one braided cable. The tangle-free travel essential." },
+  ],
+  car: [
+    { title: "Wireless Car Charger Mount", price: "29.99", type: "Auto", desc: "Auto-clamp mount that charges as you drive. Snap in and go." },
+    { title: "Deep-Clean Detailing Gel", price: "13.99", type: "Auto", desc: "Lifts dust from every vent and crevice. Oddly satisfying, genuinely clean." },
+    { title: "LED Interior Ambient Lights", price: "22.99", type: "Auto", desc: "App-controlled underglow that transforms your cabin at night." },
+  ],
 };
 
 export const PAGES = [

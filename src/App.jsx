@@ -2520,7 +2520,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides", storebuilder:"Dropshipping Store Builder" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -6352,10 +6352,19 @@ function buildNavPath(tab, sub){
 // for testing in the meantime.
 const CHELGY_SHOPIFY_AFFILIATE_LINK = "https://www.shopify.com/free-trial";
 const CHELGY_STORE_NICHES = [
-  { id: "clothes", label: "Clothes" },
-  { id: "electronics", label: "Electronics" },
+  { id: "clothes", label: "Clothing & Apparel" },
+  { id: "beauty", label: "Beauty & Makeup" },
+  { id: "skincare", label: "Skincare" },
+  { id: "hair", label: "Hair & Wigs" },
+  { id: "jewelry", label: "Jewelry & Accessories" },
+  { id: "homedecor", label: "Home Decor" },
   { id: "home", label: "Home & Garden" },
+  { id: "kitchen", label: "Kitchen & Dining" },
   { id: "pets", label: "Pets" },
+  { id: "baby", label: "Baby & Kids" },
+  { id: "electronics", label: "Electronics & Gadgets" },
+  { id: "phone", label: "Phone Accessories" },
+  { id: "car", label: "Car & Auto" },
   { id: "sports", label: "Sport & Fitness" },
 ];
 
@@ -7228,7 +7237,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["storebuilder","Dropshipping Store Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -9450,7 +9459,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"storebuilder",Icon:Icons.Package,title:"Shopify Store Builder",desc:"Spin up a real Shopify dropshipping store in minutes  pick a niche, connect your store, and we stock it with products, pages, and a collection automatically."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"storebuilder",Icon:Icons.Package,title:"Dropshipping Store Builder",desc:"Spin up a real Shopify dropshipping store in minutes — pick a niche, connect your store, and we stock it with winning products, pages, and a collection automatically."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
