@@ -8441,6 +8441,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       </div>, false);
   }
 
+  // Standalone public legal pages at real URLs (chelgy.app/privacy and chelgy.app/terms) — needed for Google/Apple/Facebook
+  const legalPath = (typeof window!=="undefined" ? (window.location.pathname||"") : "").toLowerCase().replace(/\/+$/,"");
+  if (legalPath==="/privacy" || legalPath==="/terms") {
+    const isTerms = legalPath==="/terms";
+    return (
+      <div style={{fontFamily:"sans-serif",background:B.cream||"#FAF8F5",minHeight:"100vh",overflowY:"auto"}}>
+        <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px 80px"}}>
+          <div style={{position:"sticky",top:0,background:(B.cream||"#FAF8F5"),paddingTop:22,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid "+B.stone,marginBottom:24}}>
+            <img src={LOGO_B64} alt="Chelgy" style={{height:22,objectFit:"contain"}} />
+            <a href="/" style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.charcoal,textDecoration:"none",border:"1px solid "+B.stone,padding:"7px 14px"}}>Back to Chelgy</a>
+          </div>
+          <h1 style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:400,margin:"0 0 20px",color:B.charcoal}}>{isTerms?"Terms & Conditions":"Privacy Policy"}</h1>
+          <div><Rich text={isTerms?TERMS_MD:PRIVACY_MD} /></div>
+          <div style={{marginTop:32,paddingTop:20,borderTop:"1px solid "+B.stone}}>
+            <a href={isTerms?"/privacy":"/terms"} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,letterSpacing:"0.04em",textDecoration:"underline"}}>{isTerms?"Read our Privacy Policy":"Read our Terms & Conditions"}</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isTeamSpace && page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
