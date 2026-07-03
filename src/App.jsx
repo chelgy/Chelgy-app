@@ -996,6 +996,9 @@ const Upsell = ({ variant="both" }) => {
 const ASi = (p) => <input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",color:"#111",marginBottom:12,...(p.style||{})}} />;
 const ASt = (p) => <textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",background:"#fff",color:"#111",lineHeight:1.6,marginBottom:12,...(p.style||{})}} />;
 const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:13,fontFamily:"sans-serif",background:"#fff",color:"#111",cursor:"pointer",marginBottom:12}}>{children}</select>;
+// Resolve a tool's demo media URL for a given slot ("thumb" = Tools Hub card, "full" = inside the tool).
+// Back-compat: a plain string (legacy single URL) is used for both slots.
+function toolMediaUrl(entry, slot){ if(!entry) return ""; if(typeof entry==="string") return entry; return (entry[slot]||"").trim ? (entry[slot]||"").trim() : (entry[slot]||""); }
 async function loadAppSettings(){
   try { const res = await fetch(SUPABASE_URL+"/rest/v1/app_settings?select=key,value", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); const o={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ o[r.key]=r.value; }); return o; } catch { return {}; }
 }
@@ -1698,7 +1701,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       </div>
       {locked&&<div style={{background:B.goldLight,border:"1px solid "+B.gold,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
-      {toolMedia && toolMedia[tool] && (()=>{ const u=String(toolMedia[tool]); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
+      {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[tool],"full"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
         <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
           {isVid
             ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,background:"#000"}} />
@@ -2605,13 +2608,13 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ setToolMediaForm(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
       const tok=await freshToken();
       const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
-      const clean={}; Object.keys(toolMediaForm||{}).forEach(k=>{ const v=(toolMediaForm[k]||"").trim(); if(v) clean[k]=v; });
+      const clean={}; Object.keys(toolMediaForm||{}).forEach(k=>{ const v=toolMediaForm[k]||{}; const thumb=(v.thumb||"").trim(); const full=(v.full||"").trim(); const o={}; if(thumb)o.thumb=thumb; if(full)o.full=full; if(Object.keys(o).length)clean[k]=o; });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"tool_media",value:JSON.stringify(clean)})});
       setToolMediaSaved(true); setTimeout(()=>setToolMediaSaved(false),2500);
     }catch(e){}
@@ -2752,7 +2755,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       <div style={{background:"#111",padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <img src={LOGO_B64} alt="Chelgy" style={{height:22,objectFit:"contain",filter:"invert(1)"}} />
         <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <span style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.18em",fontWeight:700}}>ADMIN</span>
+          <span style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",fontWeight:700}}>ADMIN</span>
           <button onClick={onExit} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",cursor:"pointer"}}>EXIT</button>
         </div>
       </div>
@@ -2773,7 +2776,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {/* DASHBOARD */}
         {view==="home"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back.</h1>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Your Chelgy admin dashboard.</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
@@ -2786,12 +2789,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,background:"#E8E6E1"}}>
               <div onClick={()=>setView("strategies")} style={{background:"#111",padding:"24px",cursor:"pointer"}}>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Manage Strategies</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.45)"}}>Add, edit, or delete strategy posts</div>
               </div>
               <div onClick={()=>setView("weekly")} style={{background:"#fff",padding:"24px",cursor:"pointer",border:"1px solid #E8E6E1"}}>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#111111",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>CONTENT</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>The Chelgy Edit</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>Publish new weekly content</div>
               </div>
@@ -2829,7 +2832,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {/* SUBSCRIBERS */}
         {view==="showcase"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>"Made with Chelgy" Showcase</h2>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 20px",lineHeight:1.6}}>Add example images and videos so members can see what each tool can do. Paste an image URL, an mp4 link, or a YouTube/Vimeo link. Tip: make something in your own Image or Video tool, then copy that result's link here.</p>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"20px",marginBottom:24}}>
@@ -2860,7 +2863,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="marketers"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Applications</h2>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.6}}>People who applied to become Chelgy Marketers. Approve to unlock their workspace at the team site.</p>
             <button onClick={loadMarketers} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:14}}>↻ Refresh</button>
@@ -2891,7 +2894,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="pricing"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Chelgy Marketer Pricing</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>All marketers offer standardized service tiers. View approved marketers and their revenue potential.</p>
             
@@ -2953,7 +2956,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="inquiries"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Client Inquiries</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Review inquiries from marketers. Approve to activate the contract, deny to skip.</p>
             <button onClick={loadInquiries} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
@@ -2999,7 +3002,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {view==="deliverables"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 6px"}}>Marketer Deliverables</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Documents your marketers generated and sent in for review.</p>
             <button onClick={loadDeliverables} style={{background:"none",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
@@ -3230,8 +3233,24 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {/* SETTINGS */}
         {view==="settings"&&(
           <div>
-            <div style={{width:24,height:1,background:"#111111",marginBottom:16}} />
+            <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h2 style={{fontSize:20,fontWeight:400,margin:"0 0 22px"}}>Settings</h2>
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Tool Demo Media</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a photo or video for any tool. The <strong>thumbnail</strong> shows on the tool's card in the Tools Hub; the <strong>inside the tool</strong> one shows at the top of that tool, above its description. You can use different images for each. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it.</p>
+              <div style={{maxHeight:360,overflowY:"auto",marginBottom:16,paddingRight:4}}>
+                {Object.keys(TOOL_LABELS).filter(k=>k!=="launch").map(k=>(
+                  <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{TOOL_LABELS[k]}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Thumbnail · Tools Hub card</div>
+                    <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:8}} />
+                    <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Inside the tool · top of page</div>
+                    <input value={(toolMediaForm[k]&&toolMediaForm[k].full)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                  </div>
+                ))}
+              </div>
+              <button onClick={saveToolMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{toolMediaSaved?"Saved ✓":"Save Tool Demos"}</button>
+            </div>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Hero Images</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Paste an image URL to change the main background photos. Leave blank to keep the built-in default. Tip: you can make one in your Image Creator and paste its link here.</p>
@@ -3240,19 +3259,6 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Home page hero</div>
               <input value={heroForm.home_hero} onChange={e=>setHeroForm(f=>({...f,home_hero:e.target.value}))} placeholder="https://... (image URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",marginBottom:16,boxSizing:"border-box",background:"#fff"}} />
               <button onClick={saveHeroImages} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{heroSaved?"Saved ✓":"Save Hero Images"}</button>
-            </div>
-            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Tool Demo Media</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Paste a photo or video URL for any tool. It shows at the top of that tool, above the description, to illustrate how to use it. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave blank to hide.</p>
-              <div style={{maxHeight:340,overflowY:"auto",marginBottom:16,paddingRight:4}}>
-                {Object.keys(TOOL_LABELS).filter(k=>k!=="launch").map(k=>(
-                  <div key={k} style={{marginBottom:12}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:5,textTransform:"uppercase"}}>{TOOL_LABELS[k]}</div>
-                    <input value={toolMediaForm[k]||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:e.target.value}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
-                  </div>
-                ))}
-              </div>
-              <button onClick={saveToolMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{toolMediaSaved?"Saved ✓":"Save Tool Demos"}</button>
             </div>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:14,textTransform:"uppercase",fontWeight:700}}>App Info</div>
@@ -7325,6 +7331,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     track("login_start", { method: "facebook" });
     window.location.href = SUPABASE_URL + "/auth/v1/authorize?provider=facebook&redirect_to=" + encodeURIComponent(window.location.origin);
   };
+  const signInWithApple = () => {
+    track("login_start", { method: "apple" });
+    window.location.href = SUPABASE_URL + "/auth/v1/authorize?provider=apple&redirect_to=" + encodeURIComponent(window.location.origin);
+  };
 
   const doLogin = async () => {
     setAuthError("");
@@ -7722,6 +7732,14 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       <button onClick={signInWithGoogle} style={{width:"100%",background:"#fff",color:"#111",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
         <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         Continue with Google
+      </button>
+      <button onClick={signInWithFacebook} style={{width:"100%",background:"#fff",color:"#111",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:10}}>
+        <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.87v2.25h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.1 24 12.07z"/></svg>
+        Continue with Facebook
+      </button>
+      <button onClick={signInWithApple} style={{width:"100%",background:"#fff",color:"#111",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:10}}>
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#000" d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.01-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.4-.9-1.75.03-3.36 1.02-4.26 2.58-1.82 3.16-.47 7.83 1.3 10.39.86 1.25 1.89 2.66 3.24 2.61 1.3-.05 1.79-.84 3.36-.84 1.57 0 2.01.84 3.39.81 1.4-.02 2.28-1.28 3.14-2.53.99-1.45 1.4-2.85 1.42-2.92-.03-.01-2.72-1.04-2.75-4.13zM14.5 4.5c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.09 3.18 1.15.09 2.32-.58 3.04-1.45z"/></svg>
+        Continue with Apple
       </button>
     </div>
   );
@@ -8506,8 +8524,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {authError&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#ff8a8a",lineHeight:1.5}}>{authError}</div>}
               <button onClick={doEmailSignup} disabled={authLoading} style={{width:"100%",background:authLoading?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.92)",color:"#000",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:authLoading?"wait":"pointer"}}>{authLoading?"CREATING ACCOUNT…":"CREATE ACCOUNT"}</button>
             </div>
-
-            <p onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"0 0 16px",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></p>
+            {googleBtn}
+            <p onClick={()=>{setAuthError("");setResetMsg("");setPage("login");}} style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",textAlign:"center",margin:"14px 0 16px",cursor:"pointer"}}>Already a member? <span style={{color:"#fff",textDecoration:"underline"}}>Log in</span></p>
 
             <p style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.3)",textAlign:"center",lineHeight:1.6,margin:0}}>By continuing you agree to our <span onClick={()=>setLegalView("terms")} style={{cursor:"pointer",textDecoration:"underline",color:"rgba(255,255,255,0.55)"}}>Terms of Service</span> and <span onClick={()=>setLegalView("privacy")} style={{cursor:"pointer",textDecoration:"underline",color:"rgba(255,255,255,0.55)"}}>Privacy Policy</span></p>
           </div>
@@ -9258,6 +9276,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
                       <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 6px",letterSpacing:"0.02em"}}>{t.title}</h3>
+                      {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[t.id],"thumb"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
+                        <div style={{margin:"0 0 8px",border:"1px solid "+B.stone,background:"#000",lineHeight:0,maxWidth:200,pointerEvents:"none"}}>
+                          {isVid
+                            ? <video src={u} muted playsInline preload="metadata" style={{width:"100%",display:"block",maxHeight:110,objectFit:"cover"}} />
+                            : <img src={u} alt="" style={{width:"100%",display:"block",maxHeight:110,objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
+                        </div>
+                      ); })()}
                       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.65,margin:0}}>{t.desc}</p>
                     </div>
                   </div>
