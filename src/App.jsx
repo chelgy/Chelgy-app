@@ -1214,7 +1214,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   }
   async function saveProducts(){
     const d=JSON.parse(JSON.stringify(wmExisting.data||{}));
-    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined }));
+    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined, buyUrl:(pr.buyUrl||"").trim()||undefined }));
     const i=(d.sections||[]).findIndex(x=>x&&x.type==="offerings");
     if(i>=0){ d.sections[i].items=items; } else { d.sections=d.sections||[]; d.sections.push({type:"offerings",eyebrow:"Offerings",title:"What we offer",items}); }
     await saveData(d);
@@ -1339,7 +1339,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
   useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
-  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
+  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null,buyUrl:it.buyUrl||""}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   // Estimated credit cost of a build — a logo (unless one is uploaded) plus one
   // standard image (120 cr) per section and offering, minus any photos the user
@@ -1750,6 +1750,11 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                     <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
+                    <div style={{marginTop:8}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,marginBottom:4,textTransform:"uppercase"}}>Checkout link (optional)</div>
+                      <input value={pr.buyUrl||""} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,buyUrl:e.target.value}:x))} placeholder="https://buy.stripe.com/…" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                      <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,marginTop:4}}>Paste a link and this item gets a <strong>Buy</strong> button. Easiest: make a <strong>Payment Link</strong> in your Stripe dashboard — money goes straight to you. Any store link works too (Etsy, Shopify…).</div>
+                    </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                       <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#111",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
@@ -1760,7 +1765,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
               </div>
             ))}
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product / service</button>
+              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null,buyUrl:""}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product / service</button>
               <button disabled={edProdBusy>=0} onClick={aiCreateProduct} style={{background:"none",border:"1px solid "+B.stone,color:B.charcoal,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===9999?"Writing…":"\u2728 Let Chelgy write one"}</button>
             </div>
             <Btn dark small onClick={saveProducts}>Save products / services</Btn>
@@ -1800,20 +1805,6 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                   <Btn dark disabled={edImgLoad} onClick={addEditorImage}>{edImgLoad?"Adding…":"Add Photo to Site"}</Btn>
                 </div>}
           </div>
-
-          {(()=>{ const off=(wmExisting.data.sections||[]).find(x=>x&&x.type==="offerings"); const items=(off&&off.items)||[]; if(!items.length) return null; return (
-            <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Sell your products</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Paste a checkout link for any product and it gets a <strong>Buy</strong> button. Easiest way: in your <strong>Stripe</strong> dashboard, create a <strong>Payment Link</strong> for the product, copy it, and paste it here — the money goes straight to your Stripe. (Any store link works too — Etsy, Shopify, etc.)</p>
-              {items.map((it,i)=>(
-                <div key={i} style={{marginBottom:10}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,marginBottom:4}}>{it.name||("Item "+(i+1))}{it.price?" · "+it.price:""}</div>
-                  <input value={edLinks[i]||""} onChange={e=>setEdLinks(m=>({...m,[i]:e.target.value}))} placeholder="https://buy.stripe.com/…" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
-                </div>
-              ))}
-              <div style={{marginTop:4}}><Btn dark small onClick={saveLinks}>Save Buy Buttons</Btn></div>
-            </div>
-          ); })()}
 
           </div>}
           {edTab==="domain"&&<div>
