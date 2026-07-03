@@ -6351,6 +6351,7 @@ function buildNavPath(tab, sub){
 // stores your members create earn you commission. The free-trial URL below works
 // for testing in the meantime.
 const CHELGY_SHOPIFY_AFFILIATE_LINK = "https://www.shopify.com/free-trial";
+const CHELGY_AUTODS_AFFILIATE_LINK = "https://www.autods.com/"; // replace with your AutoDS affiliate link
 const CHELGY_STORE_NICHES = [
   { id: "clothes", label: "Clothing & Apparel" },
   { id: "beauty", label: "Beauty & Makeup" },
@@ -6373,6 +6374,13 @@ function StoreBuilderTab({ user }) {
   const [shop, setShop] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [prodList, setProdList] = useState([]);
+  const [picks, setPicks] = useState({});
+  const [prodLoad, setProdLoad] = useState(false);
+  const [prodErr, setProdErr] = useState("");
+  const [imaging, setImaging] = useState(false);
+  const [imgDone, setImgDone] = useState(0);
+  const [imgTotal, setImgTotal] = useState(0);
   const [result, setResult] = useState(() => {
     try { return new URLSearchParams(window.location.search).get("store") || ""; } catch (e) { return ""; }
   });
@@ -6407,7 +6415,7 @@ function StoreBuilderTab({ user }) {
       const res = await fetch("/api/shopify-connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: tok, niche, shop: cleanShop }),
+        body: JSON.stringify({ access_token: tok, niche, shop: cleanShop, products: Object.values(picks) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) { setErr(data.error || "Couldn't start the connection."); setBusy(false); return; }
@@ -6416,6 +6424,41 @@ function StoreBuilderTab({ user }) {
       setErr("Something went wrong. Try again.");
       setBusy(false);
     }
+  };
+
+  const pickNiche = (id) => { setNiche(id); setProdList([]); setPicks({}); setProdErr(""); };
+  const loadProducts = async () => {
+    setProdErr(""); setProdLoad(true);
+    try {
+      const tok = await freshToken();
+      if (!tok) { setProdErr("Please log in again."); setProdLoad(false); return; }
+      const res = await fetch("/api/store-products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: tok, niche }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.products) { setProdErr(data.error || "Could not load products."); setProdLoad(false); return; }
+      setProdList(data.products); setProdLoad(false);
+    } catch (e) { setProdErr("Something went wrong."); setProdLoad(false); }
+  };
+  const togglePick = (p) => setPicks((m) => { const n = Object.assign({}, m); if (n[p.id]) { delete n[p.id]; } else { n[p.id] = p; } return n; });
+  const pickCount = Object.keys(picks).length;
+  const makePhotos = async () => {
+    const sel = Object.values(picks);
+    if (!sel.length || imaging) return;
+    setImaging(true); setImgDone(0); setImgTotal(sel.length); setProdErr("");
+    let updated = Object.assign({}, picks);
+    for (let i = 0; i < sel.length; i++) {
+      const p = sel[i];
+      try {
+        const promptTxt = p.img || ("clean high-end studio product photo of " + p.name + ", soft lighting, premium e-commerce look, plain neutral background");
+        const d = await generateGeminiImage(promptTxt, [], "1:1", "standard");
+        if (d && d.image) {
+          const path = (user && user.id ? user.id : "store") + "/store-" + p.id + "-" + Date.now() + ".png";
+          const url = await uploadSiteImage(d.image, path);
+          if (url) { updated = Object.assign({}, updated, { [p.id]: Object.assign({}, updated[p.id], { image: url }) }); setPicks(updated); }
+        }
+      } catch (e) {}
+      setImgDone(i + 1);
+    }
+    setImaging(false);
   };
 
   const H = ({ children }) => (
@@ -6464,14 +6507,51 @@ function StoreBuilderTab({ user }) {
       <StepCard n={1} title="Choose your niche" done={!!niche} active={!niche}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {CHELGY_STORE_NICHES.map((x) => (
-            <button key={x.id} onClick={() => setNiche(x.id)} style={{ padding: "8px 14px", border: "1px solid " + (niche === x.id ? B.charcoal : B.stone), background: niche === x.id ? B.charcoal : B.white, color: niche === x.id ? "#fff" : B.charcoal, fontFamily: "sans-serif", fontSize: 12, letterSpacing: "0.02em", cursor: "pointer", borderRadius: 2 }}>
+            <button key={x.id} onClick={() => pickNiche(x.id)} style={{ padding: "8px 14px", border: "1px solid " + (niche === x.id ? B.charcoal : B.stone), background: niche === x.id ? B.charcoal : B.white, color: niche === x.id ? "#fff" : B.charcoal, fontFamily: "sans-serif", fontSize: 12, letterSpacing: "0.02em", cursor: "pointer", borderRadius: 2 }}>
               {x.label}
             </button>
           ))}
         </div>
       </StepCard>
 
-      <StepCard n={2} title="Create your store" done={false} active={!!niche}>
+      <StepCard n={2} title="Pick your products" done={pickCount > 0} active={!!niche}>
+        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
+          {pickCount > 0 ? pickCount + " selected \u2014 these get added to your store." : "See trending products for your niche and pick the ones you want to sell."}
+        </div>
+        {prodList.length === 0 ? (
+          <button onClick={loadProducts} disabled={!niche || prodLoad} style={{ padding: "10px 18px", background: B.white, color: B.charcoal, border: "1px solid " + B.charcoal, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: niche && !prodLoad ? "pointer" : "not-allowed" }}>
+            {prodLoad ? "Finding winners..." : "See winning products"}
+          </button>
+        ) : (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10 }}>
+              {prodList.map((p) => {
+                const on = !!picks[p.id];
+                return (
+                  <button key={p.id} onClick={() => togglePick(p)} style={{ textAlign: "left", background: on ? B.charcoal : B.white, color: on ? "#fff" : B.charcoal, border: "1px solid " + (on ? B.charcoal : B.stone), borderRadius: 4, padding: 12, cursor: "pointer" }}>
+                    {on && picks[p.id] && picks[p.id].image && <img src={picks[p.id].image} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 3, marginBottom: 8, display: "block" }} />}
+                    <div style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, marginBottom: 4, lineHeight: 1.25 }}>{p.name}</div>
+                    <div style={{ fontFamily: "sans-serif", fontSize: 11, color: on ? "rgba(255,255,255,0.72)" : B.mid, lineHeight: 1.4, marginBottom: 6 }}>{p.blurb}</div>
+                    <div style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, color: on ? "#fff" : B.green }}>${p.price} <span style={{ fontWeight: 400, fontSize: 10, color: on ? "rgba(255,255,255,0.6)" : B.mid }}>{"\u00b7 " + p.tag}</span></div>
+                    <div style={{ fontFamily: "sans-serif", fontSize: 10, marginTop: 6, color: on ? "#fff" : B.mid }}>{on ? "\u2713 Selected" : "Tap to add"}</div>
+                  </button>
+                );
+              })}
+            </div>
+            {pickCount > 0 && (
+              <button onClick={makePhotos} disabled={imaging} style={{ marginTop: 12, marginRight: 14, padding: "9px 16px", background: imaging ? B.stone : "#B8955A", color: imaging ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", cursor: imaging ? "default" : "pointer" }}>
+                {imaging ? ("Making photos " + imgDone + "/" + imgTotal + "...") : ("✨ Generate high-end photos (" + pickCount + ")")}
+              </button>
+            )}
+            <button onClick={loadProducts} disabled={prodLoad} style={{ marginTop: 12, background: "none", border: "none", color: B.mid, fontFamily: "sans-serif", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+              {prodLoad ? "Refreshing..." : "Show me different products"}
+            </button>
+          </div>
+        )}
+        {prodErr && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 10 }}>{prodErr}</div>}
+      </StepCard>
+
+      <StepCard n={3} title="Create your store" done={false} active={!!niche}>
         <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
           Don't have a Shopify store yet? Create one free with your discount. Already have one? Skip to step 3.
         </div>
@@ -6480,7 +6560,7 @@ function StoreBuilderTab({ user }) {
         </a>
       </StepCard>
 
-      <StepCard n={3} title="Connect it & build" done={false} active={!!niche}>
+      <StepCard n={4} title="Connect it & build" done={false} active={!!niche}>
         <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 10 }}>
           Enter your store URL and we'll install the builder and stock your store.
         </div>
@@ -6492,6 +6572,18 @@ function StoreBuilderTab({ user }) {
         <button onClick={connect} disabled={!canConnect} style={{ padding: "12px 20px", background: canConnect ? B.charcoal : B.stone, color: canConnect ? "#fff" : B.mid, border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: canConnect ? "pointer" : "not-allowed" }}>
           {busy ? "Connecting..." : "Connect my store & build"}
         </button>
+      </StepCard>
+
+      <StepCard n={5} title="Automate orders & shipping" done={false} active={!!niche}>
+        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
+          Once your store is live, connect AutoDS so every order fulfills itself. When a customer buys, AutoDS places the order with your supplier and syncs tracking automatically — no manual work on your end.
+        </div>
+        <a href={CHELGY_AUTODS_AFFILIATE_LINK} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 18px", background: B.charcoal, color: "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}>
+          Set up order automation with AutoDS
+        </a>
+        <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, lineHeight: 1.7, marginTop: 12 }}>
+          1. Create your AutoDS account &nbsp;&middot;&nbsp; 2. Connect your Shopify store &nbsp;&middot;&nbsp; 3. Orders fulfill on autopilot.
+        </div>
       </StepCard>
     </div>
   );
