@@ -18,7 +18,7 @@ const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-const SCOPES = "write_products,write_content"; // products, collections, pages
+const SCOPES = "write_products,write_content,write_themes"; // products, collections, pages, theme
 
 const NICHES = ["clothes", "beauty", "skincare", "hair", "jewelry", "homedecor", "home", "kitchen", "pets", "baby", "electronics", "phone", "car", "sports"];
 

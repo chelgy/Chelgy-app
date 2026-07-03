@@ -17,6 +17,23 @@ export async function gql(shop, adminToken, query, variables) {
   return { ok: r.ok, status: r.status, j };
 }
 
+// Public URL to the Linen theme .zip (served from your site, e.g. public/themes/linen.zip on Vercel).
+const THEME_ZIP_URL = (process.env.THEME_ZIP_URL || "https://chelgy.app/themes/linen.zip").trim();
+
+// Installs the Linen theme and publishes it live. Non-fatal if it fails.
+async function applyTheme(shop, token) {
+  try {
+    const r = await fetch("https://" + shop + "/admin/api/" + API_VERSION + "/themes.json", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
+      body: JSON.stringify({ theme: { name: "Linen", src: THEME_ZIP_URL, role: "main" } })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || (j && j.errors)) return { ok: false, error: (j && j.errors ? JSON.stringify(j.errors) : ("theme http " + r.status)) };
+    return { ok: true };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+}
+
 // ── Starter catalog. Expand freely. Prices are decimal strings (Shopify wants that). ──
 export const CATALOG = {
   clothes: [
@@ -168,5 +185,7 @@ export async function populateStore(shop, adminToken, niche, products) {
     const out = await createPage(shop, adminToken, pg);
     if (!out.ok) failures.push(pg.title + ": " + out.error);
   }
+  const theme = await applyTheme(shop, adminToken);
+  if (!theme.ok) failures.push("theme: " + theme.error);
   return { ok: failures.length === 0, failures };
 }
