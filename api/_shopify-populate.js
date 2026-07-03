@@ -143,8 +143,16 @@ async function createCollection(shop, token, title) {
 }
 
 // Build out the whole store. Returns { ok, failures[] }.
-export async function populateStore(shop, adminToken, niche) {
-  const items = CATALOG[niche] || CATALOG.clothes;
+export async function populateStore(shop, adminToken, niche, products) {
+  // If the member picked products in the store builder, use those; otherwise fall back to the built-in catalog.
+  const items = (Array.isArray(products) && products.length)
+    ? products.map((p) => ({
+        title: String(p.name || p.title || "Product").slice(0, 120),
+        desc: String(p.blurb || p.desc || "A must-have pick for your store.").slice(0, 400),
+        type: String(p.tag || p.type || "").slice(0, 40),
+        price: (Number(p.price) > 0 ? Number(p.price).toFixed(2) : "24.99"),
+      }))
+    : (CATALOG[niche] || CATALOG.clothes);
   const failures = [];
 
   const coll = await createCollection(shop, adminToken, "Best Sellers");

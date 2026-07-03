@@ -54,7 +54,7 @@ export default async function handler(req, res) {
     if (!verifyHmac(req.query, API_SECRET)) return bounce("error");
 
     // Find the member by the one-time state nonce.
-    const r = await svc("store_builds?select=id,user_id,niche,shop_domain,status&oauth_state=eq." + encodeURIComponent(state) + "&limit=1");
+    const r = await svc("store_builds?select=id,user_id,niche,shop_domain,status,products&oauth_state=eq." + encodeURIComponent(state) + "&limit=1");
     const rows = await r.json();
     const build = Array.isArray(rows) && rows[0];
     if (!build) return bounce("expired");
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     });
 
     // Auto-build the store.
-    const result = await populateStore(shop, accessToken, build.niche);
+    const result = await populateStore(shop, accessToken, build.niche, build.products);
     await svc("store_builds?id=eq." + build.id, {
       method: "PATCH", headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ status: result.ok ? "populated" : "building", error: result.ok ? null : result.failures.join(" | "), updated_at: new Date().toISOString() })
