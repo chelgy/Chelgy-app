@@ -24,6 +24,9 @@ async function sbFetch(table, method="GET", body=null, id=null) {
 
 // ─── AUTH (Supabase Auth) ─────────────────────────────────────────────────────
 const AUTH_URL = SUPABASE_URL + "/auth/v1";
+// Capture the URL path ONCE at load, before any in-app navigation rewrites it — used for the public /privacy and /terms pages
+const CHELGY_INITIAL_PATH = (typeof window !== "undefined" ? (window.location.pathname || "") : "").toLowerCase().replace(/\/+$/, "");
+const CHELGY_IS_LEGAL_PATH = (CHELGY_INITIAL_PATH === "/privacy" || CHELGY_INITIAL_PATH === "/terms");
 async function authSignup(email, password, name) {
   try {
     const res = await fetch(AUTH_URL + "/signup", {
@@ -6474,7 +6477,7 @@ export default function ChelgyApp() {
   const [tab, setTab] = useState(()=>parseNavPath().tab);  // home | learn | tools | community | profile
   const [subTab, setSubTab] = useState(()=>parseNavPath().sub); // the sub-view / tool within the tab
   const [profileView,setProfileView]=useState("main");
-  useEffect(()=>{ try{ const path=buildNavPath(tab,subTab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab,subTab]);
+  useEffect(()=>{ if(CHELGY_IS_LEGAL_PATH) return; try{ const path=buildNavPath(tab,subTab); if(window.location.pathname!==path){ window.history.pushState({},"",path); } }catch(e){} },[tab,subTab]);
   useEffect(()=>{ const h=()=>{ const n=parseNavPath(); setTab(n.tab); setSubTab(n.sub); }; window.addEventListener("popstate",h); return ()=>window.removeEventListener("popstate",h); },[]);
   useEffect(()=>{ if(tab!=="profile") setProfileView("main"); },[tab]);
   const [libraryItems, setLibraryItems] = useState([]);
@@ -8442,7 +8445,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
 
   // Standalone public legal pages at real URLs (chelgy.app/privacy and chelgy.app/terms) — needed for Google/Apple/Facebook
-  const legalPath = (typeof window!=="undefined" ? (window.location.pathname||"") : "").toLowerCase().replace(/\/+$/,"");
+  const legalPath = CHELGY_INITIAL_PATH;
   if (legalPath==="/privacy" || legalPath==="/terms") {
     const isTerms = legalPath==="/terms";
     return (
