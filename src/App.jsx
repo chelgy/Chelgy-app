@@ -6558,6 +6558,13 @@ function StoreBuilderTab({ user }) {
       <H>Build your Shopify store.</H>
       <Sub>Pick a niche, spin up your store, and we'll stock it with products, pages, and a collection automatically.</Sub>
 
+      <div style={{ background: "#FBF7F0", border: "1px solid #E7DDCB", borderLeft: "3px solid #B8955A", padding: "16px 18px", marginBottom: 22, borderRadius: 2 }}>
+        <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", color: "#B8955A", textTransform: "uppercase", marginBottom: 6 }}>Launching soon</div>
+        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: "#3A3A3A", lineHeight: 1.6 }}>
+          We're putting the finishing touches on the Store Builder and testing the final steps of the launch process. This tool will be fully available in just a few days &mdash; check back soon to build and launch your first store.
+        </div>
+      </div>
+
       <StepCard n={1} title="Choose your niche" done={!!niche} active={!niche}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {CHELGY_STORE_NICHES.map((x) => (
