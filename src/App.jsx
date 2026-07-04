@@ -1374,7 +1374,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   }
   async function saveProducts(){
     const d=JSON.parse(JSON.stringify(wmExisting.data||{}));
-    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined, buyUrl:(pr.buyUrl||"").trim()||undefined }));
+    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined, buyUrl:(pr.buyUrl||"").trim()||undefined, cj:(pr.cj&&pr.cj.vid)?pr.cj:undefined }));
     const i=(d.sections||[]).findIndex(x=>x&&x.type==="offerings");
     if(i>=0){ d.sections[i].items=items; } else { d.sections=d.sections||[]; d.sections.push({type:"offerings",eyebrow:"Offerings",title:"What we offer",items}); }
     await saveData(d);
@@ -1599,7 +1599,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
   useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
-  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null,buyUrl:it.buyUrl||""}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
+  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null,buyUrl:it.buyUrl||"",cj:it.cj||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   // Estimated credit cost of a build — a logo (unless one is uploaded) plus one
   // standard image (120 cr) per section and offering, minus any photos the user
@@ -2063,6 +2063,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
             <StripeConnect user={user} />
+            <CJProductBrowser user={user} onImport={p=>setEdProducts(a=>[...a,p])} />
             {edProducts.map((pr,i)=>(
               <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",padding:"16px",marginBottom:12}}>
                 <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -2072,6 +2073,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                       : <div style={{width:88,height:88,border:"1px dashed "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",color:B.mid,fontFamily:"sans-serif",fontSize:9,textAlign:"center",lineHeight:1.3}}>{edProdBusy===i?"…":"No photo"}</div>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
+                    {pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"\u25C6 CJ \u00b7 auto-fulfillable"}</div>}
                     <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
@@ -6984,6 +6986,118 @@ function CJConnect({ user }) {
       <button onClick={connect} disabled={busy} style={{ padding: "11px 20px", background: busy ? B.stone : B.charcoal, color: busy ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
         {busy ? "Connecting\u2026" : "Connect CJ account"}
       </button>
+    </div>
+  );
+}
+
+function CJProductBrowser({ user, onImport }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [connected, setConnected] = useState(null);
+  const [openPid, setOpenPid] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || connected !== null) return;
+    (async () => {
+      try {
+        const t = await freshToken();
+        const r = await fetch("/api/cj-status", { headers: { Authorization: "Bearer " + t } });
+        const j = await r.json();
+        setConnected(!!(j && j.connected));
+      } catch (e) { setConnected(false); }
+    })();
+  }, [open]);
+
+  async function search(page) {
+    if (!q.trim()) { setErr("Type what you want to sell, e.g. 'phone stand'."); return; }
+    setLoading(true); setErr(""); setOpenPid(""); setDetail(null);
+    try {
+      const t = await freshToken();
+      const r = await fetch("/api/cj-search?keyword=" + encodeURIComponent(q.trim()) + "&page=" + (page || 1), { headers: { Authorization: "Bearer " + t } });
+      const j = await r.json();
+      if (r.ok && Array.isArray(j.products)) setResults(j.products);
+      else { setErr(j.error || "Search failed."); setResults([]); }
+    } catch (e) { setErr("Something went wrong. Try again."); }
+    setLoading(false);
+  }
+
+  async function loadDetail(pid) {
+    if (openPid === pid) { setOpenPid(""); setDetail(null); return; }
+    setOpenPid(pid); setDetail(null); setDetailLoading(true); setErr("");
+    try {
+      const t = await freshToken();
+      const r = await fetch("/api/cj-product?pid=" + encodeURIComponent(pid), { headers: { Authorization: "Bearer " + t } });
+      const j = await r.json();
+      if (r.ok) setDetail(j); else setErr(j.error || "Couldn't load that product.");
+    } catch (e) { setErr("Couldn't load that product."); }
+    setDetailLoading(false);
+  }
+
+  function addVariant(prod, v) {
+    const cost = v.cost != null ? Number(v.cost) : null;
+    const sug = cost != null ? (Math.round(cost * 2.5 * 100) / 100).toFixed(2) : "";
+    const name = prod.name + (v.key ? " \u2013 " + v.key : "");
+    onImport({ name, price: sug, note: "", image: { url: v.image || prod.image }, buyUrl: "", cj: { pid: prod.pid, vid: v.vid, sku: v.sku || "", cost: cost } });
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ background: "none", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "10px 16px", fontFamily: "sans-serif", fontSize: 11, letterSpacing: "0.06em", fontWeight: 700, cursor: "pointer", marginBottom: 16 }}>
+        \uD83D\uDD0D Source products from CJ
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ border: "1px solid " + B.stone, background: B.offwhite, padding: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontFamily: "Georgia,serif", fontSize: 16, color: B.charcoal }}>Source products from CJ</div>
+        <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: B.mid, fontFamily: "sans-serif", fontSize: 12, cursor: "pointer" }}>Close</button>
+      </div>
+      {connected === false && (
+        <div style={{ fontFamily: "sans-serif", fontSize: 12.5, color: B.mid, lineHeight: 1.6 }}>
+          Connect your CJ account first (in the Store Builder) to search and import products.
+        </div>
+      )}
+      {connected !== false && (
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "Enter") search(1); }} placeholder="Search CJ, e.g. phone stand, hoodie\u2026" style={{ flex: 1, padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: B.charcoal }} />
+            <button onClick={() => search(1)} disabled={loading} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Searching\u2026" : "Search"}</button>
+          </div>
+          {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10 }}>
+            {results.map(p => (
+              <div key={p.pid} style={{ border: "1px solid " + (openPid === p.pid ? B.charcoal : B.stone), background: "#fff", padding: 10 }}>
+                {p.image && <div style={{ width: "100%", aspectRatio: "1 / 1", backgroundImage: "url(" + p.image + ")", backgroundSize: "cover", backgroundPosition: "center", marginBottom: 8 }} />}
+                <div style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, color: B.charcoal, lineHeight: 1.3, marginBottom: 4 }}>{p.name}</div>
+                <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.green, fontWeight: 700, marginBottom: 8 }}>{p.cost != null ? "Cost $" + p.cost : ""}</div>
+                <button onClick={() => loadDetail(p.pid)} style={{ width: "100%", background: openPid === p.pid ? B.charcoal : "none", color: openPid === p.pid ? "#fff" : B.charcoal, border: "1px solid " + B.charcoal, padding: "7px", fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase" }}>{openPid === p.pid ? "Hide options" : "Choose & add"}</button>
+                {openPid === p.pid && (
+                  <div style={{ marginTop: 8 }}>
+                    {detailLoading && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>Loading options\u2026</div>}
+                    {detail && detail.variants && detail.variants.map(v => (
+                      <div key={v.vid} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, borderTop: "1px solid " + B.stone, padding: "6px 0" }}>
+                        <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.charcoal, lineHeight: 1.3 }}>{v.key || v.name}{v.cost != null ? " \u00b7 $" + v.cost : ""}</div>
+                        <button onClick={() => addVariant(p, v)} style={{ background: B.gold, color: "#fff", border: "none", padding: "5px 10px", fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase", flexShrink: 0 }}>Add</button>
+                      </div>
+                    ))}
+                    {detail && detail.variants && detail.variants.length === 0 && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>No variants available.</div>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.mid, lineHeight: 1.6, marginTop: 12 }}>
+            Prices import at a suggested 2.5&times; the CJ cost \u2014 edit any price after adding. Added items are linked to CJ so they can be fulfilled automatically once you save.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
