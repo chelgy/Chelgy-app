@@ -2827,59 +2827,6 @@ function AdminLogin({ onLogin }) {
   );
 }
 
-function StoreTestBuild() {
-  const [shop, setShop] = useState("");
-  const [token, setToken] = useState("");
-  const [niche, setNiche] = useState("clothes");
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState(null);
-  const [err, setErr] = useState("");
-  const run = async () => {
-    setErr(""); setResult(null); setRunning(true);
-    try {
-      const tok = await freshToken();
-      if (!tok) { setErr("Log in with your admin account first."); setRunning(false); return; }
-      const res = await fetch("/api/store-test-build", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
-        body: JSON.stringify({ shop, token, niche }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) { setErr(d.error || ("Error " + res.status)); setRunning(false); return; }
-      setResult(d); setRunning(false);
-    } catch (e) { setErr("Network error."); setRunning(false); }
-  };
-  const canRun = !running && shop.trim() && token.trim();
-  const inp = { width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid #ddd", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 10, color: "#111", background: "#fff" };
-  return (
-    <div style={{ background: "#fff", border: "1px solid #E8E6E1", padding: 22, marginBottom: 24 }}>
-      <div style={{ fontFamily: "sans-serif", fontSize: 9, color: "#B8955A", letterSpacing: "0.18em", marginBottom: 10, fontWeight: 700 }}>STORE TEST BUILD</div>
-      <p style={{ fontFamily: "sans-serif", fontSize: 12, color: "#6B6B6B", margin: "0 0 14px", lineHeight: 1.5 }}>Paste a dev store's domain and its Admin API access token (that store &rarr; Settings &rarr; Apps &rarr; Develop apps &rarr; create an app with scopes write_products, write_content, write_themes &rarr; Install &rarr; copy the token). Pick a niche and run the full engine directly &mdash; no OAuth, no install.</p>
-      <input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="your-store.myshopify.com" style={inp} />
-      <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Admin API access token (shpat_...)" style={inp} />
-      <select value={niche} onChange={(e) => setNiche(e.target.value)} style={inp}>
-        {CHELGY_STORE_NICHES.map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
-      </select>
-      <button onClick={run} disabled={!canRun} style={{ padding: "11px 20px", background: canRun ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", cursor: canRun ? "pointer" : "not-allowed" }}>
-        {running ? "Building..." : "Run test build"}
-      </button>
-      {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: "#C0392B", marginTop: 12 }}>{err}</div>}
-      {result && (
-        <div style={{ marginTop: 14, padding: 12, background: result.ok ? "#EAF5EA" : "#FDF2E9", border: "1px solid " + (result.ok ? "#7DBE7D" : "#E8B888") }}>
-          <div style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, color: "#111", marginBottom: (result.failures && result.failures.length) ? 8 : 0 }}>
-            {result.ok ? "\u2713 Store built successfully \u2014 check your dev store admin" : "Built, but some steps had issues:"}
-          </div>
-          {result.failures && result.failures.length > 0 && (
-            <ul style={{ margin: 0, paddingLeft: 18, fontFamily: "sans-serif", fontSize: 12, color: "#6B6B6B", lineHeight: 1.6 }}>
-              {result.failures.map((f, i) => <li key={i}>{f}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWeeklyPosts }) {
   const [view, setView] = useState("home");
   const [editStrat, setEditStrat] = useState(null);
@@ -3142,7 +3089,6 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px"}}>Welcome back.</h1>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:"#6B6B6B",margin:"0 0 28px"}}>Your Chelgy admin dashboard.</p>
-            <StoreTestBuild />
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:2,background:"#E8E6E1",marginBottom:24}}>
               {[{label:"Total Strategies",value:strategies.length},{label:"Weekly Posts",value:weeklyPosts.length},{label:"Status",value:"Live"},{label:"Membership",value:"$100/mo"}].map((stat,i)=>(
                 <div key={i} style={{background:"#fff",padding:"22px"}}>
@@ -3618,7 +3564,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Page Banners</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a banner photo or video shown at the top of each main page — the same idea as tool banners, but for whole pages. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it. Tip: make one in your Image Creator and paste its link here.</p>
-              {[["home","Home / Dashboard"],["learn","Learn"],["community","Community"],["profile","Profile"]].map(([k,label])=>(
+              {[["home","Home / Dashboard"],["tools","Tools Hub"],["learn","Learn"],["community","Community"],["profile","Profile"]].map(([k,label])=>(
                 <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{label}</div>
                   <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
@@ -10016,7 +9962,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
-          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); if(!u||!["home","learn","community","profile"].includes(tab)) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
+          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
             <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
               {isVid
                 ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,background:"#000"}} />
