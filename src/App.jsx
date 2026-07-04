@@ -2063,7 +2063,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
             <StripeConnect user={user} />
-            <CJProductBrowser user={user} onImport={p=>setEdProducts(a=>[...a,p])} />
+            {/* CJ product sourcing hidden while dropshipping is paused — re-enable: <CJProductBrowser user={user} onImport={p=>setEdProducts(a=>[...a,p])} /> */}
             {edProducts.map((pr,i)=>(
               <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",padding:"16px",marginBottom:12}}>
                 <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -2073,7 +2073,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                       : <div style={{width:88,height:88,border:"1px dashed "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",color:B.mid,fontFamily:"sans-serif",fontSize:9,textAlign:"center",lineHeight:1.3}}>{edProdBusy===i?"…":"No photo"}</div>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    {pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"\u25C6 CJ \u00b7 auto-fulfillable"}</div>}
+                    {false&&pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"\u25C6 CJ \u00b7 auto-fulfillable"}</div>}
                     <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
@@ -2164,6 +2164,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 </div>}
           </div>
 
+          <ProductPhotoSet onBalance={onBalance} />
+
           </div>}
           {edTab==="domain"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
@@ -2177,7 +2179,28 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                   </div>
                 </div>
               : <div>
-                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Point your own web address (like <strong>yourbusiness.com</strong>) to this site. You'll need to own the domain; we'll show you the one DNS record to add at your registrar.</p>
+                  <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>Give your site its own web address \u2014 like <strong style={{color:B.charcoal}}>yourbusiness.com</strong> \u2014 instead of the free Chelgy link.</p>
+
+                  <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>What's a domain?</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>It's your website's address on the internet \u2014 the thing people type in, like <strong>nike.com</strong>. Right now your site lives at a free Chelgy link. A domain makes it truly yours and looks far more professional on business cards, ads, and email.</p>
+                  </div>
+
+                  <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 1 \u00b7 Buy your domain</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:"0 0 8px"}}>You buy a domain from a <strong>registrar</strong> \u2014 usually about <strong>$10\u2013$15 a year</strong>. Search the name you want; if it's available, check out and it's yours. Popular registrars:</p>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {[["Namecheap","https://www.namecheap.com/domains/"],["Porkbun","https://porkbun.com/"],["GoDaddy","https://www.godaddy.com/domains"],["Squarespace Domains","https://domains.squarespace.com/"]].map(([n,u])=>(
+                        <a key={n} href={u} target="_blank" rel="noopener noreferrer" style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.charcoal,textDecoration:"none",border:"1px solid "+B.stone,background:B.white,padding:"6px 11px",borderRadius:2}}>{n} &rarr;</a>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:14}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 2 \u00b7 Connect it here</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>Type your domain below and tap <strong>Connect</strong>. We'll show you one <strong>DNS record</strong> to add \u2014 copy it into your registrar's <strong>DNS settings</strong> (look for \u201cDNS\u201d or \u201cManage DNS\u201d), save, and come back. Going live can take a few minutes up to 48 hours; tap <strong>Check status</strong> anytime to see if it's ready.</p>
+                  </div>
+
                   <input value={edDomain} onChange={e=>setEdDomain(e.target.value)} placeholder="yourbusiness.com" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12}} />
                   <Btn dark disabled={edDomainLoad} onClick={connectDomain}>{edDomainLoad?"Connecting…":"Connect domain"}</Btn>
                 </div>}
@@ -2293,6 +2316,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Image Creator</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 6px",letterSpacing:"0.02em"}}>{["logo","flyer","social","banner"].includes(iType)?"Powered by GPT Image 2 — best for crisp text & logos":"Powered by Nano Banana 2 (Google Gemini)"}</p>
         <div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
+        <PhotoCatalog onBalance={onBalance} />
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
           {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
@@ -2751,7 +2775,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides", storebuilder:"Dropshipping Store Builder" };
+const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -7102,6 +7126,148 @@ function CJProductBrowser({ user, onImport }) {
   );
 }
 
+function ProductPhotoSet({ onBalance }) {
+  const [ref, setRef] = useState(null);
+  const [desc, setDesc] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [prog, setProg] = useState("");
+  const [shots, setShots] = useState([]);
+  const [err, setErr] = useState("");
+
+  const ANGLES = [
+    ["Front", "a clean straight-on FRONT view of the product"],
+    ["Back", "a straight-on BACK view of the same product"],
+    ["Side", "a 3/4 SIDE-angle view of the same product"],
+    ["Close-up", "a tight CLOSE-UP detail shot showing the material and texture of the same product"],
+  ];
+
+  function pickFile(f) {
+    if (!f) return;
+    const rdr = new FileReader();
+    rdr.onload = () => { setRef(rdr.result); setShots([]); setErr(""); };
+    rdr.readAsDataURL(f);
+  }
+
+  async function generate() {
+    if (!ref) { setErr("Upload a reference photo first."); return; }
+    setBusy(true); setErr(""); setShots([]);
+    const out = [];
+    for (let i = 0; i < ANGLES.length; i++) {
+      setProg("Creating " + ANGLES[i][0] + " (" + (i + 1) + "/4)\u2026");
+      const p = "Using the uploaded product image as the reference, generate " + ANGLES[i][1] + ". Keep the exact same product, colours and design. Professional e-commerce product photography, clean seamless studio background, soft even lighting, sharp detail." + (desc.trim() ? " The product is: " + desc.trim() + "." : "");
+      try {
+        const r = await generateGeminiImage(p, ref, "1:1", "standard");
+        if (r && r.image) { out.push({ label: ANGLES[i][0], url: r.image }); setShots([...out]); if (typeof r.balance === "number" && onBalance) onBalance(r.balance); }
+      } catch (e) { /* continue */ }
+    }
+    if (!out.length) setErr("Couldn't generate photos. Please try again.");
+    setProg(""); setBusy(false);
+  }
+
+  return (
+    <div style={{ marginTop: 24, paddingTop: 22, borderTop: "1px solid " + B.stone }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+        <div style={{ fontFamily: "Georgia,serif", fontSize: 19, color: B.charcoal }}>Product photo set</div>
+        <CreditTag n={4 * CREDIT_COSTS.image} />
+      </div>
+      <p style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Upload one reference photo and Chelgy generates four matching product shots \u2014 front, back, side, and a close-up.</p>
+      {!ref
+        ? <label style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "11px 16px", border: "1px dashed " + B.stone, background: B.white, cursor: "pointer", fontFamily: "sans-serif", fontSize: 11, color: B.goldDark }}>+ Upload a reference photo<input type="file" accept="image/*" onChange={e => pickFile((e.target.files || [])[0])} style={{ display: "none" }} /></label>
+        : <div>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", border: "1px solid " + B.stone, background: "#fff", padding: 8, marginBottom: 10 }}>
+              <img src={ref} alt="" style={{ width: 70, height: 70, objectFit: "cover", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="What is it? e.g. ceramic coffee mug" style={{ width: "100%", padding: "7px 9px", border: "1px solid " + B.stone, outline: "none", fontSize: 12, fontFamily: "sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <button onClick={() => { setRef(null); setShots([]); }} style={{ background: "none", border: "none", color: B.mid, cursor: "pointer", fontSize: 11, fontFamily: "sans-serif", textDecoration: "underline" }}>Remove</button>
+            </div>
+            <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working\u2026") : "\u2728 Generate 4 product photos"}</button>
+          </div>}
+      {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.red, marginTop: 8 }}>{err}</div>}
+      {shots.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10, marginTop: 14 }}>
+          {shots.map((sh, i) => (
+            <div key={i} style={{ border: "1px solid " + B.stone, background: "#fff", padding: 8 }}>
+              <div style={{ width: "100%", aspectRatio: "1 / 1", backgroundImage: "url(" + sh.url + ")", backgroundSize: "cover", backgroundPosition: "center", marginBottom: 6 }} />
+              <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: B.mid, marginBottom: 6 }}>{sh.label}</div>
+              <a href={sh.url} download={"product-" + sh.label.toLowerCase().replace(/[^a-z]/g, "") + ".png"} style={{ display: "block", textAlign: "center", background: "none", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "6px", fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", textDecoration: "none", cursor: "pointer" }}>Download</a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhotoCatalog({ onBalance }) {
+  const [prompt, setPrompt] = useState("");
+  const [count, setCount] = useState(6);
+  const [busy, setBusy] = useState(false);
+  const [prog, setProg] = useState("");
+  const [imgs, setImgs] = useState([]);
+  const [err, setErr] = useState("");
+
+  async function generate() {
+    if (!prompt.trim()) { setErr("Describe the photos you want."); return; }
+    const n = Math.max(1, Math.min(20, parseInt(count, 10) || 1));
+    setBusy(true); setErr(""); setImgs([]);
+    const out = [];
+    let styleRef = null;
+    for (let i = 0; i < n; i++) {
+      setProg("Creating image " + (i + 1) + " of " + n + "\u2026");
+      const p = prompt.trim() + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " \u2014 a distinct composition within the same series.";
+      try {
+        const r = await generateGeminiImage(p, styleRef, "1:1", "standard");
+        if (r && r.image) { out.push(r.image); setImgs([...out]); if (!styleRef) styleRef = r.image; if (typeof r.balance === "number" && onBalance) onBalance(r.balance); }
+      } catch (e) { /* continue */ }
+    }
+    if (!out.length) setErr("Couldn't generate images. Please try again.");
+    setProg(""); setBusy(false);
+  }
+
+  function downloadAll() {
+    imgs.forEach((u, i) => { const a = document.createElement("a"); a.href = u; a.download = "catalog-" + (i + 1) + ".png"; document.body.appendChild(a); a.click(); document.body.removeChild(a); });
+  }
+
+  const n = Math.max(1, Math.min(20, parseInt(count, 10) || 1));
+  return (
+    <div style={{ border: "1px solid " + B.stone, background: B.offwhite, padding: "16px 18px", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+        <div style={{ fontFamily: "Georgia,serif", fontSize: 17, color: B.charcoal }}>Photo catalog \u2014 cohesive set</div>
+        <CreditTag n={n * CREDIT_COSTS.image} />
+      </div>
+      <p style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Describe a look and generate up to 20 images that share one consistent style \u2014 perfect for a content batch or product line. Download them individually or all at once.</p>
+      <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. minimalist skincare bottles on warm beige backgrounds, soft daylight, matching shadows" rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12.5, resize: "vertical", marginBottom: 10, color: B.charcoal }} />
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+        <label style={{ fontFamily: "sans-serif", fontSize: 11, color: B.charcoal, display: "flex", alignItems: "center", gap: 8 }}>
+          How many
+          <select value={count} onChange={e => setCount(e.target.value)} style={{ padding: "8px 10px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12, background: "#fff", color: B.charcoal }}>
+            {[3, 5, 6, 8, 10, 12, 15, 20].map(v => <option key={v} value={v}>{v} images</option>)}
+          </select>
+        </label>
+        <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working\u2026") : "\u2728 Generate catalog"}</button>
+      </div>
+      {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.red, marginTop: 8 }}>{err}</div>}
+      {imgs.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>{imgs.length} image{imgs.length > 1 ? "s" : ""}{busy ? " so far\u2026" : ""}</div>
+            {!busy && <button onClick={downloadAll} style={{ background: B.gold, color: "#fff", border: "none", padding: "7px 14px", fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Download all</button>}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 }}>
+            {imgs.map((u, i) => (
+              <div key={i} style={{ border: "1px solid " + B.stone, background: "#fff", padding: 6 }}>
+                <div style={{ width: "100%", aspectRatio: "1 / 1", backgroundImage: "url(" + u + ")", backgroundSize: "cover", backgroundPosition: "center", marginBottom: 6 }} />
+                <a href={u} download={"catalog-" + (i + 1) + ".png"} style={{ display: "block", textAlign: "center", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "5px", fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", textDecoration: "none", cursor: "pointer" }}>Download</a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StoreBuilderTab({ user }) {
   const [niche, setNiche] = useState("");
   const [shop, setShop] = useState("");
@@ -7283,8 +7449,13 @@ function StoreBuilderTab({ user }) {
 export default function ChelgyApp() {
   const [page, setPage] = useState(CHELGY_HAS_OAUTH_RETURN ? "app" : "onboarding");
   useEffect(()=>{
+    try {
+      let vp=document.querySelector('meta[name="viewport"]');
+      if(!vp){ vp=document.createElement("meta"); vp.setAttribute("name","viewport"); document.head.appendChild(vp); }
+      vp.setAttribute("content","width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+    } catch(e){}
     const s=document.createElement("style");
-    s.textContent="input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}h1,h2,h3,h4,h5,h6{color:#111111;}:root{color-scheme:light;background-color:#ffffff;}body{margin:0;background-color:#ffffff;}#root{max-width:none;width:100%;margin:0;padding:0;text-align:left;}.cg-main{padding:0 40px;}@media(max-width:640px){.cg-main{padding:0 14px;}}";
+    s.textContent="html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}input,textarea,select{color:#111111;color-scheme:light;}input::placeholder,textarea::placeholder{color:#9A9A9A;}select,option{background-color:#ffffff;color:#111111;}h1,h2,h3,h4,h5,h6{color:#111111;}:root{color-scheme:light;background-color:#ffffff;}body{margin:0;background-color:#ffffff;touch-action:manipulation;}#root{max-width:none;width:100%;margin:0;padding:0;text-align:left;}.cg-main{padding:0 40px;}@media(max-width:640px){.cg-main{padding:0 14px;}}";
     document.head.appendChild(s);
     return ()=>{ try{document.head.removeChild(s);}catch(e){} };
   },[]);
@@ -8031,7 +8202,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["storebuilder","Dropshipping Store Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -10243,7 +10414,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."},{id:"storebuilder",Icon:Icons.Package,title:"Dropshipping Store Builder",desc:"Spin up a real Shopify dropshipping store in minutes — pick a niche, connect your store, and we stock it with winning products, pages, and a collection automatically."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -10266,12 +10437,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&(
             <div style={{paddingTop:28}}>
               <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
-            </div>
-          )}
-
-          {tab==="tools"&&subTab==="storebuilder"&&(
-            <div style={{paddingTop:28,maxWidth:640,margin:"0 auto",paddingLeft:20,paddingRight:20}}>
-              <StoreBuilderTab user={user} />
             </div>
           )}
 
