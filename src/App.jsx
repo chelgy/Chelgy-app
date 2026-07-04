@@ -1099,6 +1099,38 @@ function ShareBar({ url, title, text, file, filename }){
   );
 }
 
+const SECTION_LABELS = {
+  hero:"Hero", philosophy:"Philosophy", about:"About", offerings:"Products / Offerings", editorial:"Editorial feature", quote:"Quote", contact:"Contact",
+  services:"Services", whyus:"Why us", process:"Process / How it works", stats:"Stats", team:"Team", testimonials:"Testimonials", faq:"FAQ", cta:"Call to action", trustbadges:"Trust badges", beforeafter:"Before & after", pricing:"Pricing", booking:"Booking", gallery:"Gallery", serviceareas:"Service areas", hours:"Hours"
+};
+const SECTION_ADD_ORDER = ["services","offerings","about","testimonials","faq","whyus","process","stats","pricing","team","gallery","beforeafter","trustbadges","booking","serviceareas","hours","cta","editorial","quote","philosophy","contact","hero"];
+function defaultSection(type){
+  switch(type){
+    case "hero": return {type:"hero",eyebrow:"WELCOME",headline:"Your headline here",headlineEm:"",sub:"A short refined sentence about what you do.",cta:{label:"Learn more",href:"#"}};
+    case "philosophy": return {type:"philosophy",eyebrow:"OUR APPROACH",heading:"What we believe",body:["Write a sentence or two about your philosophy.","Add a second short paragraph here."]};
+    case "about": return {type:"about",eyebrow:"ABOUT",heading:"Our story",body:["Introduce the person or story behind the business."]};
+    case "offerings": return {type:"offerings",eyebrow:"OFFERINGS",title:"What we offer",items:[{name:"Item name",note:"Short description",price:"",image:null}]};
+    case "editorial": return {type:"editorial",eyebrow:"",line:"A short, striking statement about your brand.",image:null};
+    case "quote": return {type:"quote",text:"Something wonderful a happy customer said.",cite:"\u2014 First name"};
+    case "contact": return {type:"contact",eyebrow:"CONTACT",heading:"Get in touch",details:[{k:"Email",v:"hello@yourbrand.com"}],cta:{label:"Contact us",href:"#"}};
+    case "services": return {type:"services",eyebrow:"SERVICES",title:"What we do",items:[{name:"Service one",desc:"A short description."},{name:"Service two",desc:"A short description."},{name:"Service three",desc:"A short description."}]};
+    case "whyus": return {type:"whyus",eyebrow:"WHY US",title:"Why choose us",points:["Reason one","Reason two","Reason three","Reason four"]};
+    case "process": return {type:"process",eyebrow:"HOW IT WORKS",title:"The process",steps:["First step","Second step","Third step"]};
+    case "stats": return {type:"stats",items:[["100+","Happy clients"],["5\u2605","Average rating"],["10yr","Experience"]]};
+    case "team": return {type:"team",eyebrow:"OUR TEAM",title:"Meet the team",people:[{name:"Name",role:"Role",image:null}]};
+    case "testimonials": return {type:"testimonials",eyebrow:"REVIEWS",title:"What clients say",cards:[{quote:"They were amazing to work with.",name:"Client name"}]};
+    case "faq": return {type:"faq",eyebrow:"FAQ",title:"Frequently asked",qs:[{q:"A common question?",a:"A clear, helpful answer."}]};
+    case "cta": return {type:"cta",eyebrow:"",headline:"Ready to get started?",cta:{label:"Get started",href:"#"}};
+    case "trustbadges": return {type:"trustbadges",items:["Licensed","Insured","Family owned","Satisfaction guaranteed"]};
+    case "beforeafter": return {type:"beforeafter",eyebrow:"RESULTS",title:"Before & after",pairs:[{before:null,after:null}]};
+    case "pricing": return {type:"pricing",eyebrow:"PRICING",title:"Simple pricing",tiers:[{name:"Starter",price:"$X",desc:"What's included.",cta:{label:"Choose"}},{name:"Pro",price:"$Y",desc:"What's included.",cta:{label:"Choose"}}]};
+    case "booking": return {type:"booking",eyebrow:"BOOK",title:"Book an appointment",sub:"Schedule online in seconds.",cta:"Book Now",url:"#",provider:""};
+    case "gallery": return {type:"gallery",eyebrow:"GALLERY",title:"Our work",images:[null,null,null,null,null,null]};
+    case "serviceareas": return {type:"serviceareas",eyebrow:"WHERE WE WORK",title:"Areas we serve",areas:["Your city","Nearby area","Another area"]};
+    case "hours": return {type:"hours",eyebrow:"HOURS",title:"Opening hours",rows:[["Mon\u2013Fri","9:00 \u2013 5:00"],["Saturday","10:00 \u2013 4:00"],["Sunday","Closed"]]};
+    default: return {type};
+  }
+}
 function CreditTag({ n, style }){
   return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#F2EEE6", border:"1px solid #E3DCCB", color:"#8A7B5E", fontFamily:"sans-serif", fontSize:9, fontWeight:700, letterSpacing:"0.06em", padding:"3px 8px", borderRadius:20, textTransform:"uppercase", whiteSpace:"nowrap", ...(style||{}) }}>◆ {Number(n).toLocaleString()} credits</span>;
 }
@@ -1485,6 +1517,17 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     catch(e){ setWmErr("Couldn't remove that photo — please try again."); }
     setEdMgrBusy(null);
   }
+  const [secBusy,setSecBusy]=useState(false);
+  function curSections(){ return (wmExisting&&wmExisting.data&&Array.isArray(wmExisting.data.sections))?wmExisting.data.sections:[]; }
+  async function saveSections(newSecs){
+    if(!wmExisting) return; setSecBusy(true); setWmErr("");
+    try{ const d=JSON.parse(JSON.stringify(wmExisting.data||{})); d.sections=newSecs; await saveData(d); setWmPreview(p=>p+1); }
+    catch(e){ setWmErr("Couldn't save your layout — please try again."); }
+    setSecBusy(false);
+  }
+  async function addSection(type){ const secs=curSections().slice(); const contactAt=secs.findIndex(s=>s&&s.type==="contact"); const item=defaultSection(type); if(contactAt>=0){ secs.splice(contactAt,0,item); } else { secs.push(item); } await saveSections(secs); }
+  async function removeSection(idx){ const secs=curSections().slice(); if(idx<0||idx>=secs.length) return; secs.splice(idx,1); await saveSections(secs); }
+  async function moveSection(idx,dir){ const secs=curSections().slice(); const j=idx+dir; if(j<0||j>=secs.length) return; const t=secs[idx]; secs[idx]=secs[j]; secs[j]=t; await saveSections(secs); }
   useEffect(()=>{
     if(tool!=="website"||!user||!user.id) return;
     let cancel=false;
@@ -1947,7 +1990,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-            {[["design","Theme"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+            {[["design","Theme"],["sections","Sections"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
               <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
@@ -1989,6 +2032,31 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch your theme anytime — each one changes the whole look, fonts, and colours.</div>
           </div>
 
+          </div>}
+          {edTab==="sections"&&<div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Sections</div>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Add, remove, or reorder the building blocks of your site. Changes save and appear live. To edit the words inside a section, use the <strong>Refine</strong> tab and just describe the change.</p>
+            {curSections().length>0 && <div style={{marginBottom:20}}>
+              {curSections().map((s,i)=>{ const arr=curSections(); return (
+                <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",padding:"11px 13px",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:22,height:22,flexShrink:0,borderRadius:"50%",background:B.offwhite,border:"1px solid "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.mid}}>{i+1}</div>
+                  <div style={{flex:1,minWidth:0,fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal}}>{SECTION_LABELS[s.type]||s.type}</div>
+                  <div style={{display:"flex",gap:5,flexShrink:0}}>
+                    <button disabled={secBusy||i===0} onClick={()=>moveSection(i,-1)} title="Move up" style={{width:28,height:28,border:"1px solid "+B.stone,background:"#fff",borderRadius:3,cursor:(secBusy||i===0)?"default":"pointer",color:B.charcoal,fontSize:13,opacity:(secBusy||i===0)?0.35:1}}>↑</button>
+                    <button disabled={secBusy||i===arr.length-1} onClick={()=>moveSection(i,1)} title="Move down" style={{width:28,height:28,border:"1px solid "+B.stone,background:"#fff",borderRadius:3,cursor:(secBusy||i===arr.length-1)?"default":"pointer",color:B.charcoal,fontSize:13,opacity:(secBusy||i===arr.length-1)?0.35:1}}>↓</button>
+                    <button disabled={secBusy} onClick={()=>{ if(window.confirm("Remove this section?")) removeSection(i); }} title="Remove" style={{width:28,height:28,border:"1px solid "+B.stone,background:"#fff",borderRadius:3,cursor:secBusy?"default":"pointer",color:B.red,fontSize:15,opacity:secBusy?0.5:1}}>×</button>
+                  </div>
+                </div>
+              ); })}
+            </div>}
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>Add a section</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
+              {SECTION_ADD_ORDER.map(t=>(
+                <button key={t} disabled={secBusy} onClick={()=>addSection(t)} style={{border:"1px dashed "+B.gold,background:"#fff",color:B.goldDark,padding:"11px 12px",fontFamily:"sans-serif",fontSize:11.5,fontWeight:700,cursor:secBusy?"default":"pointer",textAlign:"left",borderRadius:3,opacity:secBusy?0.5:1}}>+ {SECTION_LABELS[t]}</button>
+              ))}
+            </div>
+            {secBusy&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:12}}>Saving…</div>}
+            <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.stone,padding:"9px 11px",marginTop:16}}>New sections come with placeholder text and adapt to your theme automatically. Photo-based sections (team, gallery, before &amp; after) start empty — add images in the <strong>Photos</strong> tab or your own uploads.</div>
           </div>}
           {edTab==="orders"&&<OrdersPanel user={user} />}
           {edTab==="products"&&<div>
@@ -6855,12 +6923,71 @@ function WinningProductFinder(){
             {it.why&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,marginTop:5}}>{it.why}</div>}
             {it.audience&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:5}}><strong style={{color:B.charcoal}}>Who buys it:</strong> {it.audience}</div>}
             {it.hook&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginTop:8,background:"#FBF7F0",border:"1px solid #E7DDCB",borderLeft:"3px solid #B8955A",padding:"8px 11px",borderRadius:2}}><strong style={{fontSize:8.5,letterSpacing:"0.1em",textTransform:"uppercase",color:"#B8955A",display:"block",marginBottom:3}}>Ad hook</strong>{it.hook}</div>}
+            <a href={"https://www.aliexpress.com/wholesale?SearchText="+encodeURIComponent(it.name||"")} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.04em",color:B.goldDark,textDecoration:"none",borderBottom:"1px solid "+B.gold,paddingBottom:2}}>Find a supplier →</a>
           </div>
         ))}
       </div>}
     </div>
   );
 }
+function CJConnect({ user }) {
+  const [state, setState] = useState("loading"); // loading | connected | disconnected
+  const [apiKey, setApiKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const t = await freshToken();
+        const r = await fetch("/api/cj-status", { headers: { Authorization: "Bearer " + t } });
+        const j = await r.json();
+        if (alive) setState(j && j.connected ? "connected" : "disconnected");
+      } catch (e) { if (alive) setState("disconnected"); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  async function connect() {
+    setErr("");
+    if (!apiKey.trim()) { setErr("Paste your CJ API key first."); return; }
+    setBusy(true);
+    try {
+      const t = await freshToken();
+      const r = await fetch("/api/cj-connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
+      });
+      const j = await r.json();
+      if (r.ok && j.connected) { setState("connected"); setApiKey(""); }
+      else setErr(j.error || "Could not connect. Check your API key.");
+    } catch (e) { setErr("Something went wrong. Try again."); }
+    setBusy(false);
+  }
+
+  if (state === "loading") {
+    return <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid }}>Checking CJ connection\u2026</div>;
+  }
+  if (state === "connected") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "sans-serif", fontSize: 13, color: B.green, fontWeight: 700 }}>
+        <span style={{ fontSize: 15 }}>\u2713</span> Your CJ account is connected.
+      </div>
+    );
+  }
+  return (
+    <div>
+      <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Paste your CJ API key" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid " + B.stone, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 10, color: B.charcoal }} />
+      {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
+      <button onClick={connect} disabled={busy} style={{ padding: "11px 20px", background: busy ? B.stone : B.charcoal, color: busy ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
+        {busy ? "Connecting\u2026" : "Connect CJ account"}
+      </button>
+    </div>
+  );
+}
+
 function StoreBuilderTab({ user }) {
   const [niche, setNiche] = useState("");
   const [shop, setShop] = useState("");
@@ -6993,100 +7120,47 @@ function StoreBuilderTab({ user }) {
   return (
     <div>
       <div style={{ width: 32, height: 1, background: "#B8955A", marginBottom: 18 }} />
-      <H>Build your Shopify store.</H>
-      <Sub>Pick a niche, spin up your store, and we'll stock it with products, pages, and a collection automatically.</Sub>
-
-      <div style={{ background: "#FBF7F0", border: "1px solid #E7DDCB", borderLeft: "3px solid #B8955A", padding: "16px 18px", marginBottom: 22, borderRadius: 2 }}>
-        <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", color: "#B8955A", textTransform: "uppercase", marginBottom: 6 }}>Launching soon</div>
-        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: "#3A3A3A", lineHeight: 1.6 }}>
-          We're putting the finishing touches on the Store Builder and testing the final steps of the launch process. This tool will be fully available in just a few days &mdash; check back soon to build and launch your first store.
-        </div>
-      </div>
+      <H>Build your own store.</H>
+      <Sub>Your own branded store, hosted on Chelgy. Customers pay you directly through Stripe, every order lands in your dashboard, and you fulfill with any supplier you like — no Shopify, no middleman taking a cut.</Sub>
 
       <WinningProductFinder />
 
-      <StepCard n={1} title="Choose your niche" done={!!niche} active={!niche}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {CHELGY_STORE_NICHES.map((x) => (
-            <button key={x.id} onClick={() => pickNiche(x.id)} style={{ padding: "8px 14px", border: "1px solid " + (niche === x.id ? B.charcoal : B.stone), background: niche === x.id ? B.charcoal : B.white, color: niche === x.id ? "#fff" : B.charcoal, fontFamily: "sans-serif", fontSize: 12, letterSpacing: "0.02em", cursor: "pointer", borderRadius: 2 }}>
-              {x.label}
-            </button>
-          ))}
-        </div>
-      </StepCard>
-
-      <StepCard n={2} title="Pick your products" done={pickCount > 0} active={!!niche}>
-        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
-          {pickCount > 0 ? pickCount + " selected \u2014 these get added to your store." : "See trending products for your niche and pick the ones you want to sell."}
-        </div>
-        {prodList.length === 0 ? (
-          <button onClick={loadProducts} disabled={!niche || prodLoad} style={{ padding: "10px 18px", background: B.white, color: B.charcoal, border: "1px solid " + B.charcoal, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: niche && !prodLoad ? "pointer" : "not-allowed" }}>
-            {prodLoad ? "Finding winners..." : "See winning products"}
-          </button>
-        ) : (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10 }}>
-              {prodList.map((p) => {
-                const on = !!picks[p.id];
-                return (
-                  <button key={p.id} onClick={() => togglePick(p)} style={{ textAlign: "left", background: on ? B.charcoal : B.white, color: on ? "#fff" : B.charcoal, border: "1px solid " + (on ? B.charcoal : B.stone), borderRadius: 4, padding: 12, cursor: "pointer" }}>
-                    {on && picks[p.id] && picks[p.id].image && <img src={picks[p.id].image} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 3, marginBottom: 8, display: "block" }} />}
-                    <div style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, marginBottom: 4, lineHeight: 1.25 }}>{p.name}</div>
-                    <div style={{ fontFamily: "sans-serif", fontSize: 11, color: on ? "rgba(255,255,255,0.72)" : B.mid, lineHeight: 1.4, marginBottom: 6 }}>{p.blurb}</div>
-                    <div style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, color: on ? "#fff" : B.green }}>${p.price} <span style={{ fontWeight: 400, fontSize: 10, color: on ? "rgba(255,255,255,0.6)" : B.mid }}>{"\u00b7 " + p.tag}</span></div>
-                    <div style={{ fontFamily: "sans-serif", fontSize: 10, marginTop: 6, color: on ? "#fff" : B.mid }}>{on ? "\u2713 Selected" : "Tap to add"}</div>
-                  </button>
-                );
-              })}
+      <div style={{ background: B.white, border: "1px solid " + B.stone, borderRadius: 4, padding: 20, marginBottom: 18 }}>
+        <div style={{ fontFamily: "Georgia,serif", fontSize: 18, color: B.charcoal, marginBottom: 16 }}>How your store works</div>
+        {[
+          ["1", "Build your store & add products", "Open the Website tool to create your store, then add your products and prices in its Products tab. Your store gets a shareable link (and your own domain if you want one)."],
+          ["2", "Connect Stripe to get paid", "In the Products tab, connect your Stripe account. Every sale is paid straight into your own Stripe — Chelgy only takes a small platform fee per order."],
+          ["3", "Sell — customers check out on your site", "Shoppers add products to a cart and pay securely through Stripe, right on your store. No Shopify account needed, ever."],
+          ["4", "Fulfill each order", "Every paid order shows up in your Orders tab with the customer's shipping address. Place the order with your supplier, then mark it shipped with a tracking number."],
+        ].map(([n, t, d]) => (
+          <div key={n} style={{ display: "flex", gap: 12, marginBottom: 15 }}>
+            <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: "#B8955A", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700 }}>{n}</div>
+            <div>
+              <div style={{ fontFamily: "sans-serif", fontSize: 13.5, fontWeight: 700, color: B.charcoal }}>{t}</div>
+              <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, lineHeight: 1.5, marginTop: 3 }}>{d}</div>
             </div>
-            {pickCount > 0 && (
-              <button onClick={makePhotos} disabled={imaging} style={{ marginTop: 12, marginRight: 14, padding: "9px 16px", background: imaging ? B.stone : "#B8955A", color: imaging ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", cursor: imaging ? "default" : "pointer" }}>
-                {imaging ? ("Making photos " + imgDone + "/" + imgTotal + "...") : ("✨ Generate high-end photos (" + pickCount + ")")}
-              </button>
-            )}
-            {pickCount > 0 && !imaging && <CreditTag n={pickCount * CREDIT_COSTS.image} style={{ verticalAlign: "middle" }} />}
-            <button onClick={loadProducts} disabled={prodLoad} style={{ marginTop: 12, background: "none", border: "none", color: B.mid, fontFamily: "sans-serif", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
-              {prodLoad ? "Refreshing..." : "Show me different products"}
-            </button>
           </div>
-        )}
-        {prodErr && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 10 }}>{prodErr}</div>}
-      </StepCard>
+        ))}
+      </div>
 
-      <StepCard n={3} title="Create your store" done={false} active={!!niche}>
-        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
-          Don't have a Shopify store yet? Create one free with your discount. Already have one? Skip to step 3.
+      <div style={{ background: B.offwhite, border: "1px solid " + B.stone, borderRadius: 4, padding: 20 }}>
+        <div style={{ fontFamily: "Georgia,serif", fontSize: 18, color: B.charcoal, marginBottom: 8 }}>Sourcing &amp; fulfillment with CJdropshipping <span style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.mid, border: "1px solid " + B.stone, padding: "3px 7px", borderRadius: 20, verticalAlign: "middle", marginLeft: 6 }}>Optional</span></div>
+        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.6, marginBottom: 14 }}>
+          Need a supplier that actually stocks and ships your products? Create a free <strong>CJdropshipping</strong> account. CJ is a real supplier with 50+ global warehouses — it holds inventory and ships orders itself, and sources from AliExpress when a product isn't in its catalog. It's <strong>free to join with no monthly fee</strong> — you only pay per order. When a sale comes in on your Chelgy store, place the order with CJ, then paste the tracking back into your Orders tab.
         </div>
-        <a href={CHELGY_SHOPIFY_AFFILIATE_LINK} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 18px", background: B.white, color: B.charcoal, border: "1px solid " + B.charcoal, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}>
-          Create my Shopify store
+        <div style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#B8955A", marginBottom: 8 }}>Step 1 &middot; Create a free CJ account</div>
+        <a href="https://cjdropshipping.com/register.html" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 18px", background: B.white, color: B.charcoal, border: "1px solid " + B.charcoal, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", cursor: "pointer", marginBottom: 22 }}>
+          Create your free CJ account &rarr;
         </a>
-      </StepCard>
-
-      <StepCard n={4} title="Connect it & build" done={false} active={!!niche}>
-        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 10 }}>
-          Enter your store URL and we'll install the builder and stock your store.
+        <div style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#B8955A", marginBottom: 8 }}>Step 2 &middot; Connect it to your store</div>
+        <div style={{ fontFamily: "sans-serif", fontSize: 12.5, color: B.mid, lineHeight: 1.6, marginBottom: 12 }}>
+          In CJ, open <strong>My CJ &rarr; Authorization &rarr; API</strong> and click <strong>Generate</strong> to create your API Key. Paste it below to link CJ to Chelgy so your orders can be fulfilled through it.
         </div>
-        <input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="your-store.myshopify.com" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid " + B.stone, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 12, color: B.charcoal }} />
-        {!niche && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, marginBottom: 10 }}>Pick a niche above first.</div>}
-        {niche && shop.trim() && !normOk && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, marginBottom: 10 }}>Paste your store link  it can be your-store.myshopify.com or your admin.shopify.com link.</div>}
-        {niche && normOk && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.green, marginBottom: 10 }}>Ready to connect: {cleanShop}</div>}
-        {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
-        <button onClick={connect} disabled={!canConnect} style={{ padding: "12px 20px", background: canConnect ? B.charcoal : B.stone, color: canConnect ? "#fff" : B.mid, border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: canConnect ? "pointer" : "not-allowed" }}>
-          {busy ? "Connecting..." : "Connect my store & build"}
-        </button>
-      </StepCard>
-
-      <StepCard n={5} title="Automate orders & shipping" done={false} active={!!niche}>
-        <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.mid, lineHeight: 1.5, marginBottom: 12 }}>
-          Once your store is live, connect AutoDS so every order fulfills itself. When a customer buys, AutoDS places the order with your supplier and syncs tracking automatically — no manual work on your end.
+        <CJConnect user={user} />
+        <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, lineHeight: 1.6, marginTop: 14, background: B.white, border: "1px solid " + B.stone, borderRadius: 3, padding: "10px 12px" }}>
+          <strong style={{ color: B.charcoal }}>Good to know:</strong> Connecting CJ links your account so your store can source and ship through it. Automatic order fulfillment is being rolled out &mdash; for now, when a sale comes in you place the order through CJ (or any supplier &mdash; AliExpress, Amazon, a local one), then mark it shipped with tracking in your Orders tab.
         </div>
-        <a href={CHELGY_AUTODS_AFFILIATE_LINK} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 18px", background: B.charcoal, color: "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}>
-          Set up order automation with AutoDS
-        </a>
-        <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, lineHeight: 1.7, marginTop: 12 }}>
-          1. Create your AutoDS account &nbsp;&middot;&nbsp; 2. Connect your Shopify store &nbsp;&middot;&nbsp; 3. Orders fulfill on autopilot.
-        </div>
-      </StepCard>
+      </div>
     </div>
   );
 }
