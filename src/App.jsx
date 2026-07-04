@@ -1099,6 +1099,121 @@ function ShareBar({ url, title, text, file, filename }){
   );
 }
 
+function CreditTag({ n, style }){
+  return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#F2EEE6", border:"1px solid #E3DCCB", color:"#8A7B5E", fontFamily:"sans-serif", fontSize:9, fontWeight:700, letterSpacing:"0.06em", padding:"3px 8px", borderRadius:20, textTransform:"uppercase", whiteSpace:"nowrap", ...(style||{}) }}>◆ {Number(n).toLocaleString()} credits</span>;
+}
+function StripeConnect({ user }) {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const tok = await freshToken(); if (!tok) { if (!cancel) setLoading(false); return; }
+        const r = await fetch("/api/stripe-status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: tok }) });
+        const d = await r.json().catch(() => ({}));
+        if (!cancel) { setStatus(d); setLoading(false); }
+      } catch (e) { if (!cancel) setLoading(false); }
+    })();
+    return () => { cancel = true; };
+  }, []);
+  const connect = async () => {
+    setBusy(true); setErr("");
+    try {
+      const tok = await freshToken(); if (!tok) { setErr("Please log in again."); setBusy(false); return; }
+      const r = await fetch("/api/stripe-connect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: tok }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.url) { setErr(d.error || "Couldn't start Stripe setup."); setBusy(false); return; }
+      window.location.href = d.url;
+    } catch (e) { setErr("Something went wrong."); setBusy(false); }
+  };
+  const ready = status && status.charges_enabled;
+  const partial = status && status.connected && !status.charges_enabled;
+  return (
+    <div style={{ border: "1px solid " + (ready ? "#7DBE7D" : "#E3DCCB"), background: ready ? "#EAF5EA" : "#FBF7F0", padding: "14px 16px", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, color: "#241E18" }}>{ready ? "✓ Stripe connected — you're ready to sell" : "Get paid directly with Stripe"}</div>
+          <div style={{ fontFamily: "sans-serif", fontSize: 11.5, color: "#8A7E70", lineHeight: 1.5, marginTop: 3 }}>{ready ? "Sales from your store are paid straight into your Stripe account." : "Connect your Stripe account so store sales are paid directly to you — takes about 2 minutes."}</div>
+        </div>
+        {!ready && <button onClick={connect} disabled={busy || loading} style={{ background: "#635BFF", color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, borderRadius: 4, cursor: (busy || loading) ? "default" : "pointer", opacity: (busy || loading) ? 0.6 : 1, whiteSpace: "nowrap" }}>{busy ? "Opening…" : (partial ? "Finish Stripe setup" : "Connect Stripe")}</button>}
+      </div>
+      {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#C0392B", marginTop: 8 }}>{err}</div>}
+    </div>
+  );
+}
+function OrdersPanel({ user }){
+  const [state,setState]=useState({loading:true,orders:[],error:""});
+  useEffect(()=>{
+    let cancel=false;
+    (async()=>{
+      try{
+        const tok=await freshToken(); if(!tok){ if(!cancel) setState({loading:false,orders:[],error:"Please log in again."}); return; }
+        const r=await fetch(SUPABASE_URL+"/rest/v1/store_orders?select=*&order=created_at.desc&limit=100",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+        const rows=await r.json().catch(()=>[]);
+        if(!cancel) setState({loading:false,orders:Array.isArray(rows)?rows:[],error:r.ok?"":"Couldn't load your orders."});
+      }catch(e){ if(!cancel) setState({loading:false,orders:[],error:"Couldn't load your orders."}); }
+    })();
+    return ()=>{cancel=true;};
+  },[]);
+  const [busyId,setBusyId]=useState(null);
+  const [track,setTrack]=useState({});
+  const markShipped=async(o)=>{
+    const t=(track[o.id]||"").trim();
+    setBusyId(o.id);
+    try{
+      const tok=await freshToken(); if(!tok){ setBusyId(null); return; }
+      const r=await fetch(SUPABASE_URL+"/rest/v1/store_orders?id=eq."+o.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ fulfillment_status:"fulfilled", tracking:t||null }) });
+      if(r.ok){ setState(s=>({...s,orders:s.orders.map(x=>x.id===o.id?{...x,fulfillment_status:"fulfilled",tracking:t||null}:x)})); }
+    }catch(e){}
+    setBusyId(null);
+  };
+  const money=c=>"$"+((Number(c)||0)/100).toFixed(2);
+  const orders=state.orders;
+  const totalSales=orders.reduce((a,o)=>a+(Number(o.amount_total)||0),0);
+  const totalFee=orders.reduce((a,o)=>a+(Number(o.application_fee)||0),0);
+  const net=totalSales-totalFee;
+  return (
+    <div>
+      <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Orders</div>
+      <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Every sale from your store. Payments go straight to your connected Stripe account.</p>
+      {state.loading ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"20px 0"}}>Loading your orders…</div>
+      : state.error ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.red}}>{state.error}</div>
+      : orders.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,background:B.offwhite,border:"1px solid "+B.stone,padding:"18px",lineHeight:1.6}}>No orders yet. When a customer buys from your store, it'll show up here. Make sure Stripe is connected in the Products tab and your products have a price.</div>
+      : (<>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+          <div style={{flex:1,minWidth:100,border:"1px solid "+B.stone,background:"#fff",padding:"12px 14px"}}><div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Orders</div><div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal}}>{orders.length}</div></div>
+          <div style={{flex:1,minWidth:100,border:"1px solid "+B.stone,background:"#fff",padding:"12px 14px"}}><div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Total sales</div><div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal}}>{money(totalSales)}</div></div>
+          <div style={{flex:1,minWidth:100,border:"1px solid "+B.stone,background:"#fff",padding:"12px 14px"}}><div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Your earnings</div><div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.green}}>{money(net)}</div></div>
+        </div>
+        {orders.map(o=>{ const items=Array.isArray(o.items)?o.items:[]; const d=o.created_at?new Date(o.created_at):null; return (
+          <div key={o.id} style={{border:"1px solid "+B.stone,background:"#fff",padding:"13px 15px",marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal}}>{items.map(it=>(it.n||"Item")+(it.q>1?(" ×"+it.q):"")).join(", ")||"Order"}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:3}}>{(o.customer_email||"—")}{d?(" · "+d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})):""}</div>
+                {(o.shipping_name||o.shipping_address)&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,marginTop:5,background:B.offwhite,border:"1px solid "+B.stone,padding:"6px 9px",lineHeight:1.4}}><span style={{fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,display:"block",marginBottom:2}}>Ship to</span>{o.shipping_name?(o.shipping_name+" — "):""}{o.shipping_address||""}</div>}
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontFamily:"Georgia,serif",fontSize:17,color:B.charcoal}}>{money(o.amount_total)}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9.5,color:B.mid}}>Chelgy fee {money(o.application_fee)}</div>
+              </div>
+            </div>
+            {o.fulfillment_status==="fulfilled"
+              ? <div style={{marginTop:8,fontFamily:"sans-serif",fontSize:10.5,fontWeight:700,color:B.green}}>✓ Shipped{o.tracking?(" · "+o.tracking):""}</div>
+              : <div style={{marginTop:9,display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+                  <input value={track[o.id]||""} onChange={e=>setTrack(t=>({...t,[o.id]:e.target.value}))} placeholder="Tracking # (optional)" style={{flex:1,minWidth:130,padding:"7px 9px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:11,outline:"none",boxSizing:"border-box"}} />
+                  <button disabled={busyId===o.id} onClick={()=>markShipped(o)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busyId===o.id?"default":"pointer",textTransform:"uppercase"}}>{busyId===o.id?"Saving…":"Mark shipped"}</button>
+                </div>}
+          </div>
+        ); })}
+        <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,lineHeight:1.5,marginTop:6}}>Earnings shown are before Stripe's payment-processing fee, which Stripe deducts from each payout.</div>
+      </>)}
+    </div>
+  );
+}
 function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={} }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
@@ -1106,7 +1221,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
   const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState(""); const [wmAutoBuild,setWmAutoBuild]=useState(false); const [iAutoRun,setIAutoRun]=useState(false); const [adAutoRun,setAdAutoRun]=useState(false);
-  const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState("");
+  const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState(""); const [wmPhotoStyle,setWmPhotoStyle]=useState(""); const [regenAllBusy,setRegenAllBusy]=useState(false); const [regenAllProg,setRegenAllProg]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
   const [wmExisting,setWmExisting]=useState(null); const [wmSites,setWmSites]=useState([]); const [wmNewSite,setWmNewSite]=useState(false); const [wmMode,setWmMode]=useState("view"); const [wmEdit,setWmEdit]=useState(""); const [wmEditLog,setWmEditLog]=useState([]); const [wmEditLoad,setWmEditLoad]=useState(false); const [wmPreview,setWmPreview]=useState(0); const [wmEditNote,setWmEditNote]=useState("");
   const [edImgData,setEdImgData]=useState(null); const [edImgUse,setEdImgUse]=useState(""); const [edImgPro,setEdImgPro]=useState(false); const [edImgSlot,setEdImgSlot]=useState("hero"); const [edImgLoad,setEdImgLoad]=useState(false);
@@ -1331,6 +1446,39 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     }catch(e){ setWmErr("Couldn't generate that image — please try again."); }
     setEdMgrBusy(null);
   }
+  async function regenAllPhotos(){
+    if(!wmExisting||regenAllBusy||edMgrBusy) return;
+    const slots=sitePhotoSlots(); if(!slots.length) return;
+    setRegenAllBusy(true); setWmErr(""); setRegenAllProg("");
+    try{
+      const d=JSON.parse(JSON.stringify(wmExisting.data||{})); const secs=d.sections||[];
+      const themeStyle=THEME_IMG_STYLE[d.theme]||THEME_IMG_STYLE["editorial-porcelain"];
+      const style=wmPhotoStyle.trim();
+      if(style){ d.styleDNA=style; } // bake the requested look in so future photos stay cohesive too
+      const dna=((d.styleDNA?String(d.styleDNA)+" ":"")+themeStyle);
+      const put=(key,url,prompt)=>{ const set=(o)=>{ o.image={url,prompt}; };
+        if(key==="hero"){ const s=secs.find(x=>x.type==="hero"); if(s)set(s); }
+        else if(key==="about"){ const s=secs.find(x=>x.type==="about"); if(s)set(s); }
+        else if(key==="editorial"){ const s=secs.find(x=>x.type==="editorial"); if(s)set(s); }
+        else if(key.indexOf("offering-")===0){ const oi=parseInt(key.split("-")[1],10); const off=secs.find(x=>x.type==="offerings"); if(off&&off.items&&off.items[oi])set(off.items[oi]); }
+      };
+      let ok=0;
+      for(let i=0;i<slots.length;i++){
+        const slot=slots[i]; setRegenAllProg("Reshooting "+(i+1)+" of "+slots.length+"…");
+        try{
+          const basePrompt=(slot.prompt&&slot.prompt.trim())||defaultPhotoPrompt(slot);
+          const prompt=basePrompt+" "+dna+" No text, no words, no logos.";
+          const r=await generateGeminiImage(prompt, null, slot.ar||"1:1", "standard");
+          if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/site-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u){ put(slot.key,u,basePrompt); ok++; } }
+        }catch(e){}
+      }
+      d.sections=secs;
+      await saveData(d);
+      setWmPreview(p=>p+1);
+      if(!ok) setWmErr("Couldn't regenerate the photos — please try again.");
+    }catch(e){ setWmErr("Couldn't regenerate the photos — please try again."); }
+    setRegenAllBusy(false); setRegenAllProg("");
+  }
   async function deleteSitePhoto(key){
     if(!wmExisting||edMgrBusy) return; setEdMgrBusy(key); setWmErr("");
     try{ await placeSitePhoto(key,null); setWmPreview(p=>p+1); }
@@ -1433,8 +1581,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     if(Number(credits) < estCost){ setWmErr("This build needs about "+estCost.toLocaleString()+" credits — a logo plus one image per section and offering, at "+CREDIT_COSTS.image+" credits each. You have "+Number(credits).toLocaleString()+". Add a credit pack, then come right back and build."); onBuyCredits(); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: fog = cool elegant grey high-fashion for beauty & marketing agencies; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site — palette, lighting, mood, finish — so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (3-4 rows covering Phone, Email, Address and Hours, using the contact details the owner provided),"cta":{"label":string}}],"credit":true}';
-      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nIMAGERY: Also write a vivid photography brief (image.prompt) for the hero, the about scene, the editorial scene, and EACH offering item, plus a one-sentence styleDNA for the whole site. Every image must look like one cohesive editorial shoot — shared palette, lighting, mood and finish. Include people naturally where they fit the business (someone using the product, a stylist at work, a happy client), alongside products, scenes, spaces and details.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":(wmKind==="both"?"business offering both products and services":"service business"))+(wmAudience.trim()?("\nWHO THEY SERVE: "+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge — make the philosophy section and overall voice clearly convey it):\n"+wmDiff.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\nKEY OFFERINGS (create one offering item for EACH line below, in order — do not cap the count):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
+      const schema = '{"theme":string (choose exactly one best fit: fog = cool elegant grey high-fashion for beauty & marketing agencies; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site — palette, lighting, mood, finish — so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"services","eyebrow":string,"title":string,"items":[{"name":string,"desc":string}] (3-6 services, for service businesses)},{"type":"whyus","eyebrow":string,"title":string,"points":[string] (4 short reasons to choose them)},{"type":"process","eyebrow":string,"title":string,"steps":[string] (3-4 steps in how it works)},{"type":"stats","items":[[string,string]] (3-4 pairs of [number, label] like ["500+","Happy clients"])},{"type":"team","eyebrow":string,"title":string,"people":[{"name":string,"role":string,"image":{"prompt":string}}] (owner or key team)},{"type":"testimonials","eyebrow":string,"title":string,"cards":[{"quote":string,"name":string}] (3 short reviews in happy-client voice)},{"type":"faq","eyebrow":string,"title":string,"qs":[{"q":string,"a":string}] (3-5 questions that reduce hesitation)},{"type":"pricing","eyebrow":string,"title":string,"tiers":[{"name":string,"price":string,"desc":string,"cta":{"label":string}}] (2-3 tiers)},{"type":"trustbadges","items":[string] (short trust markers like Licensed, Insured, Family Owned, Satisfaction Guaranteed)},{"type":"beforeafter","eyebrow":string,"title":string,"pairs":[{"before":{"prompt":string},"after":{"prompt":string}}] (1-2 pairs; ONLY for visual-results businesses like fitness, beauty, remodeling, landscaping)},{"type":"gallery","eyebrow":string,"title":string,"images":[{"prompt":string}] (4-6 portfolio images)},{"type":"serviceareas","eyebrow":string,"title":string,"areas":[string] (cities/areas served; good for local SEO)},{"type":"hours","eyebrow":string,"title":string,"rows":[[string,string]] (pairs of [days, hours])},{"type":"booking","eyebrow":string,"title":string,"sub":string,"cta":string (button label),"url":string (leave as "#" for the owner to paste their Booksy/Calendly link),"provider":string (e.g. Booksy)},{"type":"cta","eyebrow":string,"headline":string,"cta":{"label":string}},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (3-4 rows covering Phone, Email, Address and Hours, using the contact details the owner provided),"cta":{"label":string}}],"credit":true}';
+      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nIMAGERY: Also write a vivid photography brief (image.prompt) for the hero, the about scene, the editorial scene, and EACH offering item, plus a one-sentence styleDNA for the whole site. Every image must look like one cohesive editorial shoot — shared palette, lighting, mood and finish. Include people naturally where they fit the business (someone using the product, a stylist at work, a happy client), alongside products, scenes, spaces and details.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":(wmKind==="both"?"business offering both products and services":"service business"))+(wmAudience.trim()?("\nWHO THEY SERVE: "+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge — make the philosophy section and overall voice clearly convey it):\n"+wmDiff.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\nKEY OFFERINGS (create one offering item for EACH line below, in order — do not cap the count):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nSECTIONS — this is important: do NOT include every section type. Start with hero, then include about and either offerings (product business) or services (service business). After that, INTELLIGENTLY CHOOSE which of the remaining sections genuinely fit THIS specific business — from process, whyus, stats, testimonials, faq, pricing, team, trustbadges, beforeafter, gallery, serviceareas, hours, booking, cta — and order them so the page flows naturally, ending with contact. Only include a section if it truly makes sense for this business (e.g. beforeafter only for visual-results businesses; booking only if they take appointments; memberships/pricing only if relevant). Aim for a focused 7-10 sections total, not all of them.\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 12000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const first = jsonText.indexOf("{"); const last = jsonText.lastIndexOf("}");
@@ -1799,7 +1947,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-            {[["design","Theme"],["business","Business"],["contact","Contact"],["products","Products / Services"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+            {[["design","Theme"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
               <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
@@ -1842,9 +1990,11 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           </div>}
+          {edTab==="orders"&&<OrdersPanel user={user} />}
           {edTab==="products"&&<div>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
+            <StripeConnect user={user} />
             {edProducts.map((pr,i)=>(
               <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",padding:"16px",marginBottom:12}}>
                 <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -1865,6 +2015,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                       <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
+                      <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                       <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
                   </div>
@@ -1893,6 +2044,15 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           {edTab==="photos"&&<div>
           <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Your photos</div>
           <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Every photo on your site, and where each one is used. Swap in your own, regenerate a fresh one in your site's style, or remove it.</p>
+          <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:14,marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal}}>✨ Reshoot all photos</div>
+              <CreditTag n={sitePhotoSlots().length*CREDIT_COSTS.image} />
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 9px"}}>Describe the look you want and Chelgy reshoots every photo in one cohesive style. Leave blank to keep your site's current style.</p>
+            <textarea value={wmPhotoStyle} onChange={e=>setWmPhotoStyle(e.target.value)} placeholder="e.g. bright airy natural light, soft neutral tones, minimal styling, shot on film" rows={2} style={{width:"100%",boxSizing:"border-box",padding:"9px 11px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,resize:"vertical",marginBottom:9,color:B.charcoal}} />
+            <button disabled={regenAllBusy||edMgrBusy} onClick={regenAllPhotos} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:(regenAllBusy||edMgrBusy)?"default":"pointer",textTransform:"uppercase",opacity:(regenAllBusy||edMgrBusy)?0.6:1}}>{regenAllBusy?(regenAllProg||"Reshooting…"):"Reshoot all photos"}</button>
+          </div>
           {sitePhotoSlots().map((slot)=>{ const busy=edMgrBusy===slot.key; return (
             <div key={slot.key} style={{border:"1px solid "+B.stone,background:"#fff",padding:14,marginBottom:12,display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{width:78,height:78,flexShrink:0,border:"1px solid "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",...(slot.url?{backgroundImage:"url("+slot.url+")",backgroundSize:"cover",backgroundPosition:"center"}:{background:B.offwhite})}}>
@@ -1904,6 +2064,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                   <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>{slot.url?"Replace":"Upload"}<input type="file" accept="image/*" disabled={busy} onChange={e=>replaceSitePhoto(slot.key,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                   <button disabled={busy} onClick={()=>regenSitePhoto(slot)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.6:1}}>{busy?"Working…":"\u2728 Regenerate similar"}</button>
+                  <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                   {slot.url&&<button disabled={busy} onClick={()=>{ if(window.confirm("Remove this photo?")) deleteSitePhoto(slot.key); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>Delete</button>}
                 </div>
               </div>
@@ -6191,6 +6352,7 @@ function SiteRender({ site }) {
       <style dangerouslySetInnerHTML={{ __html: (THEME_CSS[s.theme] || SITE_CSS_EDITORIAL) }} />
       {s.custom && <style dangerouslySetInnerHTML={{ __html: buildCustomCSS(s.custom) }} />}
       <style dangerouslySetInnerHTML={{ __html: "html{scroll-behavior:smooth;}#cg-site section{scroll-margin-top:84px;}" }} />
+      <style dangerouslySetInnerHTML={{ __html: "#cg-site .cg-sec{padding:clamp(52px,8vw,104px) 0;} #cg-site .cg-center{text-align:center;} #cg-site .cg-grid{display:grid;gap:clamp(16px,2.4vw,30px);} #cg-site .cg-g2{grid-template-columns:repeat(2,1fr);} #cg-site .cg-g3{grid-template-columns:repeat(3,1fr);} #cg-site .cg-g4{grid-template-columns:repeat(4,1fr);} @media(max-width:820px){#cg-site .cg-g2,#cg-site .cg-g3,#cg-site .cg-g4{grid-template-columns:1fr;}} #cg-site .cg-stat{font-family:var(--display,Georgia,serif);font-size:clamp(32px,5vw,54px);line-height:1;} #cg-site .cg-statl{font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;opacity:.6;margin-top:8px;} #cg-site .cg-stars{letter-spacing:2px;opacity:.85;font-size:.9rem;} #cg-site .cg-badges{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;} #cg-site .cg-badge{border:1px solid rgba(128,128,128,.35);border-radius:30px;padding:9px 18px;font-size:.82rem;} #cg-site .cg-faq{border-top:1px solid rgba(128,128,128,.22);padding:18px 0;} #cg-site .cg-faq:last-child{border-bottom:1px solid rgba(128,128,128,.22);} #cg-site .cg-q{font-family:var(--display,Georgia,serif);font-size:1.15rem;} #cg-site .cg-a{opacity:.72;margin-top:7px;} #cg-site .cg-num{font-family:var(--display,Georgia,serif);font-size:2.1rem;opacity:.5;} #cg-site .cg-ba{display:grid;grid-template-columns:1fr 1fr;gap:3px;} #cg-site .cg-ph{position:relative;overflow:hidden;min-height:210px;background:linear-gradient(155deg,#e3daca,#c4b7a1 48%,#9c8d76);} #cg-site .cg-ph span{position:absolute;inset:0;display:grid;place-content:center;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.8);} #cg-site .cg-lab{position:absolute;top:10px;left:10px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;background:rgba(0,0,0,.55);color:#fff;padding:4px 9px;z-index:2;} #cg-site .cg-price{font-family:var(--display,Georgia,serif);font-size:2.1rem;} #cg-site .cg-book{border:1px solid rgba(128,128,128,.3);padding:clamp(28px,5vw,56px);text-align:center;} #cg-site .cg-check{font-size:1.4rem;margin-bottom:8px;opacity:.7;}" }} />
       <header>
         <div className="wrap nav">
           {brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand serif">{brand.name || "Your Brand"}</div>}
@@ -6290,6 +6452,168 @@ function SiteRender({ site }) {
             </div>
           </section>
         );
+        if(sec.type==="services") return (
+          <section className="cg-sec" id="s-services" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.items||[]).map((it,j)=>(
+                  <div className="card" key={j}><div className="cardcap"><div className="nm">{it.name}</div>{it.desc&&<p className="note" style={{marginTop:8}}>{it.desc}</p>}</div></div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="whyus") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g4" style={{marginTop:34}}>
+                {(sec.points||[]).map((p,j)=><div className="card cg-center" key={j}><div className="cg-check">✓</div><div className="nm">{p}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="process") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g4" style={{marginTop:38}}>
+                {(sec.steps||[]).map((st,j)=><div className="cg-center" key={j}><div className="cg-num">{String(j+1).padStart(2,"0")}</div><div className="nm" style={{marginTop:8}}>{st}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="stats") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap cg-grid cg-g4">
+              {(sec.items||[]).map((s2,j)=><div className="cg-center" key={j}><div className="cg-stat">{s2[0]}</div><div className="cg-statl">{s2[1]}</div></div>)}
+            </div>
+          </section>
+        );
+        if(sec.type==="team") return (
+          <section className="cg-sec" id="s-team" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.people||[]).map((p,j)=><div className="cg-center" key={j}><div className="cg-ph" style={Object.assign({aspectRatio:"1/1"},bg(p.image))}>{!(p.image&&p.image.url)&&<span>Photo</span>}</div><div className="nm" style={{marginTop:12}}>{p.name||"Name"}</div><div className="cg-statl">{p.role}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="testimonials") return (
+          <section className="cg-sec" id="s-reviews" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.cards||[]).map((c,j)=><div className="card" key={j}><div className="cg-stars">★★★★★</div><p style={{margin:"12px 0"}}>{"\u201C"+(c.quote||"")+"\u201D"}</p><div className="cg-statl">{c.name}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="faq") return (
+          <section className="cg-sec" id="s-faq" key={i}>
+            <div className="wrap" style={{maxWidth:820}}>
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div style={{marginTop:24}}>
+                {(sec.qs||[]).map((q,j)=><div className="cg-faq" key={j}><div className="cg-q">{q.q}</div><div className="cg-a">{q.a}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="cta") return (
+          <section className="cg-sec cg-center" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+              <h2>{sec.headline}</h2>
+              {sec.cta&&<a className="btn-line" href={sec.cta.href||"#"} style={{marginTop:14}}>{sec.cta.label} <span>→</span></a>}
+            </div>
+          </section>
+        );
+        if(sec.type==="trustbadges") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap cg-badges">
+              {(sec.items||[]).map((b,j)=><span className="cg-badge" key={j}>{b}</span>)}
+            </div>
+          </section>
+        );
+        if(sec.type==="beforeafter") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g2" style={{marginTop:30}}>
+                {(sec.pairs||[]).map((p,j)=>(
+                  <div className="cg-ba" key={j}>
+                    <div className="cg-ph" style={Object.assign({aspectRatio:"1/1"},bg(p.before))}><div className="cg-lab">Before</div>{!(p.before&&p.before.url)&&<span>Before</span>}</div>
+                    <div className="cg-ph" style={Object.assign({aspectRatio:"1/1"},bg(p.after))}><div className="cg-lab">After</div>{!(p.after&&p.after.url)&&<span>After</span>}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="pricing") return (
+          <section className="cg-sec" id="s-pricing" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.tiers||[]).map((t,j)=><div className="card cg-center" key={j}><div className="cg-statl">{t.name}</div><div className="cg-price">{t.price}</div><p className="note" style={{margin:"10px 0 16px"}}>{t.desc}</p>{t.cta&&<a className="btn-line" href={t.cta.href||"#"}>{t.cta.label||"Choose"} <span>→</span></a>}</div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="booking") return (
+          <section className="cg-sec" id="s-booking" key={i}>
+            <div className="wrap">
+              <div className="cg-book">
+                {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+                <h2>{sec.title}</h2>
+                {sec.sub&&<p className="lede" style={{margin:"0 auto 20px"}}>{sec.sub}</p>}
+                <a className="btn-line" href={sec.url||"#"} target="_blank" rel="noreferrer">{sec.cta||"Book Now"} <span>→</span></a>
+                {sec.provider&&<div className="cg-statl" style={{marginTop:14}}>{"Powered by "+sec.provider}</div>}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="gallery") return (
+          <section className="cg-sec" id="s-gallery" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:30}}>
+                {(sec.images||[]).map((im,j)=><div className="cg-ph" style={Object.assign({aspectRatio:j%3===0?"3/4":"1/1"},bg(im))} key={j}>{!(im&&im.url)&&<span>{"Image "+(j+1)}</span>}</div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="serviceareas") return (
+          <section className="cg-sec cg-center" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+              {sec.title&&<h2>{sec.title}</h2>}
+              <p className="lede" style={{margin:"0 auto"}}>{"Proudly serving "+((sec.areas||[]).join(", "))+"."}</p>
+            </div>
+          </section>
+        );
+        if(sec.type==="hours") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap" style={{maxWidth:520,textAlign:"center"}}>
+              {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+              {sec.title&&<h2>{sec.title}</h2>}
+              <div style={{marginTop:16}}>
+                {(sec.rows||[]).map((r,j)=><div key={j} style={{display:"flex",justifyContent:"space-between",borderBottom:"1px solid rgba(128,128,128,.22)",padding:"12px 0"}}><span>{r[0]}</span><span style={{opacity:.7}}>{r[1]}</span></div>)}
+              </div>
+            </div>
+          </section>
+        );
         return null;
       })}
       <footer className="foot">
@@ -6304,6 +6628,72 @@ function SiteRender({ site }) {
   );
 }
 
+function cgPriceCents(s){ const n=parseFloat(String(s||"").replace(/[^0-9.]/g,"")); return isFinite(n)&&n>0?Math.round(n*100):0; }
+function cgMoney(c){ return "$"+(c/100).toFixed(2); }
+function StoreCart({ site, slug }){
+  const [open,setOpen]=useState(false);
+  const [cart,setCart]=useState({});
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const paid = (typeof window!=="undefined") && /[?&]paid=1/.test(window.location.search||"");
+  const secs=(site&&site.sections)||[];
+  const off=secs.find(x=>x&&x.type==="offerings");
+  const items=(off&&Array.isArray(off.items))?off.items:[];
+  const shopIdx=[]; items.forEach((it,i)=>{ if(it&&!it.buyUrl&&cgPriceCents(it.price)>0) shopIdx.push(i); });
+  if(!slug || (!shopIdx.length && !paid)) return null;
+  const count=Object.values(cart).reduce((a,b)=>a+b,0);
+  const total=Object.entries(cart).reduce((a,[i,q])=>a+cgPriceCents(items[i]&&items[i].price)*q,0);
+  const add=(i)=>setCart(c=>({...c,[i]:(c[i]||0)+1}));
+  const dec=(i)=>setCart(c=>{ const q=(c[i]||0)-1; const n={...c}; if(q<=0)delete n[i]; else n[i]=q; return n; });
+  const checkout=async()=>{
+    const entries=Object.entries(cart); if(!entries.length) return;
+    setBusy(true); setErr("");
+    try{
+      const base=window.location.href.split("?")[0];
+      const body={ slug, cart: entries.map(([i,q])=>({i:parseInt(i,10),qty:q})), success_url: base+"?paid=1", cancel_url: base };
+      const r=await fetch("/api/stripe-checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||!d.url){ setErr(d.error||"Couldn't start checkout. Please try again."); setBusy(false); return; }
+      window.location.href=d.url;
+    }catch(e){ setErr("Something went wrong. Please try again."); setBusy(false); }
+  };
+  return (<>
+    {paid&&<div style={{position:"fixed",top:0,left:0,right:0,zIndex:10000,background:"#111",color:"#fff",fontFamily:"sans-serif",fontSize:13,textAlign:"center",padding:"11px 16px",letterSpacing:"0.03em"}}>✓ Thank you — your order is confirmed. A receipt is on its way to your email.</div>}
+    {!!shopIdx.length&&<button onClick={()=>setOpen(true)} style={{position:"fixed",right:20,bottom:20,zIndex:9998,background:"#111",color:"#fff",border:"none",borderRadius:40,padding:"14px 22px",fontFamily:"sans-serif",fontSize:13,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",boxShadow:"0 6px 24px rgba(0,0,0,.25)"}}>Shop{count>0?(" · "+count):""}</button>}
+    {open&&<div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.4)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{position:"absolute",right:0,top:0,bottom:0,width:"min(400px,92vw)",background:"#fff",boxShadow:"-8px 0 30px rgba(0,0,0,.2)",display:"flex",flexDirection:"column",fontFamily:"sans-serif"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 20px",borderBottom:"1px solid #eee"}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:19,color:"#111"}}>Shop</div>
+          <button onClick={()=>setOpen(false)} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:"#999",lineHeight:1}}>×</button>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"4px 20px"}}>
+          {shopIdx.map(i=>{ const it=items[i]; const c=cgPriceCents(it.price); const q=cart[i]||0; return (
+            <div key={i} style={{display:"flex",gap:12,alignItems:"center",padding:"12px 0",borderBottom:"1px solid #f2f2f2"}}>
+              <div style={{width:52,height:52,flexShrink:0,borderRadius:6,background:(it.image&&it.image.url)?("#eee url("+it.image.url+") center/cover"):"#eee"}}></div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#111",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{it.name}</div>
+                <div style={{fontSize:12,color:"#888"}}>{cgMoney(c)}</div>
+              </div>
+              {q>0?(<div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={()=>dec(i)} style={{width:28,height:28,border:"1px solid #ddd",background:"#fff",borderRadius:4,cursor:"pointer",fontSize:16,lineHeight:1}}>−</button>
+                <span style={{minWidth:16,textAlign:"center",fontSize:13}}>{q}</span>
+                <button onClick={()=>add(i)} style={{width:28,height:28,border:"1px solid #ddd",background:"#fff",borderRadius:4,cursor:"pointer",fontSize:16,lineHeight:1}}>+</button>
+              </div>):(
+                <button onClick={()=>add(i)} style={{background:"#111",color:"#fff",border:"none",borderRadius:4,padding:"8px 14px",fontSize:11,fontWeight:700,cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.06em"}}>Add</button>
+              )}
+            </div>
+          ); })}
+        </div>
+        <div style={{borderTop:"1px solid #eee",padding:"16px 20px"}}>
+          {err&&<div style={{color:"#C0392B",fontSize:12,marginBottom:10,lineHeight:1.4}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:14}}><span style={{color:"#888"}}>Total</span><span style={{fontWeight:700,color:"#111"}}>{cgMoney(total)}</span></div>
+          <button onClick={checkout} disabled={busy||count===0} style={{width:"100%",background:count===0?"#ccc":"#111",color:"#fff",border:"none",borderRadius:6,padding:"14px",fontSize:13,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:(busy||count===0)?"default":"pointer"}}>{busy?"Starting checkout…":"Checkout"}</button>
+          <div style={{textAlign:"center",fontSize:10,color:"#aaa",marginTop:8,letterSpacing:"0.04em"}}>Secure checkout by Stripe</div>
+        </div>
+      </div>
+    </div>}
+  </>);
+}
 function PublicSite({ slug, domain, onNotFound }) {
   const [st, setSt] = useState({ loading:true, site:null, error:null });
   useEffect(()=>{
@@ -6312,10 +6702,10 @@ function PublicSite({ slug, domain, onNotFound }) {
     (async()=>{
       try{
         const q = domain ? ("custom_domain=eq."+encodeURIComponent(domain)) : ("slug=eq."+encodeURIComponent(slug));
-        const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=data,theme,published&"+q+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+        const res = await fetch(SUPABASE_URL+"/rest/v1/websites?select=slug,data,theme,published&"+q+"&published=eq.true&limit=1", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
         const rows = await res.json();
         if(cancel) return;
-        if(Array.isArray(rows)&&rows.length){ const r=rows[0]; const site=(r.data&&typeof r.data==="object")?r.data:{}; if(!site.theme&&r.theme) site.theme=r.theme; setSt({loading:false, site, error:null}); }
+        if(Array.isArray(rows)&&rows.length){ const r=rows[0]; const site=(r.data&&typeof r.data==="object")?r.data:{}; if(!site.theme&&r.theme) site.theme=r.theme; if(r.slug) site.__slug=r.slug; setSt({loading:false, site, error:null}); }
         else { if(domain && onNotFound){ onNotFound(); return; } setSt({loading:false, site:null, error:"notfound"}); }
       }catch(e){ if(!cancel){ if(domain && onNotFound){ onNotFound(); return; } setSt({loading:false, site:null, error:"error"}); } }
     })();
@@ -6326,6 +6716,7 @@ function PublicSite({ slug, domain, onNotFound }) {
   return (<>
     <style dangerouslySetInnerHTML={{ __html: '#cg-site a[href^="#"]{display:none!important;}' }} />
     <SiteRender site={st.site} />
+    <StoreCart site={st.site} slug={slug || (st.site && st.site.__slug)} />
   </>);
 }
 
@@ -6423,6 +6814,53 @@ const CHELGY_STORE_NICHES = [
   { id: "sports", label: "Sport & Fitness" },
 ];
 
+function WinningProductFinder(){
+  const [q,setQ]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [items,setItems]=useState([]);
+  const [err,setErr]=useState("");
+  const run=async()=>{
+    if(!q.trim()||loading) return;
+    setLoading(true); setErr(""); setItems([]);
+    try{
+      const prompt="You are a sharp e-commerce product researcher for dropshippers. For the niche or interest below, suggest 6 WINNING dropshipping products that trend and sell well right now. Be specific and realistic — real products, not categories.\n\nNICHE/INTEREST: "+q.trim()+"\n\nReturn ONLY a JSON array (no markdown) of 6 objects, each: {\"name\": string (a specific product), \"why\": string (one sentence on why it wins — the demand, wow-factor, or problem it solves), \"audience\": string (who buys it), \"price\": string (realistic retail range like \"$25-$35\"), \"margin\": string (rough profit potential like \"3-5x\" or \"~$18/sale\"), \"hook\": string (a punchy, scroll-stopping ad hook to sell it — make it catchy)}.";
+      const raw=await callClaude(prompt, 2000);
+      let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+      const a=t.indexOf("["), b=t.lastIndexOf("]"); if(a>=0&&b>a) t=t.slice(a,b+1);
+      const arr=JSON.parse(t);
+      setItems(Array.isArray(arr)?arr:[]);
+      if(!Array.isArray(arr)||!arr.length) setErr("Couldn't get product ideas — please try again.");
+    }catch(e){ setErr("Couldn't get product ideas — please try again."); }
+    setLoading(false);
+  };
+  return (
+    <div style={{border:"1px solid "+B.stone,background:B.white,borderRadius:4,padding:18,marginBottom:22}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+        <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal}}>Find winning products</div>
+        <span style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#fff",background:"#B8955A",padding:"3px 7px",borderRadius:20}}>AI</span>
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 12px"}}>Tell Claude a niche or interest and get trending products that sell — with the audience, pricing, and a ready-to-use ad hook for each.</p>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")run();}} placeholder="e.g. home fitness, cozy home decor, dog owners" style={{flex:1,minWidth:200,padding:"11px 13px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,outline:"none",boxSizing:"border-box"}} />
+        <button onClick={run} disabled={loading||!q.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.04em",cursor:(loading||!q.trim())?"default":"pointer",opacity:(loading||!q.trim())?0.5:1,whiteSpace:"nowrap"}}>{loading?"Researching…":"✨ Find products"}</button>
+      </div>
+      {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:8}}>{err}</div>}
+      {items.length>0&&<div style={{marginTop:14,display:"grid",gap:10}}>
+        {items.map((it,i)=>(
+          <div key={i} style={{border:"1px solid "+B.stone,background:B.offwhite,borderRadius:4,padding:"13px 15px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap",alignItems:"baseline"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,color:B.charcoal}}>{it.name}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>{it.price}{it.margin?(" · "+it.margin):""}</div>
+            </div>
+            {it.why&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,marginTop:5}}>{it.why}</div>}
+            {it.audience&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:5}}><strong style={{color:B.charcoal}}>Who buys it:</strong> {it.audience}</div>}
+            {it.hook&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginTop:8,background:"#FBF7F0",border:"1px solid #E7DDCB",borderLeft:"3px solid #B8955A",padding:"8px 11px",borderRadius:2}}><strong style={{fontSize:8.5,letterSpacing:"0.1em",textTransform:"uppercase",color:"#B8955A",display:"block",marginBottom:3}}>Ad hook</strong>{it.hook}</div>}
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
 function StoreBuilderTab({ user }) {
   const [niche, setNiche] = useState("");
   const [shop, setShop] = useState("");
@@ -6565,6 +7003,8 @@ function StoreBuilderTab({ user }) {
         </div>
       </div>
 
+      <WinningProductFinder />
+
       <StepCard n={1} title="Choose your niche" done={!!niche} active={!niche}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {CHELGY_STORE_NICHES.map((x) => (
@@ -6604,6 +7044,7 @@ function StoreBuilderTab({ user }) {
                 {imaging ? ("Making photos " + imgDone + "/" + imgTotal + "...") : ("✨ Generate high-end photos (" + pickCount + ")")}
               </button>
             )}
+            {pickCount > 0 && !imaging && <CreditTag n={pickCount * CREDIT_COSTS.image} style={{ verticalAlign: "middle" }} />}
             <button onClick={loadProducts} disabled={prodLoad} style={{ marginTop: 12, background: "none", border: "none", color: B.mid, fontFamily: "sans-serif", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
               {prodLoad ? "Refreshing..." : "Show me different products"}
             </button>
