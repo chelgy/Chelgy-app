@@ -36,6 +36,7 @@ const CA_NAV_LABELS = {
   "tools/launch": "Business Launch Package",
   "tools/website": "Website Builder",
   "tools/images": "AI Image Creator",
+  "tools/productstudio": "Product Studio",
   "tools/video": "AI Video Studio",
   "tools/viral": "Viral Video Generator",
   "tools/ads": "Ad Campaign Builder",
@@ -71,6 +72,7 @@ Five tabs across the bottom:
 • Business Launch Package — answer a few questions and Chelgy builds a whole business: a published website, logo, brand strategy, social plan, and launch roadmap.
 • Website Builder — writes and publishes a complete luxury website at a shareable link.
 • AI Image Creator — logos, flyers, social graphics, banners, and product images. (This is also where flyers are made.)
+• Product Studio — the dedicated product-photography tool. Upload a product once, drop it into premium studio scenes (Clean E-Commerce, Marble Luxe, Warm Editorial, Studio Gradient, Natural Light, Lifestyle Flatlay, or On a Model), and generate on-brand shots that keep the product accurate. Any shot can then be animated into a short product video (5–10 sec). This is the BEST tool for product photos and product videos — recommend it whenever someone wants to photograph or promote a product.
 • AI Video Studio — scripts, storyboards, and ready-to-paste AI prompts for video generators (HeyGen, Runway, Kling, Sora, Pika).
 • Viral Video Generator — enter your business, get viral video ideas, the best format, a hook, a full script, caption, and hashtags.
 • Ad Campaign Builder — ad copy, creative direction, audience targeting, and budget for Facebook, Instagram, and TikTok.
@@ -106,9 +108,9 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: home, learn, tools, community, profile.
-Valid tools (use with the tools tab): launch, website, images, video, viral, ads, audit, voiceover, business, grants, content, dropshipping, platforms, library.
+Valid tools (use with the tools tab): launch, website, images, productstudio, video, viral, ads, audit, voiceover, business, grants, content, dropshipping, platforms, library.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
-Examples: to send them to make a UGC video → end with [[GO:tools:video]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
+Examples: to send them to make a UGC video → end with [[GO:tools:video]] . For product photos or product videos → [[GO:tools:productstudio]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
 
 ═══ STYLE RULES ═══
@@ -2928,6 +2930,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       </div>}
 
       {tool==="ugcstudio"&&<UGCStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} />}
+
+      {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} />}
 
       {tool==="voiceover"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Voiceover Studio</h2>
@@ -8216,6 +8220,289 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
 }
 
 // ─── UGC STUDIO: self-contained tool. Character maker + Seedance-2.0-only video ───
+// ─── PRODUCT STUDIO (Phase 1: on-brand product stills via Nano Banana) ──────
+function ProductStudio({ onBalance, useCredits, onToolUse, user }) {
+  // Studio scene presets — Kive-style "virtual photo sets". Each appends a scene
+  // description to the prompt while the uploaded product stays accurate.
+  const STUDIOS = [
+    { id:"ecom",     label:"Clean E-Commerce", desc:"Place the product on a seamless pure-white studio background, evenly and softly lit with gentle contact shadows — a crisp catalogue-ready packshot." },
+    { id:"marble",   label:"Marble Luxe",      desc:"Set the product on a polished white marble surface in soft natural window light, with subtle elegant reflections and a refined luxury feel." },
+    { id:"editorial",label:"Warm Editorial",   desc:"Style the product in a warm editorial scene — soft golden light, cream and beige tones, a few tasteful props, magazine-quality art direction." },
+    { id:"gradient", label:"Studio Gradient",  desc:"Photograph the product against a smooth modern studio gradient backdrop with dramatic directional lighting and one bold tasteful accent colour." },
+    { id:"outdoor",  label:"Natural Light",    desc:"Shoot the product outdoors in soft natural daylight on an organic surface such as stone, wood or greenery — fresh, airy and premium." },
+    { id:"flatlay",  label:"Lifestyle Flatlay",desc:"Compose an overhead flat-lay on a textured surface with complementary props arranged tastefully around the product — balanced and stylish." },
+    { id:"model",    label:"On a Model",       desc:"Show the product being held or worn naturally by a realistic, stylish human model in a flattering lifestyle setting. Keep the product clearly visible and perfectly accurate; the person looks natural, premium and aspirational." },
+    { id:"custom",   label:"Custom Scene",     desc:"" },
+  ];
+
+  // Image-to-video model options (reuse the app's existing /api/video pipeline).
+  const VIDEO_MODELS = [
+    { id:"480p",       label:"Standard — fast & economical" },
+    { id:"720p",       label:"HD 720p — sharper" },
+    { id:"1080p",      label:"Premium 1080p — cinematic" },
+    { id:"kling4k",    label:"4K Ultra · Kling 3.0" },
+    { id:"seedance4k", label:"4K Max · Seedance 2.0 — best product fidelity" },
+  ];
+  const DEFAULT_MOTION = "Bring this product photo to life with a smooth, subtle cinematic camera move — a slow push-in or gentle rotation — soft studio lighting and a premium commercial feel. Keep the product perfectly accurate and in sharp focus. No text or captions.";
+
+  const [products, setProducts] = useState([]); // reference photo data URLs (up to 4)
+  const [productName, setProductName] = useState("");
+  const [studio, setStudio] = useState("ecom");
+  const [extra, setExtra] = useState("");
+  const [aspect, setAspect] = useState("4:5");
+  const [quality, setQuality] = useState("standard");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [shots, setShots] = useState([]); // { id, url, label, aspect }
+  const [saveMsg, setSaveMsg] = useState({});
+  const [videos, setVideos] = useState({}); // { [shotId]: { open, prompt, quality, duration, orient, loading, status, url, err, saveMsg } }
+
+  function costFor(q){ return q === "4K" ? CREDIT_COSTS.image4K : q === "2K" ? CREDIT_COSTS.imageHD : CREDIT_COSTS.image; }
+  const cost = costFor(quality);
+  function aspectToOrient(a){ return a === "16:9" || a === "4:3" ? "landscape" : a === "1:1" ? "square" : "portrait"; }
+  function vidCostFor(q, d){
+    d = Number(d) || 5;
+    if (q === "kling4k") return CREDIT_COSTS.klingSec * d;
+    if (q === "seedance4k") return CREDIT_COSTS.seedanceSec * d;
+    const base = q === "1080p" ? CREDIT_COSTS.video1080 : q === "720p" ? CREDIT_COSTS.videoHD : CREDIT_COSTS.video;
+    return Math.round(base * d / 5);
+  }
+  function setVid(id, patch){ setVideos(prev => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } })); }
+
+  function onUpload(e) {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    Array.from(files).slice(0, 4).forEach(f => {
+      const r = new FileReader();
+      r.onload = () => setProducts(prev => prev.length >= 4 ? prev : [...prev, r.result]);
+      r.readAsDataURL(f);
+    });
+    e.target.value = "";
+  }
+
+  function buildPrompt() {
+    const s = STUDIOS.find(x => x.id === studio) || STUDIOS[0];
+    let p = "Create a premium, high-end commercial product photograph of the product shown in the uploaded reference photo" + (products.length > 1 ? "s" : "") + ". ";
+    p += "CRITICAL: keep the product itself perfectly accurate to the reference — identical shape, colour, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign or alter the product. ";
+    if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
+    if (s.desc) p += s.desc + " ";
+    if (extra.trim()) p += extra.trim() + " ";
+    p += "Studio-quality professional lighting, realistic reflections and natural shadows, sharp focus, tasteful editorial composition, clean and uncluttered, an expensive premium brand feel. ";
+    p += "No watermark, no signature, and no AI or tool attribution text anywhere in the image.";
+    return p;
+  }
+
+  async function generate() {
+    if (!products.length) { setErr("Add at least one photo of your product first."); return; }
+    if (loading) return;
+    if (!useCredits(cost)) return; // gate + insufficient-credit UX handled upstream
+    setErr(""); setLoading(true);
+    try {
+      const inputImages = products
+        .map(u => { const m = /^data:(.*?);base64,(.*)$/.exec(u || ""); return m ? { mimeType: m[1], data: m[2] } : null; })
+        .filter(Boolean);
+      const r = await generateGeminiImage(buildPrompt(), inputImages, aspect, quality);
+      if (!r || !r.image) throw new Error("No image came back. Please try again.");
+      if (typeof r.balance === "number") onBalance(r.balance);
+      const label = (STUDIOS.find(x => x.id === studio) || {}).label || "Shot";
+      setShots(prev => [{ id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), url: r.image, label, aspect }, ...prev]);
+      try { onToolUse("product_studio", cost); } catch (e) {}
+    } catch (e) {
+      setErr(e && e.message ? e.message : "Couldn't create the shot. Please try again.");
+    }
+    setLoading(false);
+  }
+
+  async function saveShot(shot) {
+    setSaveMsg(m => ({ ...m, [shot.id]: "Saving…" }));
+    try {
+      const uid = (user && user.id) || "anon";
+      const url = await uploadSiteImage(shot.url, uid + "/product-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
+      if (!url) throw new Error("save failed");
+      await saveToLibrary(user, "product", (productName.trim() || "Product Studio") + " — " + shot.label, url);
+      setSaveMsg(m => ({ ...m, [shot.id]: "✓ Saved to Library" }));
+    } catch (e) {
+      setSaveMsg(m => ({ ...m, [shot.id]: "Couldn't save — try again" }));
+    }
+  }
+
+  // ── Phase 2: animate a still into a short product video (reuses /api/video) ──
+  async function animate(shot) {
+    const v = videos[shot.id] || {};
+    if (v.loading) return;
+    const q = v.quality || "480p";
+    const dur = Number(v.duration || 5);
+    const orient = v.orient || aspectToOrient(shot.aspect);
+    const vc = vidCostFor(q, dur);
+    if (!useCredits(vc)) return;
+    setVid(shot.id, { loading: true, err: "", url: "", status: "Starting the video engine..." });
+    try {
+      const prompt = (v.prompt && v.prompt.trim()) || DEFAULT_MOTION;
+      const started = await generateVideo(prompt, shot.url, { orientation: orient, quality: q, duration: dur, audio: false });
+      if (!started || !started.id) {
+        setVid(shot.id, { loading: false, status: "", err: started && started.error ? ("Video error: " + started.error) : "Couldn't start the video. Try again in a moment." });
+        return;
+      }
+      if (typeof started.balance === "number") onBalance(started.balance);
+      setVid(shot.id, { status: "Creating your video — usually 1 to 3 minutes (the 4K models can take up to 10). Keep this tab open." });
+      try { onToolUse("product_studio_video", vc); } catch (e) {}
+      const url = await pollVideo(started.id);
+      if (!url) {
+        setVid(shot.id, { loading: false, status: "", err: "The video didn't finish in time. Your credits were refunded." });
+        if (typeof started.balance === "number") onBalance(started.balance + vc);
+        return;
+      }
+      setVid(shot.id, { loading: false, status: "", url });
+    } catch (e) {
+      setVid(shot.id, { loading: false, status: "", err: "Something went wrong generating the video. Please try again." });
+    }
+  }
+
+  async function saveVideo(shot, url) {
+    setVid(shot.id, { saveMsg: "Saving…" });
+    try {
+      await saveToLibrary(user, "video", (productName.trim() || "Product Studio") + " — " + shot.label + " video", url);
+      setVid(shot.id, { saveMsg: "✓ Saved to Library" });
+    } catch (e) {
+      setVid(shot.id, { saveMsg: "Couldn't save — try again" });
+    }
+  }
+
+  // ── small local UI helpers (match the app's field styling) ──
+  const Label = ({ children }) => (
+    <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: B.mid, marginBottom: 7, textTransform: "uppercase" }}>{children}</div>
+  );
+  const selStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", cursor: "pointer", marginBottom: 14, boxSizing: "border-box" };
+  const inpStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 14, boxSizing: "border-box" };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Product Studio</h2>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Powered by Nano Banana 2 (Google Gemini)</p>
+      <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em" }}>Upload your product once, then drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model. Then bring any shot to life as a short video.</div>
+
+      <Card style={{ padding: "22px", marginBottom: 14 }}>
+        {/* Upload product */}
+        <Label>Your product photo(s) · up to 4</Label>
+        {products.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            {products.map((u, idx) => (
+              <div key={idx} style={{ position: "relative", width: 72, height: 72 }}>
+                <img src={u} alt={"Product " + (idx + 1)} style={{ width: 72, height: 72, objectFit: "cover", border: "1px solid " + B.stone, display: "block" }} />
+                <button onClick={() => setProducts(prev => prev.filter((_, i) => i !== idx))} style={{ position: "absolute", top: -7, right: -7, width: 20, height: 20, borderRadius: "50%", background: B.charcoal, color: "#fff", border: "none", cursor: "pointer", fontSize: 12, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {products.length < 4 && (
+          <label style={{ display: "block", border: "1px dashed " + B.stone, background: B.white, padding: "16px", textAlign: "center", cursor: "pointer", fontFamily: "sans-serif", fontSize: 12, color: B.goldDark, letterSpacing: "0.02em", marginBottom: 16 }}>
+            {products.length ? "Add another angle" : "Tap to upload your product — a clean, sharp photo works best. Add a few angles for the most accurate results."}
+            <input type="file" accept="image/*" multiple onChange={onUpload} style={{ display: "none" }} />
+          </label>
+        )}
+
+        <Label>Product name · optional</Label>
+        <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="e.g. Rose Body Oil, Weekender Bag" style={inpStyle} />
+
+        {/* Studio picker */}
+        <Label>Choose a studio</Label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+          {STUDIOS.map(s => (
+            <button key={s.id} onClick={() => setStudio(s.id)} style={{ textAlign: "left", padding: "12px 13px", border: "1px solid " + (studio === s.id ? B.charcoal : B.stone), background: studio === s.id ? B.charcoal : "#fff", color: studio === s.id ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.01em", lineHeight: 1.3 }}>{s.label}</button>
+          ))}
+        </div>
+
+        <Label>{studio === "custom" ? "Describe your scene" : "Extra direction · optional"}</Label>
+        <textarea value={extra} onChange={e => setExtra(e.target.value)} rows={studio === "custom" ? 3 : 2} placeholder={studio === "custom" ? "Describe the exact scene, surface, props, mood and lighting you want." : "Anything to add — e.g. 'held in a hand', 'with fresh flowers', 'on a linen backdrop'."} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
+
+        <Label>Orientation</Label>
+        <select value={aspect} onChange={e => setAspect(e.target.value)} style={selStyle}>
+          <option value="1:1">Square (1:1)</option>
+          <option value="4:5">Portrait (4:5)</option>
+          <option value="9:16">Tall / Story (9:16)</option>
+          <option value="16:9">Landscape (16:9)</option>
+          <option value="4:3">Standard (4:3)</option>
+        </select>
+
+        <Label>Quality</Label>
+        <select value={quality} onChange={e => setQuality(e.target.value)} style={selStyle}>
+          <option value="standard">Standard — fast &amp; economical ({CREDIT_COSTS.image} cr)</option>
+          <option value="2K">HD 2K — sharper, better label text ({CREDIT_COSTS.imageHD} cr)</option>
+          <option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option>
+        </select>
+
+        <Btn dark disabled={loading || !products.length} onClick={generate}>
+          {loading ? "CREATING SHOT..." : ("GENERATE SHOT (" + cost.toLocaleString() + " credits)")}
+        </Btn>
+        {!products.length && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 10 }}>Upload a product photo to begin.</div>}
+      </Card>
+
+      {loading && <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "36px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.04em" }}>Styling your product shot... (4–8 seconds)</div>}
+      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 4 }}>{err}</div>}
+
+      {/* Results gallery — keep generating to build a set, animate any shot */}
+      {shots.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 9, color: B.gold, fontFamily: "sans-serif", fontWeight: 700, letterSpacing: "0.18em", marginBottom: 12, textTransform: "uppercase" }}>Your product set · {shots.length}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {shots.map(shot => {
+              const v = videos[shot.id] || {};
+              return (
+              <div key={shot.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "20px" }}>
+                <div style={{ fontFamily: "sans-serif", fontSize: 10, color: B.mid, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{shot.label}</div>
+                <img src={shot.url} alt={shot.label} style={{ maxWidth: "100%", display: "block", marginBottom: 12 }} />
+                <a href={shot.url} download="chelgy-product.png"><Btn dark small>DOWNLOAD</Btn></a>
+                <button onClick={() => saveShot(shot)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
+                <button onClick={() => setVid(shot.id, { open: !v.open })} style={{ marginLeft: 8, background: v.open ? B.charcoal : "#fff", border: "1px solid " + (v.open ? B.charcoal : B.stone), color: v.open ? "#fff" : B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>🎬 Animate</button>
+                {saveMsg[shot.id] && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(saveMsg[shot.id]).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{saveMsg[shot.id]}</div>}
+                <div style={{ marginTop: 14 }}><ShareBar file={shot.url} filename="chelgy-product.png" title="Made with Chelgy" text="" /></div>
+
+                {/* Animate panel */}
+                {v.open && (
+                  <div style={{ marginTop: 16, borderTop: "1px solid " + B.stone, paddingTop: 16 }}>
+                    <Label>Motion &amp; direction</Label>
+                    <textarea value={v.prompt !== undefined ? v.prompt : DEFAULT_MOTION} onChange={e => setVid(shot.id, { prompt: e.target.value })} rows={3} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
+                    <Label>Model &amp; quality</Label>
+                    <select value={v.quality || "480p"} onChange={e => setVid(shot.id, { quality: e.target.value })} style={selStyle}>
+                      {VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    </select>
+                    <Label>Length</Label>
+                    <select value={String(v.duration || 5)} onChange={e => setVid(shot.id, { duration: e.target.value })} style={selStyle}>
+                      <option value="5">5 seconds</option>
+                      <option value="10">10 seconds</option>
+                    </select>
+                    <Label>Orientation</Label>
+                    <select value={v.orient || aspectToOrient(shot.aspect)} onChange={e => setVid(shot.id, { orient: e.target.value })} style={selStyle}>
+                      <option value="portrait">Portrait (9:16)</option>
+                      <option value="landscape">Landscape (16:9)</option>
+                      <option value="square">Square (1:1)</option>
+                    </select>
+                    <Btn dark disabled={v.loading} onClick={() => animate(shot)}>
+                      {v.loading ? "GENERATING VIDEO..." : ("GENERATE VIDEO (" + vidCostFor(v.quality || "480p", v.duration || 5).toLocaleString() + " credits)")}
+                    </Btn>
+                    {v.loading && v.status && <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "16px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.02em", lineHeight: 1.6, marginTop: 12 }}>{v.status}</div>}
+                    {v.err && !v.loading && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 12 }}>{v.err}</div>}
+                    {v.url && !v.loading && (
+                      <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "16px", marginTop: 12 }}>
+                        <video src={v.url} controls playsInline style={{ maxWidth: "100%", display: "block", marginBottom: 12, background: "#000" }} />
+                        <a href={v.url} download="chelgy-product-video.mp4"><Btn dark small>DOWNLOAD VIDEO</Btn></a>
+                        <button onClick={() => saveVideo(shot, v.url)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
+                        {v.saveMsg && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(v.saveMsg).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{v.saveMsg}</div>}
+                        <div style={{ marginTop: 14 }}><ShareBar url={v.url} file={v.url} filename="chelgy-product-video.mp4" title="Made with Chelgy" text="" /></div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UGCStudio({ onBalance, useCredits, onToolUse, user }) {
   const [tab, setTab] = useState("character");
   const [startImg, setStartImg] = useState(null);
@@ -11524,7 +11811,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
