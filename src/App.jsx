@@ -2931,7 +2931,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="ugcstudio"&&<UGCStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} />}
 
-      {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} />}
+      {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
       {tool==="voiceover"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Voiceover Studio</h2>
@@ -8221,7 +8221,7 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
 
 // ─── UGC STUDIO: self-contained tool. Character maker + Seedance-2.0-only video ───
 // ─── PRODUCT STUDIO (Phase 1: on-brand product stills via Nano Banana) ──────
-function ProductStudio({ onBalance, useCredits, onToolUse, user }) {
+function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   // Studio scene presets — Kive-style "virtual photo sets". Each appends a scene
   // description to the prompt while the uploaded product stays accurate.
   const STUDIOS = [
@@ -8372,6 +8372,19 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user }) {
   const Label = ({ children }) => (
     <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: B.mid, marginBottom: 7, textTransform: "uppercase" }}>{children}</div>
   );
+  const CostNote = ({ cost }) => {
+    const have = typeof credits === "number" ? credits : null;
+    const insufficient = have !== null && cost > have;
+    const heavy = have !== null && !insufficient && cost >= have * 0.4; // uses 40%+ of remaining balance
+    const color = insufficient ? B.red : heavy ? "#B7791F" : B.mid;
+    return (
+      <div style={{ fontFamily: "sans-serif", fontSize: 11.5, color, marginTop: 9, lineHeight: 1.5 }}>
+        {insufficient
+          ? "⚠ Not enough credits — this needs " + cost.toLocaleString() + " and you have " + have.toLocaleString() + ". Top up in Profile → Buy credits."
+          : "Uses " + cost.toLocaleString() + " credits" + (have !== null ? " · you have " + have.toLocaleString() : "") + (heavy ? " — heads up, that's a big chunk of your balance." : "")}
+      </div>
+    );
+  };
   const selStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", cursor: "pointer", marginBottom: 14, boxSizing: "border-box" };
   const inpStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 14, boxSizing: "border-box" };
 
@@ -8434,6 +8447,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user }) {
         <Btn dark disabled={loading || !products.length} onClick={generate}>
           {loading ? "CREATING SHOT..." : ("GENERATE SHOT (" + cost.toLocaleString() + " credits)")}
         </Btn>
+        {products.length > 0 && <CostNote cost={cost} />}
         {!products.length && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 10 }}>Upload a product photo to begin.</div>}
       </Card>
 
@@ -8480,6 +8494,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user }) {
                     <Btn dark disabled={v.loading} onClick={() => animate(shot)}>
                       {v.loading ? "GENERATING VIDEO..." : ("GENERATE VIDEO (" + vidCostFor(v.quality || "480p", v.duration || 5).toLocaleString() + " credits)")}
                     </Btn>
+                    <CostNote cost={vidCostFor(v.quality || "480p", v.duration || 5)} />
                     {v.loading && v.status && <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "16px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.02em", lineHeight: 1.6, marginTop: 12 }}>{v.status}</div>}
                     {v.err && !v.loading && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 12 }}>{v.err}</div>}
                     {v.url && !v.loading && (
