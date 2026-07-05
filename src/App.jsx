@@ -1,5 +1,435 @@
 import { useState, useEffect, useRef } from "react";
 
+// ─── CHELGY ASSISTANT (in-app help chat) ─────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  CHELGY ASSISTANT — floating in-app help chat
+//  Self-contained. Calls your existing /api/claude proxy (same shape as
+//  callClaude in App.jsx). No imports from App.jsx required.
+//
+//  Props (all optional):
+//    onNavigate(tab, subTab)  — jump the user to a tab / tool
+//    userName                 — member's first name, for a warmer greeting
+//    isPaid                   — true if the member is on a paid plan
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The brand palette, matched to the rest of the app (near-black + cream + gold).
+const CA_C = {
+  ink:    "#0E0E0E",
+  panel:  "#141414",
+  raised: "#1C1C1C",
+  line:   "rgba(255,255,255,0.10)",
+  line2:  "rgba(255,255,255,0.16)",
+  cream:  "#F5F1E8",
+  mid:    "rgba(245,241,232,0.62)",
+  faint:  "rgba(245,241,232,0.40)",
+  gold:   "#C6A15B",
+  goldSoft:"rgba(198,161,91,0.14)",
+};
+
+// Friendly labels for the "Open →" navigation buttons the assistant can surface.
+const CA_NAV_LABELS = {
+  "home": "Home",
+  "learn": "Learn",
+  "tools": "Tools Hub",
+  "community": "Community",
+  "profile": "Profile",
+  "tools/launch": "Business Launch Package",
+  "tools/website": "Website Builder",
+  "tools/images": "AI Image Creator",
+  "tools/video": "AI Video Studio",
+  "tools/viral": "Viral Video Generator",
+  "tools/ads": "Ad Campaign Builder",
+  "tools/audit": "Business Audit",
+  "tools/voiceover": "AI Voiceover Studio",
+  "tools/business": "Business Builder",
+  "tools/grants": "Grant Finder",
+  "tools/content": "AI Content Writer",
+  "tools/dropshipping": "Dropshipping Directory",
+  "tools/platforms": "Platform Setup Guides",
+  "tools/library": "My Library",
+  "community/advisor": "AI Advisor",
+  "community/forum": "Community Forum",
+  "community/members": "Member Directory",
+  "learn/strategies": "Marketing Strategies",
+  "learn/weekly": "The Chelgy Edit",
+};
+
+// ─── The knowledge the assistant answers from ────────────────────────────────
+const CA_SYSTEM = `You are the Chelgy Assistant — the friendly in-app helper inside Chelgy, an AI marketing membership app. You help members find their way around, use the tools, fix small problems, and get UGC content and their business off the ground. You are warm, upbeat, encouraging and concise — a little stylish, never stiff. Chelgy's whole vibe is premium, editorial, "make your brand look expensive." Match that energy.
+
+WHO YOU'RE TALKING TO: a Chelgy member using the app right now. Keep answers SHORT and skimmable — usually 2 to 5 sentences. This is a small phone-sized chat, so no long essays, no big headers. A short list of 2-4 bullets (use "•") is fine when it genuinely helps.
+
+═══ HOW CHELGY IS LAID OUT ═══
+Five tabs across the bottom:
+• HOME — announcements, recent activity, quick links, a free daily creation, and daily tasks.
+• LEARN — marketing Strategies (step-by-step playbooks) and "The Chelgy Edit" blog.
+• TOOLS — the AI toolkit (the Tools Hub). This is where everything gets made.
+• COMMUNITY — the forum, the member directory, and the AI Advisor (a deeper marketing coach).
+• PROFILE — stats, settings, "Manage subscription", and the "Need Help" form.
+
+═══ THE TOOLS (all live in the TOOLS tab) ═══
+• Business Launch Package — answer a few questions and Chelgy builds a whole business: a published website, logo, brand strategy, social plan, and launch roadmap.
+• Website Builder — writes and publishes a complete luxury website at a shareable link.
+• AI Image Creator — logos, flyers, social graphics, banners, and product images. (This is also where flyers are made.)
+• AI Video Studio — scripts, storyboards, and ready-to-paste AI prompts for video generators (HeyGen, Runway, Kling, Sora, Pika).
+• Viral Video Generator — enter your business, get viral video ideas, the best format, a hook, a full script, caption, and hashtags.
+• Ad Campaign Builder — ad copy, creative direction, audience targeting, and budget for Facebook, Instagram, and TikTok.
+• Business Audit & Competitors — scans your online presence, shows what to improve, compares you to competitors.
+• AI Voiceover Studio — turns any script into a natural, studio-quality voiceover.
+• Business Builder — stage-by-stage launch plans plus a 24/7 AI business coach.
+• Grant Finder — searches the web for real grants and funding you might qualify for.
+• AI Content Writer — captions and copy for Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blogs, email, and ads.
+• Dropshipping Directory — vetted suppliers with links, niches, shipping times, and honest notes.
+• Platform Setup Guides — step-by-step setup and posting guides for every major platform.
+• My Library — where saved creations are stored.
+Also: the AI Advisor lives in COMMUNITY — send members there for deep, back-and-forth marketing strategy questions.
+
+═══ HOW TO MAKE A UGC-STYLE VIDEO IN CHELGY ═══
+Walk members through this real workflow:
+1. Open AI Video Studio (or Viral Video Generator for the idea + hook first). Enter the business and pick a UGC / authentic style. It gives you a script, storyboard, and a ready-to-paste prompt.
+2. Take that prompt to an AI video generator — HeyGen (great for talking-to-camera UGC), or Runway / Kling / Sora / Pika for b-roll and scenes.
+3. (Optional) Use AI Voiceover Studio to turn the script into a natural voiceover.
+4. Use AI Image Creator for a thumbnail, cover, or supporting graphics.
+5. Add captions, post native to the platform, and save it to My Library.
+Keep it real and casual — UGC works because it feels like a real person, not an ad.
+
+═══ CREDITS & MEMBERSHIP ═══
+Creating with the AI tools uses credits. Paid members get a monthly credit allowance that refreshes each month, and can buy top-up credit packs anytime. Some tools are limited on the free trial and unlock with a paid membership. For anything about billing, refunds, upgrading, downgrading, or a card that failed — you CANNOT do these yourself. Point them to Profile → Manage subscription, or to support (below).
+
+═══ WHEN SOMETHING IS BROKEN OR YOU'RE NOT SURE ═══
+For a small glitch, suggest the basics first: hard-refresh the page, check their internet, make sure they're logged in, and try again in a moment. If that doesn't fix it, or it's an account/billing/bug issue you can't resolve, ALWAYS hand off to a human:
+• Email chelgyapp@gmail.com
+• Or use the "Need Help" form in the Profile tab.
+Never pretend you fixed an account, processed a refund, or changed a subscription — you can't. Be honest and route to support.
+
+═══ NAVIGATION SUPERPOWER ═══
+When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
+[[GO:tab]]   or   [[GO:tab:subtab]]
+Valid tabs: home, learn, tools, community, profile.
+Valid tools (use with the tools tab): launch, website, images, video, viral, ads, audit, voiceover, business, grants, content, dropshipping, platforms, library.
+Valid community: advisor, forum, members. Valid learn: strategies, weekly.
+Examples: to send them to make a UGC video → end with [[GO:tools:video]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
+Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
+
+═══ STYLE RULES ═══
+• Short, warm, and specific. No corporate filler.
+• Name the exact tool and tab so they know where to go.
+• Don't invent features Chelgy doesn't have. If you're unsure whether something exists, say so and point to chelgyapp@gmail.com.
+• You are the Chelgy Assistant. You can say you're powered by Claude if asked, but stay in the Chelgy helper role.`;
+
+function caBuildPrompt(history, userMsg, ctx) {
+  const who = [];
+  if (ctx.userName) who.push("The member's name is " + ctx.userName + ".");
+  who.push(ctx.isPaid ? "They are on a PAID membership." : "They are on the FREE trial (some tools are limited).");
+  const transcript = history
+    .map((m) => (m.role === "user" ? "Member" : "Assistant") + ": " + m.content)
+    .join("\n\n");
+  return (
+    CA_SYSTEM +
+    "\n\n═══ THIS MEMBER ═══\n" + who.join(" ") +
+    "\n\n═══ CONVERSATION SO FAR ═══\n" +
+    (transcript ? transcript + "\n\n" : "") +
+    "Member: " + userMsg +
+    "\n\nAssistant:"
+  );
+}
+
+// Pull an optional [[GO:...]] tag off the end of a reply.
+function caExtractNav(text) {
+  const m = text.match(/\[\[GO:([a-z]+)(?::([a-z-]+))?\]\]/i);
+  if (!m) return { clean: text.trim(), nav: null };
+  const tab = m[1].toLowerCase();
+  const sub = m[2] ? m[2].toLowerCase() : null;
+  const clean = text.replace(m[0], "").trim();
+  return { clean, nav: { tab, sub } };
+}
+
+// Very light markdown: **bold**, • bullets, and line breaks. No external lib.
+function caRenderText(text) {
+  const lines = text.split("\n");
+  return lines.map((line, i) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/g).map((p, j) =>
+      p.startsWith("**") && p.endsWith("**") ? (
+        <strong key={j} style={{ fontWeight: 700, color: CA_C.cream }}>{p.slice(2, -2)}</strong>
+      ) : (
+        <span key={j}>{p}</span>
+      )
+    );
+    return (
+      <div key={i} style={{ minHeight: line.trim() === "" ? 8 : "auto" }}>{parts}</div>
+    );
+  });
+}
+
+const CA_QUICK_STARTS = [
+  "How do I make a UGC video?",
+  "A tool isn't working",
+  "How do credits work?",
+  "How do I contact support?",
+];
+
+function ChelgyAssistant({ onNavigate, userName, isPaid }) {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([]); // { role: 'user'|'assistant', content, nav? }
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const greetName = userName && userName !== "You" && userName !== "Member" ? userName : "";
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [msgs, loading, open]);
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      const t = setTimeout(() => { try { inputRef.current.focus(); } catch (e) {} }, 250);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  async function send(textArg) {
+    const text = (typeof textArg === "string" ? textArg : input).trim();
+    if (!text || loading) return;
+    setInput("");
+    const history = msgs;
+    const nextMsgs = [...history, { role: "user", content: text }];
+    setMsgs(nextMsgs);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: caBuildPrompt(history, text, { userName, isPaid }),
+          max_tokens: 700,
+        }),
+      });
+      const d = await res.json().catch(() => null);
+      const raw = (d && d.text) || "Sorry — I had trouble just now. Please try again, or email chelgyapp@gmail.com.";
+      const { clean, nav } = caExtractNav(raw);
+      setMsgs([...nextMsgs, { role: "assistant", content: clean, nav }]);
+    } catch (e) {
+      setMsgs([
+        ...nextMsgs,
+        { role: "assistant", content: "Something went wrong connecting. Check your internet and try again — or reach us at chelgyapp@gmail.com.", nav: null },
+      ]);
+    }
+    setLoading(false);
+  }
+
+  function goTo(nav) {
+    if (!nav) return;
+    try { if (onNavigate) onNavigate(nav.tab, nav.sub || null); } catch (e) {}
+    setOpen(false);
+  }
+
+  function onKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  }
+
+  const SAFE = "env(safe-area-inset-bottom, 0px)";
+
+  // ─── Floating launcher button ───────────────────────────────────────────────
+  const launcher = (
+    <button
+      onClick={() => setOpen(true)}
+      aria-label="Open the Chelgy Assistant"
+      style={{
+        position: "fixed",
+        right: 16,
+        bottom: `calc(${SAFE} + 78px)`,
+        zIndex: 9998,
+        width: 58,
+        height: 58,
+        borderRadius: "50%",
+        background: CA_C.ink,
+        border: "1px solid " + CA_C.gold,
+        boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+        cursor: "pointer",
+        display: open ? "none" : "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 0,
+      }}
+    >
+      <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
+        <span style={{ color: CA_C.gold, fontSize: 20, fontWeight: 400, fontFamily: "Georgia, 'Times New Roman', serif", marginTop: -1 }}>C</span>
+        <span style={{ color: CA_C.faint, fontSize: 6.5, letterSpacing: "0.18em", fontFamily: "sans-serif", marginTop: 2, textTransform: "uppercase" }}>Help</span>
+      </span>
+    </button>
+  );
+
+  if (!open) return launcher;
+
+  // ─── The panel ──────────────────────────────────────────────────────────────
+  return (
+    <div
+      style={{
+        position: "fixed",
+        right: 12,
+        bottom: `calc(${SAFE} + 12px)`,
+        zIndex: 9999,
+        width: "min(400px, calc(100vw - 24px))",
+        height: "min(620px, calc(100vh - 90px))",
+        background: CA_C.panel,
+        border: "1px solid " + CA_C.line2,
+        borderRadius: 18,
+        boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        fontFamily: "sans-serif",
+        animation: "chelgyPop 0.22s ease-out",
+      }}
+    >
+      <style>{`@keyframes chelgyPop{from{opacity:0;transform:translateY(14px) scale(0.98)}to{opacity:1;transform:none}}
+        @keyframes chelgyDot{0%,80%,100%{opacity:0.25}40%{opacity:1}}`}</style>
+
+      {/* Header */}
+      <div style={{ padding: "16px 18px 14px", borderBottom: "1px solid " + CA_C.line, display: "flex", alignItems: "center", justifyContent: "space-between", background: CA_C.ink }}>
+        <div>
+          <div style={{ fontSize: 8.5, letterSpacing: "0.22em", color: CA_C.gold, textTransform: "uppercase", marginBottom: 4 }}>Chelgy</div>
+          <div style={{ fontSize: 16, color: CA_C.cream, fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.01em" }}>Assistant</div>
+        </div>
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Close"
+          style={{ background: "none", border: "1px solid " + CA_C.line, color: CA_C.mid, width: 30, height: 30, borderRadius: "50%", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "18px 16px 8px" }}>
+        {msgs.length === 0 && (
+          <div style={{ paddingTop: 6 }}>
+            <div style={{ color: CA_C.cream, fontSize: 14.5, lineHeight: 1.55, marginBottom: 6 }}>
+              Hi{greetName ? " " + greetName : ""} — I'm your Chelgy helper. 👋
+            </div>
+            <div style={{ color: CA_C.mid, fontSize: 13.5, lineHeight: 1.55, marginBottom: 18 }}>
+              Ask me how to use any tool, how to make a UGC video, where something lives, or how to get help. I can take you straight there.
+            </div>
+            <div style={{ fontSize: 8.5, letterSpacing: "0.18em", color: CA_C.faint, textTransform: "uppercase", marginBottom: 10 }}>Try asking</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {CA_QUICK_STARTS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => send(q)}
+                  style={{ textAlign: "left", background: CA_C.raised, border: "1px solid " + CA_C.line, color: CA_C.cream, padding: "11px 14px", borderRadius: 11, fontSize: 13, cursor: "pointer", fontFamily: "sans-serif", lineHeight: 1.4 }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {msgs.map((m, i) => (
+          <div key={i} style={{ marginBottom: 14, display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+            <div style={{ maxWidth: "86%" }}>
+              <div
+                style={{
+                  background: m.role === "user" ? CA_C.gold : CA_C.raised,
+                  color: m.role === "user" ? CA_C.ink : CA_C.cream,
+                  border: m.role === "user" ? "none" : "1px solid " + CA_C.line,
+                  padding: "11px 14px",
+                  borderRadius: 13,
+                  borderBottomRightRadius: m.role === "user" ? 4 : 13,
+                  borderBottomLeftRadius: m.role === "user" ? 13 : 4,
+                  fontSize: 13.5,
+                  lineHeight: 1.55,
+                  fontWeight: m.role === "user" ? 500 : 400,
+                }}
+              >
+                {caRenderText(m.content)}
+              </div>
+              {m.role === "assistant" && m.nav && CA_NAV_LABELS[m.nav.tab + (m.nav.sub ? "/" + m.nav.sub : "")] && (
+                <button
+                  onClick={() => goTo(m.nav)}
+                  style={{ marginTop: 8, background: CA_C.goldSoft, border: "1px solid " + CA_C.gold, color: CA_C.gold, padding: "9px 14px", borderRadius: 10, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer", fontFamily: "sans-serif" }}
+                >
+                  Open {CA_NAV_LABELS[m.nav.tab + (m.nav.sub ? "/" + m.nav.sub : "")]} →
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div style={{ marginBottom: 14, display: "flex", justifyContent: "flex-start" }}>
+            <div style={{ background: CA_C.raised, border: "1px solid " + CA_C.line, padding: "13px 16px", borderRadius: 13, borderBottomLeftRadius: 4, display: "flex", gap: 5 }}>
+              {[0, 1, 2].map((d) => (
+                <span key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: CA_C.gold, animation: "chelgyDot 1.2s infinite", animationDelay: d * 0.18 + "s" }} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Composer */}
+      <div style={{ borderTop: "1px solid " + CA_C.line, padding: "12px 12px 10px", background: CA_C.ink }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKey}
+            rows={1}
+            placeholder="Ask me anything about Chelgy…"
+            style={{
+              flex: 1,
+              resize: "none",
+              maxHeight: 90,
+              background: CA_C.raised,
+              border: "1px solid " + CA_C.line,
+              color: CA_C.cream,
+              borderRadius: 12,
+              padding: "11px 13px",
+              fontSize: 16, // 16px avoids iOS input zoom
+              fontFamily: "sans-serif",
+              outline: "none",
+              lineHeight: 1.4,
+            }}
+          />
+          <button
+            onClick={() => send()}
+            disabled={loading || !input.trim()}
+            aria-label="Send"
+            style={{
+              width: 44,
+              height: 44,
+              flexShrink: 0,
+              borderRadius: 12,
+              background: input.trim() && !loading ? CA_C.gold : CA_C.raised,
+              border: "1px solid " + (input.trim() && !loading ? CA_C.gold : CA_C.line),
+              color: input.trim() && !loading ? CA_C.ink : CA_C.faint,
+              cursor: input.trim() && !loading ? "pointer" : "default",
+              fontSize: 18,
+              padding: 0,
+            }}
+          >
+            ↑
+          </button>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 8 }}>
+          <span style={{ fontSize: 10.5, color: CA_C.faint }}>
+            Need a human?{" "}
+            <a href="mailto:chelgyapp@gmail.com" style={{ color: CA_C.mid, textDecoration: "underline" }}>chelgyapp@gmail.com</a>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ─── end Chelgy Assistant ─────────────────────────────────────
+
+
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
@@ -10243,7 +10673,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 24px",marginBottom:18}}>
             <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.goldDark,textTransform:"uppercase",marginBottom:8}}>Email us</div>
-            <a href="mailto:support@chelgy.app" style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,textDecoration:"none"}}>support@chelgy.app</a>
+            <a href="mailto:chelgyapp@gmail.com" style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,textDecoration:"none"}}>chelgyapp@gmail.com</a>
             <p style={{fontSize:13,lineHeight:1.7,color:B.mid,margin:"10px 0 0"}}>The fastest way to reach us. We usually reply within one business day. Include your account email and a short description of what you need, and a screenshot if something looks off.</p>
           </div>
 
@@ -11793,6 +12223,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         </div>
       ); })()}
+
+      <ChelgyAssistant
+        userName={myName}
+        isPaid={isPaid}
+        onNavigate={(tab, sub) => { setTab(tab); if (sub) setSubTab(sub); }}
+      />
 
     </div>
   );
