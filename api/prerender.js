@@ -145,6 +145,7 @@ function renderPost(site, post, canonical) {
   const title = post.title + (name ? " — " + name : "");
   const desc = String(post.excerpt || String(post.body || "").replace(/\s+/g, " ").slice(0, 200)).slice(0, 300);
   const ld = { "@context": "https://schema.org", "@type": "BlogPosting", headline: post.title, description: desc };
+  if (post.image) ld.image = post.image;
   if (post.date) ld.datePublished = post.date;
   if (name) ld.author = { "@type": "Organization", name };
   if (canonical) { ld.url = canonical; ld.mainEntityOfPage = canonical; }
@@ -157,10 +158,11 @@ function renderPost(site, post, canonical) {
     `<meta property="og:title" content="${esc(post.title)}">`,
     `<meta property="og:description" content="${esc(desc)}">`,
     canonical ? `<meta property="og:url" content="${esc(canonical)}">` : "",
-    `<meta name="twitter:card" content="summary">`,
+    post.image ? `<meta property="og:image" content="${esc(post.image)}">` : "",
+    `<meta name="twitter:card" content="${post.image ? "summary_large_image" : "summary"}">`,
     `<script type="application/ld+json">${JSON.stringify(ld)}</script>`,
   ].join("");
-  const body = `${name ? `<p><strong>${esc(name)}</strong></p>` : ""}<article><h1>${esc(post.title)}</h1>${post.date ? `<p><time datetime="${esc(post.date)}">${esc(new Date(post.date).toDateString())}</time></p>` : ""}${paras}</article>`;
+  const body = `${name ? `<p><strong>${esc(name)}</strong></p>` : ""}<article>${post.image ? `<img src="${esc(post.image)}" alt="">` : ""}<h1>${esc(post.title)}</h1>${post.date ? `<p><time datetime="${esc(post.date)}">${esc(new Date(post.date).toDateString())}</time></p>` : ""}${paras}</article>`;
   return pageHtml({ head, body });
 }
 

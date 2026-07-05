@@ -26,7 +26,7 @@ async function sbFetch(table, method="GET", body=null, id=null) {
 const AUTH_URL = SUPABASE_URL + "/auth/v1";
 // Capture the URL path ONCE at load, before any in-app navigation rewrites it — used for the public /privacy and /terms pages
 const CHELGY_INITIAL_PATH = (typeof window !== "undefined" ? (window.location.pathname || "") : "").toLowerCase().replace(/\/+$/, "");
-const CHELGY_IS_LEGAL_PATH = (CHELGY_INITIAL_PATH === "/privacy" || CHELGY_INITIAL_PATH === "/terms");
+const CHELGY_IS_LEGAL_PATH = (CHELGY_INITIAL_PATH === "/privacy" || CHELGY_INITIAL_PATH === "/terms" || CHELGY_INITIAL_PATH === "/support");
 // Capture the OAuth return token from the URL hash ONCE at load, before any render/effect can clear it (fixes Apple/Google sign-in bouncing to onboarding)
 const CHELGY_INITIAL_HASH = (typeof window !== "undefined" ? (window.location.hash || "") : "");
 const CHELGY_HAS_OAUTH_RETURN = CHELGY_INITIAL_HASH.includes("access_token=");
@@ -67,7 +67,7 @@ async function authRecover(email) {
 function saveSession(data) {
   try {
     const u = data.user || {};
-    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", access_token: data.access_token, refresh_token: data.refresh_token };
+    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", created_at: u.created_at || null, is_marketer: !!(u.user_metadata && u.user_metadata.is_marketer), access_token: data.access_token, refresh_token: data.refresh_token };
     localStorage.setItem("chelgy_session", JSON.stringify(session));
     return session;
   } catch { return null; }
@@ -103,7 +103,7 @@ async function refreshSession(){
     const data = await res.json();
     if (!res.ok || !data.access_token) return null;
     const ns = { ...s, access_token: data.access_token, refresh_token: data.refresh_token || s.refresh_token };
-    if (data.user) { ns.id = data.user.id; ns.email = data.user.email; ns.name = (data.user.user_metadata && data.user.user_metadata.name) || ns.name; }
+    if (data.user) { ns.id = data.user.id; ns.email = data.user.email; ns.name = (data.user.user_metadata && data.user.user_metadata.name) || ns.name; ns.created_at = data.user.created_at || s.created_at; ns.is_marketer = !!(data.user.user_metadata && data.user.user_metadata.is_marketer) || !!s.is_marketer; }
     try { localStorage.setItem("chelgy_session", JSON.stringify(ns)); } catch {}
     return ns.access_token;
   } catch { return null; }
@@ -141,6 +141,20 @@ async function getMemberByEmail(email){
     const d = await res.json();
     return Array.isArray(d) && d[0] ? d[0] : null;
   } catch { return null; }
+}
+
+// Writes the independent-marketer flag onto the logged-in account's metadata,
+// so marketer mode follows the account across devices (not just this browser).
+async function cgWriteMarketerFlag(token, val){
+  try {
+    if(!token) return false;
+    const res = await fetch(SUPABASE_URL + "/auth/v1/user", {
+      method: "PUT",
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ data: { is_marketer: !!val } }),
+    });
+    return res.ok;
+  } catch (e) { return false; }
 }
 
 // Read/write the logged-in member's OWN row using their login token (works
@@ -323,6 +337,11 @@ const B = {
 // Gold accent — used ONLY on dark/black blocks & buttons (light UI stays black/white/grey)
 const GOLD = "#B8955A";
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/dRm00i1Qg2eXectewKdEs00";
+// Demo accounts: these emails get full access automatically (no payment), and the
+// AI treats them as an independent marketer. Create them once via normal signup.
+// "appreview@chelgy.app" = for Apple App Review; "demo@chelgy.app" = for client walkthroughs.
+const CHELGY_DEMO_EMAILS = ["appreview@chelgy.app", "demo@chelgy.app"];
+const cgIsDemoEmail = (e) => !!e && CHELGY_DEMO_EMAILS.includes(String(e).trim().toLowerCase());
 const cleanTitle = (t) => String(t||"").replace(/^#{1,6}\s+/,"");
 function adminRelTime(d){ try{ const s=Math.floor((Date.now()-d.getTime())/1000); if(s<0)return "just now"; if(s<60)return "just now"; const m=Math.floor(s/60); if(m<60)return m+"m ago"; const h=Math.floor(m/60); if(h<24)return h+"h ago"; const dd=Math.floor(h/24); if(dd<30)return dd+"d ago"; return d.toLocaleDateString(); }catch(e){ return ""; } }
 const GEMINI_KEY = ""; // moved server-side to /api/image (Vercel env: GEMINI_API_KEY)
@@ -1246,7 +1265,7 @@ function OrdersPanel({ user }){
     </div>
   );
 }
-function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={} }) {
+function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={} }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
@@ -1714,7 +1733,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
   const [cSeoType,setCSeoType]=useState("Blog Post");const [cKeyword,setCKeyword]=useState("");
-  const [iType,setIType]=useState("ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");
+  const [iType,setIType]=useState("ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("Modern & Minimal");const [iTransparent,setITransparent]=useState(false);
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
   const [ipwIdea,setIpwIdea]=useState("");const [ipwLoad,setIpwLoad]=useState(false);const [ipwErr,setIpwErr]=useState("");
@@ -1794,11 +1813,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
     p+=" Do not add any watermark, signature, or AI/tool attribution text or logo (such as 'generated by' text) anywhere in the image.";
     if(iType==="flyer") p+=" Make it look distinctly LUXURY and high-end: elegant, refined typography with a clear type hierarchy; a sophisticated, restrained colour palette (deep neutrals, cream, ivory, charcoal, with at most one tasteful accent such as muted gold or a single brand colour); generous white space; a balanced, editorial layout like a premium magazine spread or upscale boutique brand; subtle premium texture and detailing; and an expensive, minimal, tasteful feel. Absolutely avoid clutter, clip-art, busy backgrounds, garish colours, or a cheap stock-photo look.";
     if(iType==="logo") p+=" Present the logo isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no scene).";
+    if(iTransparent && iType!=="logo") p+=" Present the subject isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no backdrop, no scene, a clean cut-out).";
     const inputImages = iUploads.map(u=>{ const m=/^data:(.*?);base64,(.*)$/.exec(u||""); return m?{mimeType:m[1],data:m[2]}:null; }).filter(Boolean);
     const useOpenAI = ["logo","flyer","social","banner"].includes(iType);
     try{
       const r = useOpenAI
-        ? await generateOpenAIImage(p,inputImages,iAspect,iQuality,iType==="logo"?"transparent":undefined)
+        ? await generateOpenAIImage(p,inputImages,iAspect,iQuality,(iType==="logo"||iTransparent)?"transparent":undefined)
         : await generateGeminiImage(p,inputImages,iAspect,iQuality);
       setIRes(r.image); if(iType==="logo")onBrandProgress("logo");
       if(typeof r.balance==="number") onBalance(r.balance);
@@ -1965,13 +1985,13 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
         {!wmResult && wmExisting && wmMode==="view" && <div>
           <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20,fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.65}}><strong style={{color:B.charcoal}}>This is your ready-made website.</strong> Don't love it? Browse the themes below to change the whole look — and use the tools underneath to swap your photos, products, and text until it feels like yours.</div>
           {multiSite && <div style={{marginBottom:22,paddingBottom:20,borderBottom:"1px solid "+B.stone}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>Your websites ({wmSites.length})</div>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>{marketerMode?"Your clients":"Your websites"} ({wmSites.length})</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
               {wmSites.map(st=>{ const cur=wmExisting&&wmExisting.id===st.id; return (
                 <button key={st.id} onClick={()=>{ setWmExisting(st); setWmMode("view"); setWmResult(null); }} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.charcoal:"#fff",color:cur?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(st.data&&st.data.brand&&st.data.brand.name)||st.slug}</button>
               ); })}
             </div>
-            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Make another website</button>
+            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:"#fff",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{marketerMode?"+ Add a client website":"+ Make another website"}</button>
           </div>}
           <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"22px",marginBottom:22}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>Your website is live</div>
@@ -2084,11 +2104,6 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                     <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
-                    <div style={{marginTop:8}}>
-                      <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,marginBottom:4,textTransform:"uppercase"}}>Checkout link (optional)</div>
-                      <input value={pr.buyUrl||""} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,buyUrl:e.target.value}:x))} placeholder="https://buy.stripe.com/…" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
-                      <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,marginTop:4}}>Paste a link and this item gets a <strong>Buy</strong> button. Easiest: make a <strong>Payment Link</strong> in your Stripe dashboard — money goes straight to you. Any store link works too (Etsy, Shopify…).</div>
-                    </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                       <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
@@ -2175,7 +2190,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 
           </div>}
           {edTab==="blog"&&<div>
-            <BlogWriter site={wmExisting} onSave={saveData} />
+            <BlogWriter site={wmExisting} onSave={saveData} user={user} onBalance={onBalance} />
           </div>}
           {edTab==="domain"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
@@ -2343,6 +2358,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             </div>
           </div>
           <Fl label="Your image prompt — edit anything you like"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="Your AI-written prompt appears here — or write your own. Describe the subject, style, colors, lighting, and mood." rows={4} /></Fl>
+          {iType==="logo"
+            ? <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px",display:"flex",alignItems:"center",gap:6}}><span style={{color:B.green}}>✓</span> Logos always export on a transparent background (PNG).</div>
+            : !["flyer","set"].includes(iType)&&<label style={{display:"flex",alignItems:"center",gap:9,margin:"0 0 14px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,cursor:"pointer"}}><input type="checkbox" checked={iTransparent} onChange={e=>setITransparent(e.target.checked)} style={{width:16,height:16,accentColor:B.gold,flexShrink:0}} /><span>Transparent background <span style={{color:B.mid}}>— cut-out PNG with no background, for overlays and clean product/graphic shots</span></span></label>}
           <div style={{marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload reference photos (optional · up to 5)</div>
             {iUploads.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
@@ -6508,6 +6526,7 @@ function SiteBlogSection({ site, eyebrow, heading }) {
         <div style={{maxWidth:720}}>
           {posts.map((p,pi)=>(
             <article key={p.id||pi} style={{borderTop:pi>0?"1px solid rgba(128,128,128,0.2)":"none",paddingTop:pi>0?36:0,marginBottom:36}}>
+              {p.image&&<a href={cgBlogPostHref(p)} style={{display:"block",marginBottom:16}}><img src={p.image} alt="" style={{width:"100%",maxHeight:300,objectFit:"cover",display:"block"}} /></a>}
               <div style={{fontSize:12,opacity:0.55,letterSpacing:"0.04em",marginBottom:10,textTransform:"uppercase"}}>{p.date?new Date(p.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}):""}</div>
               <a href={cgBlogPostHref(p)} style={{textDecoration:"none",color:"inherit"}}>
                 <h3 style={{fontFamily:"var(--display,Georgia,serif)",fontSize:"clamp(22px,3vw,30px)",fontWeight:400,margin:"0 0 12px",lineHeight:1.2,color:"inherit"}}>{p.title}</h3>
@@ -6535,6 +6554,7 @@ function SitePostPage({ site, post, backHref }) {
       <div style={{maxWidth:720,margin:"0 auto",padding:"40px 24px 110px"}}>
         <a href={backHref} style={backLink}>{"\u2190 "+brandName}</a>
         <article style={{marginTop:44}}>
+          {post.image&&<img src={post.image} alt="" style={{width:"100%",maxHeight:420,objectFit:"cover",display:"block",marginBottom:32}} />}
           <div style={{fontFamily:tk.body,fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:muted,marginBottom:16}}>{post.date?new Date(post.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}):""}</div>
           <h1 style={{fontFamily:tk.display,fontSize:"clamp(30px,5vw,48px)",fontWeight:500,lineHeight:1.12,margin:"0 0 32px",color:text}}>{post.title}</h1>
           {String(post.body||"").split(/\n\n+/).map((para,i)=>(
@@ -7097,20 +7117,132 @@ function WinningProductFinder(){
     </div>
   );
 }
-function BlogWriter({ site, onSave }) {
+function MarketerClients({ user }) {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // client object being added/edited
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const STATUSES = ["lead","active","paused","past"];
+  const STATUS_LABEL = { lead:"Lead", active:"Active", paused:"Paused", past:"Past" };
+  const STATUS_COLOR = { lead:B.gold, active:B.green, paused:B.mid, past:B.stone };
+
+  async function load(){
+    setLoading(true); setErr("");
+    try{
+      const tok=await freshToken(); if(!tok||!user||!user.id){ setLoading(false); return; }
+      const res=await fetch(SUPABASE_URL+"/rest/v1/marketer_clients?select=*&user_id=eq."+user.id+"&order=created_at.desc",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const rows=await res.json(); setClients(Array.isArray(rows)?rows:[]);
+    }catch(e){ setErr("Couldn't load your clients."); }
+    setLoading(false);
+  }
+  useEffect(()=>{ load(); },[user&&user.id]);
+
+  async function save(){
+    if(!editing || !(editing.name||"").trim()){ setErr("Add a client name first."); return; }
+    setBusy(true); setErr("");
+    try{
+      const tok=await freshToken(); if(!tok){ setBusy(false); return; }
+      const body={ user_id:user.id, name:(editing.name||"").trim(), business:(editing.business||"").trim(), contact:(editing.contact||"").trim(), status:editing.status||"lead", notes:(editing.notes||"").trim(), site_slug:(editing.site_slug||"").trim()||null, updated_at:new Date().toISOString() };
+      let res;
+      if(editing.id) res=await fetch(SUPABASE_URL+"/rest/v1/marketer_clients?id=eq."+editing.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify(body) });
+      else res=await fetch(SUPABASE_URL+"/rest/v1/marketer_clients",{ method:"POST", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify(body) });
+      if(!res.ok){ setErr("Couldn't save — please try again."); setBusy(false); return; }
+      setEditing(null); setBusy(false); load();
+    }catch(e){ setErr("Couldn't save — please try again."); setBusy(false); }
+  }
+  async function del(id){
+    try{ const tok=await freshToken(); if(!tok) return; await fetch(SUPABASE_URL+"/rest/v1/marketer_clients?id=eq."+id,{ method:"DELETE", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } }); setClients(cs=>cs.filter(c=>c.id!==id)); }catch(e){}
+  }
+
+  const fld={ width:"100%", boxSizing:"border-box", padding:"10px 12px", border:"1px solid "+B.stone, fontFamily:"sans-serif", fontSize:13, color:B.charcoal, background:"#fff", marginBottom:10 };
+  const lbl={ fontFamily:"sans-serif", fontSize:9, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:B.mid, marginBottom:5 };
+
+  return (
+    <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 22px 20px",marginBottom:2}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700}}>Your Clients</div>
+        {!editing&&<button onClick={()=>{setErr("");setEditing({status:"lead"});}} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>+ Add client</button>}
+      </div>
+      <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:16}}>{clients.length} {clients.length===1?"client":"clients"}</div>
+
+      {editing&&(
+        <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"16px 16px 6px",marginBottom:16}}>
+          <div style={lbl}>Client / contact name</div>
+          <input value={editing.name||""} onChange={e=>setEditing(c=>({...c,name:e.target.value}))} placeholder="e.g. Maria Lopez" style={fld} />
+          <div style={lbl}>Business</div>
+          <input value={editing.business||""} onChange={e=>setEditing(c=>({...c,business:e.target.value}))} placeholder="e.g. Bloom Floral Studio" style={fld} />
+          <div style={lbl}>Contact <span style={{textTransform:"none",fontWeight:400}}>(email / phone)</span></div>
+          <input value={editing.contact||""} onChange={e=>setEditing(c=>({...c,contact:e.target.value}))} placeholder="email or phone" style={fld} />
+          <div style={{display:"flex",gap:10}}>
+            <div style={{flex:1}}>
+              <div style={lbl}>Status</div>
+              <select value={editing.status||"lead"} onChange={e=>setEditing(c=>({...c,status:e.target.value}))} style={{...fld,cursor:"pointer"}}>
+                {STATUSES.map(s=><option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+              </select>
+            </div>
+            <div style={{flex:1}}>
+              <div style={lbl}>Their site link <span style={{textTransform:"none",fontWeight:400}}>(slug, optional)</span></div>
+              <input value={editing.site_slug||""} onChange={e=>setEditing(c=>({...c,site_slug:e.target.value}))} placeholder="their-site-slug" style={fld} />
+            </div>
+          </div>
+          <div style={lbl}>Notes</div>
+          <textarea value={editing.notes||""} onChange={e=>setEditing(c=>({...c,notes:e.target.value}))} rows={3} placeholder="What they need, deadlines, brand voice, logins to remember…" style={{...fld,resize:"vertical",lineHeight:1.5}} />
+          {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:10}}>{err}</div>}
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            <button disabled={busy} onClick={save} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:busy?"default":"pointer"}}>{busy?"Saving…":(editing.id?"Save changes":"Add client")}</button>
+            <button disabled={busy} onClick={()=>{setEditing(null);setErr("");}} style={{background:"none",color:B.mid,border:"1px solid "+B.stone,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"8px 0"}}>Loading…</div>
+        : (!editing && clients.length===0) ? <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,padding:"6px 0"}}>No clients yet. Add your first one to start tracking their business, status, notes, and the site you built for them.</div>
+        : clients.map(c=>(
+          <div key={c.id} style={{borderTop:"1px solid "+B.stone,padding:"14px 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,color:B.charcoal}}>{c.name}</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 7px",borderRadius:10,background:(STATUS_COLOR[c.status]||B.mid),color:c.status==="past"?B.charcoal:"#fff"}}>{STATUS_LABEL[c.status]||c.status}</span>
+                </div>
+                {c.business&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:2}}>{c.business}</div>}
+                {c.contact&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:2}}>{c.contact}</div>}
+                {c.notes&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,marginTop:6,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{c.notes}</div>}
+                {c.site_slug&&<a href={window.location.origin+"/?site="+encodeURIComponent(c.site_slug)} target="_blank" rel="noreferrer" style={{display:"inline-block",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,fontWeight:700,marginTop:8,textDecoration:"none"}}>Open their site ↗</a>}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0,alignItems:"flex-end"}}>
+                <button onClick={()=>{setErr("");setEditing({...c});}} style={{background:"none",border:"none",color:B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",fontWeight:700}}>Edit</button>
+                <button onClick={()=>del(c.id)} style={{background:"none",border:"none",color:B.red,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>Delete</button>
+              </div>
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+function BlogWriter({ site, onSave, user, onBalance }) {
   const posts = (site && site.data && site.data.blog) || [];
+  const [mode, setMode] = useState("ai"); // ai | own
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState("Warm & personal");
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState(null);
+  const [draft, setDraft] = useState(null); // {title,excerpt,body} — editable
+  const [img, setImg] = useState("");
+  const [imgBusy, setImgBusy] = useState(false);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
   const MIN = 250;
   const TONES = ["Warm & personal","Expert & authoritative","Conversational","Bold & opinionated","Friendly & practical"];
 
+  function reset(){ setDraft(null); setImg(""); setErr(""); setTopic(""); }
+  function startOwn(){ setDraft({ title:"", excerpt:"", body:"" }); setImg(""); setErr(""); setMode("own"); }
+  function startAi(){ setDraft(null); setImg(""); setErr(""); setMode("ai"); }
+
   async function write() {
     if (topic.trim().length < MIN) { setErr("Add at least " + MIN + " characters so your post is specific and original."); return; }
-    setBusy(true); setErr(""); setDraft(null);
+    setBusy(true); setErr(""); setDraft(null); setImg("");
     const prompt = "You are writing an original blog post for a real small business's own website.\n\nThe owner's description of what they want the post to be about (use this as the specific, original basis \u2014 do not drift generic):\n\"\"\"" + topic.trim() + "\"\"\"\n\nTone: " + tone + "\n\nWrite a genuinely human, original blog post. It must NOT read like AI writing. Rules:\n- Vary sentence length a lot: mix short punchy sentences with longer flowing ones, and the odd fragment.\n- Write with a specific point of view and real personality. Take a stance; sound like a person, not a brand bot.\n- Use concrete, specific details and small examples instead of vague generalities.\n- Use contractions and a natural spoken rhythm. Rhetorical questions are fine.\n- Do NOT use any of these AI-tell phrases: 'in today's fast-paced world', 'whether you're', 'in conclusion', 'let's dive in', 'it's important to note', 'when it comes to', 'game-changer', 'elevate', 'unlock', 'seamless', 'delve', 'moreover', 'furthermore', 'look no further', 'navigate the world of', 'that being said'.\n- No generic opening or summary paragraph. Open on something specific. End on a real thought, not a neat wrap-up.\n- Avoid perfectly balanced lists of three and overly symmetrical structure.\n- 500-800 words.\n\nReturn ONLY valid JSON (no markdown, no code fences) exactly like:\n{\"title\":\"a specific, non-clickbait title\",\"excerpt\":\"one-sentence teaser under 160 characters\",\"body\":\"full post as plain text, paragraphs separated by \\\\n\\\\n; put any short subheading on its own line\"}";
     try {
       const rawT = await callClaude(prompt, 2200, false, null);
@@ -7120,18 +7252,51 @@ function BlogWriter({ site, onSave }) {
       const obj = JSON.parse(txt);
       if (!obj.title || !obj.body) throw new Error("bad");
       setDraft({ title: obj.title, excerpt: obj.excerpt || "", body: obj.body });
-    } catch (e) { setErr("Couldn't write the post \u2014 please try again."); }
-    setBusy(false);
+      setBusy(false);
+      genImage(obj.title); // auto-make a header image to match
+    } catch (e) { setErr("Couldn't write the post \u2014 please try again."); setBusy(false); }
+  }
+
+  async function genImage(titleStr) {
+    if (!user || !user.id) { setErr("Please finish setting up your site before adding images."); return; }
+    setImgBusy(true); setErr("");
+    try {
+      const styleDNA = (site && site.data && site.data.styleDNA) || "";
+      const t = titleStr || (draft && draft.title) || topic || "blog post";
+      const prompt = "A refined editorial header photograph for a blog post titled \"" + t + "\". " + (styleDNA ? ("Match this art direction so it fits the brand: " + styleDNA + ". ") : "") + "Photographic, tasteful, premium, magazine-quality. Absolutely no text, no words, no letters, no captions, no logos anywhere in the image.";
+      const r = await generateGeminiImage(prompt, null, "16:9", "standard");
+      if (r && r.image) {
+        if (typeof r.balance === "number" && onBalance) onBalance(r.balance);
+        const url = await uploadSiteImage(r.image, user.id + "/blog-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
+        if (url) setImg(url); else setErr("Couldn't save the image \u2014 try again or upload your own.");
+      } else setErr("Couldn't make the image \u2014 try again or upload your own.");
+    } catch (e) { setErr("Couldn't make the image \u2014 try again or upload your own."); }
+    setImgBusy(false);
+  }
+
+  function onUpload(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file || !user || !user.id) return;
+    setImgBusy(true); setErr("");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try { const url = await uploadSiteImage(String(reader.result), user.id + "/blog-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png"); if (url) setImg(url); else setErr("Couldn't upload that image."); }
+      catch (e2) { setErr("Couldn't upload that image."); }
+      setImgBusy(false);
+    };
+    reader.onerror = () => { setErr("Couldn't read that file."); setImgBusy(false); };
+    reader.readAsDataURL(file);
   }
 
   async function publish() {
-    if (!draft) return;
+    if (!draft || !(draft.title || "").trim() || !(draft.body || "").trim()) { setErr("Add a title and some body text before publishing."); return; }
     setSaving(true); setErr("");
     const d = JSON.parse(JSON.stringify((site && site.data) || {}));
     d.blog = Array.isArray(d.blog) ? d.blog : [];
-    const __ex = new Set((d.blog||[]).map(x=>x&&x.slug).filter(Boolean));
-    const __base = cgSlugify(draft.title); let __sl = __base, __n = 2; while(__ex.has(__sl)){ __sl = __base+"-"+__n; __n++; }
-    d.blog.unshift({ id: "p" + Date.now(), slug: __sl, title: draft.title, excerpt: draft.excerpt, body: draft.body, date: new Date().toISOString(), tone });
+    const ex = new Set((d.blog || []).map(x => x && x.slug).filter(Boolean));
+    const base = cgSlugify(draft.title); let sl = base, n = 2; while (ex.has(sl)) { sl = base + "-" + n; n++; }
+    d.blog.unshift({ id: "p" + Date.now(), slug: sl, title: draft.title.trim(), excerpt: (draft.excerpt || "").trim(), body: draft.body.trim(), image: img || undefined, date: new Date().toISOString(), tone: mode === "ai" ? tone : undefined });
     d.sections = Array.isArray(d.sections) ? d.sections : [];
     if (!d.sections.some(s => s && s.type === "blog")) {
       const ci = d.sections.findIndex(s => s && s.type === "contact");
@@ -7140,7 +7305,7 @@ function BlogWriter({ site, onSave }) {
     }
     const ok = await onSave(d);
     setSaving(false);
-    if (ok) { setDraft(null); setTopic(""); } else setErr("Couldn't publish \u2014 please try again.");
+    if (ok) { reset(); setMode("ai"); } else setErr("Couldn't publish \u2014 please try again.");
   }
 
   async function del(id) {
@@ -7150,42 +7315,89 @@ function BlogWriter({ site, onSave }) {
   }
 
   const left = MIN - topic.trim().length;
+  const fld = { width:"100%", boxSizing:"border-box", padding:"10px 12px", border:"1px solid "+B.stone, fontFamily:"sans-serif", fontSize:13, color:B.charcoal, background:"#fff", marginBottom:10 };
+  const lbl = { fontFamily:"sans-serif", fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"#B8955A", marginBottom:6 };
+  const btnGhost = { background:"none", color:B.charcoal, border:"1px solid "+B.stone, padding:"9px 14px", fontFamily:"sans-serif", fontSize:10, letterSpacing:"0.06em", fontWeight:700, textTransform:"uppercase", cursor:"pointer" };
+
   return (
     <div>
-      <div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,marginBottom:4}}>AI blog writer</div>
-      <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 16px",maxWidth:560}}>Describe what you want this post to cover in your own words \u2014 the more specific you are, the more original and human it reads (and the better it sits with Google). Then publish straight to your site.</p>
-      <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>What should it be about?</div>
-      <textarea value={topic} onChange={e=>setTopic(e.target.value)} rows={5} placeholder="e.g. Why we switched our whole cafe to oat milk by default, what regulars said, and the two drinks it quietly made better. Mention our house chai and the mess we made testing it\u2026" style={{width:"100%",boxSizing:"border-box",padding:"11px 13px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,resize:"vertical",color:B.charcoal,marginBottom:6}} />
-      <div style={{fontFamily:"sans-serif",fontSize:11,color:left>0?B.mid:B.green,marginBottom:14}}>{left>0?left+" more characters needed":"\u2713 Ready \u2014 nicely specific"}</div>
-      <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:14}}>
-        <label style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,display:"flex",alignItems:"center",gap:8}}>Tone
-          <select value={tone} onChange={e=>setTone(e.target.value)} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff",color:B.charcoal}}>
-            {TONES.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
-        </label>
-        <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stone:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing\u2026":"\u2728 Write my post"}</button>
+      <div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,marginBottom:4}}>Blog</div>
+      <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 16px",maxWidth:560}}>Write a post with AI from your own brief, or write your own from scratch. Every post gets a matching header image you can regenerate or replace \u2014 then it publishes straight to your site.</p>
+
+      <div style={{display:"flex",gap:6,marginBottom:18}}>
+        <button onClick={startAi} style={{...btnGhost,background:mode==="ai"?B.charcoal:"none",color:mode==="ai"?"#fff":B.charcoal,borderColor:mode==="ai"?B.charcoal:B.stone}}>Write with AI</button>
+        <button onClick={startOwn} style={{...btnGhost,background:mode==="own"?B.charcoal:"none",color:mode==="own"?"#fff":B.charcoal,borderColor:mode==="own"?B.charcoal:B.stone}}>Write my own</button>
       </div>
-      {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{err}</div>}
-      {draft&&(
-        <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"18px 20px",marginBottom:20}}>
-          <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:6}}>{draft.title}</div>
-          <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,fontStyle:"italic",marginBottom:12}}>{draft.excerpt}</div>
-          <div style={{fontFamily:"Georgia,serif",fontSize:13.5,color:B.charcoal,lineHeight:1.7,maxHeight:260,overflow:"auto",whiteSpace:"pre-wrap",borderTop:"1px solid "+B.stone,paddingTop:12}}>{draft.body}</div>
-          <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>
-            <button disabled={saving} onClick={publish} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:saving?"default":"pointer"}}>{saving?"Publishing\u2026":"Publish to my site"}</button>
-            <button disabled={saving} onClick={write} style={{background:"none",color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>Rewrite</button>
-            <button disabled={saving} onClick={()=>setDraft(null)} style={{background:"none",color:B.mid,border:"none",padding:"10px 8px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>Discard</button>
+
+      {mode==="ai" && !draft && (
+        <div>
+          <div style={lbl}>What should it be about?</div>
+          <textarea value={topic} onChange={e=>setTopic(e.target.value)} rows={5} placeholder="e.g. Why we switched our whole cafe to oat milk by default, what regulars said, and the two drinks it quietly made better. Mention our house chai and the mess we made testing it\u2026" style={{...fld,lineHeight:1.5,resize:"vertical",marginBottom:6}} />
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:left>0?B.mid:B.green,marginBottom:14}}>{left>0?left+" more characters needed":"\u2713 Ready \u2014 nicely specific"}</div>
+          <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+            <label style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,display:"flex",alignItems:"center",gap:8}}>Tone
+              <select value={tone} onChange={e=>setTone(e.target.value)} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff",color:B.charcoal}}>
+                {TONES.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stone:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing\u2026":"\u2728 Write my post"}</button>
           </div>
         </div>
       )}
+
+      {draft && (
+        <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"18px 20px",marginBottom:20}}>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{mode==="ai"?"Edit anything below, then publish.":"Write your post below, then publish."}</div>
+
+          <div style={lbl}>Header image</div>
+          {img ? (
+            <div style={{marginBottom:14}}>
+              <img src={img} alt="" style={{width:"100%",maxHeight:220,objectFit:"cover",display:"block",border:"1px solid "+B.stone}} />
+              <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                <button onClick={()=>genImage()} disabled={imgBusy} style={btnGhost}>{imgBusy?"Working\u2026":"Regenerate"}</button>
+                <label style={{...btnGhost,display:"inline-block"}}>Upload<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>
+                <button onClick={()=>setImg("")} disabled={imgBusy} style={{...btnGhost,color:B.red,borderColor:B.stone}}>Remove</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{border:"1px dashed "+B.stone,padding:"16px",textAlign:"center",marginBottom:14,background:"#fff"}}>
+              {imgBusy ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Creating a matching image\u2026</div> : (
+                <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                  <button onClick={()=>genImage()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>\u2728 Generate with AI</button>
+                  <label style={{...btnGhost,display:"inline-block"}}>Upload your own<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={lbl}>Title</div>
+          <input value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))} placeholder="Post title" style={{...fld,fontFamily:"Georgia,serif",fontSize:17}} />
+          <div style={lbl}>Teaser <span style={{textTransform:"none",fontWeight:400,color:B.mid}}>(shown in the blog list)</span></div>
+          <input value={draft.excerpt} onChange={e=>setDraft(d=>({...d,excerpt:e.target.value}))} placeholder="One-sentence teaser" style={fld} />
+          <div style={lbl}>Body</div>
+          <textarea value={draft.body} onChange={e=>setDraft(d=>({...d,body:e.target.value}))} rows={12} placeholder="Write your post. Leave a blank line between paragraphs." style={{...fld,fontFamily:"Georgia,serif",fontSize:14,lineHeight:1.7,resize:"vertical"}} />
+
+          <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
+            <button disabled={saving} onClick={publish} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:saving?"default":"pointer"}}>{saving?"Publishing\u2026":"Publish to my site"}</button>
+            {mode==="ai"&&<button disabled={saving||busy} onClick={write} style={btnGhost}>Rewrite</button>}
+            <button disabled={saving} onClick={()=>{ setDraft(null); setImg(""); if(mode==="own") setMode("ai"); }} style={{background:"none",color:B.mid,border:"none",padding:"10px 8px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>Discard</button>
+          </div>
+        </div>
+      )}
+
+      {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{err}</div>}
+
       {posts.length>0&&(
         <div>
           <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"6px 0 10px"}}>Published posts ({posts.length})</div>
           {posts.map(p=>(
-            <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,borderBottom:"1px solid "+B.stone,padding:"10px 0"}}>
-              <div style={{minWidth:0}}>
-                <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.title}</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{p.date?new Date(p.date).toLocaleDateString():""}</div>
+            <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,borderBottom:"1px solid "+B.stone,padding:"10px 0"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
+                {p.image&&<img src={p.image} alt="" style={{width:52,height:40,objectFit:"cover",border:"1px solid "+B.stone,flexShrink:0}} />}
+                <div style={{minWidth:0}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.title}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{p.date?new Date(p.date).toLocaleDateString():""}</div>
+                </div>
               </div>
               <button onClick={()=>del(p.id)} style={{background:"none",border:"none",color:B.red,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>Delete</button>
             </div>
@@ -7732,6 +7944,7 @@ export default function ChelgyApp() {
   },[]);
   const [isTrial, setIsTrial] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
   const [pastDue, setPastDue] = useState(false);
   const [muted, setMuted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -7739,6 +7952,7 @@ export default function ChelgyApp() {
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
   const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
+  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ try { const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
   const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
   const [domainMiss,setDomainMiss] = useState(false);
@@ -8092,6 +8306,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   function bizContext(){
     const i = intake || {};
     const parts = [];
+    if(isDemo || isMarketerSpace || (isTeamSpace && marketerStatus==="approved")) parts.push("IMPORTANT CONTEXT: You are assisting an independent marketer who runs marketing for MULTIPLE separate client businesses and mass-produces content, campaigns, images, ads and websites for them at volume. Assume any request is work for one of their clients. Produce polished, client-ready output; keep each client's brand voice distinct; and when it would change the output, briefly ask which client or brand this is for. Be fast and practical — they are producing a high volume of work");
     if(myName && myName!=="You" && myName!=="Member") parts.push("Member name: "+myName);
     if(i.what || myBusiness) parts.push("Business: "+(i.what||myBusiness));
     if(i.field) parts.push("Field: "+i.field);
@@ -8527,6 +8742,23 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   // ─── Persist everything locally so nothing resets on refresh ─────────────────
   useEffect(()=>{ if(isTeamSpace && marketerStatus==="approved"){ setPage("app"); if(!isPaid) setIsTrial(true); else setIsTrial(false); } },[isTeamSpace, marketerStatus, isPaid]);
+  useEffect(()=>{ try{ const ss=loadSession(); if(ss&&cgIsDemoEmail(ss.email)){ setIsDemo(true); setIsPaid(true); setIsTrial(false); setPage("app"); } }catch(e){} },[]);
+  useEffect(()=>{
+    if(!user || !user.id) return;
+    (async()=>{
+      try{
+        const p=new URLSearchParams(window.location.search);
+        const raw=p.get("marketer");
+        const off = raw!==null && ["0","off","false"].includes((raw||"").toLowerCase());
+        if(off){
+          if(user.is_marketer || isMarketerSpace){ const tok=await freshToken(); if(tok) await cgWriteMarketerFlag(tok,false); setUser(u=>(u&&u.is_marketer)?{...u,is_marketer:false}:u); setIsMarketerSpace(false); try{localStorage.removeItem("chelgy_marketer");}catch(e){} }
+          return;
+        }
+        if(user.is_marketer && !isMarketerSpace){ setIsMarketerSpace(true); try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return; }
+        if(isMarketerSpace && !user.is_marketer){ const tok=await freshToken(); if(tok) await cgWriteMarketerFlag(tok,true); setUser(u=>u?{...u,is_marketer:true}:u); }
+      }catch(e){}
+    })();
+  },[user, isMarketerSpace]);
   useEffect(()=>{ lsSet("chelgy_credits", credits); },[credits]);
   useEffect(()=>{ try{ localStorage.setItem("chelgy_launch_data", JSON.stringify(launchData)); }catch(e){} },[launchData]);
   useEffect(()=>{ try{ if(launchResult) localStorage.setItem("chelgy_launch_result", JSON.stringify(launchResult)); else localStorage.removeItem("chelgy_launch_result"); }catch(e){} },[launchResult]);
@@ -8730,6 +8962,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if (r.error) { setAuthError(r.error); return; }
     const s = saveSession(r.data || {});
     if (s) { setUser(s); setMyName(s.name || email.trim()); }
+    if (cgIsDemoEmail(email)) { setIsDemo(true); setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} track("login",{method:"demo"}); setPage("app"); return; }
     let member = false; try { member = localStorage.getItem("chelgy_member")==="1"; } catch {}
     setIsTrial(!member);
     track("login", { method: "email" });
@@ -9838,6 +10071,46 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     );
   }
 
+  if (legalPath==="/support") {
+    return (
+      <div style={{fontFamily:"sans-serif",background:B.cream||"#FAF8F5",minHeight:"100vh",overflowY:"auto"}}>
+        <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px 80px"}}>
+          <div style={{position:"sticky",top:0,background:(B.cream||"#FAF8F5"),paddingTop:22,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid "+B.stone,marginBottom:24}}>
+            <img src={LOGO_B64} alt="Chelgy" style={{height:22,objectFit:"contain"}} />
+            <a href="/" style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.charcoal,textDecoration:"none",border:"1px solid "+B.stone,padding:"7px 14px"}}>Back to Chelgy</a>
+          </div>
+          <h1 style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:400,margin:"0 0 12px",color:B.charcoal}}>Support</h1>
+          <p style={{fontSize:14,lineHeight:1.7,color:B.charcoal,margin:"0 0 28px"}}>Need a hand? We're here to help you get the most out of Chelgy.</p>
+
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 24px",marginBottom:18}}>
+            <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.goldDark,textTransform:"uppercase",marginBottom:8}}>Email us</div>
+            <a href="mailto:support@chelgy.app" style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,textDecoration:"none"}}>support@chelgy.app</a>
+            <p style={{fontSize:13,lineHeight:1.7,color:B.mid,margin:"10px 0 0"}}>The fastest way to reach us. We usually reply within one business day. Include your account email and a short description of what you need, and a screenshot if something looks off.</p>
+          </div>
+
+          <h2 style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:400,margin:"28px 0 14px",color:B.charcoal}}>Quick answers</h2>
+          {[
+            ["How do I manage or cancel my membership?","Your subscription is managed through the billing portal linked in your account. You can update your card or cancel anytime, and you'll keep access until the end of your current billing period."],
+            ["How does the free trial work?","You can explore the app and use the text tools during your trial. Upgrading to a membership unlocks image and video generation, the full strategy library, and everything else."],
+            ["I need to delete my account.","Email us from your account address and we'll permanently remove your account and associated data. You can also request a copy of your data."],
+            ["Can I use what I create commercially?","Yes — the content, images, and sites you generate are yours to use for your own business and clients."],
+            ["Something isn't working.","Try a hard refresh first. If it persists, email us with your account email, the tool you were using, and a screenshot — that helps us fix it fast."],
+          ].map(([q,a],i)=>(
+            <div key={i} style={{borderBottom:"1px solid "+B.stone,padding:"14px 0"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,color:B.charcoal,marginBottom:6}}>{q}</div>
+              <div style={{fontSize:13,lineHeight:1.7,color:B.mid}}>{a}</div>
+            </div>
+          ))}
+
+          <div style={{marginTop:32,paddingTop:20,borderTop:"1px solid "+B.stone,display:"flex",gap:20,flexWrap:"wrap"}}>
+            <a href="/privacy" style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,letterSpacing:"0.04em",textDecoration:"underline"}}>Privacy Policy</a>
+            <a href="/terms" style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,letterSpacing:"0.04em",textDecoration:"underline"}}>Terms & Conditions</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isTeamSpace && page==="login") return (
     <div style={{fontFamily:"Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
@@ -10684,7 +10957,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={isTeamSpace && marketerStatus==="approved"} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
             </div>
           )}
 
@@ -11084,6 +11357,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           )}
           {tab==="profile"&&!(isTeamSpace&&marketerStatus==="approved")&&subTab==="overview"&&(
             <div style={{paddingTop:28}}>
+              {(isMarketerSpace||isDemo)&&<MarketerClients user={user} />}
               {(()=>{ const hr=new Date().getHours(); const greet=hr<12?"Good morning":hr<18?"Good afternoon":"Good evening"; const streak=computeStreak(); const total=bigTasks.length; const doneN=bigTasks.filter(t=>t.done).length; const pct=total?Math.round(doneN/total*100):0; const next=(bigTasks.find(t=>!t.done)||{}); return (
                 <div style={{background:B.charcoal,padding:"26px 24px",marginBottom:2}}>
                   <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff",fontWeight:400,marginBottom:6}}>{greet}{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</div>
