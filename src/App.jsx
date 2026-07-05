@@ -1992,7 +1992,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
           </div>
 
           <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-            {[["design","Theme"],["sections","Sections"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+            {[["design","Theme"],["sections","Sections"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["blog","Blog"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
               <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"sans-serif",fontSize:11,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
@@ -2065,7 +2065,12 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
             <StripeConnect user={user} />
-            {/* CJ product sourcing hidden while dropshipping is paused — re-enable: <CJProductBrowser user={user} onImport={p=>setEdProducts(a=>[...a,p])} /> */}
+            <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid "+B.stone,marginBottom:16}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:15,color:B.charcoal,marginBottom:4}}>Auto-dropshipping with CJ</div>
+              <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>Connect your free CJ account to source products and have orders fulfilled in-house. In CJ, open <strong>My CJ &rarr; Authorization &rarr; API &rarr; Generate</strong>, then paste the key here. No CJ account yet? <a href="https://cjdropshipping.com/register.html" target="_blank" rel="noopener noreferrer" style={{color:B.goldDark,fontWeight:700}}>Create one free &rarr;</a></p>
+              <CJConnect user={user} />
+            </div>
+            <CJProductBrowser user={user} onImport={p=>setEdProducts(a=>[...a,p])} />
             {edProducts.map((pr,i)=>(
               <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",padding:"16px",marginBottom:12}}>
                 <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -2075,7 +2080,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                       : <div style={{width:88,height:88,border:"1px dashed "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",color:B.mid,fontFamily:"sans-serif",fontSize:9,textAlign:"center",lineHeight:1.3}}>{edProdBusy===i?"…":"No photo"}</div>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    {false&&pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"\u25C6 CJ \u00b7 auto-fulfillable"}</div>}
+                    {pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"\u25C6 CJ \u00b7 auto-fulfillable"}</div>}
                     <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
@@ -2168,6 +2173,9 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
 
           <ProductPhotoSet onBalance={onBalance} />
 
+          </div>}
+          {edTab==="blog"&&<div>
+            <BlogWriter site={wmExisting} onSave={saveData} />
           </div>}
           {edTab==="domain"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
@@ -5239,8 +5247,8 @@ function CollageLayout({ site }) {
       {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j}><div className="ph" style={bgi(url(it.image))}></div><div className="nm">{it.name}</div><div className="meta"><span>{it.note}</span>{it.price && <span className="price">{it.price}</span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
       {quote && <section className="quote wrap"><div><p>{quote.text}</p>{quote.cite && <cite>{quote.cite}</cite>}</div></section>}
       {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow">{contact.eyebrow}</div>}<h2>{contact.heading}{contact.headingEm && <em> {contact.headingEm}</em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}>{d.v}</span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}>{contact.cta.label}</a></div>}</div></div></section>}
-      <footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
-      {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
+      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
 }
@@ -5381,8 +5389,8 @@ function DuetLayout({ site }) {
         {contact.cta && <a href="#" className="btn-out">{contact.cta.label}</a>}
       </div></section>}
       <StandardSections site={s} show={{about:true}} />
-      <footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
-      {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
+      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
 }
@@ -5506,8 +5514,8 @@ function RougeLayout({ site }) {
         {contact.cta && <a href="#" className="btn cream">{contact.cta.label}</a>}
       </div></section>}
       <StandardSections site={s} show={{about:true,quote:true}} />
-      <footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
-      {s.credit !== false && <div className="credit"><span>Built by Chelgy</span></div>}
+      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
 }
@@ -5614,7 +5622,7 @@ function VigorLayout({ site }){
         {contact.cta&&<a className="btn light" href="#">{contact.cta.label}</a>}
       </section>}
       <StandardSections site={s} show={{quote:true}} />
-      <footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}>Built by Chelgy</div>}</footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></div>}</footer>
     </div>
   );
 }
@@ -5689,7 +5697,7 @@ function AureliaLayout({ site }){
       {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><div className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</section>}
       {phil&&<section className="manifesto" id="s-about"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>} {phil.body&&phil.body[0]?phil.body[0]:""}</p><a className="btn-outline" href="#s-work">{(hero&&hero.cta&&hero.cta.label)||"View gallery"}</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -5782,7 +5790,7 @@ function ClaretLayout({ site }){
       {off&&<section className="services" id="s-offerings"><span className="eyebrow c">{off.eyebrow||"Our services"}</span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name">{it.name}</span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}
       {bandStmt&&bandStmt.line&&<section className="band" id="s-contact"><h2 className="stmt">{bandStmt.line}{bandStmt.em&&<em> {bandStmt.em}</em>}</h2>{contact&&contact.cta&&<a className="btn on-wine" href="#">{contact.cta.label}</a>}</section>}
       <StandardSections site={s} show={{contact:true}} />
-      <footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -5860,7 +5868,7 @@ function NocturneLayout({ site }){
       {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
       {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -5936,7 +5944,7 @@ function SableLayout({ site }){
       {phil&&<section className="headline" id="s-about"><h1>{phil.heading}{phil.headingEm&&<em> {phil.headingEm}</em>}</h1>{phil.body&&phil.body[0]&&<p className="sub">{phil.body[0]}</p>}</section>}
       {off&&<section className="services" id="s-offerings"><div className="grid"><div><span className="eyebrow">{off.eyebrow||"Full-spectrum services"}</span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name">{it.name}</span></li>)}</ul></div><div className="img-slot" style={bgi(gi(2)||gi(0))}></div></div></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6023,7 +6031,7 @@ function MissiveLayout({ site }){
       {phil&&<section className="welcome"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>}</p></section>}
       {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{contact:true}} />
-      <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6085,7 +6093,7 @@ function HavenLayout({ site }){
           <h1>{(hero&&hero.headline)||(phil&&phil.heading)||"Beautiful things for calm spaces."}</h1>
           <div className="tiles">{items.map((it,i)=>{const body=[<div className="pad" key="p"><div className="img-slot" style={bgi(url(it.image))}></div></div>,<div className="name" key="n">{it.name}</div>];if(it.price)body.push(<div className="price" key="pr">{it.price}</div>);return it.buyUrl?<a className="tile" key={i} href={it.buyUrl} target="_blank" rel="noreferrer">{body}</a>:<div className="tile" key={i}>{body}</div>;})}</div>
         </section>
-        <footer className="foot" id="s-contact"><div className="fmark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-copy">{brand.footerNote||"© 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+        <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="fmark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-copy">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
       </div>
     </div>
   );
@@ -6168,7 +6176,7 @@ function LinenLayout({ site }){
       {phil&&<section className="cats-head" id="s-cats"><h2>{phil.heading||"Shop by Category"}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}</section>}
       {off&&<section className="cats">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="label">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div>{tag&&<div className="foot-tag">{tag}</div>}<nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div>{tag&&<div className="foot-tag">{tag}</div>}<nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6245,7 +6253,7 @@ function UmberLayout({ site }){
       {phil&&<section className="known" id="s-known"><div className="ghost" aria-hidden="true">{brand.name||""}</div><div className="inner"><p className="eyebrow i">{phil.eyebrow||"Best known for"}</p><h2>{phil.heading} {phil.headingEm&&<span className="hollow">{phil.headingEm}</span>}</h2>{phil.body&&phil.body[0]&&<p className="body">{phil.body[0]}</p>}{contact&&contact.cta&&<a className="pill solid" href="#s-contact">{contact.cta.label}</a>}</div></section>}
       {about&&<section className="meet" id="s-about"><div className="grid"><div><h2>{about.heading} {"\u007D"}</h2>{(about.headingEm||about.eyebrow)&&<p className="role">{about.headingEm||about.eyebrow}</p>}{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><div className="img-slot" style={bgi(url(about.image))}></div></div></section>}
       <StandardSections site={s} show={{quote:true,contact:true}} />
-      <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6348,7 +6356,7 @@ function WillowLayout({ site }){
       {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><div className="img-slot dark" style={bgi(url((ed&&ed.image))||url(hero&&hero.image))}></div></div></section>}
       {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
       <StandardSections site={s} show={{contact:true}} />
-      <footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?" · Built by Chelgy":""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6392,6 +6400,151 @@ function StandardSections({ site, show }){
       {sh.about&&about&&<section className="cg-sec"><div className="cg-about"><div className="cg-img" style={bgi(url(about.image))}></div><div>{about.eyebrow&&<div className="cg-eyebrow">{about.eyebrow}</div>}<h3>{about.heading}{about.headingEm?(" "+about.headingEm):""}</h3>{(about.body||[]).map((pp,i)=><p key={i}>{pp}</p>)}</div></div></section>}
       {sh.quote&&quote&&quote.text&&<section className="cg-quote"><blockquote>&ldquo;{quote.text}&rdquo;</blockquote>{quote.cite&&<div className="cg-cite">{quote.cite}</div>}</section>}
       {sh.contact&&contact&&<section className="cg-contact"><h3>{contact.heading||"Get in touch"}{contact.headingEm?(" "+contact.headingEm):""}</h3><div className="cg-rows">{(contact.details||[]).map((d,i)=><div className="cg-row" key={i}><div className="k">{d.k}</div><div className="v">{d.v}</div></div>)}</div>{contact.cta&&contact.cta.label&&<a className="cg-cta" href={em?("mailto:"+em.v):"#"}>{contact.cta.label}</a>}</section>}
+    </div>
+  );
+}
+
+const THEME_TOKENS = {
+  fog:{bg:"#F1EBDF",ink:"#241E18",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  muse:{bg:"#FFFFFF",ink:"#1C1B18",display:"'Cormorant Garamond',Georgia,serif",body:"'Jost',sans-serif"},
+  duet:{bg:"#FFFFFF",ink:"#20140F",display:"'Playfair Display',Georgia,serif",body:"'Jost',sans-serif"},
+  rouge:{bg:"#FFFFFF",ink:"#131313",display:"'Clash Display','Arial Narrow',sans-serif",body:"'Jost',sans-serif"},
+  vigor:{bg:"#16110E",ink:"#EDE7DB",display:"'Bodoni Moda','Didot',Georgia,serif",body:"'Jost',sans-serif"},
+  aurelia:{bg:"#F6F2EA",ink:"#1B1210",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  claret:{bg:"#0D0D0D",ink:"#EDE7DB",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  nocturne:{bg:"#FFFFFF",ink:"#16150F",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  sable:{bg:"#F6F2EA",ink:"#161616",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  missive:{bg:"#F6F2EA",ink:"#262320",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  haven:{bg:"#F6F2EA",ink:"#14110E",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  linen:{bg:"#F6F2EA",ink:"#1A1712",display:"'Clash Display','Arial Narrow',sans-serif",body:"'Jost',sans-serif"},
+  umber:{bg:"#FDFDFD",ink:"#171512",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  willow:{bg:"#F6F2EA",ink:"#241E18",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+  __default:{bg:"#F6F2EA",ink:"#241E18",display:"'Bodoni Moda',Georgia,serif",body:"'Jost',sans-serif"},
+};
+function cgThemeTokens(theme){ return THEME_TOKENS[theme] || THEME_TOKENS.__default; }
+function cgIsDark(hex){ try{ let h=String(hex||"").replace("#",""); if(h.length===3) h=h.split("").map(c=>c+c).join(""); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return (0.299*r+0.587*g+0.114*b) < 128; }catch(e){ return false; } }
+function cgSlugify(s){ return (String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60)) || "post"; }
+function cgPostKey(p){ return (p && (p.slug || p.id)) || ""; }
+function cgBlogPostHref(p){
+  const key = cgPostKey(p);
+  try{
+    const siteParam = new URLSearchParams(window.location.search).get("site");
+    if(siteParam) return "?site="+encodeURIComponent(siteParam)+"&post="+encodeURIComponent(key);
+    return "/blog/"+encodeURIComponent(key);
+  }catch(e){ return "?post="+encodeURIComponent(key); }
+}
+function cgBlogBackHref(){
+  try{
+    const siteParam = new URLSearchParams(window.location.search).get("site");
+    if(siteParam) return "?site="+encodeURIComponent(siteParam);
+    return "/";
+  }catch(e){ return "/"; }
+}
+
+
+function cgSetMeta(sel, mk, mv, content){ try{ if(content==null||content==="") return; let el=document.head.querySelector(sel); if(!el){ el=document.createElement("meta"); el.setAttribute(mk,mv); document.head.appendChild(el); } el.setAttribute("content",String(content)); }catch(e){} }
+function cgApplySiteSeo(site){
+  try{
+    if(!site||typeof document==="undefined") return;
+    const brand=site.brand||{}; const name=brand.name||""; const secs=site.sections||[];
+    const find=t=>secs.find(s=>s&&s.type===t)||{};
+    const hero=find("hero"), phil=find("philosophy"), about=find("about");
+    const desc=String(hero.sub||(phil.body&&phil.body[0])||(about.body&&about.body[0])||((name?name+" \u2014 ":"")+(hero.headline||""))||name).slice(0,300);
+    const title=name?(name+(hero.eyebrow?(" \u00b7 "+hero.eyebrow):"")):(hero.headline||"Website");
+    const img=(hero.image&&hero.image.url)||(about.image&&about.image.url)||"";
+    document.title=title;
+    cgSetMeta('meta[name="description"]','name','description',desc);
+    cgSetMeta('meta[property="og:title"]','property','og:title',title);
+    cgSetMeta('meta[property="og:description"]','property','og:description',desc);
+    cgSetMeta('meta[property="og:type"]','property','og:type','website');
+    if(img) cgSetMeta('meta[property="og:image"]','property','og:image',img);
+    cgSetMeta('meta[name="twitter:card"]','name','twitter:card',img?'summary_large_image':'summary');
+    try{ cgSetMeta('meta[property="og:url"]','property','og:url',window.location.href); }catch(e){}
+    const contact=find("contact"), rows=contact.details||[];
+    const rv=k=>{ const r=rows.find(x=>x&&String(x.k||"").toLowerCase().includes(k)); return r?r.v:""; };
+    const ld={ "@context":"https://schema.org","@type":"LocalBusiness",name:name||title,description:desc };
+    try{ ld.url=window.location.href; }catch(e){}
+    if(img) ld.image=img;
+    const tel=rv("phone"); if(tel) ld.telephone=tel;
+    const email=rv("email"); if(email) ld.email=email;
+    const addr=rv("address")||rv("location"); if(addr) ld.address={"@type":"PostalAddress",streetAddress:String(addr)};
+    const areas=find("serviceareas").areas; if(Array.isArray(areas)&&areas.length) ld.areaServed=areas;
+    const hrs=find("hours").rows; if(Array.isArray(hrs)&&hrs.length) ld.openingHours=hrs.map(r=>Array.isArray(r)?r.join(" "):String(r)).filter(Boolean);
+    let sc=document.getElementById("cg-jsonld"); if(!sc){ sc=document.createElement("script"); sc.id="cg-jsonld"; sc.type="application/ld+json"; document.head.appendChild(sc); }
+    sc.textContent=JSON.stringify(ld);
+  }catch(e){}
+}
+function cgApplyPostSeo(site,post){
+  try{
+    if(!post||typeof document==="undefined") return;
+    const name=(site&&site.brand&&site.brand.name)||"";
+    const title=post.title+(name?(" \u2014 "+name):"");
+    const desc=String(post.excerpt||String(post.body||"").replace(/\s+/g," ").slice(0,200)).slice(0,300);
+    document.title=title;
+    cgSetMeta('meta[name="description"]','name','description',desc);
+    cgSetMeta('meta[property="og:title"]','property','og:title',post.title);
+    cgSetMeta('meta[property="og:description"]','property','og:description',desc);
+    cgSetMeta('meta[property="og:type"]','property','og:type','article');
+    cgSetMeta('meta[name="twitter:card"]','name','twitter:card','summary');
+    try{ cgSetMeta('meta[property="og:url"]','property','og:url',window.location.href); }catch(e){}
+    const ld={ "@context":"https://schema.org","@type":"BlogPosting",headline:post.title,description:desc };
+    if(post.date) ld.datePublished=post.date;
+    if(name) ld.author={"@type":"Organization",name:name};
+    try{ ld.url=window.location.href; ld.mainEntityOfPage=window.location.href; }catch(e){}
+    let sc=document.getElementById("cg-jsonld"); if(!sc){ sc=document.createElement("script"); sc.id="cg-jsonld"; sc.type="application/ld+json"; document.head.appendChild(sc); }
+    sc.textContent=JSON.stringify(ld);
+  }catch(e){}
+}
+
+function SiteBlogSection({ site, eyebrow, heading }) {
+  const posts = (site && site.blog) || [];
+  if (!posts.length) return null;
+  const base = (typeof window!=="undefined") ? window.location.pathname : "";
+  return (
+    <section style={{padding:"90px 0"}}>
+      <div className="wrap">
+        <div className="eyebrow" style={{marginBottom:14}}>{eyebrow||"Journal"}</div>
+        <h2 style={{fontFamily:"var(--display,Georgia,serif)",fontSize:"clamp(28px,4vw,44px)",fontWeight:400,margin:"0 0 44px",lineHeight:1.1,color:"inherit"}}>{heading||"From the blog"}</h2>
+        <div style={{maxWidth:720}}>
+          {posts.map((p,pi)=>(
+            <article key={p.id||pi} style={{borderTop:pi>0?"1px solid rgba(128,128,128,0.2)":"none",paddingTop:pi>0?36:0,marginBottom:36}}>
+              <div style={{fontSize:12,opacity:0.55,letterSpacing:"0.04em",marginBottom:10,textTransform:"uppercase"}}>{p.date?new Date(p.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}):""}</div>
+              <a href={cgBlogPostHref(p)} style={{textDecoration:"none",color:"inherit"}}>
+                <h3 style={{fontFamily:"var(--display,Georgia,serif)",fontSize:"clamp(22px,3vw,30px)",fontWeight:400,margin:"0 0 12px",lineHeight:1.2,color:"inherit"}}>{p.title}</h3>
+              </a>
+              {p.excerpt&&<p style={{fontSize:16,lineHeight:1.65,margin:"0 0 14px",opacity:0.8}}>{p.excerpt}</p>}
+              <a href={cgBlogPostHref(p)} style={{display:"inline-block",fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,color:"inherit",opacity:0.75,textDecoration:"none",borderBottom:"1px solid currentColor",paddingBottom:2}}>Read the post</a>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+function SitePostPage({ site, post, backHref }) {
+  useEffect(()=>{ try{ if(post&&post.title) document.title=post.title+((site&&site.brand&&site.brand.name)?(" \u2014 "+site.brand.name):""); }catch(e){} },[]);
+  const brandName=(site&&site.brand&&site.brand.name)||"the site";
+  const tk=cgThemeTokens(site&&site.theme);
+  const dark=cgIsDark(tk.bg);
+  const text=dark?"#ECE6DA":tk.ink;
+  const muted=dark?"rgba(236,230,218,0.60)":"rgba(20,18,16,0.55)";
+  const rule=dark?"rgba(236,230,218,0.18)":"rgba(20,18,16,0.12)";
+  const backLink={fontFamily:tk.body,fontSize:11,letterSpacing:"0.14em",textTransform:"uppercase",color:muted,textDecoration:"none",fontWeight:700};
+  return (
+    <div style={{minHeight:"100vh",background:tk.bg,color:text,fontFamily:tk.body}}>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"40px 24px 110px"}}>
+        <a href={backHref} style={backLink}>{"\u2190 "+brandName}</a>
+        <article style={{marginTop:44}}>
+          <div style={{fontFamily:tk.body,fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:muted,marginBottom:16}}>{post.date?new Date(post.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}):""}</div>
+          <h1 style={{fontFamily:tk.display,fontSize:"clamp(30px,5vw,48px)",fontWeight:500,lineHeight:1.12,margin:"0 0 32px",color:text}}>{post.title}</h1>
+          {String(post.body||"").split(/\n\n+/).map((para,i)=>(
+            <p key={i} style={{fontFamily:tk.body,fontSize:18,lineHeight:1.8,margin:"0 0 22px",color:text}}>{para}</p>
+          ))}
+        </article>
+        <div style={{marginTop:50,paddingTop:24,borderTop:"1px solid "+rule}}>
+          <a href={backHref} style={backLink}>{"\u2190 Back to "+brandName}</a>
+        </div>
+      </div>
     </div>
   );
 }
@@ -6497,6 +6650,10 @@ function SiteRender({ site }) {
             </div>
           </section>
         );
+        if(sec.type==="blog"){
+          if(!(s.blog||[]).length) return null;
+          return <SiteBlogSection key={i} site={s} eyebrow={sec.eyebrow} heading={sec.heading} />;
+        }
         if(sec.type==="quote") return (
           <section className="quote wrap" key={i}>
             <blockquote>
@@ -6690,7 +6847,7 @@ function SiteRender({ site }) {
           <nav className="fnav">{(brand.nav || []).map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
           <div className="fine">{brand.footerNote || ""}</div>
         </div>
-        {s.credit!==false&&<div className="credit"><span>Built by Chelgy</span></div>}
+        {s.credit!==false&&<div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
       </footer>
     </div>
   );
@@ -6779,8 +6936,18 @@ function PublicSite({ slug, domain, onNotFound }) {
     })();
     return ()=>{ cancel=true; };
   },[slug,domain]);
+  useEffect(()=>{
+    if(!st.site) return;
+    let key=null; try{ key=new URLSearchParams(window.location.search).get("post"); if(!key){ const m=window.location.pathname.match(/\/blog\/([^\/?#]+)/i); if(m) key=decodeURIComponent(m[1]); } }catch(e){}
+    const post = key && Array.isArray(st.site.blog) ? st.site.blog.find(p=>String(p.slug)===String(key)||String(p.id)===String(key)) : null;
+    if(post) cgApplyPostSeo(st.site, post); else cgApplySiteSeo(st.site);
+  },[st.site]);
   if(st.loading) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Jost',sans-serif",color:"#8A7E70",letterSpacing:"0.2em",textTransform:"uppercase",fontSize:12}}>Loading</div>;
   if(!st.site) return <div style={{minHeight:"100vh",background:"#F1EBDF",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,textAlign:"center",padding:24,fontFamily:"'Jost',sans-serif",color:"#8A7E70"}}><div style={{fontFamily:"'Bodoni Moda',serif",fontSize:28,color:"#241E18"}}>Site not found</div><div style={{fontSize:12,letterSpacing:"0.05em"}}>This site may be unpublished, or the link may be incorrect.</div></div>;
+  let __postKey = null;
+  try{ __postKey = new URLSearchParams(window.location.search).get("post"); if(!__postKey){ const __m=window.location.pathname.match(/\/blog\/([^\/?#]+)/i); if(__m) __postKey=decodeURIComponent(__m[1]); } }catch(e){}
+  const __post = (__postKey && Array.isArray(st.site.blog)) ? st.site.blog.find(p=>String(p.slug)===String(__postKey)||String(p.id)===String(__postKey)) : null;
+  if(__post) return <SitePostPage site={st.site} post={__post} backHref={cgBlogBackHref()} />;
   return (<>
     <style dangerouslySetInnerHTML={{ __html: '#cg-site a[href^="#"]{display:none!important;}' }} />
     <SiteRender site={st.site} />
@@ -6930,6 +7097,105 @@ function WinningProductFinder(){
     </div>
   );
 }
+function BlogWriter({ site, onSave }) {
+  const posts = (site && site.data && site.data.blog) || [];
+  const [topic, setTopic] = useState("");
+  const [tone, setTone] = useState("Warm & personal");
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+  const MIN = 250;
+  const TONES = ["Warm & personal","Expert & authoritative","Conversational","Bold & opinionated","Friendly & practical"];
+
+  async function write() {
+    if (topic.trim().length < MIN) { setErr("Add at least " + MIN + " characters so your post is specific and original."); return; }
+    setBusy(true); setErr(""); setDraft(null);
+    const prompt = "You are writing an original blog post for a real small business's own website.\n\nThe owner's description of what they want the post to be about (use this as the specific, original basis \u2014 do not drift generic):\n\"\"\"" + topic.trim() + "\"\"\"\n\nTone: " + tone + "\n\nWrite a genuinely human, original blog post. It must NOT read like AI writing. Rules:\n- Vary sentence length a lot: mix short punchy sentences with longer flowing ones, and the odd fragment.\n- Write with a specific point of view and real personality. Take a stance; sound like a person, not a brand bot.\n- Use concrete, specific details and small examples instead of vague generalities.\n- Use contractions and a natural spoken rhythm. Rhetorical questions are fine.\n- Do NOT use any of these AI-tell phrases: 'in today's fast-paced world', 'whether you're', 'in conclusion', 'let's dive in', 'it's important to note', 'when it comes to', 'game-changer', 'elevate', 'unlock', 'seamless', 'delve', 'moreover', 'furthermore', 'look no further', 'navigate the world of', 'that being said'.\n- No generic opening or summary paragraph. Open on something specific. End on a real thought, not a neat wrap-up.\n- Avoid perfectly balanced lists of three and overly symmetrical structure.\n- 500-800 words.\n\nReturn ONLY valid JSON (no markdown, no code fences) exactly like:\n{\"title\":\"a specific, non-clickbait title\",\"excerpt\":\"one-sentence teaser under 160 characters\",\"body\":\"full post as plain text, paragraphs separated by \\\\n\\\\n; put any short subheading on its own line\"}";
+    try {
+      const rawT = await callClaude(prompt, 2200, false, null);
+      let txt = (rawT || "").trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+      const a = txt.indexOf("{"); const b = txt.lastIndexOf("}");
+      if (a >= 0 && b > a) txt = txt.slice(a, b + 1);
+      const obj = JSON.parse(txt);
+      if (!obj.title || !obj.body) throw new Error("bad");
+      setDraft({ title: obj.title, excerpt: obj.excerpt || "", body: obj.body });
+    } catch (e) { setErr("Couldn't write the post \u2014 please try again."); }
+    setBusy(false);
+  }
+
+  async function publish() {
+    if (!draft) return;
+    setSaving(true); setErr("");
+    const d = JSON.parse(JSON.stringify((site && site.data) || {}));
+    d.blog = Array.isArray(d.blog) ? d.blog : [];
+    const __ex = new Set((d.blog||[]).map(x=>x&&x.slug).filter(Boolean));
+    const __base = cgSlugify(draft.title); let __sl = __base, __n = 2; while(__ex.has(__sl)){ __sl = __base+"-"+__n; __n++; }
+    d.blog.unshift({ id: "p" + Date.now(), slug: __sl, title: draft.title, excerpt: draft.excerpt, body: draft.body, date: new Date().toISOString(), tone });
+    d.sections = Array.isArray(d.sections) ? d.sections : [];
+    if (!d.sections.some(s => s && s.type === "blog")) {
+      const ci = d.sections.findIndex(s => s && s.type === "contact");
+      const blogSec = { type: "blog", eyebrow: "Journal", heading: "From the blog" };
+      if (ci >= 0) d.sections.splice(ci, 0, blogSec); else d.sections.push(blogSec);
+    }
+    const ok = await onSave(d);
+    setSaving(false);
+    if (ok) { setDraft(null); setTopic(""); } else setErr("Couldn't publish \u2014 please try again.");
+  }
+
+  async function del(id) {
+    const d = JSON.parse(JSON.stringify((site && site.data) || {}));
+    d.blog = (d.blog || []).filter(p => p.id !== id);
+    await onSave(d);
+  }
+
+  const left = MIN - topic.trim().length;
+  return (
+    <div>
+      <div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,marginBottom:4}}>AI blog writer</div>
+      <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 16px",maxWidth:560}}>Describe what you want this post to cover in your own words \u2014 the more specific you are, the more original and human it reads (and the better it sits with Google). Then publish straight to your site.</p>
+      <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>What should it be about?</div>
+      <textarea value={topic} onChange={e=>setTopic(e.target.value)} rows={5} placeholder="e.g. Why we switched our whole cafe to oat milk by default, what regulars said, and the two drinks it quietly made better. Mention our house chai and the mess we made testing it\u2026" style={{width:"100%",boxSizing:"border-box",padding:"11px 13px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,resize:"vertical",color:B.charcoal,marginBottom:6}} />
+      <div style={{fontFamily:"sans-serif",fontSize:11,color:left>0?B.mid:B.green,marginBottom:14}}>{left>0?left+" more characters needed":"\u2713 Ready \u2014 nicely specific"}</div>
+      <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:14}}>
+        <label style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,display:"flex",alignItems:"center",gap:8}}>Tone
+          <select value={tone} onChange={e=>setTone(e.target.value)} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff",color:B.charcoal}}>
+            {TONES.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stone:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing\u2026":"\u2728 Write my post"}</button>
+      </div>
+      {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{err}</div>}
+      {draft&&(
+        <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"18px 20px",marginBottom:20}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:6}}>{draft.title}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,fontStyle:"italic",marginBottom:12}}>{draft.excerpt}</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:13.5,color:B.charcoal,lineHeight:1.7,maxHeight:260,overflow:"auto",whiteSpace:"pre-wrap",borderTop:"1px solid "+B.stone,paddingTop:12}}>{draft.body}</div>
+          <div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}>
+            <button disabled={saving} onClick={publish} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:saving?"default":"pointer"}}>{saving?"Publishing\u2026":"Publish to my site"}</button>
+            <button disabled={saving} onClick={write} style={{background:"none",color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>Rewrite</button>
+            <button disabled={saving} onClick={()=>setDraft(null)} style={{background:"none",color:B.mid,border:"none",padding:"10px 8px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>Discard</button>
+          </div>
+        </div>
+      )}
+      {posts.length>0&&(
+        <div>
+          <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"6px 0 10px"}}>Published posts ({posts.length})</div>
+          {posts.map(p=>(
+            <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,borderBottom:"1px solid "+B.stone,padding:"10px 0"}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.title}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{p.date?new Date(p.date).toLocaleDateString():""}</div>
+              </div>
+              <button onClick={()=>del(p.id)} style={{background:"none",border:"none",color:B.red,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>Delete</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CJConnect({ user }) {
   const [state, setState] = useState("loading"); // loading | connected | disconnected
   const [apiKey, setApiKey] = useState("");
@@ -7059,7 +7325,7 @@ function CJProductBrowser({ user, onImport }) {
       </div>
       {connected === false && (
         <div style={{ fontFamily: "sans-serif", fontSize: 12.5, color: B.mid, lineHeight: 1.6 }}>
-          Connect your CJ account first (in the Store Builder) to search and import products.
+          Connect your CJ account first (in the Auto-dropshipping box above) to search and import products.
         </div>
       )}
       {connected !== false && (
