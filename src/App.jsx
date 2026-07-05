@@ -744,6 +744,52 @@ const SLIDES = [
   {bg:"#000000",eyebrow:"ONE MEMBERSHIP",headline:"Everything. $100 a month.",sub:"No upsells. No paywalled tiers. Start free and explore before you commit.",items:null,isFinal:true},
 ];
 
+function MarketerIntakeFlow({ name, onComplete, onSkip }) {
+  const [d, setD] = useState({ niches:"", experience:"", income:"", hours:"", location:"" });
+  const set = (k,v)=>setD(p=>({ ...p, [k]:v }));
+  const canSubmit = d.experience && d.income && d.hours;
+  const inp = { width:"100%", padding:"11px 13px", border:"1px solid "+B.stone, outline:"none", fontSize:13, fontFamily:"sans-serif", boxSizing:"border-box", background:B.white };
+  const Lbl = ({children}) => <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,marginTop:22,textTransform:"uppercase"}}>{children}</div>;
+  const Chip = ({active,onClick,children}) => <button onClick={onClick} style={{padding:"8px 14px",border:"1px solid "+(active?B.charcoal:B.stone),background:active?B.charcoal:B.white,color:active?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,letterSpacing:"0.02em",cursor:"pointer",borderRadius:2}}>{children}</button>;
+  return (
+    <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
+      <div style={{maxWidth:560,margin:"0 auto",padding:"40px 24px 60px"}}>
+        <div style={{width:32,height:1,background:"#B8955A",marginBottom:18}} />
+        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Marketer Setup</div>
+        <h2 style={{fontSize:24,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 12px",lineHeight:1.25}}>Let's set up your marketing business{name&&name!=="You"&&name!=="Member"?", "+name:""}.</h2>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 8px"}}>A few quick questions so I can build you a personalized 30-day plan to land your first clients — and point you to the exact tools for each step. You run your own independent business: you set your prices and keep 100% of what you charge.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:"0 0 4px",fontStyle:"italic"}}>Takes about two minutes.</p>
+
+        <Lbl>How much marketing experience do you have?</Lbl>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {[["beginner","New to this"],["some","Some experience"],["experienced","Experienced"]].map(([v,l])=>(<Chip key={v} active={d.experience===v} onClick={()=>set("experience",v)}>{l}</Chip>))}
+        </div>
+
+        <Lbl>What kinds of businesses would you love to work with? (optional)</Lbl>
+        <input value={d.niches} onChange={e=>set("niches",e.target.value)} placeholder="e.g. restaurants, salons, gyms — or leave blank to stay wide open" style={inp} />
+
+        <Lbl>Your monthly income goal</Lbl>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {[["$1–2k/mo","$1–2k"],["$3–5k/mo","$3–5k"],["$5–10k/mo","$5–10k"],["$10k+/mo","$10k+"]].map(([v,l])=>(<Chip key={v} active={d.income===v} onClick={()=>set("income",v)}>{l}</Chip>))}
+        </div>
+
+        <Lbl>How many hours a week can you put in?</Lbl>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {[["A few","A few"],["5–10","5–10"],["10–20","10–20"],["20+","20+"]].map(([v,l])=>(<Chip key={v} active={d.hours===v} onClick={()=>set("hours",v)}>{l}</Chip>))}
+        </div>
+
+        <Lbl>Where are you based? (optional — for local outreach)</Lbl>
+        <input value={d.location} onChange={e=>set("location",e.target.value)} placeholder="e.g. Tampa, FL — you can serve clients anywhere online" style={inp} />
+
+        <div style={{marginTop:32}}>
+          <Btn dark full disabled={!canSubmit} onClick={()=>onComplete(d)}>SAVE & CONTINUE</Btn>
+        </div>
+        <button onClick={onSkip} style={{width:"100%",background:"none",border:"none",padding:"14px",marginTop:6,fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>I'll do this later</button>
+      </div>
+    </div>
+  );
+}
+
 function IntakeFlow({ name, onComplete, onSkip }) {
   const [d, setD] = useState({ hasBiz:"", what:"", field:"", bizNameSite:"", location:"", have:[], goal:"", challenge:"", hours:"" });
   const set = (k,v)=>setD(p=>({ ...p, [k]:v }));
@@ -7117,111 +7163,6 @@ function WinningProductFinder(){
     </div>
   );
 }
-function MarketerClients({ user }) {
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // client object being added/edited
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const STATUSES = ["lead","active","paused","past"];
-  const STATUS_LABEL = { lead:"Lead", active:"Active", paused:"Paused", past:"Past" };
-  const STATUS_COLOR = { lead:B.gold, active:B.green, paused:B.mid, past:B.stone };
-
-  async function load(){
-    setLoading(true); setErr("");
-    try{
-      const tok=await freshToken(); if(!tok||!user||!user.id){ setLoading(false); return; }
-      const res=await fetch(SUPABASE_URL+"/rest/v1/marketer_clients?select=*&user_id=eq."+user.id+"&order=created_at.desc",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
-      const rows=await res.json(); setClients(Array.isArray(rows)?rows:[]);
-    }catch(e){ setErr("Couldn't load your clients."); }
-    setLoading(false);
-  }
-  useEffect(()=>{ load(); },[user&&user.id]);
-
-  async function save(){
-    if(!editing || !(editing.name||"").trim()){ setErr("Add a client name first."); return; }
-    setBusy(true); setErr("");
-    try{
-      const tok=await freshToken(); if(!tok){ setBusy(false); return; }
-      const body={ user_id:user.id, name:(editing.name||"").trim(), business:(editing.business||"").trim(), contact:(editing.contact||"").trim(), status:editing.status||"lead", notes:(editing.notes||"").trim(), site_slug:(editing.site_slug||"").trim()||null, updated_at:new Date().toISOString() };
-      let res;
-      if(editing.id) res=await fetch(SUPABASE_URL+"/rest/v1/marketer_clients?id=eq."+editing.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify(body) });
-      else res=await fetch(SUPABASE_URL+"/rest/v1/marketer_clients",{ method:"POST", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify(body) });
-      if(!res.ok){ setErr("Couldn't save — please try again."); setBusy(false); return; }
-      setEditing(null); setBusy(false); load();
-    }catch(e){ setErr("Couldn't save — please try again."); setBusy(false); }
-  }
-  async function del(id){
-    try{ const tok=await freshToken(); if(!tok) return; await fetch(SUPABASE_URL+"/rest/v1/marketer_clients?id=eq."+id,{ method:"DELETE", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } }); setClients(cs=>cs.filter(c=>c.id!==id)); }catch(e){}
-  }
-
-  const fld={ width:"100%", boxSizing:"border-box", padding:"10px 12px", border:"1px solid "+B.stone, fontFamily:"sans-serif", fontSize:13, color:B.charcoal, background:"#fff", marginBottom:10 };
-  const lbl={ fontFamily:"sans-serif", fontSize:9, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:B.mid, marginBottom:5 };
-
-  return (
-    <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 22px 20px",marginBottom:2}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-        <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700}}>Your Clients</div>
-        {!editing&&<button onClick={()=>{setErr("");setEditing({status:"lead"});}} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>+ Add client</button>}
-      </div>
-      <div style={{fontFamily:"Georgia,serif",fontSize:18,color:B.charcoal,marginBottom:16}}>{clients.length} {clients.length===1?"client":"clients"}</div>
-
-      {editing&&(
-        <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"16px 16px 6px",marginBottom:16}}>
-          <div style={lbl}>Client / contact name</div>
-          <input value={editing.name||""} onChange={e=>setEditing(c=>({...c,name:e.target.value}))} placeholder="e.g. Maria Lopez" style={fld} />
-          <div style={lbl}>Business</div>
-          <input value={editing.business||""} onChange={e=>setEditing(c=>({...c,business:e.target.value}))} placeholder="e.g. Bloom Floral Studio" style={fld} />
-          <div style={lbl}>Contact <span style={{textTransform:"none",fontWeight:400}}>(email / phone)</span></div>
-          <input value={editing.contact||""} onChange={e=>setEditing(c=>({...c,contact:e.target.value}))} placeholder="email or phone" style={fld} />
-          <div style={{display:"flex",gap:10}}>
-            <div style={{flex:1}}>
-              <div style={lbl}>Status</div>
-              <select value={editing.status||"lead"} onChange={e=>setEditing(c=>({...c,status:e.target.value}))} style={{...fld,cursor:"pointer"}}>
-                {STATUSES.map(s=><option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
-              </select>
-            </div>
-            <div style={{flex:1}}>
-              <div style={lbl}>Their site link <span style={{textTransform:"none",fontWeight:400}}>(slug, optional)</span></div>
-              <input value={editing.site_slug||""} onChange={e=>setEditing(c=>({...c,site_slug:e.target.value}))} placeholder="their-site-slug" style={fld} />
-            </div>
-          </div>
-          <div style={lbl}>Notes</div>
-          <textarea value={editing.notes||""} onChange={e=>setEditing(c=>({...c,notes:e.target.value}))} rows={3} placeholder="What they need, deadlines, brand voice, logins to remember…" style={{...fld,resize:"vertical",lineHeight:1.5}} />
-          {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:10}}>{err}</div>}
-          <div style={{display:"flex",gap:8,marginBottom:10}}>
-            <button disabled={busy} onClick={save} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:busy?"default":"pointer"}}>{busy?"Saving…":(editing.id?"Save changes":"Add client")}</button>
-            <button disabled={busy} onClick={()=>{setEditing(null);setErr("");}} style={{background:"none",color:B.mid,border:"1px solid "+B.stone,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {loading ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"8px 0"}}>Loading…</div>
-        : (!editing && clients.length===0) ? <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,padding:"6px 0"}}>No clients yet. Add your first one to start tracking their business, status, notes, and the site you built for them.</div>
-        : clients.map(c=>(
-          <div key={c.id} style={{borderTop:"1px solid "+B.stone,padding:"14px 0"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-              <div style={{minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                  <span style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,color:B.charcoal}}>{c.name}</span>
-                  <span style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 7px",borderRadius:10,background:(STATUS_COLOR[c.status]||B.mid),color:c.status==="past"?B.charcoal:"#fff"}}>{STATUS_LABEL[c.status]||c.status}</span>
-                </div>
-                {c.business&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:2}}>{c.business}</div>}
-                {c.contact&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:2}}>{c.contact}</div>}
-                {c.notes&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,marginTop:6,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{c.notes}</div>}
-                {c.site_slug&&<a href={window.location.origin+"/?site="+encodeURIComponent(c.site_slug)} target="_blank" rel="noreferrer" style={{display:"inline-block",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,fontWeight:700,marginTop:8,textDecoration:"none"}}>Open their site ↗</a>}
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0,alignItems:"flex-end"}}>
-                <button onClick={()=>{setErr("");setEditing({...c});}} style={{background:"none",border:"none",color:B.charcoal,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",fontWeight:700}}>Edit</button>
-                <button onClick={()=>del(c.id)} style={{background:"none",border:"none",color:B.red,fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>Delete</button>
-              </div>
-            </div>
-          </div>
-        ))}
-    </div>
-  );
-}
-
 function BlogWriter({ site, onSave, user, onBalance }) {
   const posts = (site && site.data && site.data.blog) || [];
   const [mode, setMode] = useState("ai"); // ai | own
@@ -7658,6 +7599,8 @@ function PhotoCatalog({ onBalance }) {
   const [prog, setProg] = useState("");
   const [imgs, setImgs] = useState([]);
   const [err, setErr] = useState("");
+  const [style, setStyle] = useState("editorial-porcelain");
+  const STYLE_OPTIONS = [["editorial-porcelain","Editorial porcelain"],["warm-minimal","Warm minimal"],["gallery","Gallery / stone"],["atelier","Atelier / emerald"],["noir","Dark & moody"],["bordeaux","Bordeaux"],["","Just my description"]];
 
   async function generate() {
     if (!prompt.trim()) { setErr("Describe the photos you want."); return; }
@@ -7667,7 +7610,9 @@ function PhotoCatalog({ onBalance }) {
     let styleRef = null;
     for (let i = 0; i < n; i++) {
       setProg("Creating image " + (i + 1) + " of " + n + "…");
-      const p = prompt.trim() + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " — a distinct composition within the same series.";
+      const lux = " Shot as high-end, editorial magazine-quality photography: premium tasteful styling, soft professional lighting, refined composition, elevated luxury brand aesthetic, crisp and clean, no text or logos.";
+      const paletteDir = THEME_IMG_STYLE[style] ? (" Mood and palette: " + THEME_IMG_STYLE[style] + ".") : "";
+      const p = prompt.trim() + lux + paletteDir + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " — a distinct composition within the same series.";
       try {
         const r = await generateGeminiImage(p, styleRef, "1:1", "standard");
         if (r && r.image) { out.push(r.image); setImgs([...out]); if (!styleRef) styleRef = r.image; if (typeof r.balance === "number" && onBalance) onBalance(r.balance); }
@@ -7695,6 +7640,12 @@ function PhotoCatalog({ onBalance }) {
           How many
           <select value={count} onChange={e => setCount(e.target.value)} style={{ padding: "8px 10px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12, background: "#fff", color: B.charcoal }}>
             {[3, 5, 6, 8, 10, 12, 15, 20].map(v => <option key={v} value={v}>{v} images</option>)}
+          </select>
+        </label>
+        <label style={{ fontFamily: "sans-serif", fontSize: 11, color: B.charcoal, display: "flex", alignItems: "center", gap: 8 }}>
+          Aesthetic
+          <select value={style} onChange={e => setStyle(e.target.value)} style={{ padding: "8px 10px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12, background: "#fff", color: B.charcoal }}>
+            {STYLE_OPTIONS.map(([v,l]) => <option key={v||"none"} value={v}>{l}</option>)}
           </select>
         </label>
         <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate catalog"}</button>
@@ -7952,7 +7903,7 @@ export default function ChelgyApp() {
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
   const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
-  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ try { const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
+  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(h.startsWith("marketer.")) return true; const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
   const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
   const [domainMiss,setDomainMiss] = useState(false);
@@ -8162,6 +8113,14 @@ export default function ChelgyApp() {
     }
     try{ localStorage.setItem("chelgy_last_seen", String(now)); }catch(e){}
   },[page,isAdmin]);
+  function completeMarketerIntake(d){
+    try { localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_last_greeting", todayStr()); } catch(e){}
+    const goals = { niches:d.niches||"", location:d.location||"", income:d.income||"", hours:d.hours||"", experience:d.experience||"" };
+    setMkGoals(g=>({ ...g, ...goals }));
+    saveMarketerData({ ...marketerData, goals: { ...(marketerData.goals||{}), ...goals } });
+    setShowIntake(false);
+    goTab("profile","overview");
+  }
   function completeIntake(d){
     try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_last_greeting", todayStr()); } catch(e){}
     setIntake(d);
@@ -9073,8 +9032,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setTeamErr(""); setMkPlanLoading(true);
     const g = mkGoals;
     const prompt = "You are a warm, encouraging, and genuinely motivating client-acquisition coach for a brand-new freelance marketer who works under the Chelgy agency. Build them an ambitious but friendly 30-day game plan to land their first paying marketing clients — as many as they can. Be encouraging and supportive in tone (like a coach who truly believes in them), while still pushing them to aim high. Do NOT cap their potential or name a small target. This person uses Chelgy's all-in-one toolkit (AI content writer, image creator, video studio, ad builder, business audit, voiceover) to create work and run client campaigns.\n\nIMPORTANT FREEDOM: This marketer is NOT limited to any one niche or any one city. They can work with ANY type of business, in ANY industry, ANYWHERE in the world — almost all of this work is done online (social media, ads, content, email), so the entire world is their market. Make this abundantly clear and exciting in the plan. Their city is only a BONUS for optional in-person outreach (walking into local shops, local networking) — never the limit. The business types they listed are just personal interests/starting points, not a cap. Constantly encourage them to reach out to any business anywhere they think could use marketing help — the fewer limits, the more income.\n\nTHEIR PROFILE:\n- Business types they're personally interested in (just a starting point — NOT a limit): "+(g.niches||"open to any business")+"\n- Where they're based (use ONLY for optional local/in-person ideas — they can serve clients worldwide online): "+(g.location||"flexible — online and worldwide")+"\n- Monthly income goal: "+(g.income||"strong, growing income")+"\n- Time available: "+(g.hours||"part-time")+" per week\n- Experience level: "+(g.experience||"beginner — teach the fundamentals")+"\n\nWrite it as an ambitious but warm and achievable game plan in markdown with EXACTLY these sections:\n\n## Your Goal\n1-2 encouraging lines: land their first clients and build momentum, and what that means for their income — frame it as the exciting start of something they can grow worldwide, as far as they want.\n\n## Who To Reach Out To\nMake it clear they can reach out to ANY business, ANY industry, ANYWHERE — local shops in their city, businesses across the country, and companies around the world online. Give a wide, exciting range of business types and where to find them online (social platforms, directories, marketplaces, communities) AND a few local/in-person ideas using their city as a bonus. Encourage them to trust their gut: if a business looks like it could use better marketing, reach out. Emphasize that going wide = more income.\n\n## Your Outreach Approach\nIMPORTANT: Do NOT prescribe a specific number of contacts per day or per week. Instead, encourage them to reach out to as many businesses as they genuinely can each day — but warn them clearly to protect their accounts: never blast identical copy-pasted messages, personalize each one, vary the wording, space outreach out across the day, and use a healthy mix of channels (DMs, email, calls, in-person) so platforms don't flag or ban them for spam. Set a realistic, kind expectation: most people won't reply, and that is completely normal — it's a numbers game, so the secret is consistent, genuine, personalized volume over time, not a magic quota. Reassure them that a low response rate is expected and not a reflection of their worth.\n\n## Build Your 'Chelgy Marketing Specialist' Social Account\nLAUNCH a personal brand social media account on TikTok/Instagram/YouTube Shorts ALONGSIDE your outreach. This becomes your 24/7 inbound lead machine. When prospects see you consistently posting viral marketing tips, client wins, and behind-the-scenes Chelgy tool usage, they get sold BEFORE you pitch them.\n\nAccount Name: 'Chelgy Marketing Specialist' or '[Your Name] — Chelgy Marketing Specialist'\n\nContent Pillars (mix all types):\n- \"How to get clients\" videos (YOUR tactics — shows you walk the walk)\n- Client before/afters (PROOF you deliver results)\n- Quick marketing tips & education (builds reach & authority)\n- Behind-the-scenes using Chelgy tools (relatability & transparency)\n- Trending sounds/hooks applied to marketing (viral reach)\n\nViral Video Ideas To Post (pick 5 to start):\n1. \"3 Ways [Their Niche] Businesses Are LOSING Clients (And How To Fix It)\" — Hook: show mistake, fix it, CTA: DM for free audit\n2. \"I Helped A [Business Type] Get [X] New Clients In 30 Days — Here's The Process\" — Before/after, strategy breakdown, CTA: DM if interested\n3. \"Stop Doing This On [Platform] (It's Tanking Your Leads)\" — Quick tip + demo fix, CTA: follow for more\n4. \"The #1 Reason [Niche] Businesses Fail At Marketing\" — Story-based, vulnerable, CTA: DM to chat\n5. \"Day In My Life As A Chelgy Marketing Specialist\" — Show the toolkit, process, CTA: link in bio for services\n\nPosting Schedule: Week 1: 1 intro post. Week 2: 3-4 posts. Week 3: daily. Use Chelgy's Video Studio & Image Maker to produce fast.\n\nWhy This Works: By week 2-3, inbound DMs from prospects will START ROLLING IN before you even pitch them. They sell themselves.\n\n## Your First 30 Days\nWeek 1, Week 2, Week 3, Week 4 — each with specific, encouraging actions. Front-load outreach and sample creation. Keep it motivating and doable.\n\n## Your Outreach Scripts\n2-3 ready-to-send scripts (DM, email, and a friendly call/in-person opener) that work for any business anywhere. Short, warm, natural, and personalizable — remind them to tweak each one so it never looks mass-sent.\n\n## Win With Chelgy\nHow to use the Chelgy tools to create free sample work (a sample ad, social post, or mini audit) that wins clients over — turning a 'maybe' into a 'yes'.\n\n## Pricing & Closing\nWhat to charge a first client, how to present it warmly and confidently, and how to handle the 'I need to think about it' response.\n\nBe specific where helpful, ambitious, and above all encouraging and friendly. Speak directly to them as 'you'. No preamble before the first heading.";
+    const finalPrompt = isTeamSpace ? prompt : prompt.replace("for a brand-new freelance marketer who works under the Chelgy agency","for a brand-new independent freelance marketer who runs their own marketing business — no agency, they set their own prices and keep 100% of what they charge").replace(/Chelgy Marketing Specialist/g,"[Your Name] Marketing");
     let result = "";
-    try { result = await callClaude(prompt, 6000, true); } catch(e){ result = ""; }
+    try { result = await callClaude(finalPrompt, 6000, true); } catch(e){ result = ""; }
     if(!result){ setMkPlanLoading(false); setTeamErr("Couldn't build your plan — please try again."); return; }
     await saveMarketerData({ ...marketerData, goals: g, plan: result });
     setMkPlanLoading(false);
@@ -9086,9 +9046,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const msgs = [...mkCoachMsgs, { role:"user", content:text }];
     setMkCoachMsgs(msgs); setMkCoachInput(""); setMkCoachLoading(true);
     const g = marketerData.goals || mkGoals;
+    const indie = !isTeamSpace;
     const priceLine = MARKETER_PRICING.map(t=>{ const nm=(t.name||"").split(" / ")[0]; return t.projectPrice?(nm+": $"+t.projectPrice.toLocaleString()+" one-time"):(nm+": $"+t.monthToMonth+"/mo month-to-month or $"+t.contract+"/mo on a "+(t.minContract||12)+"-month agreement"); }).join("; ");
-    const structureNote = " HOW CHELGY WORKS (use this whenever advising on pricing, what to charge, or income potential — never invent different numbers): The marketer pays a $100/month Chelgy membership and works UNDER the Chelgy agency. The CLIENT pays Chelgy for the package, and Chelgy pays the marketer their 50% share — a 50/50 split of the service fee. Ad spend is always separate: clients pay Facebook or Google directly, and the marketer can add a management fee on top. Current Chelgy packages and rates: "+priceLine+". The marketer keeps 50% of these fees, so quote clients these package prices and remember your own take-home is half.";
-    const ctx = "You are the Chelgy AI Marketing Coach — a warm, encouraging, and genuinely supportive mentor for an independent contractor marketer working under the Chelgy agency. They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Some context — business types they're interested in (just a starting point, NOT a limit): "+(g.niches||"open to any business")+"; where they're based (only relevant for optional in-person outreach): "+(g.location||"flexible")+"; income goal: "+(g.income||"n/a")+"; experience: "+(g.experience||"beginner")+". IMPORTANT: This marketer is NOT limited to any niche or city — they can market for ANY business, ANY industry, ANYWHERE in the world, since most of the work is online. Their city is only a bonus for optional in-person outreach. Always encourage them to reach out to any business anywhere they think could use marketing help; the fewer limits, the more income. Coach them with warmth and encouragement while still pushing them to be ambitious and land as many clients as they can — never cap their potential. Keep replies tight, friendly, and actionable. When it comes to outreach, do NOT prescribe a rigid number of contacts per day; instead encourage as much genuine, personalized outreach as they can do safely — warn them to vary their messages and avoid spammy copy-paste blasts so their accounts don't get flagged or banned, and gently set the expectation that most people won't respond (that's normal — it's a numbers game, and consistency wins). IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), celebrate it warmly, then immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step." + structureNote;
+    const structureNote = indie
+      ? " HOW THIS MARKETER OPERATES (use this whenever advising on pricing, what to charge, or income): This person runs their OWN independent marketing business with NO ties to any agency. They set their own prices and keep 100% of everything they charge their clients. When advising on pricing, help them set confident rates based on the value they deliver, their market, and their income goal — do NOT reference any agency, membership, revenue split, or fixed package prices. Ad spend is always separate (clients pay Facebook or Google directly), and they can add their own management fee on top."
+      : " HOW CHELGY WORKS (use this whenever advising on pricing, what to charge, or income potential — never invent different numbers): The marketer pays a $100/month Chelgy membership and works UNDER the Chelgy agency. The CLIENT pays Chelgy for the package, and Chelgy pays the marketer their 50% share — a 50/50 split of the service fee. Ad spend is always separate: clients pay Facebook or Google directly, and the marketer can add a management fee on top. Current Chelgy packages and rates: "+priceLine+". The marketer keeps 50% of these fees, so quote clients these package prices and remember your own take-home is half.";
+    const ctx = "You are the AI Marketing Coach — a warm, encouraging, and genuinely supportive mentor for "+(indie?"an independent marketer who runs their own marketing business":"an independent contractor marketer working under the Chelgy agency")+". They land their own clients and run the marketing using Chelgy's tools (content writer, image creator, video studio, ad builder, business audit, voiceover). Some context — business types they're interested in (just a starting point, NOT a limit): "+(g.niches||"open to any business")+"; where they're based (only relevant for optional in-person outreach): "+(g.location||"flexible")+"; income goal: "+(g.income||"n/a")+"; experience: "+(g.experience||"beginner")+". IMPORTANT: This marketer is NOT limited to any niche or city — they can market for ANY business, ANY industry, ANYWHERE in the world, since most of the work is online. Their city is only a bonus for optional in-person outreach. Always encourage them to reach out to any business anywhere they think could use marketing help; the fewer limits, the more income. Coach them with warmth and encouragement while still pushing them to be ambitious and land as many clients as they can — never cap their potential. Keep replies tight, friendly, and actionable. When it comes to outreach, do NOT prescribe a rigid number of contacts per day; instead encourage as much genuine, personalized outreach as they can do safely — warn them to vary their messages and avoid spammy copy-paste blasts so their accounts don't get flagged or banned, and gently set the expectation that most people won't respond (that's normal — it's a numbers game, and consistency wins). IMPORTANT: if they tell you they just signed or landed a new client (e.g. 'I just signed a dentist'), celebrate it warmly, then immediately give a concrete 30-day launch plan for that client — channels, content calendar, quick wins, and which Chelgy tools to use for each step." + structureNote;
     const convo = msgs.map(m=>(m.role==="user"?"Marketer: ":"Coach: ")+m.content).join("\n\n");
     let reply = "";
     try { reply = await callClaude(ctx+"\n\n"+convo+"\n\nCoach:", 2000, false); } catch(e){ reply = ""; }
@@ -9367,12 +9330,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     </div>
   );
   const renderMarketerHub = () => {
+      const indie = !isTeamSpace;
       const hasPlan = !!(marketerData && marketerData.plan);
       const topBar = (
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
           {marketerView!=="home"
             ? <button onClick={()=>setMarketerView("home")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Workspace</button>
-            : <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:700}}>Chelgy Certified Marketer</span>}
+            : <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:700}}>{indie?"Your Marketing Workspace":"Chelgy Certified Marketer"}</span>}
           <button onClick={doLogout} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
         </div>
       );
@@ -9541,7 +9505,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Get a launch plan for this client</div>
                 </button>
               </div>
-              <button onClick={()=>{ setInquiryForm({ clientName:(clientDraft.business||clientDraft.name||"").trim(), businessType:(clientDraft.industry||"").trim(), serviceTier:"foundation", pricingModel:"contract", notes:[clientDraft.goals&&("Goals: "+clientDraft.goals), clientDraft.notes&&("Notes: "+clientDraft.notes), clientDraft.contact&&("Contact: "+clientDraft.contact)].filter(Boolean).join(" · ") }); setInquiryErr(""); setMarketerView("contracts"); }} style={{width:"100%",marginTop:8,background:B.gold,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send this client to Chelgy →</button>
+              {!indie && <button onClick={()=>{ setInquiryForm({ clientName:(clientDraft.business||clientDraft.name||"").trim(), businessType:(clientDraft.industry||"").trim(), serviceTier:"foundation", pricingModel:"contract", notes:[clientDraft.goals&&("Goals: "+clientDraft.goals), clientDraft.notes&&("Notes: "+clientDraft.notes), clientDraft.contact&&("Contact: "+clientDraft.contact)].filter(Boolean).join(" · ") }); setInquiryErr(""); setMarketerView("contracts"); }} style={{width:"100%",marginTop:8,background:B.gold,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send this client to Chelgy →</button>}
             </div>, false, true);
         }
         return teamWrap(
@@ -9602,7 +9566,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:6}}>
                 <button onClick={()=>{try{navigator.clipboard.writeText(dvResult);setDvCopied(true);setTimeout(()=>setDvCopied(false),2000);}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>{dvCopied?"Copied ✓":"Copy"}</button>
                 <button onClick={()=>downloadTextFile(dvType+"-"+((dvForm.client||"client").toLowerCase().replace(/[^a-z0-9]+/g,"-"))+".txt", dvResult)} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Download</button>
-                <button onClick={submitDeliverable} disabled={dvSubmitting} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:dvSubmitting?"default":"pointer",color:"#fff",textTransform:"uppercase",fontWeight:700}}>{dvSubmitting?"Sending...":"Send to Chelgy"}</button>
+                {!indie && <button onClick={submitDeliverable} disabled={dvSubmitting} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:dvSubmitting?"default":"pointer",color:"#fff",textTransform:"uppercase",fontWeight:700}}>{dvSubmitting?"Sending...":"Send to Chelgy"}</button>}
               </div>
               {dvSubmitMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:dvSubmitMsg.startsWith("✅")?B.green:"#C0392B",textAlign:"right",marginBottom:6}}>{dvSubmitMsg}</div>}
               <div style={{fontFamily:"sans-serif"}}><Rich text={dvResult} /></div>
@@ -9929,38 +9893,38 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>Ask anything →</div>
                 </button>
               </div>}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:2,background:B.stone}}>
-            <button onClick={()=>setMarketerView("deliverables")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12,background:"transparent"}}>
+            <button onClick={()=>setMarketerView("deliverables")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Deliverables</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Proposals, invoices, contracts & reports — generated, customized, downloaded.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
-            <button onClick={()=>{setClientId(null);setClientDraft(null);setMarketerView("clients");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+            <button onClick={()=>{setClientId(null);setClientDraft(null);setMarketerView("clients");}} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Workspace</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>A mini-CRM for each client: brand, logins, notes & goals.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
-            <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+            {!indie && <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Business Builder packages.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>View →</span>
-            </button>
-            <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+            </button>}
+            {!indie && <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Client Inquiries</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Submit prospects to Chelgy, track approved contracts & earnings.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
-            </button>
-            <button onClick={()=>{setChecklistId(null);setMarketerView("checklists");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+            </button>}
+            <button onClick={()=>{setChecklistId(null);setMarketerView("checklists");}} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Campaign Checklists</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Never forget a step — Facebook Ads, SEO, launch & more.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
-            <button onClick={()=>setMarketerView("pitches")} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+            <button onClick={()=>setMarketerView("pitches")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Sales Pitches & Promo</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Copy-and-paste scripts to land marketing and business-building clients.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>{indie?"Copy-and-paste scripts to help you land new clients.":"Copy-and-paste scripts to land marketing and business-building clients."}</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Open →</span>
             </button>
-            <button onClick={()=>{setAcctMsg("");setAcctName(null);setMarketerView("account");}} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
+            <button onClick={()=>{setAcctMsg("");setAcctName(null);setMarketerView("account");}} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Account & Login</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Change your name, email or password.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>Manage →</span>
@@ -10241,7 +10205,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     <div style={{fontFamily:"Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
       {legalOverlay}
 
-      {showIntake&&<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />}
+      {showIntake&&(isMarketerSpace?<MarketerIntakeFlow name={myName} onComplete={completeMarketerIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />:<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />)}
       {showPlan&&(
         <div style={{position:"fixed",inset:0,background:B.cream,zIndex:9999,overflowY:"auto"}}>
           <div style={{maxWidth:640,margin:"0 auto",padding:"32px 24px 60px"}}>
@@ -10489,7 +10453,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         {/* ── TOP SUBCATEGORY BAR (hides on scroll) ── */}
         <div style={{borderTop:"1px solid "+B.stone,height:TOP_H,overflow:"hidden",transition:"height 0.25s ease, opacity 0.25s ease",opacity:topVisible?1:0,maxHeight:topVisible?TOP_H:0}}>
           <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",maxWidth:1400,margin:"0 auto",padding:"0 12px",height:TOP_H,alignItems:"center",gap:2}}>
-            {((isTeamSpace&&marketerStatus==="approved"&&(tab==="profile"||tab==="home"||tab==="learn"))?[]:(subTabs[tab]||[])).map(([id,label])=>(
+            {((isTeamSpace&&marketerStatus==="approved"&&(tab==="profile"||tab==="home"||tab==="learn"))||((isMarketerSpace||isDemo)&&!isTeamSpace&&tab==="profile")?[]:(subTabs[tab]||[])).map(([id,label])=>(
               <button key={id} onClick={()=>{setSubTab(id);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"none",borderBottom:subTab===id?"1.5px solid "+B.charcoal:"1.5px solid transparent",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:subTab===id?700:400,color:subTab===id?B.charcoal:B.mid,padding:"0 12px",height:"100%",whiteSpace:"nowrap",flexShrink:0}}>
                 {label}
               </button>
@@ -11355,9 +11319,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="profile"&&isTeamSpace&&marketerStatus==="approved"&&(
             <div style={{paddingTop:24,paddingLeft:20,paddingRight:20}}>{renderMarketerHub()}</div>
           )}
-          {tab==="profile"&&!(isTeamSpace&&marketerStatus==="approved")&&subTab==="overview"&&(
+          {tab==="profile"&&!isTeamSpace&&(isMarketerSpace||isDemo)&&(
+            <div style={{paddingTop:24,paddingLeft:20,paddingRight:20}}>{renderMarketerHub()}</div>
+          )}
+          {tab==="profile"&&!(isTeamSpace&&marketerStatus==="approved")&&!((isMarketerSpace||isDemo)&&!isTeamSpace)&&subTab==="overview"&&(
             <div style={{paddingTop:28}}>
-              {(isMarketerSpace||isDemo)&&<MarketerClients user={user} />}
               {(()=>{ const hr=new Date().getHours(); const greet=hr<12?"Good morning":hr<18?"Good afternoon":"Good evening"; const streak=computeStreak(); const total=bigTasks.length; const doneN=bigTasks.filter(t=>t.done).length; const pct=total?Math.round(doneN/total*100):0; const next=(bigTasks.find(t=>!t.done)||{}); return (
                 <div style={{background:B.charcoal,padding:"26px 24px",marginBottom:2}}>
                   <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff",fontWeight:400,marginBottom:6}}>{greet}{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</div>
