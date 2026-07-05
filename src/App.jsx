@@ -1,435 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 
-// ─── CHELGY ASSISTANT (in-app help chat) ──────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-//  CHELGY ASSISTANT — floating in-app help chat
-//  Self-contained. Calls your existing /api/claude proxy (same shape as
-//  callClaude in App.jsx). No imports from App.jsx required.
-//
-//  Props (all optional):
-//    onNavigate(tab, subTab)  — jump the user to a tab / tool
-//    userName                 — member's first name, for a warmer greeting
-//    isPaid                   — true if the member is on a paid plan
-// ─────────────────────────────────────────────────────────────────────────────
-
-// The brand palette, matched to the rest of the app (near-black + cream + gold).
-const CA_C = {
-  ink:    "#0E0E0E",
-  panel:  "#141414",
-  raised: "#1C1C1C",
-  line:   "rgba(255,255,255,0.10)",
-  line2:  "rgba(255,255,255,0.16)",
-  cream:  "#F5F1E8",
-  mid:    "rgba(245,241,232,0.62)",
-  faint:  "rgba(245,241,232,0.40)",
-  gold:   "#C6A15B",
-  goldSoft:"rgba(198,161,91,0.14)",
-};
-
-// Friendly labels for the "Open →" navigation buttons the assistant can surface.
-const CA_NAV_LABELS = {
-  "home": "Home",
-  "learn": "Learn",
-  "tools": "Tools Hub",
-  "community": "Community",
-  "profile": "Profile",
-  "tools/launch": "Business Launch Package",
-  "tools/website": "Website Builder",
-  "tools/images": "AI Image Creator",
-  "tools/video": "AI Video Studio",
-  "tools/viral": "Viral Video Generator",
-  "tools/ads": "Ad Campaign Builder",
-  "tools/audit": "Business Audit",
-  "tools/voiceover": "AI Voiceover Studio",
-  "tools/business": "Business Builder",
-  "tools/grants": "Grant Finder",
-  "tools/content": "AI Content Writer",
-  "tools/dropshipping": "Dropshipping Directory",
-  "tools/platforms": "Platform Setup Guides",
-  "tools/library": "My Library",
-  "community/advisor": "AI Advisor",
-  "community/forum": "Community Forum",
-  "community/members": "Member Directory",
-  "learn/strategies": "Marketing Strategies",
-  "learn/weekly": "The Chelgy Edit",
-};
-
-// ─── The knowledge the assistant answers from ────────────────────────────────
-const CA_SYSTEM = `You are the Chelgy Assistant — the friendly in-app helper inside Chelgy, an AI marketing membership app. You help members find their way around, use the tools, fix small problems, and get UGC content and their business off the ground. You are warm, upbeat, encouraging and concise — a little stylish, never stiff. Chelgy's whole vibe is premium, editorial, "make your brand look expensive." Match that energy.
-
-WHO YOU'RE TALKING TO: a Chelgy member using the app right now. Keep answers SHORT and skimmable — usually 2 to 5 sentences. This is a small phone-sized chat, so no long essays, no big headers. A short list of 2-4 bullets (use "•") is fine when it genuinely helps.
-
-═══ HOW CHELGY IS LAID OUT ═══
-Five tabs across the bottom:
-• HOME — announcements, recent activity, quick links, a free daily creation, and daily tasks.
-• LEARN — marketing Strategies (step-by-step playbooks) and "The Chelgy Edit" blog.
-• TOOLS — the AI toolkit (the Tools Hub). This is where everything gets made.
-• COMMUNITY — the forum, the member directory, and the AI Advisor (a deeper marketing coach).
-• PROFILE — stats, settings, "Manage subscription", and the "Need Help" form.
-
-═══ THE TOOLS (all live in the TOOLS tab) ═══
-• Business Launch Package — answer a few questions and Chelgy builds a whole business: a published website, logo, brand strategy, social plan, and launch roadmap.
-• Website Builder — writes and publishes a complete luxury website at a shareable link.
-• AI Image Creator — logos, flyers, social graphics, banners, and product images. (This is also where flyers are made.)
-• AI Video Studio — scripts, storyboards, and ready-to-paste AI prompts for video generators (HeyGen, Runway, Kling, Sora, Pika).
-• Viral Video Generator — enter your business, get viral video ideas, the best format, a hook, a full script, caption, and hashtags.
-• Ad Campaign Builder — ad copy, creative direction, audience targeting, and budget for Facebook, Instagram, and TikTok.
-• Business Audit & Competitors — scans your online presence, shows what to improve, compares you to competitors.
-• AI Voiceover Studio — turns any script into a natural, studio-quality voiceover.
-• Business Builder — stage-by-stage launch plans plus a 24/7 AI business coach.
-• Grant Finder — searches the web for real grants and funding you might qualify for.
-• AI Content Writer — captions and copy for Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blogs, email, and ads.
-• Dropshipping Directory — vetted suppliers with links, niches, shipping times, and honest notes.
-• Platform Setup Guides — step-by-step setup and posting guides for every major platform.
-• My Library — where saved creations are stored.
-Also: the AI Advisor lives in COMMUNITY — send members there for deep, back-and-forth marketing strategy questions.
-
-═══ HOW TO MAKE A UGC-STYLE VIDEO IN CHELGY ═══
-Walk members through this real workflow:
-1. Open AI Video Studio (or Viral Video Generator for the idea + hook first). Enter the business and pick a UGC / authentic style. It gives you a script, storyboard, and a ready-to-paste prompt.
-2. Take that prompt to an AI video generator — HeyGen (great for talking-to-camera UGC), or Runway / Kling / Sora / Pika for b-roll and scenes.
-3. (Optional) Use AI Voiceover Studio to turn the script into a natural voiceover.
-4. Use AI Image Creator for a thumbnail, cover, or supporting graphics.
-5. Add captions, post native to the platform, and save it to My Library.
-Keep it real and casual — UGC works because it feels like a real person, not an ad.
-
-═══ CREDITS & MEMBERSHIP ═══
-Creating with the AI tools uses credits. Paid members get a monthly credit allowance that refreshes each month, and can buy top-up credit packs anytime. Some tools are limited on the free trial and unlock with a paid membership. For anything about billing, refunds, upgrading, downgrading, or a card that failed — you CANNOT do these yourself. Point them to Profile → Manage subscription, or to support (below).
-
-═══ WHEN SOMETHING IS BROKEN OR YOU'RE NOT SURE ═══
-For a small glitch, suggest the basics first: hard-refresh the page, check their internet, make sure they're logged in, and try again in a moment. If that doesn't fix it, or it's an account/billing/bug issue you can't resolve, ALWAYS hand off to a human:
-• Email chelgyapp@gmail.com
-• Or use the "Need Help" form in the Profile tab.
-Never pretend you fixed an account, processed a refund, or changed a subscription — you can't. Be honest and route to support.
-
-═══ NAVIGATION SUPERPOWER ═══
-When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
-[[GO:tab]]   or   [[GO:tab:subtab]]
-Valid tabs: home, learn, tools, community, profile.
-Valid tools (use with the tools tab): launch, website, images, video, viral, ads, audit, voiceover, business, grants, content, dropshipping, platforms, library.
-Valid community: advisor, forum, members. Valid learn: strategies, weekly.
-Examples: to send them to make a UGC video → end with [[GO:tools:video]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
-Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
-
-═══ STYLE RULES ═══
-• Short, warm, and specific. No corporate filler.
-• Name the exact tool and tab so they know where to go.
-• Don't invent features Chelgy doesn't have. If you're unsure whether something exists, say so and point to chelgyapp@gmail.com.
-• You are the Chelgy Assistant. You can say you're powered by Claude if asked, but stay in the Chelgy helper role.`;
-
-function caBuildPrompt(history, userMsg, ctx) {
-  const who = [];
-  if (ctx.userName) who.push("The member's name is " + ctx.userName + ".");
-  who.push(ctx.isPaid ? "They are on a PAID membership." : "They are on the FREE trial (some tools are limited).");
-  const transcript = history
-    .map((m) => (m.role === "user" ? "Member" : "Assistant") + ": " + m.content)
-    .join("\n\n");
-  return (
-    CA_SYSTEM +
-    "\n\n═══ THIS MEMBER ═══\n" + who.join(" ") +
-    "\n\n═══ CONVERSATION SO FAR ═══\n" +
-    (transcript ? transcript + "\n\n" : "") +
-    "Member: " + userMsg +
-    "\n\nAssistant:"
-  );
-}
-
-// Pull an optional [[GO:...]] tag off the end of a reply.
-function caExtractNav(text) {
-  const m = text.match(/\[\[GO:([a-z]+)(?::([a-z-]+))?\]\]/i);
-  if (!m) return { clean: text.trim(), nav: null };
-  const tab = m[1].toLowerCase();
-  const sub = m[2] ? m[2].toLowerCase() : null;
-  const clean = text.replace(m[0], "").trim();
-  return { clean, nav: { tab, sub } };
-}
-
-// Very light markdown: **bold**, • bullets, and line breaks. No external lib.
-function caRenderText(text) {
-  const lines = text.split("\n");
-  return lines.map((line, i) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g).map((p, j) =>
-      p.startsWith("**") && p.endsWith("**") ? (
-        <strong key={j} style={{ fontWeight: 700, color: CA_C.cream }}>{p.slice(2, -2)}</strong>
-      ) : (
-        <span key={j}>{p}</span>
-      )
-    );
-    return (
-      <div key={i} style={{ minHeight: line.trim() === "" ? 8 : "auto" }}>{parts}</div>
-    );
-  });
-}
-
-const CA_QUICK_STARTS = [
-  "How do I make a UGC video?",
-  "A tool isn't working",
-  "How do credits work?",
-  "How do I contact support?",
-];
-
-function ChelgyAssistant({ onNavigate, userName, isPaid }) {
-  const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState([]); // { role: 'user'|'assistant', content, nav? }
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef(null);
-  const inputRef = useRef(null);
-
-  const greetName = userName && userName !== "You" && userName !== "Member" ? userName : "";
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [msgs, loading, open]);
-
-  useEffect(() => {
-    if (open && inputRef.current) {
-      const t = setTimeout(() => { try { inputRef.current.focus(); } catch (e) {} }, 250);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  async function send(textArg) {
-    const text = (typeof textArg === "string" ? textArg : input).trim();
-    if (!text || loading) return;
-    setInput("");
-    const history = msgs;
-    const nextMsgs = [...history, { role: "user", content: text }];
-    setMsgs(nextMsgs);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: caBuildPrompt(history, text, { userName, isPaid }),
-          max_tokens: 700,
-        }),
-      });
-      const d = await res.json().catch(() => null);
-      const raw = (d && d.text) || "Sorry — I had trouble just now. Please try again, or email chelgyapp@gmail.com.";
-      const { clean, nav } = caExtractNav(raw);
-      setMsgs([...nextMsgs, { role: "assistant", content: clean, nav }]);
-    } catch (e) {
-      setMsgs([
-        ...nextMsgs,
-        { role: "assistant", content: "Something went wrong connecting. Check your internet and try again — or reach us at chelgyapp@gmail.com.", nav: null },
-      ]);
-    }
-    setLoading(false);
-  }
-
-  function goTo(nav) {
-    if (!nav) return;
-    try { if (onNavigate) onNavigate(nav.tab, nav.sub || null); } catch (e) {}
-    setOpen(false);
-  }
-
-  function onKey(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  }
-
-  const SAFE = "env(safe-area-inset-bottom, 0px)";
-
-  // ─── Floating launcher button ───────────────────────────────────────────────
-  const launcher = (
-    <button
-      onClick={() => setOpen(true)}
-      aria-label="Open the Chelgy Assistant"
-      style={{
-        position: "fixed",
-        right: 16,
-        bottom: `calc(${SAFE} + 78px)`,
-        zIndex: 9998,
-        width: 58,
-        height: 58,
-        borderRadius: "50%",
-        background: CA_C.ink,
-        border: "1px solid " + CA_C.gold,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
-        cursor: "pointer",
-        display: open ? "none" : "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 0,
-      }}
-    >
-      <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
-        <span style={{ color: CA_C.gold, fontSize: 20, fontWeight: 400, fontFamily: "Georgia, 'Times New Roman', serif", marginTop: -1 }}>C</span>
-        <span style={{ color: CA_C.faint, fontSize: 6.5, letterSpacing: "0.18em", fontFamily: "sans-serif", marginTop: 2, textTransform: "uppercase" }}>Help</span>
-      </span>
-    </button>
-  );
-
-  if (!open) return launcher;
-
-  // ─── The panel ──────────────────────────────────────────────────────────────
-  return (
-    <div
-      style={{
-        position: "fixed",
-        right: 12,
-        bottom: `calc(${SAFE} + 12px)`,
-        zIndex: 9999,
-        width: "min(400px, calc(100vw - 24px))",
-        height: "min(620px, calc(100vh - 90px))",
-        background: CA_C.panel,
-        border: "1px solid " + CA_C.line2,
-        borderRadius: 18,
-        boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        fontFamily: "sans-serif",
-        animation: "chelgyPop 0.22s ease-out",
-      }}
-    >
-      <style>{`@keyframes chelgyPop{from{opacity:0;transform:translateY(14px) scale(0.98)}to{opacity:1;transform:none}}
-        @keyframes chelgyDot{0%,80%,100%{opacity:0.25}40%{opacity:1}}`}</style>
-
-      {/* Header */}
-      <div style={{ padding: "16px 18px 14px", borderBottom: "1px solid " + CA_C.line, display: "flex", alignItems: "center", justifyContent: "space-between", background: CA_C.ink }}>
-        <div>
-          <div style={{ fontSize: 8.5, letterSpacing: "0.22em", color: CA_C.gold, textTransform: "uppercase", marginBottom: 4 }}>Chelgy</div>
-          <div style={{ fontSize: 16, color: CA_C.cream, fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.01em" }}>Assistant</div>
-        </div>
-        <button
-          onClick={() => setOpen(false)}
-          aria-label="Close"
-          style={{ background: "none", border: "1px solid " + CA_C.line, color: CA_C.mid, width: 30, height: 30, borderRadius: "50%", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "18px 16px 8px" }}>
-        {msgs.length === 0 && (
-          <div style={{ paddingTop: 6 }}>
-            <div style={{ color: CA_C.cream, fontSize: 14.5, lineHeight: 1.55, marginBottom: 6 }}>
-              Hi{greetName ? " " + greetName : ""} — I'm your Chelgy helper. 👋
-            </div>
-            <div style={{ color: CA_C.mid, fontSize: 13.5, lineHeight: 1.55, marginBottom: 18 }}>
-              Ask me how to use any tool, how to make a UGC video, where something lives, or how to get help. I can take you straight there.
-            </div>
-            <div style={{ fontSize: 8.5, letterSpacing: "0.18em", color: CA_C.faint, textTransform: "uppercase", marginBottom: 10 }}>Try asking</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {CA_QUICK_STARTS.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => send(q)}
-                  style={{ textAlign: "left", background: CA_C.raised, border: "1px solid " + CA_C.line, color: CA_C.cream, padding: "11px 14px", borderRadius: 11, fontSize: 13, cursor: "pointer", fontFamily: "sans-serif", lineHeight: 1.4 }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {msgs.map((m, i) => (
-          <div key={i} style={{ marginBottom: 14, display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-            <div style={{ maxWidth: "86%" }}>
-              <div
-                style={{
-                  background: m.role === "user" ? CA_C.gold : CA_C.raised,
-                  color: m.role === "user" ? CA_C.ink : CA_C.cream,
-                  border: m.role === "user" ? "none" : "1px solid " + CA_C.line,
-                  padding: "11px 14px",
-                  borderRadius: 13,
-                  borderBottomRightRadius: m.role === "user" ? 4 : 13,
-                  borderBottomLeftRadius: m.role === "user" ? 13 : 4,
-                  fontSize: 13.5,
-                  lineHeight: 1.55,
-                  fontWeight: m.role === "user" ? 500 : 400,
-                }}
-              >
-                {caRenderText(m.content)}
-              </div>
-              {m.role === "assistant" && m.nav && CA_NAV_LABELS[m.nav.tab + (m.nav.sub ? "/" + m.nav.sub : "")] && (
-                <button
-                  onClick={() => goTo(m.nav)}
-                  style={{ marginTop: 8, background: CA_C.goldSoft, border: "1px solid " + CA_C.gold, color: CA_C.gold, padding: "9px 14px", borderRadius: 10, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer", fontFamily: "sans-serif" }}
-                >
-                  Open {CA_NAV_LABELS[m.nav.tab + (m.nav.sub ? "/" + m.nav.sub : "")]} →
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {loading && (
-          <div style={{ marginBottom: 14, display: "flex", justifyContent: "flex-start" }}>
-            <div style={{ background: CA_C.raised, border: "1px solid " + CA_C.line, padding: "13px 16px", borderRadius: 13, borderBottomLeftRadius: 4, display: "flex", gap: 5 }}>
-              {[0, 1, 2].map((d) => (
-                <span key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: CA_C.gold, animation: "chelgyDot 1.2s infinite", animationDelay: d * 0.18 + "s" }} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Composer */}
-      <div style={{ borderTop: "1px solid " + CA_C.line, padding: "12px 12px 10px", background: CA_C.ink }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKey}
-            rows={1}
-            placeholder="Ask me anything about Chelgy…"
-            style={{
-              flex: 1,
-              resize: "none",
-              maxHeight: 90,
-              background: CA_C.raised,
-              border: "1px solid " + CA_C.line,
-              color: CA_C.cream,
-              borderRadius: 12,
-              padding: "11px 13px",
-              fontSize: 16, // 16px avoids iOS input zoom
-              fontFamily: "sans-serif",
-              outline: "none",
-              lineHeight: 1.4,
-            }}
-          />
-          <button
-            onClick={() => send()}
-            disabled={loading || !input.trim()}
-            aria-label="Send"
-            style={{
-              width: 44,
-              height: 44,
-              flexShrink: 0,
-              borderRadius: 12,
-              background: input.trim() && !loading ? CA_C.gold : CA_C.raised,
-              border: "1px solid " + (input.trim() && !loading ? CA_C.gold : CA_C.line),
-              color: input.trim() && !loading ? CA_C.ink : CA_C.faint,
-              cursor: input.trim() && !loading ? "pointer" : "default",
-              fontSize: 18,
-              padding: 0,
-            }}
-          >
-            ↑
-          </button>
-        </div>
-        <div style={{ textAlign: "center", marginTop: 8 }}>
-          <span style={{ fontSize: 10.5, color: CA_C.faint }}>
-            Need a human?{" "}
-            <a href="mailto:chelgyapp@gmail.com" style={{ color: CA_C.mid, textDecoration: "underline" }}>chelgyapp@gmail.com</a>
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-// ─── end Chelgy Assistant ─────────────────────────────────────────────────────
-
-
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
@@ -2092,7 +1662,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     onPrefillDone();
   }, [prefill, tool]);
   useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
-  useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
+  useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product","logo","flyer","banner"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
   useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null,buyUrl:it.buyUrl||"",cj:it.cj||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
@@ -2275,7 +1845,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     setVpwLoad(false);
   }
   async function genI(){
-    const needsBiz = !["ad","product"].includes(iType);
+    const needsBiz = !["ad","product","logo","flyer","banner"].includes(iType);
     if(needsBiz && !iBiz.trim())return;
     track("tool_used",{tool:"image_creator",type:iType,aspect:iAspect});onToolUse("image_creator",iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image);
     setILoad(true);setIErr("");setIRes(null);
@@ -2819,13 +2389,12 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 6px",letterSpacing:"0.02em"}}>{["logo","flyer","social","banner"].includes(iType)?"Powered by GPT Image 2 — best for crisp text & logos":"Powered by Nano Banana 2 (Google Gemini)"}</p>
         <div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"],["ugc","UGC Character"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
+          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
         {iType==="set" && <PhotoCatalog onBalance={onBalance} />}
-        {iType==="ugc" && <UGCCharacter onBalance={onBalance} onUseInVideo={(img)=>{ setVVidPhotos([img]); setVType("generate"); onGoTool("video"); }} />}
-        {!["set","ugc"].includes(iType) && (<>
+        {!["set"].includes(iType) && (<>
         <Card style={{padding:"22px",marginBottom:14}}>
-          {!["ad","product"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
+          {!["ad","product","logo","flyer","banner"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
           <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.charcoal,marginBottom:7,textTransform:"uppercase"}}>✨ AI Prompt Writer</div>
             <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and AI will turn it into a detailed prompt you can edit below.</p>
@@ -2927,6 +2496,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             </div>
           : <Rb label={vType==="script"?"Your Video Script":vType==="storyboard"?"Your Storyboard":"AI Video Prompts"} content={vRes} loading={vLoad} />}
       </div>}
+
+      {tool==="ugcstudio"&&<UGCStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} />}
 
       {tool==="voiceover"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Voiceover Studio</h2>
@@ -8214,6 +7785,87 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
   );
 }
 
+// ─── UGC STUDIO: self-contained tool. Character maker + Seedance-2.0-only video ───
+function UGCStudio({ onBalance, useCredits, onToolUse, user }) {
+  const [tab, setTab] = useState("character");
+  const [startImg, setStartImg] = useState(null);
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>UGC Studio</h2>
+      <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 18px",letterSpacing:"0.02em"}}>Build a consistent UGC creator, then bring any shot to life as a video — powered by Seedance 2.0.</p>
+      <div style={{display:"flex",gap:0,marginBottom:18,borderBottom:"1px solid "+B.stone}}>
+        <Tb label="Character" active={tab==="character"} onClick={()=>setTab("character")} />
+        <Tb label="Video" active={tab==="video"} onClick={()=>setTab("video")} />
+      </div>
+      {tab==="character" && <UGCCharacter onBalance={onBalance} onUseInVideo={(img)=>{ setStartImg(img); setTab("video"); }} />}
+      {tab==="video" && <UGCVideoMaker startImg={startImg} useCredits={useCredits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
+    </div>
+  );
+}
+
+function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
+  const [prompt, setPrompt] = useState("");
+  const [photo, setPhoto] = useState(startImg || null);
+  const [orient, setOrient] = useState("portrait");
+  const [dur, setDur] = useState("5");
+  const [busy, setBusy] = useState(false);
+  const [url, setUrl] = useState("");
+  const [err, setErr] = useState("");
+  const [status, setStatus] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
+  useEffect(()=>{ if(startImg) setPhoto(startImg); }, [startImg]);
+  const DUR = [5, 10, 15];
+  function cost(){ return CREDIT_COSTS.seedanceSec * Number(dur); }
+  function onUpload(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPhoto(r.result); r.readAsDataURL(f); e.target.value=""; }
+  async function gen(){
+    if(!prompt.trim() && !photo){ setErr("Add a creator photo or describe the video."); return; }
+    if(!useCredits(cost())) return;
+    track("tool_used",{tool:"ugc_video",model:"seedance4k"}); onToolUse("ugc_video",cost());
+    setBusy(true); setUrl(""); setErr(""); setStatus("Starting the video engine…");
+    try{
+      const p = prompt.trim() || "Bring this UGC creator photo to life with subtle, natural movement — as if they are filming themselves talking to the camera. Realistic, handheld, authentic user-generated-content feel.";
+      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:"seedance4k", duration:Number(dur), audio:false});
+      if(!started||!started.id){ setErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment."); setBusy(false); setStatus(""); return; }
+      if(typeof started.balance==="number") onBalance(started.balance);
+      setStatus("Creating your Seedance 2.0 video — 4K can take up to 10 minutes. Keep this tab open.");
+      const out = await pollVideo(started.id);
+      if(!out){ setErr("The video didn't finish in time. Your credits were refunded."); if(typeof started.balance==="number") onBalance(started.balance+cost()); setBusy(false); setStatus(""); return; }
+      setUrl(out); setStatus("");
+    }catch(e){ setErr("Something went wrong while generating the video. Please try again."); }
+    setBusy(false);
+  }
+  async function save(){ if(!url) return; setSaveMsg("Saving…"); const r=await saveToLibrary(user,"video","UGC Video",url); setSaveMsg(r.ok?"✓ Saved to your Library":("Couldn't save: "+(r.error||"error"))); setTimeout(()=>setSaveMsg(""),4000); }
+  function dl(){ const a=document.createElement("a"); a.href=url; a.download="ugc-video.mp4"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+  return (
+    <div>
+      <Card style={{padding:"22px",marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginBottom:12}}>
+          <span style={{display:"inline-block",background:B.charcoal,color:"#fff",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",padding:"5px 10px"}}>4K Max · Seedance 2.0</span>
+          <CreditTag n={cost()} />
+        </div>
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Creator photo</div>
+        {photo
+          ? <div style={{position:"relative",display:"inline-block",border:"1px solid "+B.gold,padding:3,background:B.white,marginBottom:10}}>
+              <img src={photo} alt="Creator" style={{width:88,height:110,objectFit:"cover",display:"block"}} />
+              <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
+            </div>
+          : <label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em",marginBottom:10}}>Tap to upload a creator shot — or make one in the Character tab and hit “Use in video”<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>}
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,margin:"4px 0 7px",textTransform:"uppercase"}}>Describe the video (optional)</div>
+        <St value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="e.g. She smiles, waves at the camera, then holds the product up next to her face…" rows={3} />
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:14}}>
+          <Fl label="Orientation"><Ss value={orient} onChange={e=>setOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option><option value="square">Square (1:1)</option></Ss></Fl>
+          <Fl label="Length"><Ss value={dur} onChange={e=>setDur(e.target.value)}>{DUR.map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"2px 0 14px"}}>Every UGC video is generated with <strong>Seedance 2.0</strong> for the most realistic, multi-shot 4K results.</p>
+        <Btn dark disabled={busy||(!prompt.trim()&&!photo)} onClick={gen}>{busy?"GENERATING VIDEO...":("GENERATE VIDEO ("+cost().toLocaleString()+" credits)")}</Btn>
+      </Card>
+      {busy&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{status||"Working..."}</div></div>}
+      {err&&!busy&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C",letterSpacing:"0.02em"}}>{err}</div></div>}
+      {url&&!busy&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><div style={{fontSize:9,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:14,textTransform:"uppercase"}}>Your UGC Video</div><video src={url} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} /><Btn dark small onClick={dl}>DOWNLOAD VIDEO</Btn> <button onClick={save} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{saveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:saveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{saveMsg}</div>}<div style={{marginTop:14}}><ShareBar url={url} file={url} filename="chelgy-ugc-video.mp4" title="Made with Chelgy" text="" /></div></div>}
+    </div>
+  );
+}
+
 function StoreBuilderTab({ user }) {
   const [niche, setNiche] = useState("");
   const [shop, setShop] = useState("");
@@ -10591,7 +10243,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 24px",marginBottom:18}}>
             <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.goldDark,textTransform:"uppercase",marginBottom:8}}>Email us</div>
-            <a href="mailto:chelgyapp@gmail.com" style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,textDecoration:"none"}}>chelgyapp@gmail.com</a>
+            <a href="mailto:support@chelgy.app" style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,textDecoration:"none"}}>support@chelgy.app</a>
             <p style={{fontSize:13,lineHeight:1.7,color:B.mid,margin:"10px 0 0"}}>The fastest way to reach us. We usually reply within one business day. Include your account email and a short description of what you need, and a screenshot if something looks off.</p>
           </div>
 
@@ -11442,7 +11094,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -12141,12 +11793,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         </div>
       ); })()}
-
-      <ChelgyAssistant
-        userName={myName}
-        isPaid={isPaid}
-        onNavigate={(tab, sub) => { setTab(tab); if (sub) setSubTab(sub); }}
-      />
 
     </div>
   );
