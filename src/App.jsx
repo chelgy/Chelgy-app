@@ -1130,12 +1130,12 @@ function defaultSection(type){
     case "about": return {type:"about",eyebrow:"ABOUT",heading:"Our story",body:["Introduce the person or story behind the business."]};
     case "offerings": return {type:"offerings",eyebrow:"OFFERINGS",title:"What we offer",items:[{name:"Item name",note:"Short description",price:"",image:null}]};
     case "editorial": return {type:"editorial",eyebrow:"",line:"A short, striking statement about your brand.",image:null};
-    case "quote": return {type:"quote",text:"Something wonderful a happy customer said.",cite:"\u2014 First name"};
+    case "quote": return {type:"quote",text:"Something wonderful a happy customer said.",cite:"— First name"};
     case "contact": return {type:"contact",eyebrow:"CONTACT",heading:"Get in touch",details:[{k:"Email",v:"hello@yourbrand.com"}],cta:{label:"Contact us",href:"#"}};
     case "services": return {type:"services",eyebrow:"SERVICES",title:"What we do",items:[{name:"Service one",desc:"A short description."},{name:"Service two",desc:"A short description."},{name:"Service three",desc:"A short description."}]};
     case "whyus": return {type:"whyus",eyebrow:"WHY US",title:"Why choose us",points:["Reason one","Reason two","Reason three","Reason four"]};
     case "process": return {type:"process",eyebrow:"HOW IT WORKS",title:"The process",steps:["First step","Second step","Third step"]};
-    case "stats": return {type:"stats",items:[["100+","Happy clients"],["5\u2605","Average rating"],["10yr","Experience"]]};
+    case "stats": return {type:"stats",items:[["100+","Happy clients"],["5★","Average rating"],["10yr","Experience"]]};
     case "team": return {type:"team",eyebrow:"OUR TEAM",title:"Meet the team",people:[{name:"Name",role:"Role",image:null}]};
     case "testimonials": return {type:"testimonials",eyebrow:"REVIEWS",title:"What clients say",cards:[{quote:"They were amazing to work with.",name:"Client name"}]};
     case "faq": return {type:"faq",eyebrow:"FAQ",title:"Frequently asked",qs:[{q:"A common question?",a:"A clear, helpful answer."}]};
@@ -1146,7 +1146,7 @@ function defaultSection(type){
     case "booking": return {type:"booking",eyebrow:"BOOK",title:"Book an appointment",sub:"Schedule online in seconds.",cta:"Book Now",url:"#",provider:""};
     case "gallery": return {type:"gallery",eyebrow:"GALLERY",title:"Our work",images:[null,null,null,null,null,null]};
     case "serviceareas": return {type:"serviceareas",eyebrow:"WHERE WE WORK",title:"Areas we serve",areas:["Your city","Nearby area","Another area"]};
-    case "hours": return {type:"hours",eyebrow:"HOURS",title:"Opening hours",rows:[["Mon\u2013Fri","9:00 \u2013 5:00"],["Saturday","10:00 \u2013 4:00"],["Sunday","Closed"]]};
+    case "hours": return {type:"hours",eyebrow:"HOURS",title:"Opening hours",rows:[["Mon–Fri","9:00 – 5:00"],["Saturday","10:00 – 4:00"],["Sunday","Closed"]]};
     default: return {type};
   }
 }
@@ -1302,7 +1302,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
       const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"status" }) });
       const j=await res.json();
       if(j.error) throw new Error(j.error);
-      setEdDomainMsg(j.misconfigured===false ? "\u2713 Your domain is connected and live!" : "Not resolving yet — DNS can take a few minutes to 48 hours. Add the record below and check again shortly.");
+      setEdDomainMsg(j.misconfigured===false ? "✓ Your domain is connected and live!" : "Not resolving yet — DNS can take a few minutes to 48 hours. Add the record below and check again shortly.");
     }catch(e){ setEdDomainMsg("Couldn't check status right now — try again in a moment."); }
     setEdDomainLoad(false);
   }
@@ -2100,13 +2100,13 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                       : <div style={{width:88,height:88,border:"1px dashed "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",color:B.mid,fontFamily:"sans-serif",fontSize:9,textAlign:"center",lineHeight:1.3}}>{edProdBusy===i?"…":"No photo"}</div>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    {pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"\u25C6 CJ \u00b7 auto-fulfillable"}</div>}
+                    {pr.cj&&pr.cj.vid&&<div style={{display:"inline-block",background:"rgba(76,175,130,0.12)",color:B.green,fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 7px",borderRadius:10,marginBottom:6}}>{"◆ CJ · auto-fulfillable"}</div>}
                     <input value={pr.name} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="Name" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <input value={pr.price} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="Price (optional)" style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:6}} />
                     <textarea value={pr.note} onChange={e=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,note:e.target.value}:x))} placeholder="Short description" rows={2} style={{width:"100%",padding:"9px 11px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",resize:"vertical",lineHeight:1.5}} />
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
-                      <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"\u2728 Generate photo"}</button>
+                      <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"✨ Generate photo"}</button>
                       <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                       <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
@@ -2116,7 +2116,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
             ))}
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
               <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null,buyUrl:""}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product / service</button>
-              <button disabled={edProdBusy>=0} onClick={aiCreateProduct} style={{background:"none",border:"1px solid "+B.stone,color:B.charcoal,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===9999?"Writing…":"\u2728 Let Chelgy write one"}</button>
+              <button disabled={edProdBusy>=0} onClick={aiCreateProduct} style={{background:"none",border:"1px solid "+B.stone,color:B.charcoal,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===9999?"Writing…":"✨ Let Chelgy write one"}</button>
             </div>
             <Btn dark small onClick={saveProducts}>Save products / services</Btn>
             {wmErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red,marginTop:10}}>{wmErr}</div>}
@@ -2155,7 +2155,7 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                 <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginBottom:9,letterSpacing:"0.03em"}}>{slot.sub}</div>
                 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                   <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>{slot.url?"Replace":"Upload"}<input type="file" accept="image/*" disabled={busy} onChange={e=>replaceSitePhoto(slot.key,(e.target.files||[])[0])} style={{display:"none"}} /></label>
-                  <button disabled={busy} onClick={()=>regenSitePhoto(slot)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.6:1}}>{busy?"Working…":"\u2728 Regenerate similar"}</button>
+                  <button disabled={busy} onClick={()=>regenSitePhoto(slot)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.6:1}}>{busy?"Working…":"✨ Regenerate similar"}</button>
                   <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                   {slot.url&&<button disabled={busy} onClick={()=>{ if(window.confirm("Remove this photo?")) deleteSitePhoto(slot.key); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"6px 11px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase",opacity:busy?0.5:1}}>Delete</button>}
                 </div>
@@ -2204,16 +2204,16 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                   </div>
                 </div>
               : <div>
-                  <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>Give your site its own web address \u2014 like <strong style={{color:B.charcoal}}>yourbusiness.com</strong> \u2014 instead of the free Chelgy link.</p>
+                  <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>Give your site its own web address — like <strong style={{color:B.charcoal}}>yourbusiness.com</strong> — instead of the free Chelgy link.</p>
 
                   <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
                     <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>What's a domain?</div>
-                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>It's your website's address on the internet \u2014 the thing people type in, like <strong>nike.com</strong>. Right now your site lives at a free Chelgy link. A domain makes it truly yours and looks far more professional on business cards, ads, and email.</p>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>It's your website's address on the internet — the thing people type in, like <strong>nike.com</strong>. Right now your site lives at a free Chelgy link. A domain makes it truly yours and looks far more professional on business cards, ads, and email.</p>
                   </div>
 
                   <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 1 \u00b7 Buy your domain</div>
-                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:"0 0 8px"}}>You buy a domain from a <strong>registrar</strong> \u2014 usually about <strong>$10\u2013$15 a year</strong>. Search the name you want; if it's available, check out and it's yours. Popular registrars:</p>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 1 · Buy your domain</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:"0 0 8px"}}>You buy a domain from a <strong>registrar</strong> — usually about <strong>$10–$15 a year</strong>. Search the name you want; if it's available, check out and it's yours. Popular registrars:</p>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       {[["Namecheap","https://www.namecheap.com/domains/"],["Porkbun","https://porkbun.com/"],["GoDaddy","https://www.godaddy.com/domains"],["Squarespace Domains","https://domains.squarespace.com/"]].map(([n,u])=>(
                         <a key={n} href={u} target="_blank" rel="noopener noreferrer" style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.charcoal,textDecoration:"none",border:"1px solid "+B.stone,background:B.white,padding:"6px 11px",borderRadius:2}}>{n} &rarr;</a>
@@ -2222,8 +2222,8 @@ function ToolsPage({ tool, onBack, credits=9999, useCredits=()=>true, onBuyCredi
                   </div>
 
                   <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:14}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 2 \u00b7 Connect it here</div>
-                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>Type your domain below and tap <strong>Connect</strong>. We'll show you one <strong>DNS record</strong> to add \u2014 copy it into your registrar's <strong>DNS settings</strong> (look for \u201cDNS\u201d or \u201cManage DNS\u201d), save, and come back. Going live can take a few minutes up to 48 hours; tap <strong>Check status</strong> anytime to see if it's ready.</p>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 2 · Connect it here</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>Type your domain below and tap <strong>Connect</strong>. We'll show you one <strong>DNS record</strong> to add — copy it into your registrar's <strong>DNS settings</strong> (look for “DNS” or “Manage DNS”), save, and come back. Going live can take a few minutes up to 48 hours; tap <strong>Check status</strong> anytime to see if it's ready.</p>
                   </div>
 
                   <input value={edDomain} onChange={e=>setEdDomain(e.target.value)} placeholder="yourbusiness.com" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12}} />
@@ -4069,26 +4069,26 @@ const MARKETER_PITCHES = {
   ],
 };
 const CLIENT_ACQUISITION = [
-  { id:"free-sample", title:"Lead With a Free Sample", category:"Direct Outreach", level:"Foundational", timeToResult:"2-5 days", summary:"Win clients by handing them proof before you ever ask for money \u2014 a free piece of work they can't unsee.", content:"## Why it works\nPeople don't buy promises, they buy proof. When a business owner sees a polished sample made *specifically for them*, the conversation shifts from \"should I hire someone?\" to \"I want THIS.\"\n\n## How to do it\n1. Pick a business with weak marketing but a good product.\n2. Use Chelgy's Image Maker or Video Studio to create ONE stunning sample \u2014 a social post, a short reel, or a mock ad using their brand.\n3. Send it with a short note: \"Made this for [Business] \u2014 no charge, just wanted to show what's possible. Want a couple more?\"\n4. When they react, book a quick call and present a simple package.\n\n## Pro tips\n- Quality over quantity \u2014 one jaw-dropping sample beats five average ones.\n- Always tie it to their business by name; generic samples get ignored.\n- Keep the ask soft; let the work do the selling." },
-  { id:"cold-dm", title:"The Cold DM That Gets Replies", category:"Direct Outreach", level:"Foundational", timeToResult:"1-2 weeks", summary:"A personalized, low-pressure direct message formula that opens conversations instead of getting ignored.", content:"## The formula\n**Compliment \u2192 Insight \u2192 Soft ask.**\n\n1. **Compliment** something specific and real about their business.\n2. **Insight** \u2014 name one thing you'd elevate (not a harsh critique).\n3. **Soft ask** \u2014 offer a free sample or idea, zero pressure.\n\n## Example\n\"Hey [Name]! Just found [Business] and your [product] genuinely stood out. One thing \u2014 your page could look way more premium with the right visuals, which makes people happy to pay more. Mind if I send a free sample I made for you?\"\n\n## Rules that keep you unbanned\n- Never copy-paste identical messages \u2014 vary the wording every time.\n- Personalize the first line for each business.\n- Space messages out across the day and mix channels (DM, email, in person).\n- Most won't reply \u2014 that's normal. Consistency wins." },
-  { id:"walk-in", title:"The Local Walk-In", category:"Local & In-Person", level:"Foundational", timeToResult:"Same day", summary:"Walk into local businesses with a sample in hand \u2014 the highest-conversion, lowest-competition channel there is.", content:"## Why local in-person wins\nAlmost nobody does it, so you stand out instantly. Owners can see you're real, and trust builds in seconds instead of weeks.\n\n## The approach\n1. Scout 5-10 nearby businesses with dated or thin marketing.\n2. Before you go, make a quick sample for each (a mock post or flyer).\n3. Walk in at a slow hour: \"Hi, is the owner around? I help local businesses look more premium \u2014 I actually made something for you, can I show you?\"\n4. Show the sample, grab their email, promise to send more.\n5. Follow up the next day.\n\n## Tips\n- Dress the part \u2014 you're selling premium.\n- Keep it under two minutes; respect their time.\n- Leave something physical (a printed sample or card)." },
+  { id:"free-sample", title:"Lead With a Free Sample", category:"Direct Outreach", level:"Foundational", timeToResult:"2-5 days", summary:"Win clients by handing them proof before you ever ask for money — a free piece of work they can't unsee.", content:"## Why it works\nPeople don't buy promises, they buy proof. When a business owner sees a polished sample made *specifically for them*, the conversation shifts from \"should I hire someone?\" to \"I want THIS.\"\n\n## How to do it\n1. Pick a business with weak marketing but a good product.\n2. Use Chelgy's Image Maker or Video Studio to create ONE stunning sample — a social post, a short reel, or a mock ad using their brand.\n3. Send it with a short note: \"Made this for [Business] — no charge, just wanted to show what's possible. Want a couple more?\"\n4. When they react, book a quick call and present a simple package.\n\n## Pro tips\n- Quality over quantity — one jaw-dropping sample beats five average ones.\n- Always tie it to their business by name; generic samples get ignored.\n- Keep the ask soft; let the work do the selling." },
+  { id:"cold-dm", title:"The Cold DM That Gets Replies", category:"Direct Outreach", level:"Foundational", timeToResult:"1-2 weeks", summary:"A personalized, low-pressure direct message formula that opens conversations instead of getting ignored.", content:"## The formula\n**Compliment → Insight → Soft ask.**\n\n1. **Compliment** something specific and real about their business.\n2. **Insight** — name one thing you'd elevate (not a harsh critique).\n3. **Soft ask** — offer a free sample or idea, zero pressure.\n\n## Example\n\"Hey [Name]! Just found [Business] and your [product] genuinely stood out. One thing — your page could look way more premium with the right visuals, which makes people happy to pay more. Mind if I send a free sample I made for you?\"\n\n## Rules that keep you unbanned\n- Never copy-paste identical messages — vary the wording every time.\n- Personalize the first line for each business.\n- Space messages out across the day and mix channels (DM, email, in person).\n- Most won't reply — that's normal. Consistency wins." },
+  { id:"walk-in", title:"The Local Walk-In", category:"Local & In-Person", level:"Foundational", timeToResult:"Same day", summary:"Walk into local businesses with a sample in hand — the highest-conversion, lowest-competition channel there is.", content:"## Why local in-person wins\nAlmost nobody does it, so you stand out instantly. Owners can see you're real, and trust builds in seconds instead of weeks.\n\n## The approach\n1. Scout 5-10 nearby businesses with dated or thin marketing.\n2. Before you go, make a quick sample for each (a mock post or flyer).\n3. Walk in at a slow hour: \"Hi, is the owner around? I help local businesses look more premium — I actually made something for you, can I show you?\"\n4. Show the sample, grab their email, promise to send more.\n5. Follow up the next day.\n\n## Tips\n- Dress the part — you're selling premium.\n- Keep it under two minutes; respect their time.\n- Leave something physical (a printed sample or card)." },
   { id:"email-outreach", title:"Email Outreach at Scale (Safely)", category:"Direct Outreach", level:"Intermediate", timeToResult:"2-4 weeks", summary:"Reach dozens of prospects a day with personalized emails without landing in spam or getting flagged.", content:"## Build the list\n- Pull local businesses from Google Maps, directories, and Instagram.\n- Capture name, business, email, and one personal detail each.\n\n## Write emails that get opened\n- Subject: short, specific, curiosity-driven (\"A quick idea for [Business]\").\n- First line: personalized to them (never generic).\n- Body: one insight + a free sample offer.\n- Close: one simple question (\"Worth a quick look?\").\n\n## Stay deliverable\n1. Send in small batches, not blasts.\n2. Vary wording between emails.\n3. Warm up a new sending address slowly.\n4. Always include an easy opt-out.\n\n## Follow up\n80% of replies come from follow-ups. Send 2-3 spaced a few days apart." },
-  { id:"referral-engine", title:"Build a Referral Engine", category:"Referrals", level:"Foundational", timeToResult:"Ongoing", summary:"Turn every happy client into a source of new ones with a simple, repeatable referral ask.", content:"## The mindset\nYour happiest clients know other owners just like them. One great result can quietly turn into three new clients.\n\n## The system\n1. Do genuinely great work and get a visible win.\n2. At the high point (a great result), ask: \"So glad this is working! Do you know one other business owner who'd want results like this?\"\n3. Make it easy \u2014 offer to reach out on their behalf, or give them a sample to forward.\n4. Reward referrals (a free month, a discount, or a thank-you gift).\n\n## Tips\n- Ask when they're happiest, not at random.\n- Be specific: \"one other owner\" beats \"anyone.\"\n- Always thank and update the referrer." },
-  { id:"partnerships", title:"Partner With Complementary Businesses", category:"Partnerships", level:"Intermediate", timeToResult:"2-4 weeks", summary:"Team up with businesses that serve your ideal clients but don't compete with you \u2014 instant access to warm leads.", content:"## Who to partner with\nAnyone who already has the trust of businesses you want: web designers, photographers, accountants, business coaches, printers, POS/website vendors.\n\n## The pitch\n\"You serve [audience], I make them look premium online. Let's send each other clients \u2014 I'll pay a referral fee for anyone who signs.\"\n\n## How to structure it\n1. Offer a referral commission or a reciprocal deal.\n2. Give partners a simple one-liner and a sample to share.\n3. Stay top of mind \u2014 check in monthly.\n\n## Tips\n- One good partner can feed you clients for years.\n- Make partners look good to their own clients \u2014 that's the real currency." },
-  { id:"personal-brand", title:"Become the Local Marketing Face", category:"Positioning", level:"Intermediate", timeToResult:"1-3 months", summary:"Build a personal brand so prospects come to you already sold \u2014 your content does the selling 24/7.", content:"## The play\nLaunch a 'Marketing Specialist' account on TikTok/Instagram/YouTube Shorts and post consistently. By week 2-3, inbound DMs start rolling in.\n\n## Content pillars\n- **Tips** \u2014 quick marketing wins for local businesses.\n- **Proof** \u2014 client before/afters and results.\n- **Behind the scenes** \u2014 using your tools to create work.\n- **Story** \u2014 your journey, relatable and human.\n\n## Video ideas\n1. \"3 ways [niche] businesses lose customers (and the fix)\"\n2. \"I got a [business] X new customers in 30 days \u2014 here's how\"\n3. \"Stop doing this on Instagram, it's costing you sales\"\n\n## Tips\n- Use Chelgy's Video Studio and Image Maker to produce fast.\n- Consistency beats perfection \u2014 post, learn, repeat." },
-  { id:"audit-magnet", title:"The Free Audit Magnet", category:"Content & Inbound", level:"Intermediate", timeToResult:"2-3 weeks", summary:"Offer a free marketing audit as your lead magnet \u2014 it delivers value, shows expertise, and reveals what to sell.", content:"## Why it works\nA free audit feels generous and low-risk, positions you as the expert, and hands you a natural reason to recommend your services.\n\n## How to run it\n1. Offer: \"Free 5-point marketing audit for [niche] businesses.\"\n2. Use Chelgy's Business Audit tool to generate a professional breakdown.\n3. Deliver it warmly \u2014 highlight quick wins AND bigger opportunities.\n4. End with: \"Want me to handle these for you? Here's what that looks like.\"\n\n## Where to promote\n- DMs, Facebook groups, your content, and in person.\n\n## Tips\n- Always give real value even if they don't buy \u2014 it builds reputation.\n- Point out 1-2 things they can fix themselves; it builds trust." },
-  { id:"fb-groups", title:"Facebook Group Authority", category:"Social Selling", level:"Foundational", timeToResult:"2-4 weeks", summary:"Become the helpful marketing expert inside local business and entrepreneur groups \u2014 leads come to you.", content:"## The strategy\nDon't spam \u2014 help. Answer marketing questions genuinely, share quick tips, and people will DM you to hire you.\n\n## Steps\n1. Join local business, entrepreneur, and small-biz groups.\n2. Each day, answer 2-3 marketing questions with real, useful advice.\n3. Occasionally share a win or free tip (follow group rules).\n4. Let your helpfulness build a reputation; interested owners will reach out.\n\n## Tips\n- Never hard-pitch in comments \u2014 it gets you removed.\n- Offer a free sample or audit via DM when someone shows interest.\n- Consistency makes you 'the marketing person' in that group." },
-  { id:"case-study", title:"The Case Study Flywheel", category:"Content & Inbound", level:"Intermediate", timeToResult:"1-2 months", summary:"Turn every client result into a proof asset that lands the next client \u2014 and the next.", content:"## Why proof compounds\nEach documented result makes the next sale easier. Prospects believe results, not claims.\n\n## Build one\n1. Capture the before state (screenshots, numbers).\n2. Do the work and track what changed (followers, leads, sales, bookings).\n3. Write it up: challenge \u2192 what you did \u2192 results.\n4. Turn it into a graphic or short video with Chelgy's tools.\n\n## Use it everywhere\n- In pitches and proposals.\n- On your personal brand content.\n- As social proof in DMs (\"Here's what I did for a similar business\").\n\n## Tips\n- Even small wins count \u2014 'grew IG 200 to 600 in a month' sells.\n- Get a one-line testimonial while they're happy." },
-  { id:"niche-down", title:"Niche Down to Stand Out", category:"Positioning", level:"Foundational", timeToResult:"2-4 weeks", summary:"Specializing in one type of business makes you the obvious choice and lets you charge more.", content:"## The counterintuitive truth\n'I do marketing for everyone' is forgettable. 'I make salons fully booked' is magnetic. Niching makes referrals, content, and closing all easier.\n\n## How to pick\n1. Choose a niche you find interesting and that can pay (salons, gyms, restaurants, clinics, contractors).\n2. Learn its language and pain points.\n3. Build samples and case studies specific to it.\n4. Position everything around that niche.\n\n## Tips\n- You can still take other clients \u2014 this is just your headline.\n- A niche makes your outreach 10x more relevant.\n- Once you dominate one niche, add another." },
+  { id:"referral-engine", title:"Build a Referral Engine", category:"Referrals", level:"Foundational", timeToResult:"Ongoing", summary:"Turn every happy client into a source of new ones with a simple, repeatable referral ask.", content:"## The mindset\nYour happiest clients know other owners just like them. One great result can quietly turn into three new clients.\n\n## The system\n1. Do genuinely great work and get a visible win.\n2. At the high point (a great result), ask: \"So glad this is working! Do you know one other business owner who'd want results like this?\"\n3. Make it easy — offer to reach out on their behalf, or give them a sample to forward.\n4. Reward referrals (a free month, a discount, or a thank-you gift).\n\n## Tips\n- Ask when they're happiest, not at random.\n- Be specific: \"one other owner\" beats \"anyone.\"\n- Always thank and update the referrer." },
+  { id:"partnerships", title:"Partner With Complementary Businesses", category:"Partnerships", level:"Intermediate", timeToResult:"2-4 weeks", summary:"Team up with businesses that serve your ideal clients but don't compete with you — instant access to warm leads.", content:"## Who to partner with\nAnyone who already has the trust of businesses you want: web designers, photographers, accountants, business coaches, printers, POS/website vendors.\n\n## The pitch\n\"You serve [audience], I make them look premium online. Let's send each other clients — I'll pay a referral fee for anyone who signs.\"\n\n## How to structure it\n1. Offer a referral commission or a reciprocal deal.\n2. Give partners a simple one-liner and a sample to share.\n3. Stay top of mind — check in monthly.\n\n## Tips\n- One good partner can feed you clients for years.\n- Make partners look good to their own clients — that's the real currency." },
+  { id:"personal-brand", title:"Become the Local Marketing Face", category:"Positioning", level:"Intermediate", timeToResult:"1-3 months", summary:"Build a personal brand so prospects come to you already sold — your content does the selling 24/7.", content:"## The play\nLaunch a 'Marketing Specialist' account on TikTok/Instagram/YouTube Shorts and post consistently. By week 2-3, inbound DMs start rolling in.\n\n## Content pillars\n- **Tips** — quick marketing wins for local businesses.\n- **Proof** — client before/afters and results.\n- **Behind the scenes** — using your tools to create work.\n- **Story** — your journey, relatable and human.\n\n## Video ideas\n1. \"3 ways [niche] businesses lose customers (and the fix)\"\n2. \"I got a [business] X new customers in 30 days — here's how\"\n3. \"Stop doing this on Instagram, it's costing you sales\"\n\n## Tips\n- Use Chelgy's Video Studio and Image Maker to produce fast.\n- Consistency beats perfection — post, learn, repeat." },
+  { id:"audit-magnet", title:"The Free Audit Magnet", category:"Content & Inbound", level:"Intermediate", timeToResult:"2-3 weeks", summary:"Offer a free marketing audit as your lead magnet — it delivers value, shows expertise, and reveals what to sell.", content:"## Why it works\nA free audit feels generous and low-risk, positions you as the expert, and hands you a natural reason to recommend your services.\n\n## How to run it\n1. Offer: \"Free 5-point marketing audit for [niche] businesses.\"\n2. Use Chelgy's Business Audit tool to generate a professional breakdown.\n3. Deliver it warmly — highlight quick wins AND bigger opportunities.\n4. End with: \"Want me to handle these for you? Here's what that looks like.\"\n\n## Where to promote\n- DMs, Facebook groups, your content, and in person.\n\n## Tips\n- Always give real value even if they don't buy — it builds reputation.\n- Point out 1-2 things they can fix themselves; it builds trust." },
+  { id:"fb-groups", title:"Facebook Group Authority", category:"Social Selling", level:"Foundational", timeToResult:"2-4 weeks", summary:"Become the helpful marketing expert inside local business and entrepreneur groups — leads come to you.", content:"## The strategy\nDon't spam — help. Answer marketing questions genuinely, share quick tips, and people will DM you to hire you.\n\n## Steps\n1. Join local business, entrepreneur, and small-biz groups.\n2. Each day, answer 2-3 marketing questions with real, useful advice.\n3. Occasionally share a win or free tip (follow group rules).\n4. Let your helpfulness build a reputation; interested owners will reach out.\n\n## Tips\n- Never hard-pitch in comments — it gets you removed.\n- Offer a free sample or audit via DM when someone shows interest.\n- Consistency makes you 'the marketing person' in that group." },
+  { id:"case-study", title:"The Case Study Flywheel", category:"Content & Inbound", level:"Intermediate", timeToResult:"1-2 months", summary:"Turn every client result into a proof asset that lands the next client — and the next.", content:"## Why proof compounds\nEach documented result makes the next sale easier. Prospects believe results, not claims.\n\n## Build one\n1. Capture the before state (screenshots, numbers).\n2. Do the work and track what changed (followers, leads, sales, bookings).\n3. Write it up: challenge → what you did → results.\n4. Turn it into a graphic or short video with Chelgy's tools.\n\n## Use it everywhere\n- In pitches and proposals.\n- On your personal brand content.\n- As social proof in DMs (\"Here's what I did for a similar business\").\n\n## Tips\n- Even small wins count — 'grew IG 200 to 600 in a month' sells.\n- Get a one-line testimonial while they're happy." },
+  { id:"niche-down", title:"Niche Down to Stand Out", category:"Positioning", level:"Foundational", timeToResult:"2-4 weeks", summary:"Specializing in one type of business makes you the obvious choice and lets you charge more.", content:"## The counterintuitive truth\n'I do marketing for everyone' is forgettable. 'I make salons fully booked' is magnetic. Niching makes referrals, content, and closing all easier.\n\n## How to pick\n1. Choose a niche you find interesting and that can pay (salons, gyms, restaurants, clinics, contractors).\n2. Learn its language and pain points.\n3. Build samples and case studies specific to it.\n4. Position everything around that niche.\n\n## Tips\n- You can still take other clients — this is just your headline.\n- A niche makes your outreach 10x more relevant.\n- Once you dominate one niche, add another." },
   { id:"ads-for-self", title:"Run Ads to Get Clients", category:"Paid Ads", level:"Advanced", timeToResult:"2-4 weeks", summary:"Once you have proof and a budget, paid ads turn dollars into booked calls predictably.", content:"## When you're ready\nUse this after you have a case study or two and a clear offer. Ads amplify what already works.\n\n## The setup\n1. Offer: a free audit or a specific result (\"more customers for your [niche] business\").\n2. Target local business owners by interest and location.\n3. Send them to a simple form or DM.\n4. Use Chelgy's Ad Builder to create the copy and creative.\n\n## Manage it\n- Start small ($5-20/day), test 2-3 angles, scale the winner.\n- Track cost per booked call, not just clicks.\n\n## Tips\n- Your own ads are also proof you can run theirs.\n- Retarget people who engaged but didn't reply." },
-  { id:"reactivation", title:"The Reactivation Play", category:"Retention", level:"Foundational", timeToResult:"1 week", summary:"Your fastest new revenue isn't a new client \u2014 it's re-engaging past or paused ones.", content:"## Why it's the easiest win\nPast clients already trust you. A single friendly message can restart a paying relationship.\n\n## The message\n\"Hey [Name]! Been thinking about [Business] \u2014 I've got a couple of fresh ideas that could bring in more customers this month. Want me to send them over?\"\n\n## Steps\n1. List every past or paused client.\n2. Send a warm, personal check-in with a specific idea.\n3. Offer a small new project or a return to a monthly plan.\n\n## Tips\n- Lead with a fresh idea, not 'want to work again?'\n- Timing matters \u2014 reach out around their busy season." },
-  { id:"upsell", title:"Upsell to Higher Tiers", category:"Retention", level:"Intermediate", timeToResult:"Ongoing", summary:"Grow revenue per client by moving happy clients up from Foundation to Growth to Premium.", content:"## The principle\nIt's far easier to grow an existing client than find a new one. As you deliver results, the case for more services makes itself.\n\n## How to upsell\n1. Deliver a clear win on their current tier.\n2. Show the next opportunity: \"Your social is working \u2014 imagine what ads + email would do.\"\n3. Frame it around results and revenue, not features.\n4. Make the upgrade easy and specific.\n\n## Tips\n- Upsell after a win, never after a miss.\n- Tie the higher tier to a goal they care about.\n- Use a mini case study from their own account as proof." },
-  { id:"before-after", title:"The Before/After Post", category:"Social Selling", level:"Foundational", timeToResult:"1-2 weeks", summary:"Nothing sells marketing like a visible transformation \u2014 make before/afters your signature content.", content:"## Why it converts\nBefore/afters are undeniable proof. They stop the scroll and make prospects imagine their own transformation.\n\n## What to show\n- A tired old post vs. a premium new one.\n- Follower or engagement growth.\n- A dull profile vs. a polished, on-brand one.\n\n## How to make them\n1. Screenshot the 'before'.\n2. Create the 'after' with Chelgy's Image Maker.\n3. Pair them in a single graphic or short video.\n4. Caption with the result and a soft CTA.\n\n## Tips\n- Get client permission, or use your own samples.\n- Post consistently \u2014 this is your proof engine." },
-  { id:"cold-call", title:"Cold Calling Without the Cringe", category:"Direct Outreach", level:"Intermediate", timeToResult:"1-2 weeks", summary:"A warm, respectful phone approach that books meetings \u2014 most competitors won't pick up the phone, so you'll stand out.", content:"## Reframe the call\nYou're not selling \u2014 you're offering to help and show something valuable. That mindset removes the pressure.\n\n## The script\n\"Hi [Name], it's [You] \u2014 I'll be quick. I help [niche] businesses look premium and attract higher-paying customers. I pulled up [Business] and had a couple of specific ideas. Not selling anything today \u2014 could I show you for 10 minutes Thursday?\"\n\n## Steps\n1. Research each business first (one specific observation).\n2. Call at a calm hour.\n3. Book the meeting, don't close on the call.\n4. Leave a strong voicemail if no answer.\n\n## Tips\n- Smile \u2014 it comes through.\n- Keep it under two minutes.\n- Follow up by email with a sample." },
-  { id:"linkedin", title:"LinkedIn for B2B Clients", category:"Social Selling", level:"Intermediate", timeToResult:"3-6 weeks", summary:"For higher-budget B2B and professional-service clients, LinkedIn is a goldmine of decision-makers.", content:"## Who's here\nAgency owners, consultants, clinics, B2B founders \u2014 clients with bigger budgets and longer contracts.\n\n## The approach\n1. Optimize your profile to speak to their outcome, not your title.\n2. Post 2-3x/week: marketing insights, results, short tips.\n3. Connect with target owners and open with value, not a pitch.\n4. Move warm conversations to a call.\n\n## Message opener\n\"Hi [Name], love what [Company] is doing. I help businesses like yours turn their marketing into a steady lead source \u2014 happy to share a quick idea if useful.\"\n\n## Tips\n- Consistency + genuine comments build inbound over time.\n- Share client results (with permission) as proof." },
-  { id:"event-play", title:"The Grand Opening & Event Play", category:"Local & In-Person", level:"Intermediate", timeToResult:"2-4 weeks", summary:"New openings, launches, and local events are businesses at their most ready to spend on marketing.", content:"## Why timing matters\nA business opening or launching NEEDS visibility now and has budget allocated. You're solving an urgent problem.\n\n## How to find them\n- Watch 'coming soon' signs, permits, and local news.\n- Follow local business and chamber-of-commerce pages.\n- Network at markets and community events.\n\n## The pitch\n\"Congrats on the opening! The first 90 days set the tone \u2014 I can make sure your launch actually gets seen. Want a quick plan?\"\n\n## Tips\n- Offer a launch package (social + ads + content).\n- Move fast; these deals close on urgency.\n- One great launch becomes a referral goldmine." },
-  { id:"guarantee", title:"The Guarantee-Backed Offer", category:"Positioning", level:"Advanced", timeToResult:"2-4 weeks", summary:"Remove the client's risk with a bold, specific guarantee and closing gets dramatically easier.", content:"## Why guarantees close\nMost hesitation is fear of wasting money. A guarantee flips the risk onto you \u2014 which signals confidence and makes 'yes' easy.\n\n## Examples\n- \"If you're not happy with the first month, it's free.\"\n- \"I'll deliver [specific result] in 60 days or I keep working free until I do.\"\n\n## How to do it safely\n1. Only guarantee what your process reliably delivers.\n2. Be specific about the terms.\n3. Set clear client responsibilities (access, approvals).\n\n## Tips\n- A guarantee is a sales tool AND a quality standard.\n- Track results so your guarantee stays profitable." },
-  { id:"content-ladder", title:"The Content Ladder", category:"Content & Inbound", level:"Advanced", timeToResult:"1-3 months", summary:"Build a system where free content attracts strangers and naturally leads them to hire you.", content:"## The ladder\n1. **Free content** (tips, reels) attracts attention.\n2. **Lead magnet** (free audit or guide) captures interested people.\n3. **Nurture** (DMs, email) builds trust.\n4. **Offer** converts them into paying clients.\n\n## Build it\n- Post consistent value on one platform.\n- Offer a free audit/guide in your bio and captions.\n- Follow up warmly with everyone who opts in.\n- Present your packages when trust is high.\n\n## Tips\n- Use Chelgy's tools to produce content fast.\n- One strong platform beats being everywhere.\n- The ladder compounds \u2014 inbound grows every month." },
+  { id:"reactivation", title:"The Reactivation Play", category:"Retention", level:"Foundational", timeToResult:"1 week", summary:"Your fastest new revenue isn't a new client — it's re-engaging past or paused ones.", content:"## Why it's the easiest win\nPast clients already trust you. A single friendly message can restart a paying relationship.\n\n## The message\n\"Hey [Name]! Been thinking about [Business] — I've got a couple of fresh ideas that could bring in more customers this month. Want me to send them over?\"\n\n## Steps\n1. List every past or paused client.\n2. Send a warm, personal check-in with a specific idea.\n3. Offer a small new project or a return to a monthly plan.\n\n## Tips\n- Lead with a fresh idea, not 'want to work again?'\n- Timing matters — reach out around their busy season." },
+  { id:"upsell", title:"Upsell to Higher Tiers", category:"Retention", level:"Intermediate", timeToResult:"Ongoing", summary:"Grow revenue per client by moving happy clients up from Foundation to Growth to Premium.", content:"## The principle\nIt's far easier to grow an existing client than find a new one. As you deliver results, the case for more services makes itself.\n\n## How to upsell\n1. Deliver a clear win on their current tier.\n2. Show the next opportunity: \"Your social is working — imagine what ads + email would do.\"\n3. Frame it around results and revenue, not features.\n4. Make the upgrade easy and specific.\n\n## Tips\n- Upsell after a win, never after a miss.\n- Tie the higher tier to a goal they care about.\n- Use a mini case study from their own account as proof." },
+  { id:"before-after", title:"The Before/After Post", category:"Social Selling", level:"Foundational", timeToResult:"1-2 weeks", summary:"Nothing sells marketing like a visible transformation — make before/afters your signature content.", content:"## Why it converts\nBefore/afters are undeniable proof. They stop the scroll and make prospects imagine their own transformation.\n\n## What to show\n- A tired old post vs. a premium new one.\n- Follower or engagement growth.\n- A dull profile vs. a polished, on-brand one.\n\n## How to make them\n1. Screenshot the 'before'.\n2. Create the 'after' with Chelgy's Image Maker.\n3. Pair them in a single graphic or short video.\n4. Caption with the result and a soft CTA.\n\n## Tips\n- Get client permission, or use your own samples.\n- Post consistently — this is your proof engine." },
+  { id:"cold-call", title:"Cold Calling Without the Cringe", category:"Direct Outreach", level:"Intermediate", timeToResult:"1-2 weeks", summary:"A warm, respectful phone approach that books meetings — most competitors won't pick up the phone, so you'll stand out.", content:"## Reframe the call\nYou're not selling — you're offering to help and show something valuable. That mindset removes the pressure.\n\n## The script\n\"Hi [Name], it's [You] — I'll be quick. I help [niche] businesses look premium and attract higher-paying customers. I pulled up [Business] and had a couple of specific ideas. Not selling anything today — could I show you for 10 minutes Thursday?\"\n\n## Steps\n1. Research each business first (one specific observation).\n2. Call at a calm hour.\n3. Book the meeting, don't close on the call.\n4. Leave a strong voicemail if no answer.\n\n## Tips\n- Smile — it comes through.\n- Keep it under two minutes.\n- Follow up by email with a sample." },
+  { id:"linkedin", title:"LinkedIn for B2B Clients", category:"Social Selling", level:"Intermediate", timeToResult:"3-6 weeks", summary:"For higher-budget B2B and professional-service clients, LinkedIn is a goldmine of decision-makers.", content:"## Who's here\nAgency owners, consultants, clinics, B2B founders — clients with bigger budgets and longer contracts.\n\n## The approach\n1. Optimize your profile to speak to their outcome, not your title.\n2. Post 2-3x/week: marketing insights, results, short tips.\n3. Connect with target owners and open with value, not a pitch.\n4. Move warm conversations to a call.\n\n## Message opener\n\"Hi [Name], love what [Company] is doing. I help businesses like yours turn their marketing into a steady lead source — happy to share a quick idea if useful.\"\n\n## Tips\n- Consistency + genuine comments build inbound over time.\n- Share client results (with permission) as proof." },
+  { id:"event-play", title:"The Grand Opening & Event Play", category:"Local & In-Person", level:"Intermediate", timeToResult:"2-4 weeks", summary:"New openings, launches, and local events are businesses at their most ready to spend on marketing.", content:"## Why timing matters\nA business opening or launching NEEDS visibility now and has budget allocated. You're solving an urgent problem.\n\n## How to find them\n- Watch 'coming soon' signs, permits, and local news.\n- Follow local business and chamber-of-commerce pages.\n- Network at markets and community events.\n\n## The pitch\n\"Congrats on the opening! The first 90 days set the tone — I can make sure your launch actually gets seen. Want a quick plan?\"\n\n## Tips\n- Offer a launch package (social + ads + content).\n- Move fast; these deals close on urgency.\n- One great launch becomes a referral goldmine." },
+  { id:"guarantee", title:"The Guarantee-Backed Offer", category:"Positioning", level:"Advanced", timeToResult:"2-4 weeks", summary:"Remove the client's risk with a bold, specific guarantee and closing gets dramatically easier.", content:"## Why guarantees close\nMost hesitation is fear of wasting money. A guarantee flips the risk onto you — which signals confidence and makes 'yes' easy.\n\n## Examples\n- \"If you're not happy with the first month, it's free.\"\n- \"I'll deliver [specific result] in 60 days or I keep working free until I do.\"\n\n## How to do it safely\n1. Only guarantee what your process reliably delivers.\n2. Be specific about the terms.\n3. Set clear client responsibilities (access, approvals).\n\n## Tips\n- A guarantee is a sales tool AND a quality standard.\n- Track results so your guarantee stays profitable." },
+  { id:"content-ladder", title:"The Content Ladder", category:"Content & Inbound", level:"Advanced", timeToResult:"1-3 months", summary:"Build a system where free content attracts strangers and naturally leads them to hire you.", content:"## The ladder\n1. **Free content** (tips, reels) attracts attention.\n2. **Lead magnet** (free audit or guide) captures interested people.\n3. **Nurture** (DMs, email) builds trust.\n4. **Offer** converts them into paying clients.\n\n## Build it\n- Post consistent value on one platform.\n- Offer a free audit/guide in your bio and captions.\n- Follow up warmly with everyone who opts in.\n- Present your packages when trust is high.\n\n## Tips\n- Use Chelgy's tools to produce content fast.\n- One strong platform beats being everywhere.\n- The ladder compounds — inbound grows every month." },
 ];
 
 const MARKETER_PRICING = [
@@ -5248,7 +5248,7 @@ function CollageLayout({ site }) {
   if (about && url(about.image)) pics.push(url(about.image));
   if (off && Array.isArray(off.items)) off.items.forEach(it => { if (url(it.image)) pics.push(url(it.image)); });
   if (hero && url(hero.image)) pics.push(url(hero.image));
-  const mq = "\u2605 " + (brand.name || "Studio") + " \u2605 Clarity \u2605 Confidence \u2605 Strategy \u2605 Freedom \u00A0";
+  const mq = "★ " + (brand.name || "Studio") + " ★ Clarity ★ Confidence ★ Strategy ★ Freedom  ";
   const custom = s.custom ? buildCustomCSS(s.custom) : "";
   return (
     <div id="cg-site" data-theme="muse">
@@ -5265,7 +5265,7 @@ function CollageLayout({ site }) {
       {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j}><div className="ph" style={bgi(url(it.image))}></div><div className="nm">{it.name}</div><div className="meta"><span>{it.note}</span>{it.price && <span className="price">{it.price}</span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
       {quote && <section className="quote wrap"><div><p>{quote.text}</p>{quote.cite && <cite>{quote.cite}</cite>}</div></section>}
       {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow">{contact.eyebrow}</div>}<h2>{contact.heading}{contact.headingEm && <em> {contact.headingEm}</em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}>{d.v}</span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}>{contact.cta.label}</a></div>}</div></div></section>}
-      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
@@ -5407,7 +5407,7 @@ function DuetLayout({ site }) {
         {contact.cta && <a href="#" className="btn-out">{contact.cta.label}</a>}
       </div></section>}
       <StandardSections site={s} show={{about:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
@@ -5516,7 +5516,7 @@ function RougeLayout({ site }) {
         <div className="scatter"><div className="pola s1"><div className="ph" style={bgi(gi(3) || gi(0))}></div></div><div className="pola s2"><div className="ph" style={bgi(gi(4) || gi(1))}></div></div><div className="pola s3"><div className="ph" style={bgi(gi(5) || gi(2))}></div></div></div>
         <div>{ed.eyebrow && <div className="tag">[ {ed.eyebrow} ]</div>}<h2>{ed.line}{ed.lineEm && <span className="script"> {ed.lineEm}</span>}</h2><a href="#s-offerings" className="btn cream">Learn more</a></div>
       </div></section>}
-      <div className="marquee"><div><span>{"\u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 \u00A0"}</span><span>{"\u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 " + ((off && off.title) || "Our Offerings") + " \u2605 \u00A0"}</span></div></div>
+      <div className="marquee"><div><span>{"★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★  "}</span><span>{"★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★  "}</span></div></div>
       {off && <section className="services wrap" id="s-offerings">
         <div className="big">{off.title || "Signature Services"}</div>
         {off.eyebrow && <div className="sub">{off.eyebrow}</div>}
@@ -5532,7 +5532,7 @@ function RougeLayout({ site }) {
         {contact.cta && <a href="#" className="btn cream">{contact.cta.label}</a>}
       </div></section>}
       <StandardSections site={s} show={{about:true,quote:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "\u00A9 2026"}</div></div></footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
@@ -5640,7 +5640,7 @@ function VigorLayout({ site }){
         {contact.cta&&<a className="btn light" href="#">{contact.cta.label}</a>}
       </section>}
       <StandardSections site={s} show={{quote:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></div>}</footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></div>}</footer>
     </div>
   );
 }
@@ -5715,7 +5715,7 @@ function AureliaLayout({ site }){
       {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><div className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</section>}
       {phil&&<section className="manifesto" id="s-about"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>} {phil.body&&phil.body[0]?phil.body[0]:""}</p><a className="btn-outline" href="#s-work">{(hero&&hero.cta&&hero.cta.label)||"View gallery"}</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -5808,7 +5808,7 @@ function ClaretLayout({ site }){
       {off&&<section className="services" id="s-offerings"><span className="eyebrow c">{off.eyebrow||"Our services"}</span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name">{it.name}</span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}
       {bandStmt&&bandStmt.line&&<section className="band" id="s-contact"><h2 className="stmt">{bandStmt.line}{bandStmt.em&&<em> {bandStmt.em}</em>}</h2>{contact&&contact.cta&&<a className="btn on-wine" href="#">{contact.cta.label}</a>}</section>}
       <StandardSections site={s} show={{contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -5886,7 +5886,7 @@ function NocturneLayout({ site }){
       {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
       {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -5962,7 +5962,7 @@ function SableLayout({ site }){
       {phil&&<section className="headline" id="s-about"><h1>{phil.heading}{phil.headingEm&&<em> {phil.headingEm}</em>}</h1>{phil.body&&phil.body[0]&&<p className="sub">{phil.body[0]}</p>}</section>}
       {off&&<section className="services" id="s-offerings"><div className="grid"><div><span className="eyebrow">{off.eyebrow||"Full-spectrum services"}</span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name">{it.name}</span></li>)}</ul></div><div className="img-slot" style={bgi(gi(2)||gi(0))}></div></div></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6049,7 +6049,7 @@ function MissiveLayout({ site }){
       {phil&&<section className="welcome"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>}</p></section>}
       {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6177,7 +6177,7 @@ function LinenLayout({ site }){
   const custom=s.custom?buildCustomCSS(s.custom):""; const nav=brand.nav||[];
   const items=(off&&Array.isArray(off.items))?off.items.slice(0,5):[];
   const mqLines=[(hero&&hero.eyebrow)||"Free shipping on all orders over $100","New arrivals every week","30-day easy returns"];
-  const track=[]; mqLines.concat(mqLines).forEach((l,i)=>{ track.push(<span key={"l"+i}>{l}</span>); track.push(<span className="st" key={"s"+i}>{"\u2726"}</span>); });
+  const track=[]; mqLines.concat(mqLines).forEach((l,i)=>{ track.push(<span key={"l"+i}>{l}</span>); track.push(<span className="st" key={"s"+i}>{"✦"}</span>); });
   const tag=(hero&&hero.sub)||(off&&off.eyebrow)||"";
   return (
     <div id="cg-site" data-theme="linen">
@@ -6269,9 +6269,9 @@ function UmberLayout({ site }){
         {hero&&hero.cta&&<div className="cta"><a className="pill on-brown" href="#s-known">{hero.cta.label} &#8594;</a></div>}
       </section>
       {phil&&<section className="known" id="s-known"><div className="ghost" aria-hidden="true">{brand.name||""}</div><div className="inner"><p className="eyebrow i">{phil.eyebrow||"Best known for"}</p><h2>{phil.heading} {phil.headingEm&&<span className="hollow">{phil.headingEm}</span>}</h2>{phil.body&&phil.body[0]&&<p className="body">{phil.body[0]}</p>}{contact&&contact.cta&&<a className="pill solid" href="#s-contact">{contact.cta.label}</a>}</div></section>}
-      {about&&<section className="meet" id="s-about"><div className="grid"><div><h2>{about.heading} {"\u007D"}</h2>{(about.headingEm||about.eyebrow)&&<p className="role">{about.headingEm||about.eyebrow}</p>}{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><div className="img-slot" style={bgi(url(about.image))}></div></div></section>}
+      {about&&<section className="meet" id="s-about"><div className="grid"><div><h2>{about.heading}</h2>{(about.headingEm||about.eyebrow)&&<p className="role">{about.headingEm||about.eyebrow}</p>}{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><div className="img-slot" style={bgi(url(about.image))}></div></div></section>}
       <StandardSections site={s} show={{quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6374,7 +6374,7 @@ function WillowLayout({ site }){
       {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><div className="img-slot dark" style={bgi(url((ed&&ed.image))||url(hero&&hero.image))}></div></div></section>}
       {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
       <StandardSections site={s} show={{contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"\u00A9 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -6467,8 +6467,8 @@ function cgApplySiteSeo(site){
     const brand=site.brand||{}; const name=brand.name||""; const secs=site.sections||[];
     const find=t=>secs.find(s=>s&&s.type===t)||{};
     const hero=find("hero"), phil=find("philosophy"), about=find("about");
-    const desc=String(hero.sub||(phil.body&&phil.body[0])||(about.body&&about.body[0])||((name?name+" \u2014 ":"")+(hero.headline||""))||name).slice(0,300);
-    const title=name?(name+(hero.eyebrow?(" \u00b7 "+hero.eyebrow):"")):(hero.headline||"Website");
+    const desc=String(hero.sub||(phil.body&&phil.body[0])||(about.body&&about.body[0])||((name?name+" — ":"")+(hero.headline||""))||name).slice(0,300);
+    const title=name?(name+(hero.eyebrow?(" · "+hero.eyebrow):"")):(hero.headline||"Website");
     const img=(hero.image&&hero.image.url)||(about.image&&about.image.url)||"";
     document.title=title;
     cgSetMeta('meta[name="description"]','name','description',desc);
@@ -6496,7 +6496,7 @@ function cgApplyPostSeo(site,post){
   try{
     if(!post||typeof document==="undefined") return;
     const name=(site&&site.brand&&site.brand.name)||"";
-    const title=post.title+(name?(" \u2014 "+name):"");
+    const title=post.title+(name?(" — "+name):"");
     const desc=String(post.excerpt||String(post.body||"").replace(/\s+/g," ").slice(0,200)).slice(0,300);
     document.title=title;
     cgSetMeta('meta[name="description"]','name','description',desc);
@@ -6541,7 +6541,7 @@ function SiteBlogSection({ site, eyebrow, heading }) {
   );
 }
 function SitePostPage({ site, post, backHref }) {
-  useEffect(()=>{ try{ if(post&&post.title) document.title=post.title+((site&&site.brand&&site.brand.name)?(" \u2014 "+site.brand.name):""); }catch(e){} },[]);
+  useEffect(()=>{ try{ if(post&&post.title) document.title=post.title+((site&&site.brand&&site.brand.name)?(" — "+site.brand.name):""); }catch(e){} },[]);
   const brandName=(site&&site.brand&&site.brand.name)||"the site";
   const tk=cgThemeTokens(site&&site.theme);
   const dark=cgIsDark(tk.bg);
@@ -6552,7 +6552,7 @@ function SitePostPage({ site, post, backHref }) {
   return (
     <div style={{minHeight:"100vh",background:tk.bg,color:text,fontFamily:tk.body}}>
       <div style={{maxWidth:720,margin:"0 auto",padding:"40px 24px 110px"}}>
-        <a href={backHref} style={backLink}>{"\u2190 "+brandName}</a>
+        <a href={backHref} style={backLink}>{"← "+brandName}</a>
         <article style={{marginTop:44}}>
           {post.image&&<img src={post.image} alt="" style={{width:"100%",maxHeight:420,objectFit:"cover",display:"block",marginBottom:32}} />}
           <div style={{fontFamily:tk.body,fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:muted,marginBottom:16}}>{post.date?new Date(post.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}):""}</div>
@@ -6562,7 +6562,7 @@ function SitePostPage({ site, post, backHref }) {
           ))}
         </article>
         <div style={{marginTop:50,paddingTop:24,borderTop:"1px solid "+rule}}>
-          <a href={backHref} style={backLink}>{"\u2190 Back to "+brandName}</a>
+          <a href={backHref} style={backLink}>{"← Back to "+brandName}</a>
         </div>
       </div>
     </div>
@@ -6756,7 +6756,7 @@ function SiteRender({ site }) {
               {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
               {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
               <div className="cg-grid cg-g3" style={{marginTop:34}}>
-                {(sec.cards||[]).map((c,j)=><div className="card" key={j}><div className="cg-stars">★★★★★</div><p style={{margin:"12px 0"}}>{"\u201C"+(c.quote||"")+"\u201D"}</p><div className="cg-statl">{c.name}</div></div>)}
+                {(sec.cards||[]).map((c,j)=><div className="card" key={j}><div className="cg-stars">★★★★★</div><p style={{margin:"12px 0"}}>{"“"+(c.quote||"")+"”"}</p><div className="cg-statl">{c.name}</div></div>)}
               </div>
             </div>
           </section>
@@ -7243,7 +7243,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
   async function write() {
     if (topic.trim().length < MIN) { setErr("Add at least " + MIN + " characters so your post is specific and original."); return; }
     setBusy(true); setErr(""); setDraft(null); setImg("");
-    const prompt = "You are writing an original blog post for a real small business's own website.\n\nThe owner's description of what they want the post to be about (use this as the specific, original basis \u2014 do not drift generic):\n\"\"\"" + topic.trim() + "\"\"\"\n\nTone: " + tone + "\n\nWrite a genuinely human, original blog post. It must NOT read like AI writing. Rules:\n- Vary sentence length a lot: mix short punchy sentences with longer flowing ones, and the odd fragment.\n- Write with a specific point of view and real personality. Take a stance; sound like a person, not a brand bot.\n- Use concrete, specific details and small examples instead of vague generalities.\n- Use contractions and a natural spoken rhythm. Rhetorical questions are fine.\n- Do NOT use any of these AI-tell phrases: 'in today's fast-paced world', 'whether you're', 'in conclusion', 'let's dive in', 'it's important to note', 'when it comes to', 'game-changer', 'elevate', 'unlock', 'seamless', 'delve', 'moreover', 'furthermore', 'look no further', 'navigate the world of', 'that being said'.\n- No generic opening or summary paragraph. Open on something specific. End on a real thought, not a neat wrap-up.\n- Avoid perfectly balanced lists of three and overly symmetrical structure.\n- 500-800 words.\n\nReturn ONLY valid JSON (no markdown, no code fences) exactly like:\n{\"title\":\"a specific, non-clickbait title\",\"excerpt\":\"one-sentence teaser under 160 characters\",\"body\":\"full post as plain text, paragraphs separated by \\\\n\\\\n; put any short subheading on its own line\"}";
+    const prompt = "You are writing an original blog post for a real small business's own website.\n\nThe owner's description of what they want the post to be about (use this as the specific, original basis — do not drift generic):\n\"\"\"" + topic.trim() + "\"\"\"\n\nTone: " + tone + "\n\nWrite a genuinely human, original blog post. It must NOT read like AI writing. Rules:\n- Vary sentence length a lot: mix short punchy sentences with longer flowing ones, and the odd fragment.\n- Write with a specific point of view and real personality. Take a stance; sound like a person, not a brand bot.\n- Use concrete, specific details and small examples instead of vague generalities.\n- Use contractions and a natural spoken rhythm. Rhetorical questions are fine.\n- Do NOT use any of these AI-tell phrases: 'in today's fast-paced world', 'whether you're', 'in conclusion', 'let's dive in', 'it's important to note', 'when it comes to', 'game-changer', 'elevate', 'unlock', 'seamless', 'delve', 'moreover', 'furthermore', 'look no further', 'navigate the world of', 'that being said'.\n- No generic opening or summary paragraph. Open on something specific. End on a real thought, not a neat wrap-up.\n- Avoid perfectly balanced lists of three and overly symmetrical structure.\n- 500-800 words.\n\nReturn ONLY valid JSON (no markdown, no code fences) exactly like:\n{\"title\":\"a specific, non-clickbait title\",\"excerpt\":\"one-sentence teaser under 160 characters\",\"body\":\"full post as plain text, paragraphs separated by \\\\n\\\\n; put any short subheading on its own line\"}";
     try {
       const rawT = await callClaude(prompt, 2200, false, null);
       let txt = (rawT || "").trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
@@ -7254,7 +7254,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
       setDraft({ title: obj.title, excerpt: obj.excerpt || "", body: obj.body });
       setBusy(false);
       genImage(obj.title); // auto-make a header image to match
-    } catch (e) { setErr("Couldn't write the post \u2014 please try again."); setBusy(false); }
+    } catch (e) { setErr("Couldn't write the post — please try again."); setBusy(false); }
   }
 
   async function genImage(titleStr) {
@@ -7268,9 +7268,9 @@ function BlogWriter({ site, onSave, user, onBalance }) {
       if (r && r.image) {
         if (typeof r.balance === "number" && onBalance) onBalance(r.balance);
         const url = await uploadSiteImage(r.image, user.id + "/blog-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
-        if (url) setImg(url); else setErr("Couldn't save the image \u2014 try again or upload your own.");
-      } else setErr("Couldn't make the image \u2014 try again or upload your own.");
-    } catch (e) { setErr("Couldn't make the image \u2014 try again or upload your own."); }
+        if (url) setImg(url); else setErr("Couldn't save the image — try again or upload your own.");
+      } else setErr("Couldn't make the image — try again or upload your own.");
+    } catch (e) { setErr("Couldn't make the image — try again or upload your own."); }
     setImgBusy(false);
   }
 
@@ -7305,7 +7305,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
     }
     const ok = await onSave(d);
     setSaving(false);
-    if (ok) { reset(); setMode("ai"); } else setErr("Couldn't publish \u2014 please try again.");
+    if (ok) { reset(); setMode("ai"); } else setErr("Couldn't publish — please try again.");
   }
 
   async function del(id) {
@@ -7322,7 +7322,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
   return (
     <div>
       <div style={{fontFamily:"Georgia,serif",fontSize:22,color:B.charcoal,marginBottom:4}}>Blog</div>
-      <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 16px",maxWidth:560}}>Write a post with AI from your own brief, or write your own from scratch. Every post gets a matching header image you can regenerate or replace \u2014 then it publishes straight to your site.</p>
+      <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 16px",maxWidth:560}}>Write a post with AI from your own brief, or write your own from scratch. Every post gets a matching header image you can regenerate or replace — then it publishes straight to your site.</p>
 
       <div style={{display:"flex",gap:6,marginBottom:18}}>
         <button onClick={startAi} style={{...btnGhost,background:mode==="ai"?B.charcoal:"none",color:mode==="ai"?"#fff":B.charcoal,borderColor:mode==="ai"?B.charcoal:B.stone}}>Write with AI</button>
@@ -7332,15 +7332,15 @@ function BlogWriter({ site, onSave, user, onBalance }) {
       {mode==="ai" && !draft && (
         <div>
           <div style={lbl}>What should it be about?</div>
-          <textarea value={topic} onChange={e=>setTopic(e.target.value)} rows={5} placeholder="e.g. Why we switched our whole cafe to oat milk by default, what regulars said, and the two drinks it quietly made better. Mention our house chai and the mess we made testing it\u2026" style={{...fld,lineHeight:1.5,resize:"vertical",marginBottom:6}} />
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:left>0?B.mid:B.green,marginBottom:14}}>{left>0?left+" more characters needed":"\u2713 Ready \u2014 nicely specific"}</div>
+          <textarea value={topic} onChange={e=>setTopic(e.target.value)} rows={5} placeholder="e.g. Why we switched our whole cafe to oat milk by default, what regulars said, and the two drinks it quietly made better. Mention our house chai and the mess we made testing it…" style={{...fld,lineHeight:1.5,resize:"vertical",marginBottom:6}} />
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:left>0?B.mid:B.green,marginBottom:14}}>{left>0?left+" more characters needed":"✓ Ready — nicely specific"}</div>
           <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
             <label style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,display:"flex",alignItems:"center",gap:8}}>Tone
               <select value={tone} onChange={e=>setTone(e.target.value)} style={{padding:"8px 10px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,background:"#fff",color:B.charcoal}}>
                 {TONES.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </label>
-            <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stone:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing\u2026":"\u2728 Write my post"}</button>
+            <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stone:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing…":"✨ Write my post"}</button>
           </div>
         </div>
       )}
@@ -7354,16 +7354,16 @@ function BlogWriter({ site, onSave, user, onBalance }) {
             <div style={{marginBottom:14}}>
               <img src={img} alt="" style={{width:"100%",maxHeight:220,objectFit:"cover",display:"block",border:"1px solid "+B.stone}} />
               <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
-                <button onClick={()=>genImage()} disabled={imgBusy} style={btnGhost}>{imgBusy?"Working\u2026":"Regenerate"}</button>
+                <button onClick={()=>genImage()} disabled={imgBusy} style={btnGhost}>{imgBusy?"Working…":"Regenerate"}</button>
                 <label style={{...btnGhost,display:"inline-block"}}>Upload<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>
                 <button onClick={()=>setImg("")} disabled={imgBusy} style={{...btnGhost,color:B.red,borderColor:B.stone}}>Remove</button>
               </div>
             </div>
           ) : (
             <div style={{border:"1px dashed "+B.stone,padding:"16px",textAlign:"center",marginBottom:14,background:"#fff"}}>
-              {imgBusy ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Creating a matching image\u2026</div> : (
+              {imgBusy ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Creating a matching image…</div> : (
                 <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
-                  <button onClick={()=>genImage()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>\u2728 Generate with AI</button>
+                  <button onClick={()=>genImage()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>✨ Generate with AI</button>
                   <label style={{...btnGhost,display:"inline-block"}}>Upload your own<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>
                 </div>
               )}
@@ -7378,7 +7378,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
           <textarea value={draft.body} onChange={e=>setDraft(d=>({...d,body:e.target.value}))} rows={12} placeholder="Write your post. Leave a blank line between paragraphs." style={{...fld,fontFamily:"Georgia,serif",fontSize:14,lineHeight:1.7,resize:"vertical"}} />
 
           <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
-            <button disabled={saving} onClick={publish} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:saving?"default":"pointer"}}>{saving?"Publishing\u2026":"Publish to my site"}</button>
+            <button disabled={saving} onClick={publish} style={{background:B.green,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:saving?"default":"pointer"}}>{saving?"Publishing…":"Publish to my site"}</button>
             {mode==="ai"&&<button disabled={saving||busy} onClick={write} style={btnGhost}>Rewrite</button>}
             <button disabled={saving} onClick={()=>{ setDraft(null); setImg(""); if(mode==="own") setMode("ai"); }} style={{background:"none",color:B.mid,border:"none",padding:"10px 8px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer"}}>Discard</button>
           </div>
@@ -7446,12 +7446,12 @@ function CJConnect({ user }) {
   }
 
   if (state === "loading") {
-    return <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid }}>Checking CJ connection\u2026</div>;
+    return <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid }}>Checking CJ connection…</div>;
   }
   if (state === "connected") {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "sans-serif", fontSize: 13, color: B.green, fontWeight: 700 }}>
-        <span style={{ fontSize: 15 }}>\u2713</span> Your CJ account is connected.
+        <span style={{ fontSize: 15 }}>✓</span> Your CJ account is connected.
       </div>
     );
   }
@@ -7460,7 +7460,7 @@ function CJConnect({ user }) {
       <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Paste your CJ API key" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid " + B.stone, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 10, color: B.charcoal }} />
       {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
       <button onClick={connect} disabled={busy} style={{ padding: "11px 20px", background: busy ? B.stone : B.charcoal, color: busy ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
-        {busy ? "Connecting\u2026" : "Connect CJ account"}
+        {busy ? "Connecting…" : "Connect CJ account"}
       </button>
     </div>
   );
@@ -7517,14 +7517,14 @@ function CJProductBrowser({ user, onImport }) {
   function addVariant(prod, v) {
     const cost = v.cost != null ? Number(v.cost) : null;
     const sug = cost != null ? (Math.round(cost * 2.5 * 100) / 100).toFixed(2) : "";
-    const name = prod.name + (v.key ? " \u2013 " + v.key : "");
+    const name = prod.name + (v.key ? " – " + v.key : "");
     onImport({ name, price: sug, note: "", image: { url: v.image || prod.image }, buyUrl: "", cj: { pid: prod.pid, vid: v.vid, sku: v.sku || "", cost: cost } });
   }
 
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} style={{ background: "none", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "10px 16px", fontFamily: "sans-serif", fontSize: 11, letterSpacing: "0.06em", fontWeight: 700, cursor: "pointer", marginBottom: 16 }}>
-        \uD83D\uDD0D Source products from CJ
+        🔍 Source products from CJ
       </button>
     );
   }
@@ -7543,8 +7543,8 @@ function CJProductBrowser({ user, onImport }) {
       {connected !== false && (
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "Enter") search(1); }} placeholder="Search CJ, e.g. phone stand, hoodie\u2026" style={{ flex: 1, padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: B.charcoal }} />
-            <button onClick={() => search(1)} disabled={loading} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Searching\u2026" : "Search"}</button>
+            <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "Enter") search(1); }} placeholder="Search CJ, e.g. phone stand, hoodie…" style={{ flex: 1, padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: B.charcoal }} />
+            <button onClick={() => search(1)} disabled={loading} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Searching…" : "Search"}</button>
           </div>
           {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10 }}>
@@ -7556,10 +7556,10 @@ function CJProductBrowser({ user, onImport }) {
                 <button onClick={() => loadDetail(p.pid)} style={{ width: "100%", background: openPid === p.pid ? B.charcoal : "none", color: openPid === p.pid ? "#fff" : B.charcoal, border: "1px solid " + B.charcoal, padding: "7px", fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase" }}>{openPid === p.pid ? "Hide options" : "Choose & add"}</button>
                 {openPid === p.pid && (
                   <div style={{ marginTop: 8 }}>
-                    {detailLoading && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>Loading options\u2026</div>}
+                    {detailLoading && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>Loading options…</div>}
                     {detail && detail.variants && detail.variants.map(v => (
                       <div key={v.vid} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, borderTop: "1px solid " + B.stone, padding: "6px 0" }}>
-                        <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.charcoal, lineHeight: 1.3 }}>{v.key || v.name}{v.cost != null ? " \u00b7 $" + v.cost : ""}</div>
+                        <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.charcoal, lineHeight: 1.3 }}>{v.key || v.name}{v.cost != null ? " · $" + v.cost : ""}</div>
                         <button onClick={() => addVariant(p, v)} style={{ background: B.gold, color: "#fff", border: "none", padding: "5px 10px", fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase", flexShrink: 0 }}>Add</button>
                       </div>
                     ))}
@@ -7570,7 +7570,7 @@ function CJProductBrowser({ user, onImport }) {
             ))}
           </div>
           <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.mid, lineHeight: 1.6, marginTop: 12 }}>
-            Prices import at a suggested 2.5&times; the CJ cost \u2014 edit any price after adding. Added items are linked to CJ so they can be fulfilled automatically once you save.
+            Prices import at a suggested 2.5&times; the CJ cost — edit any price after adding. Added items are linked to CJ so they can be fulfilled automatically once you save.
           </div>
         </div>
       )}
@@ -7605,7 +7605,7 @@ function ProductPhotoSet({ onBalance }) {
     setBusy(true); setErr(""); setShots([]);
     const out = [];
     for (let i = 0; i < ANGLES.length; i++) {
-      setProg("Creating " + ANGLES[i][0] + " (" + (i + 1) + "/4)\u2026");
+      setProg("Creating " + ANGLES[i][0] + " (" + (i + 1) + "/4)…");
       const p = "Using the uploaded product image as the reference, generate " + ANGLES[i][1] + ". Keep the exact same product, colours and design. Professional e-commerce product photography, clean seamless studio background, soft even lighting, sharp detail." + (desc.trim() ? " The product is: " + desc.trim() + "." : "");
       try {
         const r = await generateGeminiImage(p, ref, "1:1", "standard");
@@ -7622,7 +7622,7 @@ function ProductPhotoSet({ onBalance }) {
         <div style={{ fontFamily: "Georgia,serif", fontSize: 19, color: B.charcoal }}>Product photo set</div>
         <CreditTag n={4 * CREDIT_COSTS.image} />
       </div>
-      <p style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Upload one reference photo and Chelgy generates four matching product shots \u2014 front, back, side, and a close-up.</p>
+      <p style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Upload one reference photo and Chelgy generates four matching product shots — front, back, side, and a close-up.</p>
       {!ref
         ? <label style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "11px 16px", border: "1px dashed " + B.stone, background: B.white, cursor: "pointer", fontFamily: "sans-serif", fontSize: 11, color: B.goldDark }}>+ Upload a reference photo<input type="file" accept="image/*" onChange={e => pickFile((e.target.files || [])[0])} style={{ display: "none" }} /></label>
         : <div>
@@ -7633,7 +7633,7 @@ function ProductPhotoSet({ onBalance }) {
               </div>
               <button onClick={() => { setRef(null); setShots([]); }} style={{ background: "none", border: "none", color: B.mid, cursor: "pointer", fontSize: 11, fontFamily: "sans-serif", textDecoration: "underline" }}>Remove</button>
             </div>
-            <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working\u2026") : "\u2728 Generate 4 product photos"}</button>
+            <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate 4 product photos"}</button>
           </div>}
       {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.red, marginTop: 8 }}>{err}</div>}
       {shots.length > 0 && (
@@ -7666,8 +7666,8 @@ function PhotoCatalog({ onBalance }) {
     const out = [];
     let styleRef = null;
     for (let i = 0; i < n; i++) {
-      setProg("Creating image " + (i + 1) + " of " + n + "\u2026");
-      const p = prompt.trim() + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " \u2014 a distinct composition within the same series.";
+      setProg("Creating image " + (i + 1) + " of " + n + "…");
+      const p = prompt.trim() + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " — a distinct composition within the same series.";
       try {
         const r = await generateGeminiImage(p, styleRef, "1:1", "standard");
         if (r && r.image) { out.push(r.image); setImgs([...out]); if (!styleRef) styleRef = r.image; if (typeof r.balance === "number" && onBalance) onBalance(r.balance); }
@@ -7688,7 +7688,7 @@ function PhotoCatalog({ onBalance }) {
         <div style={{ fontFamily: "Georgia,serif", fontSize: 17, color: B.charcoal }}>Matching photo set</div>
         <CreditTag n={n * CREDIT_COSTS.image} />
       </div>
-      <p style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Describe a look and generate up to 20 images that share one consistent style \u2014 perfect for a content batch or product line. Download them individually or all at once.</p>
+      <p style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Describe a look and generate up to 20 images that share one consistent style — perfect for a content batch or product line. Download them individually or all at once.</p>
       <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. minimalist skincare bottles on warm beige backgrounds, soft daylight, matching shadows" rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12.5, resize: "vertical", marginBottom: 10, color: B.charcoal }} />
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
         <label style={{ fontFamily: "sans-serif", fontSize: 11, color: B.charcoal, display: "flex", alignItems: "center", gap: 8 }}>
@@ -7697,13 +7697,13 @@ function PhotoCatalog({ onBalance }) {
             {[3, 5, 6, 8, 10, 12, 15, 20].map(v => <option key={v} value={v}>{v} images</option>)}
           </select>
         </label>
-        <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working\u2026") : "\u2728 Generate catalog"}</button>
+        <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate catalog"}</button>
       </div>
       {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.red, marginTop: 8 }}>{err}</div>}
       {imgs.length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>{imgs.length} image{imgs.length > 1 ? "s" : ""}{busy ? " so far\u2026" : ""}</div>
+            <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>{imgs.length} image{imgs.length > 1 ? "s" : ""}{busy ? " so far…" : ""}</div>
             {!busy && <button onClick={downloadAll} style={{ background: B.gold, color: "#fff", border: "none", padding: "7px 14px", fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Download all</button>}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 }}>
@@ -7822,7 +7822,7 @@ function StoreBuilderTab({ user }) {
     <div style={{ background: active ? B.white : B.offwhite, border: "1px solid " + (active ? B.charcoal : B.stone), borderRadius: 4, padding: 18, marginBottom: 12, opacity: active || done ? 1 : 0.55 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: children ? 14 : 0 }}>
         <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: done ? B.green : "none", border: done ? "none" : "1.5px " + (active ? "solid" : "dashed") + " " + (active ? B.charcoal : B.mid), color: "#fff", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700 }}>
-          {done ? "\u2713" : <span style={{ color: active ? B.charcoal : B.mid }}>{n}</span>}
+          {done ? "✓" : <span style={{ color: active ? B.charcoal : B.mid }}>{n}</span>}
         </div>
         <div style={{ fontFamily: "sans-serif", fontSize: 14, fontWeight: 700, color: B.charcoal }}>{title}</div>
       </div>
