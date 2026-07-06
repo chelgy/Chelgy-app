@@ -33,18 +33,22 @@ const CA_NAV_LABELS = {
   "tools": "Tools Hub",
   "community": "Community",
   "profile": "Profile",
-  "tools/launch": "Business Launch Package",
+  "tools/launch": "Business Builder",
   "tools/website": "Website Builder",
   "tools/images": "AI Image Creator",
   "tools/productstudio": "Product Studio",
+  "tools/enhance": "Enhance Photo & Headshots",
+  "tools/manager": "Business Manager",
   "tools/video": "AI Video Studio",
+  "tools/ugcstudio": "UGC Studio",
   "tools/viral": "Viral Video Generator",
   "tools/ads": "Ad Campaign Builder",
   "tools/audit": "Business Audit",
   "tools/voiceover": "AI Voiceover Studio",
-  "tools/business": "Business Builder",
+  "tools/business": "Business Coach",
   "tools/grants": "Grant Finder",
   "tools/content": "AI Content Writer",
+  "tools/backlinks": "Backlink & Authority Builder",
   "tools/dropshipping": "Dropshipping Directory",
   "tools/platforms": "Platform Setup Guides",
   "tools/library": "My Library",
@@ -69,18 +73,22 @@ Five tabs across the bottom:
 • PROFILE — stats, settings, "Manage subscription", and the "Need Help" form.
 
 ═══ THE TOOLS (all live in the TOOLS tab) ═══
-• Business Launch Package — answer a few questions and Chelgy builds a whole business: a published website, logo, brand strategy, social plan, and launch roadmap.
+• Business Builder — answer a few questions and Chelgy builds a whole business: a published website, logo, brand strategy, social plan, and launch roadmap.
 • Website Builder — writes and publishes a complete luxury website at a shareable link.
 • AI Image Creator — logos, flyers, social graphics, banners, and product images. (This is also where flyers are made.)
-• Product Studio — the dedicated product-photography tool. Upload a product once, drop it into premium studio scenes (Clean E-Commerce, Marble Luxe, Warm Editorial, Studio Gradient, Natural Light, Lifestyle Flatlay, or On a Model), and generate on-brand shots that keep the product accurate. Any shot can then be animated into a short product video (5–10 sec). This is the BEST tool for product photos and product videos — recommend it whenever someone wants to photograph or promote a product.
+• Product Studio — the dedicated product-photography tool. Upload a product once, drop it into premium studio scenes (Clean E-Commerce, Marble Luxe, Warm Editorial, Studio Gradient, Natural Light, Lifestyle Flatlay, or On a Model), and generate on-brand shots that keep the product accurate. You can also add a model, outfit and environment to stage a full scene around the product. Any shot can then be animated into a short product video (5–10 sec). This is the BEST tool for product photos and product videos — recommend it whenever someone wants to photograph or promote a product.
+• Enhance Photo & Headshots — upload a photo of a person and turn it into a polished professional headshot or portrait, keeping their real face. They pick a style (headshot, corporate/LinkedIn, full-length, editorial, outdoor) plus optional outfit and background. The best tool for professional headshots or glowing up a personal photo.
 • AI Video Studio — scripts, storyboards, and ready-to-paste AI prompts for video generators (HeyGen, Runway, Kling, Sora, Pika).
+• UGC Studio — build a consistent UGC creator (the same person across every shot), then bring any shot to life as a short video. Great for authentic, creator-style content.
 • Viral Video Generator — enter your business, get viral video ideas, the best format, a hook, a full script, caption, and hashtags.
 • Ad Campaign Builder — ad copy, creative direction, audience targeting, and budget for Facebook, Instagram, and TikTok.
 • Business Audit & Competitors — scans your online presence, shows what to improve, compares you to competitors.
 • AI Voiceover Studio — turns any script into a natural, studio-quality voiceover.
-• Business Builder — stage-by-stage launch plans plus a 24/7 AI business coach.
+• Business Coach — stage-by-stage launch plans plus a 24/7 AI business coach.
+• Business Manager — clients (CRM), invoices with online Stripe payment links, proposals, and contracts, all in one place. Members connect their own Stripe to get paid straight to their account. Send people here for "invoice a client", "manage my clients", "write a proposal or contract".
 • Grant Finder — searches the web for real grants and funding you might qualify for.
 • AI Content Writer — captions and copy for Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blogs, email, and ads.
+• Backlink & Authority Builder — finds real, white-hat ways to get the business linked, listed and featured (local directories, press, roundups, partnerships), writes the outreach, and suggests linkable content. Send people here for "how do I get backlinks" or "how do I rank higher on Google" — it never recommends buying links.
 • Dropshipping Directory — vetted suppliers with links, niches, shipping times, and honest notes.
 • Platform Setup Guides — step-by-step setup and posting guides for every major platform.
 • My Library — where saved creations are stored.
@@ -108,9 +116,9 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: home, learn, tools, community, profile.
-Valid tools (use with the tools tab): launch, website, images, productstudio, video, viral, ads, audit, voiceover, business, grants, content, dropshipping, platforms, library.
+Valid tools (use with the tools tab): launch, website, images, productstudio, enhance, manager, video, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
-Examples: to send them to make a UGC video → end with [[GO:tools:video]] . For product photos or product videos → [[GO:tools:productstudio]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
+Examples: to send them to make a UGC video → end with [[GO:tools:video]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:enhance]] . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
 
 ═══ STYLE RULES ═══
@@ -1171,7 +1179,7 @@ const Icons = {
 const SLIDES = [
   {bg:"#000000",eyebrow:null,headline:"Welcome to Chelgy.",sub:"Everything you need to master marketing, build your business, and automate the work — in one membership.",items:null,isFinal:false},
   {bg:"#111111",eyebrow:"KNOWLEDGE LIBRARY",headline:"Every marketing strategy. All in one place.",sub:"40+ deep-dive strategies covering SEO, email, content, paid ads, social, branding, AI, and funnels. Updated every week.",items:["SEO & Local Search","Email Marketing","Paid Ads — Meta, Google, TikTok","Brand Strategy","AI-Powered Marketing"],isFinal:false},
-  {bg:"#000000",eyebrow:"AI TOOLS SUITE",headline:"12 AI tools. Included.",sub:"Use them to build your entire business and automate your marketing — content, images, videos, ad campaigns, and a full business launch, all powered by AI.",items:["AI Content Writer","AI Image Creator (Nano Banana 2)","AI Video Studio","Viral Video Generator","Ad Campaign Builder","Business Launch Package"],isFinal:false},
+  {bg:"#000000",eyebrow:"AI TOOLS SUITE",headline:"12 AI tools. Included.",sub:"Use them to build your entire business and automate your marketing — content, images, videos, ad campaigns, and a full business launch, all powered by AI.",items:["AI Content Writer","AI Image Creator (Nano Banana 2)","AI Video Studio","Viral Video Generator","Ad Campaign Builder","Business Builder"],isFinal:false},
   {bg:"#111111",eyebrow:"YOUR AI COACH",headline:"Like having a business coach in your pocket.",sub:"Chelgy learns your business, builds your roadmap, and hands you the highest-impact task to do each day.",items:["A personalized business plan","Your step-by-step roadmap","Daily high-impact tasks","A full audit of your business","Your own 24/7 AI Advisor"],isFinal:false},
   {bg:"#000000",eyebrow:"ONE MEMBERSHIP",headline:"Everything. $100 a month.",sub:"No upsells. No paywalled tiers. Start free and explore before you commit.",items:null,isFinal:true},
 ];
@@ -1758,6 +1766,9 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   const [edCustom,setEdCustom]=useState({}); const [edLinks,setEdLinks]=useState({});
   const [edTab,setEdTab]=useState("design"); const [edFields,setEdFields]=useState({details:[]}); const [edProducts,setEdProducts]=useState([]); const [edProdBusy,setEdProdBusy]=useState(-1);
   const [edDomain,setEdDomain]=useState(""); const [edDomainDns,setEdDomainDns]=useState(null); const [edDomainMsg,setEdDomainMsg]=useState(""); const [edDomainLoad,setEdDomainLoad]=useState(false);
+  const [dqQuery,setDqQuery]=useState(""); const [dqLoading,setDqLoading]=useState(false); const [dqResults,setDqResults]=useState(null); const [dqErr,setDqErr]=useState(""); const [dqBuy,setDqBuy]=useState("");
+  const [myDomains,setMyDomains]=useState([]);
+  useEffect(()=>{ if(edTab==="domain"&&user) loadMyDomains(); },[edTab, user]);
   async function connectDomain(){
     const d=(edDomain||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
     if(!d){ setWmErr("Enter your domain, e.g. yourbusiness.com"); return; }
@@ -1771,6 +1782,49 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       setWmExisting(x=>({ ...x, domain:j.domain||d }));
     }catch(e){ setWmErr(e&&e.message?e.message:"Couldn't connect that domain."); }
     setEdDomainLoad(false);
+  }
+  async function searchDomains(){
+    const q=(dqQuery||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/[^a-z0-9.\- ]/g,"");
+    if(!q){ setDqErr("Type a name to search, e.g. your business name"); return; }
+    setDqLoading(true); setDqErr(""); setDqResults(null);
+    try{
+      const tok=await freshToken();
+      const res=await fetch("/api/domain-search",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ query:q }) });
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||j.error) throw new Error(j.error||"Couldn't search domains right now.");
+      setDqResults(Array.isArray(j.results)?j.results:[]);
+    }catch(e){ setDqErr(e&&e.message?e.message:"Couldn't search domains right now."); }
+    setDqLoading(false);
+  }
+  async function buyDomain(dom){
+    setDqBuy(dom); setDqErr("");
+    try{
+      const tok=await freshToken();
+      const base=window.location.href.split("?")[0];
+      const res=await fetch("/api/domain-checkout",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:dom, site_id:(wmExisting&&wmExisting.id)||null, success_url:base+"?domain_bought="+encodeURIComponent(dom), cancel_url:base }) });
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||!j.url){ setDqErr(j.error||"Domain purchases aren't switched on yet — that's the final setup step. Hang tight."); setDqBuy(""); return; }
+      window.location.href=j.url;
+    }catch(e){ setDqErr("Couldn't start the domain purchase right now."); setDqBuy(""); }
+  }
+  async function loadMyDomains(){
+    try{
+      const tok=await freshToken(); if(!tok) return;
+      const res=await fetch(SUPABASE_URL+"/rest/v1/domains?select=*&order=expires_at.asc",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const rows=await res.json().catch(()=>[]);
+      setMyDomains(Array.isArray(rows)?rows:[]);
+    }catch(e){}
+  }
+  async function renewMyDomain(dom){
+    setDqBuy(dom); setDqErr("");
+    try{
+      const tok=await freshToken();
+      const base=window.location.href.split("?")[0];
+      const res=await fetch("/api/domain-renew",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:dom, success_url:base+"?domain_renewed="+encodeURIComponent(dom), cancel_url:base }) });
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||!j.url){ setDqErr(j.error||"Renewal isn't available right now."); setDqBuy(""); return; }
+      window.location.href=j.url;
+    }catch(e){ setDqErr("Couldn't start the renewal right now."); setDqBuy(""); }
   }
   async function checkDomain(){
     const d=(wmExisting&&wmExisting.domain)||(edDomain||"").trim(); if(!d) return;
@@ -1884,6 +1938,20 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       const r=await generateGeminiImage(prompt, null, "1:1", "standard");
       if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,image:{url:u}}:x)); }
     }catch(e){ setWmErr("Couldn't generate that image — please try again."); }
+    setEdProdBusy(-1);
+  }
+  async function enhanceProductImage(idx){
+    if(edProdBusy>=0) return; const pr=edProducts[idx]; if(!pr||!pr.image||!pr.image.url) return; setEdProdBusy(idx); setWmErr("");
+    try{
+      let src=pr.image.url;
+      try{ const rr=await fetch(pr.image.url); const bl=await rr.blob(); src=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(bl); }); }catch(e){}
+      const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)||"editorial-porcelain"]||THEME_IMG_STYLE["editorial-porcelain"];
+      const desc=(pr.name||"the product")+(pr.note?(" — "+pr.note):"");
+      const isApparel=/(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
+      const prompt="Re-create this as professional, editorial product photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the real product true to the uploaded photo — same item, colours and details; if a person is shown, preserve their likeness. Set and light it to match this mood and palette: "+themeStyle+" No text, no words, no logos.";
+      const r=await generateGeminiImage(prompt, src, "1:1", "standard");
+      if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,image:{url:u}}:x)); }
+    }catch(e){ setWmErr("Couldn't enhance that image — please try again."); }
     setEdProdBusy(-1);
   }
   function uploadProductImage(idx, file){
@@ -2301,7 +2369,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         : await generateGeminiImage(p,inputImages,iAspect,iQuality);
       setIRes(r.image); if(iType==="logo")onBrandProgress("logo");
       if(typeof r.balance==="number") onBalance(r.balance);
-    }catch(e){setIErr(e&&e.message?("Image error: "+e.message):"Couldn't create the image. Please try again.");}
+    }catch(e){setIErr("Sorry — we couldn't create that image right now. Please try again in a little while.");}
     setILoad(false);
   }
   async function genV(){if(!vTopic.trim()&&!vVidPhotos.length)return;const refImg=vVidPhotos[0]||null;const seeNote=refImg?" A REFERENCE PHOTO is attached — study it closely (the subject, product, setting, styling, lighting, mood and colors) and make the output match and build on what you see.":"";setVLoad(true);setVRes("");const p={script:"Write a "+vDur+" "+vPlat+" video script about: "+(vTopic||"the attached reference")+". Goal: "+vGoal+". Include [HOOK] first 2 seconds, [CONTENT] fast-paced, [CTA]. Spoken word."+seeNote,storyboard:"Create a storyboard for a "+vDur+" "+vPlat+" video about: "+(vTopic||"the attached reference")+". Goal: "+vGoal+". 6-8 scenes. Each: Scene, Duration, Visuals, Dialogue, Text overlay."+seeNote,prompt:"You are an expert at writing prompts for AI video generators. Write 3-4 detailed, ready-to-paste UGC-style video prompts for: "+(vTopic||"the attached reference")+" on "+vPlat+". Goal: "+vGoal+". Each prompt should be vivid and specific about the subject, action, camera, lighting, setting, mood and a natural authentic user-generated-content feel. Number them and keep each self-contained."+seeNote};setVRes(await callClaude(ctxPre+p[vType],undefined,false,refImg));setVLoad(false);}
@@ -2313,7 +2381,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       const styleSuffix=(VIDEO_STYLES.find(s=>s.id===vStyle)||{}).suffix||"";
       const styledPrompt=vTopic.trim()+(styleSuffix?(", "+styleSuffix):"");
       const started=await generateVideo(styledPrompt,vVidPhotos[0]||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
-      if(!started||!started.id){setVVidErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment.");setVVidLoad(false);setVVidStatus("");return;}
+      if(!started||!started.id){setVVidErr("Sorry — we couldn't start that video right now. Please try again in a little while.");setVVidLoad(false);setVVidStatus("");return;}
       if(typeof started.balance==="number") onBalance(started.balance);
       setVVidStatus("Creating your video — usually 1 to 3 minutes, but the 4K models can take up to 10. Keep this tab open.");
       const url=await pollVideo(started.id);
@@ -2363,7 +2431,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       if(!out||!out.url){setVoErr("Couldn't generate the voiceover. Please try again in a moment.");setVoLoad(false);return;}
       setVoUrl(out.url);
       if(typeof out.balance==="number") onBalance(out.balance);
-    }catch(e){setVoErr("Voiceover error: "+(e&&e.message?e.message:"unknown"));}
+    }catch(e){setVoErr("Sorry — the voiceover didn't work right now. Please try again in a little while.");}
     setVoLoad(false);
   }
   async function dlVideo(){
@@ -2418,7 +2486,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <button onClick={fromLaunch?onBackToLaunch:onBack} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,letterSpacing:"0.08em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}>
-          <Icons.ChevronLeft /> {fromLaunch?"Back to Business Launch Package":"Back"}
+          <Icons.ChevronLeft /> {fromLaunch?"Back to Business Builder":"Back"}
         </button>
         {!locked&&(
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2586,6 +2654,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                       <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"✨ Generate photo"}</button>
+                      {pr.image&&pr.image.url&&<button disabled={edProdBusy>=0} onClick={()=>enhanceProductImage(i)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>✨ Enhance photo</button>}
                       <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                       <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
@@ -2674,6 +2743,23 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           {edTab==="domain"&&<div>
           <div style={{marginTop:24,paddingTop:22,borderTop:"1px solid "+B.stone}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Your domain</div>
+            {myDomains.length>0&&<div style={{marginBottom:18}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Domains you own</div>
+              {myDomains.map(dm=>{
+                const exp=dm.expires_at?new Date(dm.expires_at):null;
+                const days=exp?Math.ceil((exp.getTime()-Date.now())/86400000):null;
+                const soon=days!=null&&days<=30;
+                return (
+                  <div key={dm.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",background:soon?"#FDF6EC":B.offwhite,border:"1px solid "+(soon?B.gold:B.stone),padding:"11px 13px",marginBottom:8}}>
+                    <div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:15,color:B.charcoal}}>{dm.domain}</div>
+                      <div style={{fontFamily:"sans-serif",fontSize:11,color:soon?B.goldDark:B.mid}}>{exp?("Renews by "+exp.toLocaleDateString()+(days!=null?(days<0?" · expired":(" · "+days+" days left")):"")):"active"}</div>
+                    </div>
+                    <Btn dark small disabled={dqBuy===dm.domain} onClick={()=>renewMyDomain(dm.domain)}>{dqBuy===dm.domain?"…":"Renew 1 year"}</Btn>
+                  </div>
+                );
+              })}
+            </div>}
             {wmExisting.domain
               ? <div>
                   <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Connected: <strong style={{color:B.charcoal}}>{wmExisting.domain}</strong></p>
@@ -2691,18 +2777,27 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                   </div>
 
                   <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 1 · Buy your domain</div>
-                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:"0 0 8px"}}>You buy a domain from a <strong>registrar</strong> — usually about <strong>$10–$15 a year</strong>. Search the name you want; if it's available, check out and it's yours. Popular registrars:</p>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Buy a domain — right here</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:"0 0 10px"}}>Search the name you want. Buy it through Chelgy and we connect it to your site for you — no DNS to set up.</p>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {[["Namecheap","https://www.namecheap.com/domains/"],["Porkbun","https://porkbun.com/"],["GoDaddy","https://www.godaddy.com/domains"],["Squarespace Domains","https://domains.squarespace.com/"]].map(([n,u])=>(
-                        <a key={n} href={u} target="_blank" rel="noopener noreferrer" style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.charcoal,textDecoration:"none",border:"1px solid "+B.stone,background:B.white,padding:"6px 11px",borderRadius:2}}>{n} &rarr;</a>
-                      ))}
+                      <input value={dqQuery} onChange={e=>setDqQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")searchDomains();}} placeholder="your business name" style={{flex:"1 1 60%",minWidth:150,padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                      <Btn dark small disabled={dqLoading} onClick={searchDomains}>{dqLoading?"Searching…":"Search"}</Btn>
                     </div>
+                    {dqResults&&<div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
+                      {dqResults.filter(r=>r.available).length===0&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>No available names for that search — try another word or spelling.</div>}
+                      {dqResults.filter(r=>r.available).map(r=>(
+                        <div key={r.domain} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:B.white,border:"1px solid "+B.stone,padding:"10px 12px"}}>
+                          <div><div style={{fontFamily:"Georgia,serif",fontSize:15,color:B.charcoal}}>{r.domain}</div><div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{r.price?("$"+r.price+"/year"):"available"}</div></div>
+                          <Btn dark small disabled={dqBuy===r.domain} onClick={()=>buyDomain(r.domain)}>{dqBuy===r.domain?"…":"Buy"}</Btn>
+                        </div>
+                      ))}
+                    </div>}
+                    {dqErr&&<div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.red,marginTop:10,lineHeight:1.5}}>{dqErr}</div>}
                   </div>
 
                   <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:14}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Step 2 · Connect it here</div>
-                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>Type your domain below and tap <strong>Connect</strong>. We'll show you one <strong>DNS record</strong> to add — copy it into your registrar's <strong>DNS settings</strong> (look for “DNS” or “Manage DNS”), save, and come back. Going live can take a few minutes up to 48 hours; tap <strong>Check status</strong> anytime to see if it's ready.</p>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#B8955A",marginBottom:6}}>Already own a domain?</div>
+                    <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.65,margin:0}}>Type it below and tap <strong>Connect</strong>. We'll show you one <strong>DNS record</strong> to add where you manage your domain, then it goes live — a few minutes up to 48 hours (tap <strong>Check status</strong> anytime).</p>
                   </div>
 
                   <input value={edDomain} onChange={e=>setEdDomain(e.target.value)} placeholder="yourbusiness.com" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:12}} />
@@ -2710,7 +2805,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                 </div>}
             {edDomainMsg&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,marginTop:12,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.gold,padding:"10px 12px"}}>{edDomainMsg}</div>}
             {edDomainDns&&<div style={{marginTop:12,background:B.charcoal,color:"#fff",padding:"14px 16px",fontFamily:"monospace",fontSize:12,lineHeight:1.8,overflowX:"auto"}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",opacity:0.6,marginBottom:8}}>Add this at your domain registrar (DNS)</div>
+              <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",opacity:0.6,marginBottom:8}}>Add this DNS record where you manage your domain</div>
               {edDomainDns.map((r,i)=><div key={i}>{r.type}&nbsp;&nbsp;{r.name}&nbsp;&nbsp;&rarr;&nbsp;&nbsp;{r.value}</div>)}
             </div>}
           </div>
@@ -2827,19 +2922,10 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         {!["set"].includes(iType) && (<>
         <Card style={{padding:"22px",marginBottom:14}}>
           {!["ad","product","logo","flyer","banner"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
-          <div style={{border:"1px solid "+B.stone,background:B.offwhite,padding:"14px 16px",marginBottom:14}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.charcoal,marginBottom:7,textTransform:"uppercase"}}>✨ AI Prompt Writer</div>
-            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and AI will turn it into a detailed prompt you can edit below.</p>
-            <St value={ipwIdea} onChange={e=>setIpwIdea(e.target.value)} placeholder="e.g. a cozy coffee shop ad for a fall pumpkin latte special" rows={2} />
-            <div style={{display:"flex",alignItems:"center",gap:10,marginTop:8}}>
-              <button onClick={runPromptWriter} disabled={ipwLoad||!ipwIdea.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:(ipwLoad||!ipwIdea.trim())?"default":"pointer",textTransform:"uppercase",opacity:(ipwLoad||!ipwIdea.trim())?0.5:1}}>{ipwLoad?"Writing...":"Write My Prompt"}</button>
-              {ipwErr&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.red}}>{ipwErr}</span>}
-            </div>
-          </div>
           <Fl label="Your image prompt — edit anything you like"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="Your AI-written prompt appears here — or write your own. Describe the subject, style, colors, lighting, and mood." rows={4} /></Fl>
           {iType==="logo"
             ? <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px",display:"flex",alignItems:"center",gap:6}}><span style={{color:B.green}}>✓</span> Logos always export on a transparent background (PNG).</div>
-            : !["flyer","set"].includes(iType)&&<label style={{display:"flex",alignItems:"center",gap:9,margin:"0 0 14px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,cursor:"pointer"}}><input type="checkbox" checked={iTransparent} onChange={e=>setITransparent(e.target.checked)} style={{width:16,height:16,accentColor:B.gold,flexShrink:0}} /><span>Transparent background <span style={{color:B.mid}}>— cut-out PNG with no background, for overlays and clean product/graphic shots</span></span></label>}
+            : false&&<label style={{display:"flex",alignItems:"center",gap:9,margin:"0 0 14px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,cursor:"pointer"}}><input type="checkbox" checked={iTransparent} onChange={e=>setITransparent(e.target.checked)} style={{width:16,height:16,accentColor:B.gold,flexShrink:0}} /><span>Transparent background <span style={{color:B.mid}}>— cut-out PNG with no background, for overlays and clean product/graphic shots</span></span></label>}
           <div style={{marginBottom:14}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Upload reference photos (optional · up to 5)</div>
             {iUploads.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
@@ -2933,6 +3019,10 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
+      {tool==="enhance"&&<EnhancePhoto onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
+
+      {tool==="manager"&&<BusinessManager user={user} bizCtx={bizCtx} locked={locked} onUpgrade={onUpgrade} />}
+
       {tool==="backlinks"&&<AuthorityBuilder onToolUse={onToolUse} locked={locked} onUpgrade={onUpgrade} bizCtx={bizCtx} user={user} />}
 
       {tool==="voiceover"&&<div>
@@ -3012,7 +3102,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       </div>}
 
       {tool==="business"&&<div>
-        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Builder</h2>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Business Coach</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Stage-by-stage guidance and a 24/7 AI business coach.</p>
         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:11,textTransform:"uppercase",fontWeight:700}}>Your 3-Stage Business Plan</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginBottom:24}}>
@@ -3291,7 +3381,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Launch Package", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Builder", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -4249,7 +4339,7 @@ const GUIDE_CHAPTERS = [
 
 **Action plan:** Write your one-sentence identity → choose 3–5 brand words → pick one visual direction → make a clean logo → build a homepage with a clear headline, image, proof, and CTA → keep everything consistent.
 
-*Inside Chelgy: use the Image Creator for your logo, flyers, and social graphics, and the Business Launch Package to map out your whole site and brand.*` },
+*Inside Chelgy: use the Image Creator for your logo, flyers, and social graphics, and the Business Builder to map out your whole site and brand.*` },
   { id:"presence", num:2, title:"Building Your Online Presence + Platform Stacking", sub:"Be findable from every direction",
     content:`After building a business people trust, the next step is making sure you can actually be found. Most businesses limit their growth by relying on a single platform. Customers aren't all in one place — some search Google, some scroll Instagram or TikTok, some check Yelp before booking.
 
@@ -8040,6 +8130,8 @@ function PhotoCatalog({ onBalance }) {
   const [imgs, setImgs] = useState([]);
   const [err, setErr] = useState("");
   const [style, setStyle] = useState("editorial-porcelain");
+  const [orient, setOrient] = useState("1:1");
+  const [quality, setQuality] = useState("standard");
   const STYLE_OPTIONS = [["editorial-porcelain","Editorial porcelain"],["warm-minimal","Warm minimal"],["gallery","Gallery / stone"],["atelier","Atelier / emerald"],["noir","Dark & moody"],["bordeaux","Bordeaux"],["","Just my description"]];
 
   async function generate() {
@@ -8047,23 +8139,28 @@ function PhotoCatalog({ onBalance }) {
     const n = Math.max(1, Math.min(20, parseInt(count, 10) || 1));
     setBusy(true); setErr(""); setImgs([]);
     const out = [];
-    let styleRef = null;
+    let failures = 0;
     for (let i = 0; i < n; i++) {
       setProg("Creating image " + (i + 1) + " of " + n + "…");
       const lux = " Shot as high-end, editorial magazine-quality photography: premium tasteful styling, soft professional lighting, refined composition, elevated luxury brand aesthetic, crisp and clean, no text or logos.";
       const paletteDir = THEME_IMG_STYLE[style] ? (" Mood and palette: " + THEME_IMG_STYLE[style] + ".") : "";
       const p = prompt.trim() + lux + paletteDir + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " — a distinct composition within the same series.";
-      try {
-        const r = await generateGeminiImage(p, styleRef, "1:1", "standard");
-        if (r && r.image) { out.push(r.image); setImgs([...out]); if (!styleRef) styleRef = r.image; if (typeof r.balance === "number" && onBalance) onBalance(r.balance); }
-      } catch (e) { /* continue */ }
+      let ok = false;
+      for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+        try {
+          const r = await generateGeminiImage(p, null, orient, quality);
+          if (r && r.image) { out.push(r.image); setImgs([...out]); if (typeof r.balance === "number" && onBalance) onBalance(r.balance); ok = true; }
+        } catch (e) { /* retry once */ }
+      }
+      if (!ok) failures++;
     }
     if (!out.length) setErr("Couldn't generate images. Please try again.");
+    else if (failures) setErr(out.length + " of " + n + " images came through — tap Generate again to fill in the rest.");
     setProg(""); setBusy(false);
   }
 
   function downloadAll() {
-    imgs.forEach((u, i) => { const a = document.createElement("a"); a.href = u; a.download = "catalog-" + (i + 1) + ".png"; document.body.appendChild(a); a.click(); document.body.removeChild(a); });
+    imgs.forEach((u, i) => { setTimeout(() => { const a = document.createElement("a"); a.href = u; a.download = "catalog-" + (i + 1) + ".png"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }, i * 400); });
   }
 
   const n = Math.max(1, Math.min(20, parseInt(count, 10) || 1));
@@ -8071,7 +8168,7 @@ function PhotoCatalog({ onBalance }) {
     <div style={{ border: "1px solid " + B.stone, background: B.offwhite, padding: "16px 18px", marginBottom: 18 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
         <div style={{ fontFamily: "Georgia,serif", fontSize: 17, color: B.charcoal }}>Matching photo set</div>
-        <CreditTag n={n * CREDIT_COSTS.image} />
+        <CreditTag n={n * (quality === "4K" ? CREDIT_COSTS.image4K : quality === "2K" ? CREDIT_COSTS.imageHD : CREDIT_COSTS.image)} />
       </div>
       <p style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, lineHeight: 1.6, margin: "0 0 12px" }}>Describe a look and generate up to 20 images that share one consistent style — perfect for a content batch or product line. Download them individually or all at once.</p>
       <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. minimalist skincare bottles on warm beige backgrounds, soft daylight, matching shadows" rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12.5, resize: "vertical", marginBottom: 10, color: B.charcoal }} />
@@ -8086,6 +8183,18 @@ function PhotoCatalog({ onBalance }) {
           Aesthetic
           <select value={style} onChange={e => setStyle(e.target.value)} style={{ padding: "8px 10px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12, background: "#fff", color: B.charcoal }}>
             {STYLE_OPTIONS.map(([v,l]) => <option key={v||"none"} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <label style={{ fontFamily: "sans-serif", fontSize: 11, color: B.charcoal, display: "flex", alignItems: "center", gap: 8 }}>
+          Orientation
+          <select value={orient} onChange={e => setOrient(e.target.value)} style={{ padding: "8px 10px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12, background: "#fff", color: B.charcoal }}>
+            {[["1:1","Square (1:1)"],["4:5","Portrait (4:5)"],["3:4","Portrait (3:4)"],["2:3","Portrait (2:3)"],["9:16","Tall / Story (9:16)"],["16:9","Landscape (16:9)"],["3:2","Landscape (3:2)"],["4:3","Standard (4:3)"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <label style={{ fontFamily: "sans-serif", fontSize: 11, color: B.charcoal, display: "flex", alignItems: "center", gap: 8 }}>
+          Quality
+          <select value={quality} onChange={e => setQuality(e.target.value)} style={{ padding: "8px 10px", border: "1px solid " + B.stone, fontFamily: "sans-serif", fontSize: 12, background: "#fff", color: B.charcoal }}>
+            {[["standard","Standard"],["2K","HD 2K"],["4K","Ultra 4K"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
         <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate catalog"}</button>
@@ -8223,6 +8332,486 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
 
 // ─── UGC STUDIO: self-contained tool. Character maker + Seedance-2.0-only video ───
 // ─── PRODUCT STUDIO (Phase 1: on-brand product stills via Nano Banana) ──────
+// ─── ENHANCE PHOTO / PROFESSIONAL HEADSHOTS ──────
+// ─── BUSINESS MANAGER (CRM · Invoices · Proposals · Contracts) ──────────────
+function bmMdToHtml(md) {
+  const esc = s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(md || "").split("\n").map(line => {
+    let l = esc(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>");
+    if (/^#{1,6}\s/.test(line)) { const lvl = Math.min(line.match(/^#+/)[0].length + 1, 4); return "<h" + lvl + ">" + l.replace(/^#{1,6}\s/, "") + "</h" + lvl + ">"; }
+    if (/^\s*[-*]\s/.test(line)) return "<li>" + l.replace(/^\s*[-*]\s/, "") + "</li>";
+    if (!line.trim()) return "<br/>";
+    return "<p>" + l + "</p>";
+  }).join("");
+}
+function bmPrint(title, innerHtml) {
+  const w = window.open("", "_blank");
+  if (!w) { alert("Please allow pop-ups to download the PDF."); return; }
+  w.document.write('<html><head><title>' + title + '</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Georgia,serif;color:#111;max-width:720px;margin:40px auto;padding:0 28px;line-height:1.65}h1{font-weight:400;font-size:26px;margin:0 0 4px}h2,h3,h4{font-weight:600}.muted{color:#666;font-family:Arial,sans-serif;font-size:13px}table{width:100%;border-collapse:collapse;margin:20px 0;font-family:Arial,sans-serif;font-size:14px}td,th{text-align:left;padding:9px 6px;border-bottom:1px solid #e5e5e5}.r{text-align:right}.tot{font-weight:700;font-size:16px}.sign{margin-top:48px;font-family:Arial,sans-serif}.line{border-top:1px solid #111;width:260px;margin-top:34px;padding-top:6px;font-size:13px;color:#555}</style></head><body>' + innerHtml + '</body></html>');
+  w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+}
+
+function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
+  const TABS = [["clients", "Clients"], ["invoices", "Invoices"], ["proposals", "Proposals"], ["contracts", "Contracts"]];
+  const [tab, setTab] = useState("clients");
+  const [clients, setClients] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [proposals, setProposals] = useState([]);
+  const [contracts, setContracts] = useState([]);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState(null); // { kind, row }
+  const [drafting, setDrafting] = useState(false);
+  const [payMsg, setPayMsg] = useState({});
+
+  async function api(path, opts) {
+    const tok = await freshToken();
+    if (!tok) throw new Error("Please sign in again.");
+    const res = await fetch(SUPABASE_URL + "/rest/v1/" + path, { ...(opts || {}), headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + tok, "Content-Type": "application/json", Prefer: "return=representation", ...((opts && opts.headers) || {}) } });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(txt || ("error " + res.status));
+    return txt ? JSON.parse(txt) : [];
+  }
+  async function loadAll() {
+    try {
+      const [c, i, p, k] = await Promise.all([
+        api("bm_clients?order=created_at.desc"),
+        api("bm_invoices?order=created_at.desc"),
+        api("bm_proposals?order=created_at.desc"),
+        api("bm_contracts?order=created_at.desc"),
+      ]);
+      setClients(c || []); setInvoices(i || []); setProposals(p || []); setContracts(k || []);
+    } catch (e) { setErr("Couldn't load your data. Refresh and try again."); }
+  }
+  useEffect(() => { if (!locked && user) loadAll(); }, [locked, user]);
+
+  const setters = { bm_clients: [clients, setClients], bm_invoices: [invoices, setInvoices], bm_proposals: [proposals, setProposals], bm_contracts: [contracts, setContracts] };
+  async function save(table, id, body) {
+    setBusy(true); setErr("");
+    const [list, setter] = setters[table];
+    try {
+      let out;
+      if (id) out = await api(table + "?id=eq." + id, { method: "PATCH", body: JSON.stringify(body) });
+      else out = await api(table, { method: "POST", body: JSON.stringify({ ...body, user_id: user.id }) });
+      const saved = (out && out[0]) || { id, ...body };
+      setter(id ? list.map(x => x.id === id ? saved : x) : [saved, ...list]);
+      setEdit(null); setBusy(false); return saved;
+    } catch (e) { setErr("Couldn't save. Please try again."); setBusy(false); return null; }
+  }
+  async function remove(table, id) {
+    if (!window.confirm("Delete this permanently?")) return;
+    const [list, setter] = setters[table];
+    try { await api(table + "?id=eq." + id, { method: "DELETE" }); setter(list.filter(x => x.id !== id)); }
+    catch (e) { setErr("Couldn't delete. Please try again."); }
+  }
+
+  async function draftDoc(kind, title, clientName, extra) {
+    setDrafting(true);
+    const ctx = bizCtx ? ("Business context (the sender): " + bizCtx + "\n\n") : "";
+    let p;
+    if (kind === "proposal") p = ctx + "Write a professional, persuasive business proposal" + (clientName ? (" for the client " + clientName) : "") + (title ? (' titled "' + title + '"') : "") + ". " + (extra ? ("Details: " + extra + ". ") : "") + "Include a warm intro, the client's goal, the proposed solution and scope, deliverables, timeline, a pricing section (use placeholders like [amount] where unknown), and a friendly close with next steps. Clean markdown with clear headings, concise and premium in tone.";
+    else p = ctx + "Draft a clear, professional service contract" + (clientName ? (" between the business and the client " + clientName) : "") + (title ? (' titled "' + title + '"') : "") + ". " + (extra ? ("Details: " + extra + ". ") : "") + "Include standard sections: parties, scope of work, payment terms, timeline, revisions, cancellation, ownership/IP, confidentiality, liability, and signature lines. Use placeholders like [amount], [date], [term] where unknown. Clean markdown. At the very top add this exact italic line: *This is a starting template, not legal advice — have a lawyer review before use.*";
+    const out = await callClaude(p, 3000);
+    setDrafting(false);
+    return out || "";
+  }
+
+  // ── invoice math ──
+  function invSubtotal(inv) { return (inv.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0); }
+  function invTotal(inv) { const st = invSubtotal(inv); return st + st * ((Number(inv.tax) || 0) / 100); }
+  function money(n, cur) { const c = (cur || "USD").toUpperCase(); const sym = { USD: "$", EUR: "€", GBP: "£", CAD: "$", AUD: "$" }[c] || ""; return sym + (Number(n) || 0).toFixed(2) + (sym ? "" : " " + c); }
+
+  async function payLink(inv) {
+    setPayMsg(m => ({ ...m, [inv.id]: "Creating link…" }));
+    try {
+      const tok = await freshToken();
+      const base = window.location.href.split("?")[0];
+      const r = await fetch("/api/invoice-checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: tok, invoice_id: inv.id, amount_cents: Math.round(invTotal(inv) * 100), currency: (inv.currency || "usd").toLowerCase(), description: "Invoice " + (inv.number || "") + (inv.client_name ? (" · " + inv.client_name) : ""), success_url: base + "?inv_paid=" + inv.id, cancel_url: base }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.url) { setPayMsg(m => ({ ...m, [inv.id]: (d.error || "Online payments aren't switched on yet — the payment endpoint is the last step. Use “Mark as paid” for now.") })); return; }
+      try { await navigator.clipboard.writeText(d.url); } catch (e) {}
+      window.open(d.url, "_blank");
+      setPayMsg(m => ({ ...m, [inv.id]: "✓ Payment link opened & copied — send it to your client." }));
+    } catch (e) { setPayMsg(m => ({ ...m, [inv.id]: "Couldn't create a payment link right now." })); }
+  }
+
+  // ── print / PDF ──
+  function printInvoice(inv) {
+    const rows = (inv.items || []).map(it => "<tr><td>" + (it.desc || "") + "</td><td class='r'>" + (Number(it.qty) || 0) + "</td><td class='r'>" + money(it.price, inv.currency) + "</td><td class='r'>" + money((Number(it.qty) || 0) * (Number(it.price) || 0), inv.currency) + "</td></tr>").join("");
+    const html = "<h1>Invoice " + (inv.number || "") + "</h1><div class='muted'>" + (inv.client_name ? "Bill to: " + inv.client_name + " · " : "") + (inv.due_date ? "Due " + inv.due_date : "") + "</div>" +
+      "<table><tr><th>Description</th><th class='r'>Qty</th><th class='r'>Price</th><th class='r'>Amount</th></tr>" + rows +
+      "<tr><td colspan='3' class='r'>Subtotal</td><td class='r'>" + money(invSubtotal(inv), inv.currency) + "</td></tr>" +
+      (Number(inv.tax) ? "<tr><td colspan='3' class='r'>Tax (" + inv.tax + "%)</td><td class='r'>" + money(invSubtotal(inv) * (Number(inv.tax) / 100), inv.currency) + "</td></tr>" : "") +
+      "<tr><td colspan='3' class='r tot'>Total</td><td class='r tot'>" + money(invTotal(inv), inv.currency) + "</td></tr></table>" +
+      (inv.notes ? "<p class='muted'>" + inv.notes + "</p>" : "");
+    bmPrint("Invoice " + (inv.number || ""), html);
+  }
+  function printDoc(kind, d) {
+    const html = "<h1>" + (d.title || (kind === "proposal" ? "Proposal" : "Contract")) + "</h1>" + (d.client_name ? "<div class='muted'>Prepared for " + d.client_name + "</div>" : "") + bmMdToHtml(d.body) + (kind === "contract" && d.signed_name ? "<div class='sign'><div class='line'>Signed: " + d.signed_name + (d.signed_at ? " · " + new Date(d.signed_at).toLocaleDateString() : "") + "</div></div>" : (kind === "contract" ? "<div class='sign'><div class='line'>Client signature</div><div class='line'>Date</div></div>" : ""));
+    bmPrint(d.title || kind, html);
+  }
+
+  // ── styles ──
+  const Label = ({ children }) => <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: B.mid, margin: "0 0 6px", textTransform: "uppercase" }}>{children}</div>;
+  const inp = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 12, boxSizing: "border-box" };
+  const sel = { ...inp, cursor: "pointer" };
+  const badge = (s) => { const map = { paid: "#2E7D32", signed: "#2E7D32", accepted: "#2E7D32", sent: B.goldDark, draft: B.mid, declined: B.red, lead: B.goldDark, active: "#2E7D32", past: B.mid }; return { display: "inline-block", fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: map[s] || B.mid, border: "1px solid " + (map[s] || B.stone), padding: "3px 8px", borderRadius: 2 }; };
+  const secBtn = (extra) => ({ background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "7px 12px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.08em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", marginRight: 6, marginTop: 6, ...(extra || {}) });
+
+  if (locked) {
+    return (
+      <div>
+        <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 8px" }}>Business Manager</h2>
+        <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "22px", fontFamily: "sans-serif", fontSize: 13, color: B.charcoal, lineHeight: 1.6 }}>
+          Your CRM, invoices, proposals and contracts — all in one place. This is a members' tool.
+          <div style={{ marginTop: 14 }}><Btn dark onClick={onUpgrade}>UPGRADE TO UNLOCK</Btn></div>
+        </div>
+      </div>
+    );
+  }
+
+  const clientOptions = clients.map(c => <option key={c.id} value={c.name || ""}>{c.name || "(unnamed)"}</option>);
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Business Manager</h2>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 16px", letterSpacing: "0.02em" }}>Your clients, invoices, proposals and contracts — all in one place.</p>
+
+      {/* Overview strip */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {[["Clients", clients.length], ["Open invoices", invoices.filter(i => i.status !== "paid").length], ["Outstanding", money(invoices.filter(i => i.status !== "paid").reduce((s, i) => s + invTotal(i), 0), (invoices[0] || {}).currency)]].map(([k, v], i) => (
+          <div key={i} style={{ flex: "1 1 30%", minWidth: 90, background: B.offwhite, border: "1px solid " + B.stone, padding: "11px 13px" }}>
+            <div style={{ fontFamily: "sans-serif", fontSize: 9, letterSpacing: "0.12em", color: B.mid, textTransform: "uppercase" }}>{k}</div>
+            <div style={{ fontFamily: "Georgia,serif", fontSize: 18, color: B.charcoal, marginTop: 3 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", flexWrap: "wrap", marginBottom: 18, borderBottom: "1px solid " + B.stone }}>
+        {TABS.map(([id, label]) => (
+          <button key={id} onClick={() => { setTab(id); setEdit(null); setErr(""); }} style={{ background: "none", border: "none", borderBottom: "2px solid " + (tab === id ? B.charcoal : "transparent"), color: tab === id ? B.charcoal : B.mid, padding: "10px 14px", fontFamily: "sans-serif", fontSize: 12, fontWeight: tab === id ? 700 : 500, letterSpacing: "0.02em", cursor: "pointer", marginBottom: -1 }}>{label}</button>
+        ))}
+      </div>
+
+      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "10px 14px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 12 }}>{err}</div>}
+
+      {/* ══ CLIENTS ══ */}
+      {tab === "clients" && (
+        <div>
+          <Btn dark small onClick={() => setEdit({ kind: "client", row: { status: "lead" } })}>+ NEW CLIENT</Btn>
+          {edit && edit.kind === "client" && (
+            <Card style={{ padding: 20, margin: "14px 0" }}>
+              <Label>Name</Label><input style={inp} value={edit.row.name || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, name: e.target.value } })} placeholder="Client or company name" />
+              <Label>Email</Label><input style={inp} value={edit.row.email || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, email: e.target.value } })} />
+              <Label>Phone</Label><input style={inp} value={edit.row.phone || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, phone: e.target.value } })} />
+              <Label>Company</Label><input style={inp} value={edit.row.company || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, company: e.target.value } })} />
+              <Label>Status</Label>
+              <select style={sel} value={edit.row.status || "lead"} onChange={e => setEdit({ ...edit, row: { ...edit.row, status: e.target.value } })}>{["lead", "active", "past"].map(o => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}</select>
+              <Label>Deal value</Label><input style={inp} type="number" value={edit.row.deal_value || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, deal_value: e.target.value } })} placeholder="0" />
+              <Label>Notes</Label><textarea style={{ ...inp, resize: "vertical", lineHeight: 1.6 }} rows={2} value={edit.row.notes || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, notes: e.target.value } })} />
+              <Btn dark disabled={busy} onClick={() => save("bm_clients", edit.row.id, { name: edit.row.name || null, email: edit.row.email || null, phone: edit.row.phone || null, company: edit.row.company || null, status: edit.row.status || "lead", deal_value: edit.row.deal_value ? Number(edit.row.deal_value) : null, notes: edit.row.notes || null })}>{busy ? "SAVING..." : "SAVE CLIENT"}</Btn>
+              <button style={secBtn({ marginLeft: 8 })} onClick={() => setEdit(null)}>CANCEL</button>
+            </Card>
+          )}
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+            {clients.map(c => (
+              <div key={c.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "14px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontFamily: "Georgia,serif", fontSize: 16, color: B.charcoal }}>{c.name || "(unnamed)"}</div>
+                  <span style={badge(c.status)}>{c.status}</span>
+                </div>
+                <div style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, marginTop: 4, lineHeight: 1.5 }}>{[c.company, c.email, c.phone].filter(Boolean).join(" · ")}{c.deal_value ? " · " + money(c.deal_value, "USD") : ""}</div>
+                {c.notes && <div style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.charcoal, marginTop: 6, lineHeight: 1.5 }}>{c.notes}</div>}
+                <div><button style={secBtn()} onClick={() => setEdit({ kind: "client", row: c })}>Edit</button><button style={secBtn()} onClick={() => remove("bm_clients", c.id)}>Delete</button></div>
+              </div>
+            ))}
+            {!clients.length && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, padding: "8px 0" }}>No clients yet — add your first one above.</div>}
+          </div>
+        </div>
+      )}
+
+      {/* ══ INVOICES ══ */}
+      {tab === "invoices" && (
+        <div>
+          <div style={{ marginBottom: 14 }}>
+            <StripeConnect user={user} />
+            <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, lineHeight: 1.5, marginTop: -8 }}>Connect Stripe once (you may have already for your store) to send clients a “Pay now” link. Payments go straight to your Stripe.</div>
+          </div>
+          <Btn dark small onClick={() => setEdit({ kind: "invoice", row: { items: [{ desc: "", qty: 1, price: 0 }], currency: "USD", status: "draft", number: "INV-" + String(invoices.length + 1).padStart(3, "0") } })}>+ NEW INVOICE</Btn>
+          {edit && edit.kind === "invoice" && (
+            <Card style={{ padding: 20, margin: "14px 0" }}>
+              <Label>Invoice #</Label><input style={inp} value={edit.row.number || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, number: e.target.value } })} />
+              <Label>Client</Label>
+              <input style={inp} list="bm-clients-dl" value={edit.row.client_name || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, client_name: e.target.value } })} placeholder="Pick or type a client" />
+              <datalist id="bm-clients-dl">{clientOptions}</datalist>
+              <Label>Line items</Label>
+              {(edit.row.items || []).map((it, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+                  <input style={{ ...inp, marginBottom: 0, flex: 2 }} placeholder="Description" value={it.desc} onChange={e => { const items = [...edit.row.items]; items[idx] = { ...it, desc: e.target.value }; setEdit({ ...edit, row: { ...edit.row, items } }); }} />
+                  <input style={{ ...inp, marginBottom: 0, width: 52 }} type="number" placeholder="Qty" value={it.qty} onChange={e => { const items = [...edit.row.items]; items[idx] = { ...it, qty: e.target.value }; setEdit({ ...edit, row: { ...edit.row, items } }); }} />
+                  <input style={{ ...inp, marginBottom: 0, width: 72 }} type="number" placeholder="Price" value={it.price} onChange={e => { const items = [...edit.row.items]; items[idx] = { ...it, price: e.target.value }; setEdit({ ...edit, row: { ...edit.row, items } }); }} />
+                  <button style={{ border: "none", background: "none", color: B.mid, cursor: "pointer", fontSize: 18, padding: "0 4px" }} onClick={() => { const items = edit.row.items.filter((_, j) => j !== idx); setEdit({ ...edit, row: { ...edit.row, items } }); }}>×</button>
+                </div>
+              ))}
+              <button style={secBtn({ marginBottom: 12 })} onClick={() => setEdit({ ...edit, row: { ...edit.row, items: [...(edit.row.items || []), { desc: "", qty: 1, price: 0 }] } })}>+ Add line</button>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 40%" }}><Label>Currency</Label><select style={sel} value={edit.row.currency || "USD"} onChange={e => setEdit({ ...edit, row: { ...edit.row, currency: e.target.value } })}>{["USD", "EUR", "GBP", "CAD", "AUD"].map(o => <option key={o}>{o}</option>)}</select></div>
+                <div style={{ flex: "1 1 40%" }}><Label>Tax %</Label><input style={inp} type="number" value={edit.row.tax || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, tax: e.target.value } })} placeholder="0" /></div>
+              </div>
+              <Label>Due date</Label><input style={inp} type="date" value={edit.row.due_date || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, due_date: e.target.value } })} />
+              <Label>Notes</Label><textarea style={{ ...inp, resize: "vertical", lineHeight: 1.6 }} rows={2} value={edit.row.notes || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, notes: e.target.value } })} placeholder="Payment terms, thank-you note, etc." />
+              <div style={{ fontFamily: "sans-serif", fontSize: 13, color: B.charcoal, fontWeight: 700, margin: "4px 0 12px" }}>Total: {money(invTotal(edit.row), edit.row.currency)}</div>
+              <Btn dark disabled={busy} onClick={() => save("bm_invoices", edit.row.id, { client_name: edit.row.client_name || null, number: edit.row.number || null, items: edit.row.items || [], tax: edit.row.tax ? Number(edit.row.tax) : 0, currency: edit.row.currency || "USD", due_date: edit.row.due_date || null, status: edit.row.status || "draft", notes: edit.row.notes || null })}>{busy ? "SAVING..." : "SAVE INVOICE"}</Btn>
+              <button style={secBtn({ marginLeft: 8 })} onClick={() => setEdit(null)}>CANCEL</button>
+            </Card>
+          )}
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+            {invoices.map(inv => (
+              <div key={inv.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "14px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontFamily: "Georgia,serif", fontSize: 16, color: B.charcoal }}>{inv.number || "Invoice"} · {money(invTotal(inv), inv.currency)}</div>
+                  <span style={badge(inv.status)}>{inv.status}</span>
+                </div>
+                <div style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, marginTop: 4 }}>{[inv.client_name, inv.due_date ? "Due " + inv.due_date : ""].filter(Boolean).join(" · ")}</div>
+                <div>
+                  <button style={secBtn()} onClick={() => setEdit({ kind: "invoice", row: { ...inv, items: inv.items || [] } })}>Edit</button>
+                  <button style={secBtn()} onClick={() => printInvoice(inv)}>PDF</button>
+                  <button style={secBtn()} onClick={() => payLink(inv)}>💳 Payment link</button>
+                  {inv.status !== "paid" ? <button style={secBtn()} onClick={() => save("bm_invoices", inv.id, { status: "paid", paid_at: new Date().toISOString() })}>Mark paid</button> : <button style={secBtn()} onClick={() => save("bm_invoices", inv.id, { status: "sent", paid_at: null })}>Unmark paid</button>}
+                  <button style={secBtn()} onClick={() => remove("bm_invoices", inv.id)}>Delete</button>
+                </div>
+                {payMsg[inv.id] && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(payMsg[inv.id]).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 8, lineHeight: 1.5 }}>{payMsg[inv.id]}</div>}
+              </div>
+            ))}
+            {!invoices.length && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, padding: "8px 0" }}>No invoices yet — create your first one above.</div>}
+          </div>
+        </div>
+      )}
+
+      {/* ══ PROPOSALS & CONTRACTS (shared) ══ */}
+      {(tab === "proposals" || tab === "contracts") && (() => {
+        const kind = tab === "proposals" ? "proposal" : "contract";
+        const table = tab === "proposals" ? "bm_proposals" : "bm_contracts";
+        const list = tab === "proposals" ? proposals : contracts;
+        return (
+          <div>
+            <Btn dark small onClick={() => setEdit({ kind, row: { status: "draft" } })}>+ NEW {kind.toUpperCase()}</Btn>
+            {edit && edit.kind === kind && (
+              <Card style={{ padding: 20, margin: "14px 0" }}>
+                <Label>Title</Label><input style={inp} value={edit.row.title || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, title: e.target.value } })} placeholder={kind === "proposal" ? "e.g. Social Media Management Proposal" : "e.g. Service Agreement"} />
+                <Label>Client</Label>
+                <input style={inp} list="bm-clients-dl2" value={edit.row.client_name || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, client_name: e.target.value } })} placeholder="Pick or type a client" />
+                <datalist id="bm-clients-dl2">{clientOptions}</datalist>
+                <button style={secBtn({ marginBottom: 12 })} disabled={drafting} onClick={async () => { const body = await draftDoc(kind, edit.row.title, edit.row.client_name, edit.row.extra); setEdit(e => ({ ...e, row: { ...e.row, body } })); }}>{drafting ? "✍️ Drafting…" : "✨ Draft with AI"}</button>
+                <Label>{kind === "proposal" ? "Proposal" : "Contract"} text</Label>
+                <textarea style={{ ...inp, resize: "vertical", lineHeight: 1.6, fontFamily: "Georgia,serif", fontSize: 13 }} rows={12} value={edit.row.body || ""} onChange={e => setEdit({ ...edit, row: { ...edit.row, body: e.target.value } })} placeholder="Write it yourself or tap Draft with AI." />
+                <Label>Status</Label>
+                <select style={sel} value={edit.row.status || "draft"} onChange={e => setEdit({ ...edit, row: { ...edit.row, status: e.target.value } })}>{(kind === "proposal" ? ["draft", "sent", "accepted", "declined"] : ["draft", "sent", "signed"]).map(o => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}</select>
+                <Btn dark disabled={busy} onClick={() => save(table, edit.row.id, { title: edit.row.title || null, client_name: edit.row.client_name || null, body: edit.row.body || null, status: edit.row.status || "draft" })}>{busy ? "SAVING..." : "SAVE"}</Btn>
+                <button style={secBtn({ marginLeft: 8 })} onClick={() => setEdit(null)}>CANCEL</button>
+              </Card>
+            )}
+            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              {list.map(d => (
+                <div key={d.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontFamily: "Georgia,serif", fontSize: 16, color: B.charcoal }}>{d.title || "(untitled)"}</div>
+                    <span style={badge(d.status)}>{d.status}</span>
+                  </div>
+                  {d.client_name && <div style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, marginTop: 4 }}>{d.client_name}</div>}
+                  <div>
+                    <button style={secBtn()} onClick={() => setEdit({ kind, row: d })}>Edit</button>
+                    <button style={secBtn()} onClick={() => printDoc(kind, d)}>PDF</button>
+                    {kind === "contract" && d.status !== "signed" && <button style={secBtn()} onClick={() => { const name = window.prompt("Type the client's full name to mark as signed:"); if (name && name.trim()) save(table, d.id, { status: "signed", signed_name: name.trim(), signed_at: new Date().toISOString() }); }}>Mark signed</button>}
+                    <button style={secBtn()} onClick={() => remove(table, d.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+              {!list.length && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, padding: "8px 0" }}>Nothing here yet — create your first one above.</div>}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
+  const STYLES = [
+    { id: "headshot",  label: "Pro Headshot",     desc: "A clean, professional headshot framed from the chest up, on a neutral or softly blurred background — polished, confident, and corporate-friendly." },
+    { id: "linkedin",  label: "Corporate / LinkedIn", desc: "A LinkedIn-style corporate portrait: approachable and confident, sharp business attire, softly lit against a tasteful office or neutral backdrop." },
+    { id: "full",      label: "Full-Length",      desc: "A full-length professional business portrait, standing confidently with polished, editorial styling and flattering light." },
+    { id: "editorial", label: "Editorial",        desc: "A high-end editorial magazine-style portrait with refined, dramatic-but-tasteful lighting and elevated art direction." },
+    { id: "outdoor",   label: "Outdoor Natural",  desc: "A natural outdoor professional portrait in soft daylight with a pleasant, gently blurred background." },
+    { id: "custom",    label: "Custom",           desc: "" },
+  ];
+
+  const [photos, setPhotos] = useState([]);
+  const [styleId, setStyleId] = useState("headshot");
+  const [outfit, setOutfit] = useState("");
+  const [environment, setEnvironment] = useState("");
+  const [extra, setExtra] = useState("");
+  const [aspect, setAspect] = useState("4:5");
+  const [quality, setQuality] = useState("2K");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [shots, setShots] = useState([]);
+  const [saveMsg, setSaveMsg] = useState({});
+
+  function costFor(q){ return q === "4K" ? CREDIT_COSTS.image4K : q === "2K" ? CREDIT_COSTS.imageHD : CREDIT_COSTS.image; }
+  const cost = costFor(quality);
+
+  function onUpload(e) {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    Array.from(files).slice(0, 2).forEach(f => {
+      const r = new FileReader();
+      r.onload = () => setPhotos(prev => prev.length >= 2 ? prev : [...prev, r.result]);
+      r.readAsDataURL(f);
+    });
+    e.target.value = "";
+  }
+
+  function buildPrompt() {
+    const s = STYLES.find(x => x.id === styleId) || STYLES[0];
+    let p = "Turn the uploaded photo of a person into a polished, professional photograph. ";
+    p += "CRITICAL: keep the person's face, identity, likeness, skin tone, hair and distinguishing features perfectly accurate and clearly recognisable — this must obviously be the same person. Do NOT change their face, age or ethnicity, do not beautify them into someone else; keep it natural and true to life. ";
+    if (s.desc) p += s.desc + " ";
+    if (outfit.trim()) p += "Dress the person in: " + outfit.trim() + ". ";
+    if (environment.trim()) p += "Set the background / environment as: " + environment.trim() + ". ";
+    if (extra.trim()) p += extra.trim() + " ";
+    p += "Professional studio-quality lighting, flattering and natural, sharp focus, tasteful high-end retouching that keeps skin texture realistic, a confident and approachable expression. Photorealistic, magazine-grade quality. No text, no watermark, no logos.";
+    return p;
+  }
+
+  async function generate() {
+    if (!photos.length) { setErr("Add a photo of the person first."); return; }
+    if (loading) return;
+    if (!useCredits(cost)) return;
+    setErr(""); setLoading(true);
+    try {
+      const inputImages = photos
+        .map(u => { const m = /^data:(.*?);base64,(.*)$/.exec(u || ""); return m ? { mimeType: m[1], data: m[2] } : null; })
+        .filter(Boolean);
+      const r = await generateGeminiImage(buildPrompt(), inputImages, aspect, quality);
+      if (!r || !r.image) throw new Error("no image");
+      if (typeof r.balance === "number") onBalance(r.balance);
+      const label = (STYLES.find(x => x.id === styleId) || {}).label || "Portrait";
+      setShots(prev => [{ id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), url: r.image, label }, ...prev]);
+      try { onToolUse("enhance_photo", cost); } catch (e) {}
+    } catch (e) {
+      setErr("Sorry — we couldn't create that photo right now. Please try again in a little while.");
+    }
+    setLoading(false);
+  }
+
+  async function saveShot(shot) {
+    setSaveMsg(m => ({ ...m, [shot.id]: "Saving…" }));
+    try {
+      const uid = (user && user.id) || "anon";
+      const url = await uploadSiteImage(shot.url, uid + "/headshot-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
+      if (!url) throw new Error("save failed");
+      await saveToLibrary(user, "photo", "Enhance Photo — " + shot.label, url);
+      setSaveMsg(m => ({ ...m, [shot.id]: "✓ Saved to Library" }));
+    } catch (e) {
+      setSaveMsg(m => ({ ...m, [shot.id]: "Couldn't save — try again" }));
+    }
+  }
+
+  const Label = ({ children }) => (
+    <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: B.mid, marginBottom: 7, textTransform: "uppercase" }}>{children}</div>
+  );
+  const inpStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 14, boxSizing: "border-box" };
+  const selStyle = { ...inpStyle, cursor: "pointer" };
+  const have = typeof credits === "number" ? credits : null;
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Enhance Photo &amp; Headshots</h2>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Upload a photo of yourself and get a polished, professional portrait — you keep your real face, you choose the outfit and setting.</p>
+      <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em", lineHeight: 1.5 }}>Best results: a clear, well-lit photo where your face is easy to see. Add a second angle for an even better likeness.</div>
+
+      <Card style={{ padding: "22px", marginBottom: 14 }}>
+        <Label>Your photo · up to 2</Label>
+        {photos.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            {photos.map((u, i) => (
+              <div key={i} style={{ position: "relative" }}>
+                <img src={u} alt="" style={{ width: 76, height: 76, objectFit: "cover", border: "1px solid " + B.stone }} />
+                <button onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: -8, right: -8, width: 20, height: 20, borderRadius: "50%", border: "none", background: B.charcoal, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: "20px", padding: 0 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {photos.length < 2 && (
+          <label style={{ display: "block", border: "1px dashed " + B.stone, background: B.white, padding: "16px", textAlign: "center", cursor: "pointer", fontFamily: "sans-serif", fontSize: 12, color: B.goldDark, letterSpacing: "0.02em", marginBottom: 16 }}>
+            {photos.length ? "Add another angle" : "Tap to upload a photo of the person"}
+            <input type="file" accept="image/*" multiple onChange={onUpload} style={{ display: "none" }} />
+          </label>
+        )}
+
+        <Label>Choose a style</Label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+          {STYLES.map(s => (
+            <button key={s.id} onClick={() => setStyleId(s.id)} style={{ textAlign: "left", padding: "12px 13px", border: "1px solid " + (styleId === s.id ? B.charcoal : B.stone), background: styleId === s.id ? B.charcoal : "#fff", color: styleId === s.id ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.01em", lineHeight: 1.3 }}>{s.label}</button>
+          ))}
+        </div>
+
+        <Label>Outfit / clothing · optional</Label>
+        <input value={outfit} onChange={e => setOutfit(e.target.value)} placeholder="e.g. tailored navy blazer, crisp white shirt" style={inpStyle} />
+
+        <Label>Environment / background · optional</Label>
+        <input value={environment} onChange={e => setEnvironment(e.target.value)} placeholder="e.g. bright modern office, soft grey studio backdrop" style={inpStyle} />
+
+        <Label>{styleId === "custom" ? "Describe the photo you want" : "Extra direction · optional"}</Label>
+        <textarea value={extra} onChange={e => setExtra(e.target.value)} rows={styleId === "custom" ? 3 : 2} placeholder={styleId === "custom" ? "Describe the exact look, mood, lighting and framing you want." : "Anything to add — e.g. 'warm smile', 'arms crossed', 'golden-hour light'."} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
+
+        <Label>Orientation</Label>
+        <select value={aspect} onChange={e => setAspect(e.target.value)} style={selStyle}>
+          <option value="4:5">Portrait (4:5)</option>
+          <option value="1:1">Square (1:1)</option>
+          <option value="9:16">Tall / Story (9:16)</option>
+          <option value="16:9">Landscape (16:9)</option>
+        </select>
+
+        <Label>Quality</Label>
+        <select value={quality} onChange={e => setQuality(e.target.value)} style={selStyle}>
+          <option value="standard">Standard — fast &amp; economical ({CREDIT_COSTS.image} cr)</option>
+          <option value="2K">HD 2K — sharper, recommended ({CREDIT_COSTS.imageHD} cr)</option>
+          <option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option>
+        </select>
+
+        <Btn dark disabled={loading || !photos.length} onClick={generate}>
+          {loading ? "CREATING PHOTO..." : ("CREATE PHOTO (" + cost.toLocaleString() + " credits)")}
+        </Btn>
+        <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 10 }}>Uses {cost.toLocaleString()} credits{have !== null ? " · you have " + have.toLocaleString() : ""}. Generate again for more looks.</div>
+      </Card>
+
+      {loading && <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "36px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.04em" }}>Retouching your photo... (4–8 seconds)</div>}
+      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 4 }}>{err}</div>}
+
+      {shots.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 9, color: B.gold, fontFamily: "sans-serif", fontWeight: 700, letterSpacing: "0.18em", marginBottom: 12, textTransform: "uppercase" }}>Your photos · {shots.length}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {shots.map(shot => (
+              <div key={shot.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "20px" }}>
+                <div style={{ fontFamily: "sans-serif", fontSize: 10, color: B.mid, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{shot.label}</div>
+                <img src={shot.url} alt={shot.label} style={{ maxWidth: "100%", display: "block", marginBottom: 12 }} />
+                <a href={shot.url} download="chelgy-photo.png"><Btn dark small>DOWNLOAD</Btn></a>
+                <button onClick={() => saveShot(shot)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
+                {saveMsg[shot.id] && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(saveMsg[shot.id]).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{saveMsg[shot.id]}</div>}
+                <div style={{ marginTop: 14 }}><ShareBar file={shot.url} filename="chelgy-photo.png" title="Made with Chelgy" text="" /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   // Studio scene presets — Kive-style "virtual photo sets". Each appends a scene
   // description to the prompt while the uploaded product stays accurate.
@@ -8251,11 +8840,15 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   const [productName, setProductName] = useState("");
   const [studio, setStudio] = useState("ecom");
   const [extra, setExtra] = useState("");
+  const [model, setModel] = useState("");
+  const [outfit, setOutfit] = useState("");
+  const [environment, setEnvironment] = useState("");
   const [aspect, setAspect] = useState("4:5");
   const [quality, setQuality] = useState("standard");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [shots, setShots] = useState([]); // { id, url, label, aspect }
+  const [prog, setProg] = useState("");
   const [saveMsg, setSaveMsg] = useState({});
   const [videos, setVideos] = useState({}); // { [shotId]: { open, prompt, quality, duration, orient, loading, status, url, err, saveMsg } }
 
@@ -8287,6 +8880,9 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
     let p = "Create a premium, high-end commercial product photograph of the product shown in the uploaded reference photo" + (products.length > 1 ? "s" : "") + ". ";
     p += "CRITICAL: keep the product itself perfectly accurate to the reference — identical shape, colour, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign or alter the product. ";
     if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
+    if (model.trim()) p += "Include a realistic, attractive human model: " + model.trim() + ". The model naturally holds, wears or uses the product so it stays the clear hero of the shot, looking premium and aspirational. ";
+    if (outfit.trim()) p += "Style the model in: " + outfit.trim() + ". ";
+    if (environment.trim()) p += "Place the scene in this environment: " + environment.trim() + ". ";
     if (s.desc) p += s.desc + " ";
     if (extra.trim()) p += extra.trim() + " ";
     p += "Studio-quality professional lighting, realistic reflections and natural shadows, sharp focus, tasteful editorial composition, clean and uncluttered, an expensive premium brand feel. ";
@@ -8310,8 +8906,73 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
       setShots(prev => [{ id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), url: r.image, label, aspect }, ...prev]);
       try { onToolUse("product_studio", cost); } catch (e) {}
     } catch (e) {
-      setErr(e && e.message ? e.message : "Couldn't create the shot. Please try again.");
+      setErr("Sorry — we couldn't create that shot right now. Please try again in a little while.");
     }
+    setLoading(false);
+  }
+
+  const ANGLES = [
+    ["Front", "a clean straight-on FRONT view of the product"],
+    ["Back", "a straight-on BACK view of the same product"],
+    ["Side", "a 3/4 SIDE-angle view of the same product"],
+    ["Close-up", "a tight CLOSE-UP detail shot showing the material and texture of the same product"],
+  ];
+  function productInputs() {
+    return products
+      .map(u => { const m = /^data:(.*?);base64,(.*)$/.exec(u || ""); return m ? { mimeType: m[1], data: m[2] } : null; })
+      .filter(Boolean);
+  }
+  async function enhance() {
+    if (!products.length) { setErr("Add at least one photo of your product first."); return; }
+    if (loading) return;
+    if (!useCredits(cost)) return;
+    setErr(""); setLoading(true); setProg("Enhancing your product photo... (4–8 seconds)");
+    try {
+      let p = "Enhance the product shown in the uploaded photo" + (products.length > 1 ? "s" : "") + " into a clean, professional, high-end product photograph. ";
+      p += "CRITICAL: keep the product itself perfectly accurate — identical shape, colour, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign the product. ";
+      p += "Just make it look professional: remove background clutter and distractions, place it on a clean tasteful studio backdrop, add soft realistic studio lighting with natural shadows and reflections, fix any blur or poor lighting, and make it crisp, bright and premium. ";
+      if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
+      if (extra.trim()) p += extra.trim() + " ";
+      p += "No watermark, no text, no AI attribution.";
+      const r = await generateGeminiImage(p, productInputs(), aspect, quality);
+      if (!r || !r.image) throw new Error("no image");
+      if (typeof r.balance === "number") onBalance(r.balance);
+      setShots(prev => [{ id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), url: r.image, label: "Enhanced", aspect }, ...prev]);
+      try { onToolUse("product_studio_enhance", cost); } catch (e) {}
+    } catch (e) {
+      setErr("Sorry — we couldn't enhance that photo right now. Please try again in a little while.");
+    }
+    setProg(""); setLoading(false);
+  }
+  async function generateAngles() {
+    if (!products.length) { setErr("Add at least one photo of your product first."); return; }
+    if (loading) return;
+    if (!useCredits(cost * ANGLES.length)) return;
+    setErr(""); setLoading(true);
+    const existing = shots;
+    const made = [];
+    let failures = 0;
+    for (let i = 0; i < ANGLES.length; i++) {
+      setProg("Creating " + ANGLES[i][0] + " view (" + (i + 1) + " of 4)…");
+      let p = "Using the uploaded reference photo" + (products.length > 1 ? "s" : "") + " of the product, generate " + ANGLES[i][1] + ". ";
+      p += "CRITICAL: keep the exact same product — identical shape, colour, materials, proportions and any label text, logo or branding, sharp and legible. Do not redesign it. ";
+      p += "Professional e-commerce product photography, clean seamless studio background, soft even lighting, sharp detail, premium feel. ";
+      if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
+      if (extra.trim()) p += extra.trim() + " ";
+      p += "No watermark, no text.";
+      let ok = false;
+      for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+        try {
+          const r = await generateGeminiImage(p, productInputs(), aspect, quality);
+          if (r && r.image) { if (typeof r.balance === "number") onBalance(r.balance); made.push({ id: Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2, 5), url: r.image, label: ANGLES[i][0], aspect }); setShots([...made, ...existing]); ok = true; }
+        } catch (e) { /* retry once */ }
+      }
+      if (!ok) failures++;
+    }
+    setProg("");
+    try { onToolUse("product_studio_angles", cost * (ANGLES.length - failures)); } catch (e) {}
+    if (!made.length) setErr("Sorry — we couldn't create the angle set right now. Please try again in a little while.");
+    else if (failures) setErr(made.length + " of 4 angles came through — tap 4 Angles again to fill in the rest.");
     setLoading(false);
   }
 
@@ -8342,7 +9003,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
       const prompt = (v.prompt && v.prompt.trim()) || DEFAULT_MOTION;
       const started = await generateVideo(prompt, shot.url, { orientation: orient, quality: q, duration: dur, audio: false });
       if (!started || !started.id) {
-        setVid(shot.id, { loading: false, status: "", err: started && started.error ? ("Video error: " + started.error) : "Couldn't start the video. Try again in a moment." });
+        setVid(shot.id, { loading: false, status: "", err: "Sorry — we couldn't start that video right now. Please try again in a little while." });
         return;
       }
       if (typeof started.balance === "number") onBalance(started.balance);
@@ -8394,6 +9055,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Product Studio</h2>
       <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Powered by Nano Banana 2 (Google Gemini)</p>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Make studio photos of your product — then turn any shot into a video with the 🎬 Make a Video button.</p>
       <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em" }}>Upload your product once, then drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model. Then bring any shot to life as a short video.</div>
 
       <Card style={{ padding: "22px", marginBottom: 14 }}>
@@ -8418,6 +9080,14 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
 
         <Label>Product name · optional</Label>
         <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="e.g. Rose Body Oil, Weekender Bag" style={inpStyle} />
+
+        <Label>Model · optional</Label>
+        <input value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. a stylish woman in her late 20s, warm skin, natural curls" style={inpStyle} />
+        <Label>Outfit · optional</Label>
+        <input value={outfit} onChange={e => setOutfit(e.target.value)} placeholder="e.g. cream linen suit, minimal gold jewellery" style={inpStyle} />
+        <Label>Environment · optional</Label>
+        <input value={environment} onChange={e => setEnvironment(e.target.value)} placeholder="e.g. sunlit minimalist loft, soft neutral tones" style={inpStyle} />
+        <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, margin: "-4px 0 16px", lineHeight: 1.5 }}>Add a model, outfit and environment to build a full scene around your product — or leave blank for a classic product-only shot.</div>
 
         {/* Studio picker */}
         <Label>Choose a studio</Label>
@@ -8450,16 +9120,26 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
           {loading ? "CREATING SHOT..." : ("GENERATE SHOT (" + cost.toLocaleString() + " credits)")}
         </Btn>
         {products.length > 0 && <CostNote cost={cost} />}
+        {products.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button disabled={loading || !products.length} onClick={enhance} style={{ flex: "1 1 46%", background: "#fff", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "12px", fontFamily: "sans-serif", fontSize: 11, letterSpacing: "0.05em", fontWeight: 700, cursor: (loading || !products.length) ? "default" : "pointer", textTransform: "uppercase", opacity: (loading || !products.length) ? 0.5 : 1 }}>✨ Enhance photo ({cost.toLocaleString()} cr)</button>
+              <button disabled={loading || !products.length} onClick={generateAngles} style={{ flex: "1 1 46%", background: "#fff", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "12px", fontFamily: "sans-serif", fontSize: 11, letterSpacing: "0.05em", fontWeight: 700, cursor: (loading || !products.length) ? "default" : "pointer", textTransform: "uppercase", opacity: (loading || !products.length) ? 0.5 : 1 }}>📐 4 Angles ({(cost * 4).toLocaleString()} cr)</button>
+            </div>
+            <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 8, lineHeight: 1.5 }}><strong>Enhance</strong> = a clean, professional version of your photo. <strong>4 Angles</strong> = front, back, side &amp; close-up of the same product.</div>
+          </div>
+        )}
         {!products.length && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 10 }}>Upload a product photo to begin.</div>}
       </Card>
 
-      {loading && <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "36px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.04em" }}>Styling your product shot... (4–8 seconds)</div>}
+      {loading && <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "36px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.04em" }}>{prog || "Styling your product shot... (4–8 seconds)"}</div>}
       {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 4 }}>{err}</div>}
 
       {/* Results gallery — keep generating to build a set, animate any shot */}
       {shots.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: 9, color: B.gold, fontFamily: "sans-serif", fontWeight: 700, letterSpacing: "0.18em", marginBottom: 12, textTransform: "uppercase" }}>Your product set · {shots.length}</div>
+          <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: -6, marginBottom: 12 }}>Tap 🎬 Make a Video on any shot to turn it into a product clip.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {shots.map(shot => {
               const v = videos[shot.id] || {};
@@ -8469,7 +9149,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
                 <img src={shot.url} alt={shot.label} style={{ maxWidth: "100%", display: "block", marginBottom: 12 }} />
                 <a href={shot.url} download="chelgy-product.png"><Btn dark small>DOWNLOAD</Btn></a>
                 <button onClick={() => saveShot(shot)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
-                <button onClick={() => setVid(shot.id, { open: !v.open })} style={{ marginLeft: 8, background: v.open ? B.charcoal : "#fff", border: "1px solid " + (v.open ? B.charcoal : B.stone), color: v.open ? "#fff" : B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>🎬 Animate</button>
+                <button onClick={() => setVid(shot.id, { open: !v.open })} style={{ marginLeft: 8, background: v.open ? B.charcoal : "#fff", border: "1px solid " + (v.open ? B.charcoal : B.stone), color: v.open ? "#fff" : B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>🎬 Make a Video</button>
                 {saveMsg[shot.id] && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(saveMsg[shot.id]).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{saveMsg[shot.id]}</div>}
                 <div style={{ marginTop: 14 }}><ShareBar file={shot.url} filename="chelgy-product.png" title="Made with Chelgy" text="" /></div>
 
@@ -8733,7 +9413,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     try{
       const p = prompt.trim() || "Bring this UGC creator photo to life with subtle, natural movement — as if they are filming themselves talking to the camera. Realistic, handheld, authentic user-generated-content feel.";
       const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:"seedance4k", duration:Number(dur), audio:false});
-      if(!started||!started.id){ setErr(started&&started.error?("Video error: "+started.error):"Couldn't start the video. Please try again in a moment."); setBusy(false); setStatus(""); return; }
+      if(!started||!started.id){ setErr("Sorry — we couldn't start that video right now. Please try again in a little while."); setBusy(false); setStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
       setStatus("Creating your Seedance 2.0 video — 4K can take up to 10 minutes. Keep this tab open.");
       const out = await pollVideo(started.id);
@@ -9140,6 +9820,7 @@ export default function ChelgyApp() {
   const [tourStep, setTourStep] = useState(null);
   const [spotRect, setSpotRect] = useState(null);
   const [showIntake, setShowIntake] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false); // true once we've checked the server for a saved profile — stops a returning member being re-sent through intake on a new device
   const [intake, setIntake] = useState(()=>lsGetJSON("chelgy_intake", null));
   const [plan, setPlan] = useState(()=>{ try { return localStorage.getItem("chelgy_plan")||""; } catch { return ""; } });
   const [planLoading, setPlanLoading] = useState(false);
@@ -9164,7 +9845,7 @@ export default function ChelgyApp() {
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
     { target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." },
     { target: "learn", title: "Learn", body: "Marketing strategies and The Chelgy Edit blog. Tap any strategy for a step-by-step deep dive." },
-    { target: "tools", title: "Tools", body: "Your AI toolkit to build your entire business and automate your marketing — publish a whole website with the Website Builder, launch your entire business with the Business Launch Package, plus create images, flyers, videos, ads, content, voiceovers, and more." },
+    { target: "tools", title: "Tools", body: "Your AI toolkit to build your entire business and automate your marketing — publish a whole website with the Website Builder, launch your entire business with the Business Builder, plus create images, flyers, videos, ads, content, voiceovers, and more." },
     { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
     { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
     { target: null, chooser: true, title: "Where would you like to start?", body: "Pick one and I'll take you straight there — you can always explore the rest whenever you like." },
@@ -9173,11 +9854,12 @@ export default function ChelgyApp() {
   function nextTour() { if (tourStep === null) return; if (tourStep >= TOUR_STEPS.length - 1) endTour(); else setTourStep(tourStep + 1); }
   useEffect(()=>{
     if (page!=="app" || isAdmin) return;
+    if (!profileChecked) return; // wait for the server profile to load first, so a returning member on a new device isn't sent back through intake
     let intakeDone=false; try{ intakeDone=!!localStorage.getItem("chelgy_intake_done"); }catch(e){}
     if(!intakeDone){ setShowIntake(true); return; } // intake replaces the old tutorial
     let done=false; try{ done=!!localStorage.getItem("chelgy_tour_done"); }catch(e){}
     if(!done) setTourStep(0);
-  },[page,isAdmin]);
+  },[page,isAdmin,profileChecked]);
   // First-run tour begins once the intake questionnaire AND the generated plan are dismissed
   useEffect(()=>{
     if(page!=="app"||isAdmin||showIntake||showPlan||tourStep!==null) return;
@@ -9251,7 +9933,7 @@ MEMBER'S ANSWERS
 - Biggest challenge: ${d.challenge||"(not specified)"}
 - Hours per week available: ${d.hours||"(not specified)"}
 
-${d.bizNameSite && !isIdea ? `FIRST: Search the web for "${d.bizNameSite}" and for their main competitors in ${d.location||"their area"} within the ${d.field||"their"} field. Base your assessment on what you actually find. If you cannot find them, say so plainly and assess from what they told you.` : `This person is at the idea stage — focus on a clear, motivating starting roadmap.`}
+${`FIRST: Use web search to research their specific situation before writing. `}${d.bizNameSite && !isIdea ? `Look up "${d.bizNameSite}" and their main competitors in ${d.location||"their area"} within the ${d.field||"their"} field, and base your assessment on what you actually find (if you can't find them, say so plainly and assess from what they told you). ` : ``}Also search for where a ${d.field||"business like theirs"} in ${d.location||"their area"} actually gets found, listed, and marketed — the specific directories, listing sites, marketplaces, review platforms, and online communities their type of customer uses to find and book this kind of business. Prefer real, current, named platforms over generic advice.
 
 Write the plan in clean markdown with these exact section headings:
 
@@ -9265,12 +9947,15 @@ ${!isIdea ? "## How you compare\nName 2-3 real competitors in their field/area a
 ## Your roadmap
 A numbered, stage-by-stage list of the highest-impact moves to get from where they are now to their #1 goal (${d.goal||"their goal"}). Be specific to their field and location, and pace it for ${d.hours||"their available"} hours per week.
 
+## Where your customers are
+List the specific, real, named places their ideal customer actually finds and books a ${d.field||"business like theirs"} in ${d.location||"their area"} — the directories, listing sites, marketplaces, review platforms, and social or community spaces that matter for THIS niche (not generic "just be on social media" advice). For each one, give a single sentence on why it matters for them and the first thing to do there. Put the few highest-payoff ones first.
+
 ## How Chelgy fixes all of this
 Before listing tools, write 2 to 4 warm, confident sentences that make this point clearly: everything flagged in this audit can be fixed right here inside Chelgy. They don't need to hire an agency, a designer, a copywriter, or a consultant, and they don't have to do it alone — Chelgy is their team. Make them feel capable and ready to start.
 
 ## Your Chelgy toolkit
 For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on how to use it for that step. Only use tools from this list:
-- Business Launch Package (builds their entire business — a complete published website, logo, brand strategy, social plan, and launch roadmap)
+- Business Builder (builds their entire business — a complete published website, logo, brand strategy, social plan, and launch roadmap)
 - Website Builder (writes and publishes a complete, ready-to-share website for their business)
 - AI Image Creator (logos, flyers, social graphics, product images)
 - AI Video Studio & Viral Video Generator (video scripts, viral ideas, AI video)
@@ -9660,7 +10345,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       "- Week 4: Growth (specific tasks)\n" +
       "- First 3 months milestones\n" +
       "- Key metrics to track\n" +
-      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Business Launch Package to build their entire business at once (a complete published website, logo, brand, social plan and launch roadmap) and the Website Builder to build and publish their website; the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
+      "- IMPORTANT: throughout the roadmap, whenever a task involves creating something, point them to the exact Chelgy tool to use right inside the app — the Business Builder to build their entire business at once (a complete published website, logo, brand, social plan and launch roadmap) and the Website Builder to build and publish their website; the Image Creator for their logo, flyers, social graphics, and product images; the Content Writer for captions, posts, emails, and blog copy; the Video Studio and Viral Video Generator for video; the Ad Campaign Builder for paid ads; the Platform Setup Guides for setting up Google Business and social profiles; and the Business Audit to check their online presence. Mention the relevant tool by name in the task so they know they don't need to hire anyone or leave Chelgy.\n\n" +
       "Make everything specific to THIS business. No generic advice. Real, usable copy they can implement immediately."
 
     const result = await callClaude(prompt, 8000);
@@ -9720,7 +10405,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Builder"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Coach"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -9856,7 +10541,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   // ─── On login: pull authoritative credits/points/profile from the server ─────
   useEffect(()=>{
-    if(!(user && user.email)) return;
+    if(!(user && user.email)){ setProfileChecked(true); return; }
+    setProfileChecked(false);
     let cancelled = false;
     freshToken().then(tok=> tok ? getMyMember(tok, user.id) : null).then(m=>{
       if(cancelled || !m) return;
@@ -9899,7 +10585,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       }
       let welcomed=false; try{ welcomed = localStorage.getItem("chelgy_welcomed")==="1"; }catch{}
       if(!welcomed){ pushNotif("Welcome to Chelgy! Your membership is active — explore your tools and strategies."); try{ localStorage.setItem("chelgy_welcomed","1"); }catch{} }
-    });
+    }).catch(()=>{}).finally(()=>{ if(!cancelled) setProfileChecked(true); });
     return ()=>{ cancelled = true; };
   },[user]);
 
@@ -12002,7 +12688,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"enhance",Icon:Icons.Image,title:"Enhance Photo & Headshots",desc:"Upload a photo of yourself and get a polished professional headshot or portrait — you pick the outfit and setting, your real face stays you."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -12071,7 +12757,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <Icons.ChevronLeft /> Back
               </button>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
-              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Business Launch Package</h2>
+              <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Business Builder</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 24px",lineHeight:1.7}}>Fill in your business details and get a complete website copy, brand strategy, social media plan, and 30-day launch roadmap — all generated by AI in seconds.</p>
 
               {!launchResult&&!launchLoading&&(
@@ -12114,7 +12800,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       </div>
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>setLaunchStep(2)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
-                        <button onClick={finishLaunch} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>GENERATE MY LAUNCH PACKAGE</button>
+                        <button onClick={finishLaunch} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>BUILD MY BUSINESS</button>
                       </div>
                     </Card>
                   )}
