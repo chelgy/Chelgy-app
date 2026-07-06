@@ -79,6 +79,141 @@ export default async function handler(req, res) {
       });
     } catch { /* swallow */ }
   }
+  // A Business Manager invoice was paid via api/invoice-checkout.js → mark it paid.
+  // Idempotent: re-running just sets the same fields again.
+  async function markInvoicePaid(invoiceId) {
+    if (!invoiceId) return;
+    try {
+      await fetch(SUPABASE_URL + "/rest/v1/bm_invoices?id=eq." + encodeURIComponent(invoiceId), {
+        method: "PATCH",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ status: "paid", paid_at: new Date().toISOString() })
+      });
+    } catch { /* swallow */ }
+  }
+
+  // A domain was bought through Chelgy via api/domain-checkout.js. Register it with
+  // Vercel using the contact Stripe collected, then attach it to the member's project
+  // and save it on their site. If registration fails, refund the member automatically.
+  //   DOMAIN_AUTO_RENEW: false = member owns it for 1 year (Chelgy isn't billed again).
+  //   Set true ONLY once you bill members yearly, or Chelgy's Vercel eats every renewal.
+  async function registerDomain(s, meta) {
+    const DOMAIN_AUTO_RENEW = false;
+    const VT = (process.env.VERCEL_TOKEN || "").trim();
+    const VP = (process.env.VERCEL_PROJECT_ID || "").trim();
+    const VTEAM = (process.env.VERCEL_TEAM_ID || "").trim();
+    const STRIPE_KEY = (process.env.STRIPE_SECRET_KEY || "").trim();
+    const domain = String(meta.domain || "").toLowerCase();
+    const ownerId = meta.owner_id;
+    if (!VT || !VP || !domain || !ownerId) return;
+
+    const teamSuffix = VTEAM ? ("teamId=" + VTEAM) : "";
+    async function vfetch(path, opts) {
+      const url = "https://api.vercel.com" + path + (teamSuffix ? ((path.includes("?") ? "&" : "?") + teamSuffix) : "");
+      return fetch(url, { ...(opts || {}), headers: { Authorization: "Bearer " + VT, "Content-Type": "application/json", ...((opts && opts.headers) || {}) } });
+    }
+    async function refund() {
+      try {
+        if (!STRIPE_KEY || !s.payment_intent) return;
+        await fetch("https://api.stripe.com/v1/refunds", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + STRIPE_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ payment_intent: String(s.payment_intent) }).toString()
+        });
+      } catch { /* swallow */ }
+    }
+
+    // registrant contact, from what Stripe collected at checkout
+    const cd = s.customer_details || {};
+    const nm = String(cd.name || "").trim().split(/\s+/).filter(Boolean);
+    const ad = cd.address || {};
+    const contact = {
+      firstName: nm.length > 1 ? nm.slice(0, -1).join(" ") : (nm[0] || "Domain"),
+      lastName: nm.length > 1 ? nm[nm.length - 1] : (nm[0] || "Owner"),
+      email: cd.email || "",
+      phone: cd.phone || "",
+      address1: ad.line1 || "",
+      city: ad.city || "",
+      state: ad.state || ad.city || "NA",
+      zip: ad.postal_code || "",
+      country: ad.country || "US",
+    };
+    if (ad.line2) contact.address2 = ad.line2;
+
+    try {
+      // use the current price as expectedPrice so it can't mismatch
+      let expected = null;
+      try { const pr = await (await vfetch("/v1/registrar/domains/" + encodeURIComponent(domain) + "/price?years=1")).json(); if (pr && pr.purchasePrice != null) expected = parseFloat(pr.purchasePrice); } catch { }
+      const buyBody = { autoRenew: DOMAIN_AUTO_RENEW, years: 1, contactInformation: contact };
+      if (expected != null && isFinite(expected)) buyBody.expectedPrice = expected;
+
+      const br = await vfetch("/v1/registrar/domains/" + encodeURIComponent(domain) + "/buy", { method: "POST", body: JSON.stringify(buyBody) });
+      const bj = await br.json().catch(() => ({}));
+      if (!br.ok || !bj.orderId) { await refund(); return; }
+
+      // attach to the Vercel project (+ www for apex domains)
+      const addOne = async (name) => { try { await vfetch("/v10/projects/" + VP + "/domains", { method: "POST", body: JSON.stringify({ name }) }); } catch { } };
+      await addOne(domain);
+      if (domain.split(".").length <= 2) await addOne("www." + domain);
+
+      // save it on the member's site
+      const target = meta.site_id ? ("websites?id=eq." + meta.site_id) : ("websites?user_id=eq." + ownerId);
+      await fetch(SUPABASE_URL + "/rest/v1/" + target, {
+        method: "PATCH",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ custom_domain: domain })
+      });
+
+      // record it so the member can see + renew it (expires in 1 year)
+      const expires = new Date(Date.now() + 365 * 86400000).toISOString();
+      await fetch(SUPABASE_URL + "/rest/v1/domains", {
+        method: "POST",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify({ user_id: ownerId, domain, site_id: meta.site_id || null, expires_at: expires, order_id: bj.orderId || null })
+      });
+    } catch { /* swallow: order may still have gone through; avoid a wrong refund */ }
+  }
+
+  // A domain the member owns was renewed via api/domain-renew.js → renew at Vercel
+  // and push its expiry out another year. Refunds if the renewal fails.
+  async function renewDomain(s, meta) {
+    const VT = (process.env.VERCEL_TOKEN || "").trim();
+    const VTEAM = (process.env.VERCEL_TEAM_ID || "").trim();
+    const STRIPE_KEY = (process.env.STRIPE_SECRET_KEY || "").trim();
+    const domain = String(meta.domain || "").toLowerCase();
+    if (!VT || !domain) return;
+    const teamSuffix = VTEAM ? ("teamId=" + VTEAM) : "";
+    async function vfetch(path, opts) {
+      const url = "https://api.vercel.com" + path + (teamSuffix ? ((path.includes("?") ? "&" : "?") + teamSuffix) : "");
+      return fetch(url, { ...(opts || {}), headers: { Authorization: "Bearer " + VT, "Content-Type": "application/json", ...((opts && opts.headers) || {}) } });
+    }
+    async function refund() {
+      try { if (!STRIPE_KEY || !s.payment_intent) return; await fetch("https://api.stripe.com/v1/refunds", { method: "POST", headers: { Authorization: "Bearer " + STRIPE_KEY, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ payment_intent: String(s.payment_intent) }).toString() }); } catch { }
+    }
+    try {
+      let expected = null;
+      try { const pr = await (await vfetch("/v1/registrar/domains/" + encodeURIComponent(domain) + "/price?years=1")).json(); if (pr && pr.renewalPrice != null) expected = parseFloat(pr.renewalPrice); } catch { }
+      const renewBody = { years: 1 };
+      if (expected != null && isFinite(expected)) renewBody.expectedPrice = expected;
+      const rr = await vfetch("/v1/registrar/domains/" + encodeURIComponent(domain) + "/renew", { method: "POST", body: JSON.stringify(renewBody) });
+      const rj = await rr.json().catch(() => ({}));
+      if (!rr.ok || !rj.orderId) { await refund(); return; }
+      // extend from the later of (current expiry, now) + 1 year
+      let cur = Date.now();
+      try {
+        const g = await fetch(SUPABASE_URL + "/rest/v1/domains?select=expires_at&domain=eq." + encodeURIComponent(domain) + "&limit=1", { headers: { apikey: SERVICE, Authorization: "Bearer " + SERVICE } });
+        const rows = await g.json().catch(() => []);
+        const t = rows && rows[0] && rows[0].expires_at ? new Date(rows[0].expires_at).getTime() : 0;
+        if (t > cur) cur = t;
+      } catch { }
+      const next = new Date(cur + 365 * 86400000).toISOString();
+      await fetch(SUPABASE_URL + "/rest/v1/domains?domain=eq." + encodeURIComponent(domain), {
+        method: "PATCH",
+        headers: { "apikey": SERVICE, "Authorization": "Bearer " + SERVICE, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ expires_at: next, order_id: rj.orderId || null, remind30_sent: false, remind7_sent: false })
+      });
+    } catch { /* swallow */ }
+  }
   // Update a member's status looked up by email. onlyFrom (optional) restricts the
   // update to members currently in those statuses — so we never clobber admin/comp
   // accounts or re-suspend someone who's fine.
@@ -152,9 +287,24 @@ export default async function handler(req, res) {
     }
 
     // ── Store sale (Stripe Connect stores) → record the order ──
-    // Store sessions carry owner_id (not user_id), so this is independent of the above.
-    if (paid && meta.owner_id) {
+    // Store sessions have no "type" in metadata; invoice/domain sessions do.
+    if (paid && meta.owner_id && !meta.type) {
       await recordStoreOrder(s, meta);
+    }
+
+    // ── Business Manager invoice paid → flip the invoice to "paid" ──
+    if (paid && meta.type === "invoice" && meta.invoice_id) {
+      await markInvoicePaid(meta.invoice_id);
+    }
+
+    // ── Domain bought through Chelgy → register it via Vercel + connect it ──
+    if (paid && meta.type === "domain" && meta.domain && meta.owner_id) {
+      await registerDomain(s, meta);
+    }
+
+    // ── Domain renewed through Chelgy → extend it another year ──
+    if (paid && meta.type === "domain_renew" && meta.domain && meta.owner_id) {
+      await renewDomain(s, meta);
     }
   }
 
