@@ -1751,7 +1751,7 @@ function OrdersPanel({ user }){
     </div>
   );
 }
-function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={} }) {
+function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, isAdmin=false }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
@@ -3022,7 +3022,6 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="enhance"&&<EnhancePhoto onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
       {tool==="manager"&&<BusinessManager user={user} bizCtx={bizCtx} locked={locked} onUpgrade={onUpgrade} />}
-      {tool==="printshop"&&<PrintShop onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} locked={locked} onUpgrade={onUpgrade} />}
 
       {tool==="backlinks"&&<AuthorityBuilder onToolUse={onToolUse} locked={locked} onUpgrade={onUpgrade} bizCtx={bizCtx} user={user} />}
 
@@ -3382,7 +3381,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", video:"Video Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", enhance:"Enhance Photo & Headshots", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -8666,148 +8665,6 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
   );
 }
 
-function PrintShop({ onBalance, useCredits, onToolUse, user, credits, locked, onUpgrade }) {
-  const PRODUCTS = [
-    { id: "cards",   label: "Business Cards",    uid: "cards_pf_bb_pt_350-gsm-coated-silk_cl_4-4_hor", ar: "16:9", transparent: false, bothSides: true, blurb: "Double-sided · 350gsm silk", note: "a clean, print-ready business card designed edge to edge (full bleed)" },
-    { id: "flyers",  label: "Flyers (A4)",       uid: "flat_product_pf_a4_pt_200-gsm-uncoated_cl_4-0_ct_none_prt_none_sft_none_set_none_hor", ar: "4:5", transparent: false, blurb: "A4 · 200gsm", note: "a bold, print-ready A4 flyer designed edge to edge (full bleed)" },
-    { id: "posters", label: "Posters (50×70cm)", uid: "large-posters_pf_500x700-mm_pt_170-gsm-coated-silk_cl_4-0_ver", ar: "4:5", transparent: false, blurb: "Large wall poster", note: "a striking, print-ready poster designed edge to edge (full bleed)" },
-    { id: "tshirt",  label: "T-Shirt",           uid: "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_{size}_gco_white_gpr_4-4", ar: "1:1", transparent: true, apparel: true, blurb: "Unisex crewneck · white", note: "a bold graphic to print on a t-shirt, centered, on a fully transparent background (no background at all)" },
-    { id: "mug",     label: "Mug (15oz)",        uid: "mug_product_msz_15-oz_mmat_ceramic-white_cl_4-0", ar: "16:9", transparent: true, blurb: "Ceramic white · 15oz", note: "a design to wrap around a mug, on a fully transparent background" },
-  ];
-  const COUNTRIES = [["US", "United States"], ["CA", "Canada"], ["GB", "United Kingdom"], ["AU", "Australia"], ["IE", "Ireland"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"], ["NL", "Netherlands"], ["SE", "Sweden"], ["NZ", "New Zealand"]];
-  const SIZES = ["S", "M", "L", "XL"];
-
-  const [pid, setPid] = useState("cards");
-  const [size, setSize] = useState("L");
-  const [desc, setDesc] = useState("");
-  const [design, setDesign] = useState(null);
-  const [qty, setQty] = useState(1);
-  const [ship, setShip] = useState({ firstName: "", lastName: "", addressLine1: "", addressLine2: "", city: "", state: "", postCode: "", country: "US", email: "", phone: "" });
-  const [price, setPrice] = useState(null);
-  const [busy, setBusy] = useState("");
-  const [err, setErr] = useState("");
-
-  const product = PRODUCTS.find(p => p.id === pid) || PRODUCTS[0];
-  const resolvedUid = product.apparel ? product.uid.replace("{size}", (size || "L").toLowerCase()) : product.uid;
-  const cost = CREDIT_COSTS.image;
-  const inp = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", boxSizing: "border-box" };
-  const lbl = { fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: B.mid, textTransform: "uppercase", margin: "0 0 6px" };
-
-  function up(k, v) { setShip(s => ({ ...s, [k]: v })); setPrice(null); }
-
-  async function designIt() {
-    if (locked) { onUpgrade(); return; }
-    if (busy) return;
-    if (!desc.trim()) { setErr("Describe the design you want first."); return; }
-    if (!useCredits(cost)) return;
-    setErr(""); setBusy("design");
-    try {
-      const p = "Create " + product.note + ". " + desc.trim() + ". Professional, high-end, crisp and clean. If any text is included, spell it correctly. No watermark.";
-      const r = await generateOpenAIImage(p, null, product.ar, "standard", product.transparent ? "transparent" : undefined);
-      if (r && r.image) { setDesign(r.image); setPrice(null); if (typeof r.balance === "number") onBalance(r.balance); try { onToolUse("print_design", cost); } catch (e) {} }
-      else setErr("Couldn't create that design — please try again.");
-    } catch (e) { setErr("Couldn't create that design — please try again."); }
-    setBusy("");
-  }
-  function uploadDesign(file) {
-    if (!file) return;
-    const r = new FileReader();
-    r.onload = () => { setDesign(r.result); setPrice(null); };
-    r.readAsDataURL(file);
-  }
-  async function getPrice() {
-    if (busy) return;
-    setErr(""); setBusy("quote"); setPrice(null);
-    try {
-      const r = await fetch("/api/print-quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productUid: resolvedUid, quantity: qty, recipient: { country: ship.country, postCode: ship.postCode, state: ship.state, city: ship.city, addressLine1: ship.addressLine1 } }) });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) setPrice(j.amount);
-      else setErr(j.error || "Couldn't get a price right now.");
-    } catch (e) { setErr("Couldn't get a price right now."); }
-    setBusy("");
-  }
-  async function printShip() {
-    if (locked) { onUpgrade(); return; }
-    if (busy) return;
-    if (!design) { setErr("Add your design first."); return; }
-    const need = ["firstName", "lastName", "addressLine1", "city", "postCode", "country"];
-    for (let i = 0; i < need.length; i++) { if (!String(ship[need[i]] || "").trim()) { setErr("Please fill in the full shipping address."); return; } }
-    setErr(""); setBusy("checkout");
-    try {
-      const url = await uploadSiteImage(design, user.id + "/print-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
-      if (!url) throw new Error("upload");
-      const tok = await freshToken();
-      const r = await fetch("/api/print-checkout", { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: JSON.stringify({ productUid: resolvedUid, productLabel: product.label + (product.apparel ? (" (" + size + ")") : ""), quantity: qty, designUrl: url, designBackUrl: product.bothSides ? url : undefined, recipient: ship }) });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j.url) { window.location.href = j.url; return; }
-      setErr(j.error || "Couldn't start checkout — please try again.");
-    } catch (e) { setErr("Couldn't start checkout — please try again."); }
-    setBusy("");
-  }
-
-  return (
-    <div>
-      <div style={{ fontFamily: "Georgia,serif", fontSize: 20, color: B.charcoal, marginBottom: 4 }}>Print Shop</div>
-      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 16px", lineHeight: 1.6 }}>Design a product with AI, then have it printed and shipped straight to your door.</p>
-
-      <div style={lbl}>1 · Choose a product</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        {PRODUCTS.map(p => (
-          <button key={p.id} onClick={() => { setPid(p.id); setPrice(null); }} style={{ textAlign: "left", padding: "10px 12px", border: "1px solid " + (pid === p.id ? B.charcoal : B.stone), background: pid === p.id ? B.charcoal : "#fff", color: pid === p.id ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12.5, fontWeight: 600 }}>{p.label}<div style={{ fontSize: 9.5, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>{p.blurb}</div></button>
-        ))}
-      </div>
-      {product.apparel && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={lbl}>Size</div>
-          <div style={{ display: "flex", gap: 6 }}>{SIZES.map(sz => <button key={sz} onClick={() => { setSize(sz); setPrice(null); }} style={{ padding: "8px 14px", border: "1px solid " + (size === sz ? B.charcoal : B.stone), background: size === sz ? B.charcoal : "#fff", color: size === sz ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700 }}>{sz}</button>)}</div>
-        </div>
-      )}
-
-      <div style={{ ...lbl, marginTop: 10 }}>2 · Design it</div>
-      <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} placeholder={"Describe your " + product.label.toLowerCase() + " — e.g. 'gold monogram on cream, elegant serif, my studio name'"} style={{ ...inp, resize: "vertical", lineHeight: 1.6, marginBottom: 8 }} />
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
-        <Btn dark small onClick={designIt}>{busy === "design" ? "Designing…" : "✨ Design it"}</Btn>
-        <CreditTag n={cost} />
-        <label style={{ border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.08em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Upload your own<input type="file" accept="image/*" onChange={e => uploadDesign((e.target.files || [])[0])} style={{ display: "none" }} /></label>
-      </div>
-      <p style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.mid, margin: "0 0 12px", lineHeight: 1.5 }}>Tip: for anything with important wording (like a business card), uploading your own finished design gives the sharpest text.</p>
-      {design && <div style={{ border: "1px solid " + B.stone, background: B.offwhite, padding: 10, marginBottom: 16, display: "inline-block" }}><img src={design} alt="design" style={{ maxWidth: 220, maxHeight: 220, display: "block" }} /></div>}
-
-      <div style={lbl}>3 · Quantity</div>
-      <input type="number" min={1} value={qty} onChange={e => { setQty(Math.max(1, parseInt(e.target.value, 10) || 1)); setPrice(null); }} style={{ ...inp, width: 120, marginBottom: 16 }} />
-
-      <div style={lbl}>4 · Ship to</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <input value={ship.firstName} onChange={e => up("firstName", e.target.value)} placeholder="First name" style={inp} />
-        <input value={ship.lastName} onChange={e => up("lastName", e.target.value)} placeholder="Last name" style={inp} />
-      </div>
-      <input value={ship.addressLine1} onChange={e => up("addressLine1", e.target.value)} placeholder="Address" style={{ ...inp, marginBottom: 8 }} />
-      <input value={ship.addressLine2} onChange={e => up("addressLine2", e.target.value)} placeholder="Apt, suite (optional)" style={{ ...inp, marginBottom: 8 }} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <input value={ship.city} onChange={e => up("city", e.target.value)} placeholder="City" style={inp} />
-        <input value={ship.state} onChange={e => up("state", e.target.value)} placeholder="State / province" style={inp} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-        <input value={ship.postCode} onChange={e => up("postCode", e.target.value)} placeholder="ZIP / postcode" style={inp} />
-        <select value={ship.country} onChange={e => up("country", e.target.value)} style={inp}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-        <input value={ship.email} onChange={e => up("email", e.target.value)} placeholder="Email (for updates)" style={inp} />
-        <input value={ship.phone} onChange={e => up("phone", e.target.value)} placeholder="Phone (optional)" style={inp} />
-      </div>
-
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button onClick={getPrice} disabled={busy === "quote"} style={{ background: "none", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "11px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{busy === "quote" ? "Pricing…" : "Get price"}</button>
-        {price != null && <div style={{ fontFamily: "Georgia,serif", fontSize: 18, color: B.charcoal }}>${price.toFixed(2)} <span style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>printed &amp; shipped</span></div>}
-      </div>
-      <div style={{ marginTop: 12 }}>
-        <Btn dark onClick={printShip}>{busy === "checkout" ? "Starting checkout…" : "Print & ship →"}</Btn>
-      </div>
-      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 14 }}>{err}</div>}
-    </div>
-  );
-}
-
 function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
   const STYLES = [
     { id: "editorial", label: "Editorial",          desc: "A high-end editorial magazine portrait — elevated art direction, refined styling, rich set design and dramatic-but-tasteful lighting, the kind of image you'd see in a luxury fashion or lifestyle magazine." },
@@ -9575,6 +9432,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   const [err, setErr] = useState("");
   const [status, setStatus] = useState("");
   const [saveMsg, setSaveMsg] = useState("");
+  const [pw, setPw] = useState(false);
   useEffect(()=>{ if(startImg) setPhoto(startImg); }, [startImg]);
   const DUR = [5, 10, 15];
   function cost(){ return CREDIT_COSTS.seedanceSec * Number(dur); }
@@ -9598,6 +9456,18 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   }
   async function save(){ if(!url) return; setSaveMsg("Saving…"); const r=await saveToLibrary(user,"video","UGC Video",url); setSaveMsg(r.ok?"✓ Saved to your Library":("Couldn't save: "+(r.error||"error"))); setTimeout(()=>setSaveMsg(""),4000); }
   function dl(){ const a=document.createElement("a"); a.href=url; a.download="ugc-video.mp4"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+  async function writePrompt(){
+    if(pw) return;
+    setPw(true);
+    try{
+      const brief = "You are a UGC (user-generated content) video director. Write ONE short video prompt for an AI video generator (Seedance) that animates a still photo of a real content creator into an authentic, handheld, talking-to-camera clip. "
+        + (prompt.trim() ? ("Base it on this idea: " + prompt.trim() + ". ") : "")
+        + "Describe the creator's natural movement and expression, ONE simple action (like holding a product up or gesturing), and the camera feel (handheld phone front camera). Keep it 2-3 sentences, concrete and filmable. No hashtags, no quoted dialogue, no headings — just the visual prompt.";
+      const out = await callClaude(brief, 400);
+      if(out && out.trim() && !/^(Unable to generate|Something went wrong)/.test(out)) setPrompt(out.trim());
+    }catch(e){}
+    setPw(false);
+  }
   return (
     <div>
       <Card style={{padding:"22px",marginBottom:14}}>
@@ -9614,6 +9484,20 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
           : <label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em",marginBottom:10}}>Tap to upload a creator shot — or make one in the Character tab and hit “Use in video”<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>}
         <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,margin:"4px 0 7px",textTransform:"uppercase"}}>Describe the video (optional)</div>
         <St value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="e.g. She smiles, waves at the camera, then holds the product up next to her face…" rows={3} />
+        <div style={{display:"flex",alignItems:"center",gap:10,margin:"8px 0 2px",flexWrap:"wrap"}}>
+          <button onClick={writePrompt} disabled={pw} style={{background:pw?B.stone:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:pw?"default":"pointer",textTransform:"uppercase"}}>{pw?"Writing…":"✨ Write this with Claude"}</button>
+          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid}}>Let Claude turn your idea into a filmable UGC prompt.</span>
+        </div>
+        <details style={{margin:"4px 0 2px",fontFamily:"sans-serif"}}>
+          <summary style={{fontSize:10.5,color:B.goldDark,cursor:"pointer",letterSpacing:"0.04em",fontWeight:700}}>How to get the best UGC result →</summary>
+          <ol style={{fontSize:11,color:B.mid,lineHeight:1.65,margin:"8px 0 0",paddingLeft:18}}>
+            <li>Make your creator in the <strong>Character</strong> tab first, then tap “Use in video” so the same face carries over.</li>
+            <li>Tap <strong>✨ Write this with Claude</strong> — or type one plain sentence about what should happen (a wave, holding your product, a reaction).</li>
+            <li>Keep it to <strong>one simple action</strong> per clip; short, calm movement looks far more real than a busy scene.</li>
+            <li>Pick <strong>Portrait (9:16)</strong> for TikTok &amp; Reels, and start at <strong>5 seconds</strong>.</li>
+            <li>Generate a few and keep the most natural one — that’s normal for UGC.</li>
+          </ol>
+        </details>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:14}}>
           <Fl label="Orientation"><Ss value={orient} onChange={e=>setOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option><option value="square">Square (1:1)</option></Ss></Fl>
           <Fl label="Length"><Ss value={dur} onChange={e=>setDur(e.target.value)}>{DUR.map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
@@ -10579,7 +10463,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Launch Package"],["website","Website Builder"],["images","Image Creator"],["video","Video Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Coach"],["grants","Grant Finder"],["content","Content Writer"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Business Builder"],["website","Website Builder"],["images","Image Creator"],["productstudio","Product Studio"],["enhance","Enhance Photo"],["manager","Business Manager"],["video","Video Studio"],["ugcstudio","UGC Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Coach"],["grants","Grant Finder"],["content","Content Writer"],["backlinks","Backlink Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -12862,16 +12746,16 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"enhance",Icon:Icons.Image,title:"Enhance Photo & Headshots",desc:"Upload a photo of yourself and get a polished professional headshot or portrait — you pick the outfit and setting, your real face stays you."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"printshop",Icon:Icons.Package,title:"Print Shop",desc:"Design business cards, flyers, posters, t-shirts and mugs with AI — then have them printed and shipped to your door."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"enhance",Icon:Icons.Image,title:"Enhance Photo & Headshots",desc:"Upload a photo of yourself and get a polished professional headshot or portrait — you pick the outfit and setting, your real face stays you."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
                       <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 6px",letterSpacing:"0.02em"}}>{t.title}</h3>
                       {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[t.id],"thumb"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
-                        <div style={{margin:"0 0 8px",border:"1px solid "+B.stone,background:"#000",lineHeight:0,maxWidth:200,pointerEvents:"none"}}>
+                        <div style={{margin:"0 0 8px",border:"1px solid "+B.stone,background:"#000",lineHeight:0,width:"100%",maxWidth:200,aspectRatio:"1 / 1",overflow:"hidden",pointerEvents:"none"}}>
                           {isVid
-                            ? <video src={u} muted playsInline preload="metadata" style={{width:"100%",display:"block",maxHeight:110,objectFit:"cover"}} />
-                            : <img src={u} alt="" style={{width:"100%",display:"block",maxHeight:110,objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
+                            ? <video src={u} muted playsInline preload="metadata" style={{width:"100%",height:"100%",display:"block",objectFit:"cover"}} />
+                            : <img src={u} alt="" style={{width:"100%",height:"100%",display:"block",objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
                         </div>
                       ); })()}
                       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.65,margin:0}}>{t.desc}</p>
@@ -12884,7 +12768,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} isAdmin={isAdmin} />
             </div>
           )}
 
