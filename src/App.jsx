@@ -3022,6 +3022,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="enhance"&&<EnhancePhoto onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
       {tool==="manager"&&<BusinessManager user={user} bizCtx={bizCtx} locked={locked} onUpgrade={onUpgrade} />}
+      {tool==="printshop"&&<PrintShop onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} locked={locked} onUpgrade={onUpgrade} />}
 
       {tool==="backlinks"&&<AuthorityBuilder onToolUse={onToolUse} locked={locked} onUpgrade={onUpgrade} bizCtx={bizCtx} user={user} />}
 
@@ -8665,18 +8666,162 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
   );
 }
 
+function PrintShop({ onBalance, useCredits, onToolUse, user, credits, locked, onUpgrade }) {
+  const PRODUCTS = [
+    { id: "cards",   label: "Business Cards",    uid: "cards_pf_bb_pt_350-gsm-coated-silk_cl_4-4_hor", ar: "16:9", transparent: false, bothSides: true, blurb: "Double-sided · 350gsm silk", note: "a clean, print-ready business card designed edge to edge (full bleed)" },
+    { id: "flyers",  label: "Flyers (A4)",       uid: "flat_product_pf_a4_pt_200-gsm-uncoated_cl_4-0_ct_none_prt_none_sft_none_set_none_hor", ar: "4:5", transparent: false, blurb: "A4 · 200gsm", note: "a bold, print-ready A4 flyer designed edge to edge (full bleed)" },
+    { id: "posters", label: "Posters (50×70cm)", uid: "large-posters_pf_500x700-mm_pt_170-gsm-coated-silk_cl_4-0_ver", ar: "4:5", transparent: false, blurb: "Large wall poster", note: "a striking, print-ready poster designed edge to edge (full bleed)" },
+    { id: "tshirt",  label: "T-Shirt",           uid: "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_{size}_gco_white_gpr_4-4", ar: "1:1", transparent: true, apparel: true, blurb: "Unisex crewneck · white", note: "a bold graphic to print on a t-shirt, centered, on a fully transparent background (no background at all)" },
+    { id: "mug",     label: "Mug (15oz)",        uid: "mug_product_msz_15-oz_mmat_ceramic-white_cl_4-0", ar: "16:9", transparent: true, blurb: "Ceramic white · 15oz", note: "a design to wrap around a mug, on a fully transparent background" },
+  ];
+  const COUNTRIES = [["US", "United States"], ["CA", "Canada"], ["GB", "United Kingdom"], ["AU", "Australia"], ["IE", "Ireland"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"], ["NL", "Netherlands"], ["SE", "Sweden"], ["NZ", "New Zealand"]];
+  const SIZES = ["S", "M", "L", "XL"];
+
+  const [pid, setPid] = useState("cards");
+  const [size, setSize] = useState("L");
+  const [desc, setDesc] = useState("");
+  const [design, setDesign] = useState(null);
+  const [qty, setQty] = useState(1);
+  const [ship, setShip] = useState({ firstName: "", lastName: "", addressLine1: "", addressLine2: "", city: "", state: "", postCode: "", country: "US", email: "", phone: "" });
+  const [price, setPrice] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+
+  const product = PRODUCTS.find(p => p.id === pid) || PRODUCTS[0];
+  const resolvedUid = product.apparel ? product.uid.replace("{size}", (size || "L").toLowerCase()) : product.uid;
+  const cost = CREDIT_COSTS.image;
+  const inp = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", boxSizing: "border-box" };
+  const lbl = { fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: B.mid, textTransform: "uppercase", margin: "0 0 6px" };
+
+  function up(k, v) { setShip(s => ({ ...s, [k]: v })); setPrice(null); }
+
+  async function designIt() {
+    if (locked) { onUpgrade(); return; }
+    if (busy) return;
+    if (!desc.trim()) { setErr("Describe the design you want first."); return; }
+    if (!useCredits(cost)) return;
+    setErr(""); setBusy("design");
+    try {
+      const p = "Create " + product.note + ". " + desc.trim() + ". Professional, high-end, crisp and clean. If any text is included, spell it correctly. No watermark.";
+      const r = await generateOpenAIImage(p, null, product.ar, "standard", product.transparent ? "transparent" : undefined);
+      if (r && r.image) { setDesign(r.image); setPrice(null); if (typeof r.balance === "number") onBalance(r.balance); try { onToolUse("print_design", cost); } catch (e) {} }
+      else setErr("Couldn't create that design — please try again.");
+    } catch (e) { setErr("Couldn't create that design — please try again."); }
+    setBusy("");
+  }
+  function uploadDesign(file) {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { setDesign(r.result); setPrice(null); };
+    r.readAsDataURL(file);
+  }
+  async function getPrice() {
+    if (busy) return;
+    setErr(""); setBusy("quote"); setPrice(null);
+    try {
+      const r = await fetch("/api/print-quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productUid: resolvedUid, quantity: qty, recipient: { country: ship.country, postCode: ship.postCode, state: ship.state, city: ship.city, addressLine1: ship.addressLine1 } }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) setPrice(j.amount);
+      else setErr(j.error || "Couldn't get a price right now.");
+    } catch (e) { setErr("Couldn't get a price right now."); }
+    setBusy("");
+  }
+  async function printShip() {
+    if (locked) { onUpgrade(); return; }
+    if (busy) return;
+    if (!design) { setErr("Add your design first."); return; }
+    const need = ["firstName", "lastName", "addressLine1", "city", "postCode", "country"];
+    for (let i = 0; i < need.length; i++) { if (!String(ship[need[i]] || "").trim()) { setErr("Please fill in the full shipping address."); return; } }
+    setErr(""); setBusy("checkout");
+    try {
+      const url = await uploadSiteImage(design, user.id + "/print-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
+      if (!url) throw new Error("upload");
+      const tok = await freshToken();
+      const r = await fetch("/api/print-checkout", { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: JSON.stringify({ productUid: resolvedUid, productLabel: product.label + (product.apparel ? (" (" + size + ")") : ""), quantity: qty, designUrl: url, designBackUrl: product.bothSides ? url : undefined, recipient: ship }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.url) { window.location.href = j.url; return; }
+      setErr(j.error || "Couldn't start checkout — please try again.");
+    } catch (e) { setErr("Couldn't start checkout — please try again."); }
+    setBusy("");
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily: "Georgia,serif", fontSize: 20, color: B.charcoal, marginBottom: 4 }}>Print Shop</div>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 16px", lineHeight: 1.6 }}>Design a product with AI, then have it printed and shipped straight to your door.</p>
+
+      <div style={lbl}>1 · Choose a product</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {PRODUCTS.map(p => (
+          <button key={p.id} onClick={() => { setPid(p.id); setPrice(null); }} style={{ textAlign: "left", padding: "10px 12px", border: "1px solid " + (pid === p.id ? B.charcoal : B.stone), background: pid === p.id ? B.charcoal : "#fff", color: pid === p.id ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12.5, fontWeight: 600 }}>{p.label}<div style={{ fontSize: 9.5, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>{p.blurb}</div></button>
+        ))}
+      </div>
+      {product.apparel && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={lbl}>Size</div>
+          <div style={{ display: "flex", gap: 6 }}>{SIZES.map(sz => <button key={sz} onClick={() => { setSize(sz); setPrice(null); }} style={{ padding: "8px 14px", border: "1px solid " + (size === sz ? B.charcoal : B.stone), background: size === sz ? B.charcoal : "#fff", color: size === sz ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700 }}>{sz}</button>)}</div>
+        </div>
+      )}
+
+      <div style={{ ...lbl, marginTop: 10 }}>2 · Design it</div>
+      <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} placeholder={"Describe your " + product.label.toLowerCase() + " — e.g. 'gold monogram on cream, elegant serif, my studio name'"} style={{ ...inp, resize: "vertical", lineHeight: 1.6, marginBottom: 8 }} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
+        <Btn dark small onClick={designIt}>{busy === "design" ? "Designing…" : "✨ Design it"}</Btn>
+        <CreditTag n={cost} />
+        <label style={{ border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.08em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Upload your own<input type="file" accept="image/*" onChange={e => uploadDesign((e.target.files || [])[0])} style={{ display: "none" }} /></label>
+      </div>
+      <p style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.mid, margin: "0 0 12px", lineHeight: 1.5 }}>Tip: for anything with important wording (like a business card), uploading your own finished design gives the sharpest text.</p>
+      {design && <div style={{ border: "1px solid " + B.stone, background: B.offwhite, padding: 10, marginBottom: 16, display: "inline-block" }}><img src={design} alt="design" style={{ maxWidth: 220, maxHeight: 220, display: "block" }} /></div>}
+
+      <div style={lbl}>3 · Quantity</div>
+      <input type="number" min={1} value={qty} onChange={e => { setQty(Math.max(1, parseInt(e.target.value, 10) || 1)); setPrice(null); }} style={{ ...inp, width: 120, marginBottom: 16 }} />
+
+      <div style={lbl}>4 · Ship to</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <input value={ship.firstName} onChange={e => up("firstName", e.target.value)} placeholder="First name" style={inp} />
+        <input value={ship.lastName} onChange={e => up("lastName", e.target.value)} placeholder="Last name" style={inp} />
+      </div>
+      <input value={ship.addressLine1} onChange={e => up("addressLine1", e.target.value)} placeholder="Address" style={{ ...inp, marginBottom: 8 }} />
+      <input value={ship.addressLine2} onChange={e => up("addressLine2", e.target.value)} placeholder="Apt, suite (optional)" style={{ ...inp, marginBottom: 8 }} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <input value={ship.city} onChange={e => up("city", e.target.value)} placeholder="City" style={inp} />
+        <input value={ship.state} onChange={e => up("state", e.target.value)} placeholder="State / province" style={inp} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <input value={ship.postCode} onChange={e => up("postCode", e.target.value)} placeholder="ZIP / postcode" style={inp} />
+        <select value={ship.country} onChange={e => up("country", e.target.value)} style={inp}>{COUNTRIES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <input value={ship.email} onChange={e => up("email", e.target.value)} placeholder="Email (for updates)" style={inp} />
+        <input value={ship.phone} onChange={e => up("phone", e.target.value)} placeholder="Phone (optional)" style={inp} />
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button onClick={getPrice} disabled={busy === "quote"} style={{ background: "none", border: "1px solid " + B.charcoal, color: B.charcoal, padding: "11px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{busy === "quote" ? "Pricing…" : "Get price"}</button>
+        {price != null && <div style={{ fontFamily: "Georgia,serif", fontSize: 18, color: B.charcoal }}>${price.toFixed(2)} <span style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid }}>printed &amp; shipped</span></div>}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <Btn dark onClick={printShip}>{busy === "checkout" ? "Starting checkout…" : "Print & ship →"}</Btn>
+      </div>
+      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 14 }}>{err}</div>}
+    </div>
+  );
+}
+
 function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
   const STYLES = [
-    { id: "headshot",  label: "Pro Headshot",     desc: "A clean, professional headshot framed from the chest up, on a neutral or softly blurred background — polished, confident, and corporate-friendly." },
-    { id: "linkedin",  label: "Corporate / LinkedIn", desc: "A LinkedIn-style corporate portrait: approachable and confident, sharp business attire, softly lit against a tasteful office or neutral backdrop." },
-    { id: "full",      label: "Full-Length",      desc: "A full-length professional business portrait, standing confidently with polished, editorial styling and flattering light." },
-    { id: "editorial", label: "Editorial",        desc: "A high-end editorial magazine-style portrait with refined, dramatic-but-tasteful lighting and elevated art direction." },
-    { id: "outdoor",   label: "Outdoor Natural",  desc: "A natural outdoor professional portrait in soft daylight with a pleasant, gently blurred background." },
-    { id: "custom",    label: "Custom",           desc: "" },
+    { id: "editorial", label: "Editorial",          desc: "A high-end editorial magazine portrait — elevated art direction, refined styling, rich set design and dramatic-but-tasteful lighting, the kind of image you'd see in a luxury fashion or lifestyle magazine." },
+    { id: "influencer", label: "Influencer / Lifestyle", desc: "An aspirational lifestyle shot with a natural, candid content-creator feel — beautifully styled in a gorgeous setting, warm and effortless, the kind of photo a top influencer would post." },
+    { id: "luxury",    label: "Luxury Setting",      desc: "Placed in a rich, luxurious environment — a five-star hotel lobby, marble interior, designer boutique, penthouse or elegant terrace — with opulent styling and soft, expensive-looking light." },
+    { id: "travel",    label: "Travel / Destination", desc: "Set against a stunning destination backdrop — an Amalfi terrace, a Paris street, a coastal villa, a desert resort — in beautiful golden natural light, like a luxury travel editorial." },
+    { id: "studio",    label: "Studio Editorial",    desc: "A refined studio portrait with elevated art direction, a tasteful backdrop and premium, sculpted lighting — clean, modern and high-fashion." },
+    { id: "outdoor",   label: "Golden Hour",         desc: "A natural outdoor portrait in gorgeous golden-hour light with a beautifully soft, gently blurred setting." },
+    { id: "headshot",  label: "Professional Headshot", desc: "A clean, professional headshot framed from the chest up on a tasteful, softly blurred background — polished and refined." },
+    { id: "custom",    label: "Custom",              desc: "" },
   ];
 
   const [photos, setPhotos] = useState([]);
-  const [styleId, setStyleId] = useState("headshot");
+  const [styleId, setStyleId] = useState("editorial");
   const [outfit, setOutfit] = useState("");
   const [environment, setEnvironment] = useState("");
   const [extra, setExtra] = useState("");
@@ -8703,13 +8848,14 @@ function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
 
   function buildPrompt() {
     const s = STYLES.find(x => x.id === styleId) || STYLES[0];
-    let p = "Turn the uploaded photo of a person into a polished, professional photograph. ";
-    p += "CRITICAL: keep the person's face, identity, likeness, skin tone, hair and distinguishing features perfectly accurate and clearly recognisable — this must obviously be the same person. Do NOT change their face, age or ethnicity, do not beautify them into someone else; keep it natural and true to life. ";
+    let p = "Re-create the uploaded photo of a person as a high-end, editorial-quality image. ";
+    p += "CRITICAL — LIKENESS: keep the person's face, identity, bone structure, skin tone, hair and distinguishing features perfectly accurate and clearly recognisable — this must obviously be the same person. Do NOT change their face, age or ethnicity, and do not beautify them into someone else. ";
+    p += "CRITICAL — EXPRESSION: preserve their exact expression from the uploaded photo. Do NOT add, remove or change their expression — if they are not smiling in the source photo, do NOT make them smile; if their mouth is closed, keep it closed. Only render facial details that are actually visible in the photo(s) provided; never invent a smile, teeth, or a look the source does not show. ";
     if (s.desc) p += s.desc + " ";
     if (outfit.trim()) p += "Dress the person in: " + outfit.trim() + ". ";
     if (environment.trim()) p += "Set the background / environment as: " + environment.trim() + ". ";
     if (extra.trim()) p += extra.trim() + " ";
-    p += "Professional studio-quality lighting, flattering and natural, sharp focus, tasteful high-end retouching that keeps skin texture realistic, a confident and approachable expression. Photorealistic, magazine-grade quality. No text, no watermark, no logos.";
+    p += "Shot as high-end, editorial magazine-quality photography: premium tasteful styling, soft professional lighting, refined composition, an elevated luxury-brand aesthetic, realistic retouching that keeps natural skin texture, crisp and clean. Photorealistic. No text, no watermark, no logos.";
     return p;
   }
 
@@ -8757,7 +8903,7 @@ function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Enhance Photo &amp; Headshots</h2>
-      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Upload a photo of yourself and get a polished, professional portrait — you keep your real face, you choose the outfit and setting.</p>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Upload a photo and turn it into a rich, editorial-style image — luxury settings and influencer-worthy styling — while keeping your real face and your real expression.</p>
       <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em", lineHeight: 1.5 }}>Best results: a clear, well-lit photo where your face is easy to see. Add a second angle for an even better likeness.</div>
 
       <Card style={{ padding: "22px", marginBottom: 14 }}>
@@ -8793,7 +8939,7 @@ function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
         <input value={environment} onChange={e => setEnvironment(e.target.value)} placeholder="e.g. bright modern office, soft grey studio backdrop" style={inpStyle} />
 
         <Label>{styleId === "custom" ? "Describe the photo you want" : "Extra direction · optional"}</Label>
-        <textarea value={extra} onChange={e => setExtra(e.target.value)} rows={styleId === "custom" ? 3 : 2} placeholder={styleId === "custom" ? "Describe the exact look, mood, lighting and framing you want." : "Anything to add — e.g. 'warm smile', 'arms crossed', 'golden-hour light'."} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
+        <textarea value={extra} onChange={e => setExtra(e.target.value)} rows={styleId === "custom" ? 3 : 2} placeholder={styleId === "custom" ? "Describe the exact look, mood, lighting and framing you want." : "Anything to add — e.g. 'arms crossed', 'marble hotel lobby', 'golden-hour light'."} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
 
         <Label>Orientation</Label>
         <select value={aspect} onChange={e => setAspect(e.target.value)} style={selStyle}>
@@ -12377,7 +12523,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <Tag gold>{mkPost.tag}</Tag>
               <h1 style={{fontSize:"clamp(18px,3vw,28px)",fontWeight:400,margin:"12px 0 8px",lineHeight:1.25,fontFamily:"Georgia,serif"}}>{cleanTitle(mkPost.title)}</h1>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:28,letterSpacing:"0.06em"}}>{mkPost.week} · {mkPost.readTime}</div>
-              {mkPost.imageUrl&&<img src={mkPost.imageUrl} alt={mkPost.title} style={{width:"100%",height:"auto",marginBottom:28,display:"block"}} onError={e=>e.target.style.display="none"} />}
+              {mkPost.imageUrl&&<img src={mkPost.imageUrl} alt={mkPost.title} style={{width:"100%",height:280,objectFit:"cover",objectPosition:(mkPost.imageFocus||"50% 50%"),marginBottom:28,display:"block"}} onError={e=>e.target.style.display="none"} />}
               <Rich text={mkPost.content} />
             </div>
           )}
@@ -12565,7 +12711,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap"}}><Tag>{selectedStrategy.category}</Tag><Tag gold>{selectedStrategy.level}</Tag>{selectedStrategy.isNew&&<Tag green>NEW</Tag>}</div>
               <h1 style={{fontSize:"clamp(20px,4vw,32px)",fontWeight:400,margin:"0 0 8px",lineHeight:1.2}}>{cleanTitle(selectedStrategy.title)}</h1>
               <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 24px",lineHeight:1.7}}>{selectedStrategy.summary}</p>
-              {selectedStrategy.imageUrl&&<img src={selectedStrategy.imageUrl} alt={selectedStrategy.title} style={{width:"100%",height:"auto",marginBottom:24,display:"block"}} onError={e=>e.target.style.display="none"} />}
+              {selectedStrategy.imageUrl&&<img src={selectedStrategy.imageUrl} alt={selectedStrategy.title} style={{width:"100%",height:280,objectFit:"cover",objectPosition:(selectedStrategy.imageFocus||"50% 50%"),marginBottom:24,display:"block"}} onError={e=>e.target.style.display="none"} />}
               <div style={{display:"inline-flex",gap:24,background:B.offwhite,border:"1px solid "+B.stone,padding:"12px 18px",marginBottom:28}}>
                 <div style={{fontFamily:"sans-serif",fontSize:11}}><span style={{color:B.mid}}>Time to results: </span>{selectedStrategy.timeToResult}</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11}}><span style={{color:B.mid}}>Level: </span>{selectedStrategy.level}</div>
@@ -12669,7 +12815,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
               <h1 style={{fontSize:"clamp(18px,3vw,28px)",fontWeight:400,margin:"0 0 8px",lineHeight:1.25}}>{cleanTitle(selectedPost.title)}</h1>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:28,letterSpacing:"0.06em"}}>{selectedPost.week} · {selectedPost.readTime}</div>
-              {selectedPost.imageUrl&&<img src={selectedPost.imageUrl} alt={selectedPost.title} style={{width:"100%",height:"auto",marginBottom:28,display:"block"}} onError={e=>e.target.style.display="none"} />}
+              {selectedPost.imageUrl&&<img src={selectedPost.imageUrl} alt={selectedPost.title} style={{width:"100%",height:280,objectFit:"cover",objectPosition:(selectedPost.imageFocus||"50% 50%"),marginBottom:28,display:"block"}} onError={e=>e.target.style.display="none"} />}
               {isTrial?(
                 <div style={{position:"relative"}}>
                   <div style={{maxHeight:160,overflow:"hidden"}}><Rich text={selectedPost.content} /></div>
@@ -12716,7 +12862,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"enhance",Icon:Icons.Image,title:"Enhance Photo & Headshots",desc:"Upload a photo of yourself and get a polished professional headshot or portrait — you pick the outfit and setting, your real face stays you."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"enhance",Icon:Icons.Image,title:"Enhance Photo & Headshots",desc:"Upload a photo of yourself and get a polished professional headshot or portrait — you pick the outfit and setting, your real face stays you."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"printshop",Icon:Icons.Package,title:"Print Shop",desc:"Design business cards, flyers, posters, t-shirts and mugs with AI — then have them printed and shipped to your door."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>

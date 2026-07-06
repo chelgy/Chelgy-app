@@ -262,6 +262,50 @@ export default async function handler(req, res) {
     } catch { /* swallow */ }
   }
 
+  // A printed product (business cards, flyers, t-shirts, etc.) was bought via
+  // api/print-checkout.js. Read the pending order, send it to Gelato to print +
+  // ship, and record the Gelato order id. Refunds the member if Gelato rejects it.
+  async function placePrintOrder(s, meta) {
+    const GELATO_KEY = (process.env.GELATO_API_KEY || "").trim();
+    const STRIPE_KEY = (process.env.STRIPE_SECRET_KEY || "").trim();
+    const id = meta.print_order_id;
+    if (!GELATO_KEY || !id) return;
+    async function refund() {
+      try { if (!STRIPE_KEY || !s.payment_intent) return; await fetch("https://api.stripe.com/v1/refunds", { method: "POST", headers: { Authorization: "Bearer " + STRIPE_KEY, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ payment_intent: String(s.payment_intent) }).toString() }); } catch { }
+    }
+    async function patchPrint(fields) {
+      try { await fetch(SUPABASE_URL + "/rest/v1/print_orders?id=eq." + encodeURIComponent(id), { method: "PATCH", headers: { apikey: SERVICE, Authorization: "Bearer " + SERVICE, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(fields) }); } catch { }
+    }
+    try {
+      const g = await fetch(SUPABASE_URL + "/rest/v1/print_orders?id=eq." + encodeURIComponent(id) + "&limit=1", { headers: { apikey: SERVICE, Authorization: "Bearer " + SERVICE } });
+      const rows = await g.json().catch(() => []);
+      const row = rows && rows[0];
+      if (!row) return;
+      if (row.status && row.status !== "pending") return; // already fulfilled (retried webhook)
+      const rc = row.recipient || {};
+      const files = [{ type: "default", url: row.design_url }];
+      if (row.design_back_url) files.push({ type: "back", url: row.design_back_url });
+      const orderBody = {
+        orderType: "order",
+        orderReferenceId: "chelgy-" + id,
+        customerReferenceId: String(row.user_id || "member"),
+        currency: (row.currency || "usd").toUpperCase(),
+        items: [{ itemReferenceId: "i1", productUid: row.product_uid, files, quantity: row.quantity || 1 }],
+        shipmentMethodUid: row.shipment_method_uid || "standard",
+        shippingAddress: {
+          firstName: rc.firstName || "", lastName: rc.lastName || "",
+          addressLine1: rc.addressLine1 || "", addressLine2: rc.addressLine2 || "",
+          city: rc.city || "", state: rc.state || "", postCode: rc.postCode || "",
+          country: (rc.country || "US").toUpperCase(), email: rc.email || row.email || "", phone: rc.phone || "",
+        },
+      };
+      const gr = await fetch("https://order.gelatoapis.com/v4/orders", { method: "POST", headers: { "Content-Type": "application/json", "X-API-KEY": GELATO_KEY }, body: JSON.stringify(orderBody) });
+      const gj = await gr.json().catch(() => ({}));
+      if (!gr.ok || !gj.id) { await refund(); await patchPrint({ status: "failed" }); return; }
+      await patchPrint({ status: "placed", gelato_order_id: gj.id, session_id: s.id || null });
+    } catch { /* swallow: order may have gone through; avoid a wrong refund */ }
+  }
+
   if (event.type === "checkout.session.completed") {
     const s = event.data.object || {};
     const meta = s.metadata || {};
@@ -305,6 +349,11 @@ export default async function handler(req, res) {
     // ── Domain renewed through Chelgy → extend it another year ──
     if (paid && meta.type === "domain_renew" && meta.domain && meta.owner_id) {
       await renewDomain(s, meta);
+    }
+
+    // ── Printed product bought through Chelgy → send it to Gelato to print + ship ──
+    if (paid && meta.type === "print" && meta.print_order_id) {
+      await placePrintOrder(s, meta);
     }
   }
 
