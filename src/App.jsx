@@ -2933,6 +2933,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
+      {tool==="backlinks"&&<AuthorityBuilder onToolUse={onToolUse} locked={locked} onUpgrade={onUpgrade} bizCtx={bizCtx} user={user} />}
+
       {tool==="voiceover"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>AI Voiceover Studio</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Turn any script into a natural, studio-quality voiceover.</p>
@@ -8518,6 +8520,180 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   );
 }
 
+// ─── BACKLINK & AUTHORITY BUILDER (white-hat opportunity finder + outreach) ──────
+function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
+  const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n" + bizCtx + "\n\n") : "";
+  const WHITE_HAT = " ONLY recommend legitimate, white-hat opportunities (local directories, chambers of commerce, industry & trade associations, local news/blogs, 'best of' roundups, relevant resource pages, niche directories, community sites, podcasts, guest-post and partnership targets). NEVER recommend buying links, link farms, PBNs, paid link schemes, or anything that violates Google's link-spam policy — those can get a site penalized. Favor relevance over raw authority, and remind them to vary anchor text naturally.";
+
+  const MODES = [
+    { id: "find",       label: "Find opportunities" },
+    { id: "outreach",   label: "Write outreach" },
+    { id: "assets",     label: "Linkable assets" },
+    { id: "competitor", label: "Competitor check" },
+  ];
+  const [mode, setMode] = useState("find");
+
+  const [biz, setBiz] = useState("");
+  const [city, setCity] = useState("");
+  const [niche, setNiche] = useState("");
+  const [site, setSite] = useState("");
+  const [targetName, setTargetName] = useState("");
+  const [outreachType, setOutreachType] = useState("Guest post pitch");
+  const [offer, setOffer] = useState("");
+  const [tone, setTone] = useState("Warm & professional");
+  const [competitor, setCompetitor] = useState("");
+
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  function guard(fn) { if (locked) { try { onUpgrade(); } catch (e) {} return; } fn(); }
+
+  async function run(prompt, searchOn) {
+    setErr(""); setLoading(true); setResult("");
+    try {
+      try { onToolUse("authority_builder", 0); } catch (e) {}
+      const out = await callClaude(ctxPre + prompt, 5000, !!searchOn);
+      setResult(out || "");
+    } catch (e) {
+      setErr("Something went wrong. Please try again.");
+    }
+    setLoading(false);
+  }
+
+  function genFind() {
+    if (!biz.trim()) return;
+    const p = "You are an expert white-hat SEO and local link-building strategist. Use web search to find REAL, currently-existing places where this business could earn a legitimate backlink or citation — links Google rewards that also build the brand and audience." + WHITE_HAT +
+      "\n\nBusiness: " + biz +
+      "\nLocation: " + (city.trim() || "not specified — note that adding a city gives far better local results") +
+      "\nIndustry / niche: " + (niche.trim() || "not specified") +
+      (site.trim() ? ("\nWebsite: " + site.trim()) : "") +
+      "\n\nReturn a prioritized markdown list of 8–12 specific, real opportunities. For EACH: the name (and URL if known), the type (directory / chamber / local press / association / resource page / partnership / guest post / podcast), one line on why it fits, and a one-line 'how to get listed or pitch' action. Group them under: ## Quick wins, ## Local authority, and ## Editorial & PR. End with a short note on focusing on relevance and real editorial placements and avoiding bought links.";
+    run(p, true);
+  }
+  function genOutreach() {
+    if (!targetName.trim() || !biz.trim()) return;
+    const p = "You are an expert outreach copywriter. Write a concise, personable, high-converting outreach message to earn a legitimate backlink or feature. Warm and specific, never spammy; lead with value; make the ask easy and low-pressure." +
+      "\n\nType of outreach: " + outreachType +
+      "\nTarget site / person: " + targetName +
+      "\nMy business: " + biz +
+      "\nWhat I can offer them / my angle: " + (offer.trim() || "(none given — infer a genuine value angle)") +
+      "\nTone: " + tone +
+      "\n\nReturn a subject line (if it's an email) and the message body, ready to paste and lightly personalize. Keep it short and human. Then add 2 quick follow-up tips.";
+    run(p, false);
+  }
+  function genAssets() {
+    if (!biz.trim()) return;
+    const p = "You are a content strategist specializing in 'linkable assets' — content so useful that people naturally link to it, which earns white-hat backlinks and grows audience. Suggest 5 linkable-asset ideas tailored to this business. Favor local stat roundups, free templates / checklists / calculators, original mini-surveys, and 'best [thing] in [city]' guides." +
+      "\n\nBusiness: " + biz +
+      "\nLocation: " + (city.trim() || "not specified") +
+      "\nAudience / niche: " + (niche.trim() || "not specified") +
+      "\n\nFor EACH idea return: a working title, why it earns links (who would link to it and why), a quick outline, and where to promote it to get noticed. Keep it practical and specific to this business.";
+    run(p, true);
+  }
+  function genCompetitor() {
+    if (!competitor.trim()) return;
+    const p = "You are an SEO researcher. Use web search to find where a competitor is mentioned, listed, or linked online, so this business can pursue the same legitimate opportunities." + WHITE_HAT +
+      "\n\nCompetitor (name or URL): " + competitor +
+      "\nMy business / city / niche: " + (biz.trim() || "not specified") + " / " + (city.trim() || "not specified") + " / " + (niche.trim() || "not specified") +
+      "\n\nStart with a one-line note that this is a web-search snapshot, not a complete backlink index (a full audit would use a tool like Ahrefs or Semrush). Then return a markdown list of specific places the competitor is featured — with the URL if known, the type, and a one-line 'how to get featured here too'. Be honest when something can't be verified.";
+    run(p, true);
+  }
+
+  const Label = ({ children }) => (
+    <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: B.mid, marginBottom: 7, textTransform: "uppercase" }}>{children}</div>
+  );
+  const inpStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 14, boxSizing: "border-box" };
+  const selStyle = { ...inpStyle, cursor: "pointer" };
+
+  const canRun = mode === "find" ? biz.trim() : mode === "outreach" ? (targetName.trim() && biz.trim()) : mode === "assets" ? biz.trim() : competitor.trim();
+  function onGenerate() {
+    guard(() => { if (mode === "find") genFind(); else if (mode === "outreach") genOutreach(); else if (mode === "assets") genAssets(); else genCompetitor(); });
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Backlink &amp; Authority Builder</h2>
+      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Find real, white-hat ways to get your business linked, listed, and featured — and get the outreach written for you.</p>
+      <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em", lineHeight: 1.5 }}>Backlinks are still a top Google ranking signal — but <strong>buying them</strong> breaks Google's rules and can get your site penalized. This tool only finds legitimate, earned opportunities that build both your rankings and your brand.</div>
+
+      {/* Mode tabs */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 0, marginBottom: 20, borderBottom: "1px solid " + B.stone }}>
+        {MODES.map(m => (
+          <button key={m.id} onClick={() => { setMode(m.id); setResult(""); setErr(""); }} style={{ background: "none", border: "none", borderBottom: "2px solid " + (mode === m.id ? B.charcoal : "transparent"), color: mode === m.id ? B.charcoal : B.mid, padding: "10px 14px", fontFamily: "sans-serif", fontSize: 12, fontWeight: mode === m.id ? 700 : 500, letterSpacing: "0.02em", cursor: "pointer", marginBottom: -1 }}>{m.label}</button>
+        ))}
+      </div>
+
+      <Card style={{ padding: "22px", marginBottom: 14 }}>
+        {mode === "find" && (
+          <>
+            <Label>Your business</Label>
+            <input value={biz} onChange={e => setBiz(e.target.value)} placeholder="e.g. Tampa knotless braids salon, handmade candle shop" style={inpStyle} />
+            <Label>City / location</Label>
+            <input value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Tampa, FL" style={inpStyle} />
+            <Label>Industry / niche · optional</Label>
+            <input value={niche} onChange={e => setNiche(e.target.value)} placeholder="e.g. hair & beauty, home décor" style={inpStyle} />
+            <Label>Website · optional</Label>
+            <input value={site} onChange={e => setSite(e.target.value)} placeholder="yourbusiness.com" style={inpStyle} />
+          </>
+        )}
+        {mode === "outreach" && (
+          <>
+            <Label>Outreach type</Label>
+            <select value={outreachType} onChange={e => setOutreachType(e.target.value)} style={selStyle}>
+              {["Guest post pitch", "Link insertion request", "Feature / 'best of' request", "Partnership / collaboration", "Journalist / HARO response", "Local press pitch"].map(o => <option key={o}>{o}</option>)}
+            </select>
+            <Label>Who you're reaching out to</Label>
+            <input value={targetName} onChange={e => setTargetName(e.target.value)} placeholder="e.g. Tampa Bay Moms blog, editor at LocalEats" style={inpStyle} />
+            <Label>Your business</Label>
+            <input value={biz} onChange={e => setBiz(e.target.value)} placeholder="e.g. handmade candle shop" style={inpStyle} />
+            <Label>What you can offer them / your angle · optional</Label>
+            <textarea value={offer} onChange={e => setOffer(e.target.value)} rows={2} placeholder="e.g. a free sample, an exclusive local discount for their readers, an original guest article" style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
+            <Label>Tone</Label>
+            <select value={tone} onChange={e => setTone(e.target.value)} style={selStyle}>
+              {["Warm & professional", "Friendly & casual", "Confident & direct", "Playful"].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </>
+        )}
+        {mode === "assets" && (
+          <>
+            <Label>Your business</Label>
+            <input value={biz} onChange={e => setBiz(e.target.value)} placeholder="e.g. Tampa knotless braids salon" style={inpStyle} />
+            <Label>City / location · optional</Label>
+            <input value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Tampa, FL" style={inpStyle} />
+            <Label>Audience / niche · optional</Label>
+            <input value={niche} onChange={e => setNiche(e.target.value)} placeholder="e.g. busy moms, local brides" style={inpStyle} />
+          </>
+        )}
+        {mode === "competitor" && (
+          <>
+            <Label>Competitor name or website</Label>
+            <input value={competitor} onChange={e => setCompetitor(e.target.value)} placeholder="e.g. rivalsalon.com or 'Rival Salon Tampa'" style={inpStyle} />
+            <Label>Your business · optional</Label>
+            <input value={biz} onChange={e => setBiz(e.target.value)} placeholder="e.g. your salon name" style={inpStyle} />
+            <Label>City / niche · optional</Label>
+            <input value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Tampa, FL · hair & beauty" style={inpStyle} />
+          </>
+        )}
+
+        <Btn dark disabled={loading || !canRun} onClick={onGenerate}>
+          {loading ? "WORKING..." : mode === "find" ? "FIND OPPORTUNITIES" : mode === "outreach" ? "WRITE MY OUTREACH" : mode === "assets" ? "GENERATE IDEAS" : "CHECK COMPETITOR"}
+        </Btn>
+        <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 10 }}>Free to run · uses live web search for real, current opportunities.</div>
+      </Card>
+
+      {loading && <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "36px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.04em" }}>{mode === "find" || mode === "competitor" ? "Searching the web for real opportunities... (10–20 seconds)" : "Writing... (a few seconds)"}</div>}
+      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red }}>{err}</div>}
+      {result && !loading && (
+        <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "22px" }}>
+          <div style={{ fontSize: 9, color: B.gold, fontFamily: "sans-serif", fontWeight: 700, letterSpacing: "0.18em", marginBottom: 14, textTransform: "uppercase" }}>{mode === "outreach" ? "Your outreach message" : mode === "assets" ? "Your linkable-asset ideas" : "Your opportunities"}</div>
+          <Md text={result} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UGCStudio({ onBalance, useCredits, onToolUse, user }) {
   const [tab, setTab] = useState("character");
   const [startImg, setStartImg] = useState(null);
@@ -11826,7 +12002,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Launch Package",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Builder",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
@@ -11848,7 +12024,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} />
             </div>
           )}
 
