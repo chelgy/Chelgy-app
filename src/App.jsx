@@ -3433,8 +3433,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [view, setView] = useState("home");
   const [editStrat, setEditStrat] = useState(null);
   const [editWeekly, setEditWeekly] = useState(null);
-  const [newStrat, setNewStrat] = useState({ title:"", category:"SEO", level:"Foundational", timeToResult:"1-3 months", summary:"", content:"", imageUrl:"" });
-  const [newWeekly, setNewWeekly] = useState({ title:"", tag:"Marketing", week:"This Week", readTime:"5 min read", content:"", imageUrl:"" });
+  const [newStrat, setNewStrat] = useState({ title:"", category:"SEO", level:"Foundational", timeToResult:"1-3 months", summary:"", content:"", imageUrl:"", imageFocus:"" });
+  const [newWeekly, setNewWeekly] = useState({ title:"", tag:"Marketing", week:"This Week", readTime:"5 min read", content:"", imageUrl:"", imageFocus:"" });
   const [saved, setSaved] = useState(false);
   const [dbLoading, setDbLoading] = useState(false);
   const [helpReqs, setHelpReqs] = useState([]);
@@ -3551,12 +3551,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     const strats = await sbFetch("strategies");
     const weekly = await sbFetch("weekly_posts");
     if (strats && strats.length > 0) setStrategies(prev=>{
-      const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new}));
+      const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,imageFocus:s.image_focus,isNew:s.is_new}));
       const ids = new Set(mapped.map(x=>x.id));
       return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
     });
     if (weekly && weekly.length > 0) setWeeklyPosts(prev=>{
-      const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]}));
+      const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,imageFocus:w.image_focus,comments:[]}));
       const ids = new Set(mapped.map(x=>x.id));
       return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
     });
@@ -3604,12 +3604,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   async function publishStrategy() {
     if (!newStrat.title.trim()) return;
     setDbLoading(true);
-    const data = { title:newStrat.title, category:newStrat.category, level:newStrat.level, time_to_result:newStrat.timeToResult, summary:newStrat.summary, content:newStrat.content, image_url:newStrat.imageUrl||null, is_new:true };
+    const data = { title:newStrat.title, category:newStrat.category, level:newStrat.level, time_to_result:newStrat.timeToResult, summary:newStrat.summary, content:newStrat.content, image_url:newStrat.imageUrl||null, image_focus:newStrat.imageFocus||null, is_new:true };
     const result = await sbFetch("strategies","POST",data);
     if (result && result[0]) {
       const ns = {...newStrat, id:result[0].id, isNew:true};
       setStrategies(prev=>[ns,...prev]);
-      setNewStrat({title:"",category:"SEO",level:"Foundational",timeToResult:"1-3 months",summary:"",content:"",imageUrl:""});
+      setNewStrat({title:"",category:"SEO",level:"Foundational",timeToResult:"1-3 months",summary:"",content:"",imageUrl:"",imageFocus:""});
       setEditStrat(null); flash();
     }
     setDbLoading(false);
@@ -3617,7 +3617,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
   async function updateStrategy(s) {
     setDbLoading(true);
-    const data = { title:s.title, summary:s.summary, content:s.content, image_url:s.imageUrl||null };
+    const data = { title:s.title, summary:s.summary, content:s.content, image_url:s.imageUrl||null, image_focus:s.imageFocus||null };
     await sbFetch("strategies","PATCH",data,s.id);
     setEditStrat(null); flash(); setDbLoading(false);
   }
@@ -3630,12 +3630,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   async function publishWeekly() {
     if (!newWeekly.title.trim()) return;
     setDbLoading(true);
-    const data = { title:newWeekly.title, tag:newWeekly.tag, week:newWeekly.week, read_time:newWeekly.readTime, content:newWeekly.content, image_url:newWeekly.imageUrl||null };
+    const data = { title:newWeekly.title, tag:newWeekly.tag, week:newWeekly.week, read_time:newWeekly.readTime, content:newWeekly.content, image_url:newWeekly.imageUrl||null, image_focus:newWeekly.imageFocus||null };
     const result = await sbFetch("weekly_posts","POST",data);
     if (result && result[0]) {
       const nw = {...newWeekly, id:result[0].id, comments:[]};
       setWeeklyPosts(prev=>[nw,...prev]);
-      setNewWeekly({title:"",tag:"Marketing",week:"This Week",readTime:"5 min read",content:"",imageUrl:""});
+      setNewWeekly({title:"",tag:"Marketing",week:"This Week",readTime:"5 min read",content:"",imageUrl:"",imageFocus:""});
       setEditWeekly(null); flash();
     }
     setDbLoading(false);
@@ -3643,7 +3643,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
   async function updateWeekly(p) {
     setDbLoading(true);
-    const data = { title:p.title, tag:p.tag, content:p.content, image_url:p.imageUrl||null };
+    const data = { title:p.title, tag:p.tag, content:p.content, image_url:p.imageUrl||null, image_focus:p.imageFocus||null };
     await sbFetch("weekly_posts","PATCH",data,p.id);
     setEditWeekly(null); flash(); setDbLoading(false);
   }
@@ -4034,7 +4034,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   <div><Lbl>Time to Results</Lbl><ASi value={newStrat.timeToResult} onChange={e=>setNewStrat(s=>({...s,timeToResult:e.target.value}))} placeholder="e.g. 1-3 months" /></div>
                 </div>
                 <Lbl>Image URL (optional)</Lbl><ASi value={newStrat.imageUrl} onChange={e=>setNewStrat(s=>({...s,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
-                {newStrat.imageUrl&&<img src={newStrat.imageUrl} alt="Preview" style={{width:"100%",maxHeight:200,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                {newStrat.imageUrl&&<FocalPicker url={newStrat.imageUrl} value={newStrat.imageFocus} onChange={v=>setNewStrat(s=>({...s,imageFocus:v}))} />}
                 <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,margin:"-4px 0 12px",lineHeight:1.5}}>Use a direct image link ending in .jpg, .png, or .webp. If no preview appears above, the link won't display on the post — open the image on its own, right-click, "Copy image address," and paste that.</p>
                 <Lbl>Full Content</Lbl>
                 <ASt value={newStrat.content} onChange={e=>setNewStrat(s=>({...s,content:e.target.value}))} placeholder="Write your full strategy content here. Use **bold** for headings and - for bullet points." rows={12} />
@@ -4053,7 +4053,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       <Lbl>Title</Lbl><ASi value={s.title} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,title:e.target.value}:x))} />
                       <Lbl>Summary</Lbl><ASi value={s.summary} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,summary:e.target.value}:x))} />
                       <Lbl>Image URL (optional)</Lbl><ASi value={s.imageUrl||""} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
-                      {s.imageUrl&&<img src={s.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                      {s.imageUrl&&<FocalPicker url={s.imageUrl} value={s.imageFocus} onChange={v=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,imageFocus:v}:x))} />}
                       <Lbl>Content</Lbl><ASt value={s.content} onChange={e=>setStrategies(prev=>prev.map(x=>x.id===s.id?{...x,content:e.target.value}:x))} rows={10} />
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>updateStrategy(s)} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
@@ -4097,7 +4097,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   <div><Lbl>Read Time</Lbl><ASi value={newWeekly.readTime} onChange={e=>setNewWeekly(w=>({...w,readTime:e.target.value}))} placeholder="e.g. 5 min read" /></div>
                 </div>
                 <Lbl>Image URL (optional)</Lbl><ASi value={newWeekly.imageUrl} onChange={e=>setNewWeekly(w=>({...w,imageUrl:e.target.value}))} placeholder="https://your-image-url.com/image.jpg" />
-                {newWeekly.imageUrl&&<img src={newWeekly.imageUrl} alt="Preview" style={{width:"100%",maxHeight:200,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                {newWeekly.imageUrl&&<FocalPicker url={newWeekly.imageUrl} value={newWeekly.imageFocus} onChange={v=>setNewWeekly(w=>({...w,imageFocus:v}))} />}
                 <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,margin:"-4px 0 12px",lineHeight:1.5}}>Use a direct image link ending in .jpg, .png, or .webp. If no preview appears above, the link won't display on the post — open the image on its own, right-click, "Copy image address," and paste that.</p>
                 <Lbl>Content</Lbl>
                 <ASt value={newWeekly.content} onChange={e=>setNewWeekly(w=>({...w,content:e.target.value}))} placeholder="Write your weekly update content here..." rows={12} />
@@ -4116,7 +4116,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       <Lbl>Title</Lbl><ASi value={p.title} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,title:e.target.value}:x))} />
                       <Lbl>Category</Lbl><ASs value={p.tag||"Marketing"} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,tag:e.target.value}:x))}>{tags.map(t=><option key={t}>{t}</option>)}</ASs>
                       <Lbl>Image URL (optional)</Lbl><ASi value={p.imageUrl||""} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,imageUrl:e.target.value}:x))} placeholder="https://your-image-url.com/image.jpg" />
-                      {p.imageUrl&&<img src={p.imageUrl} alt="Preview" style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                      {p.imageUrl&&<FocalPicker url={p.imageUrl} value={p.imageFocus} onChange={v=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,imageFocus:v}:x))} />}
                       <Lbl>Content</Lbl><ASt value={p.content} onChange={e=>setWeeklyPosts(prev=>prev.map(x=>x.id===p.id?{...x,content:e.target.value}:x))} rows={10} />
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>updateWeekly(p)} style={{background:"#111",color:"#fff",border:"none",padding:"10px 20px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>SAVE</button>
@@ -8122,6 +8122,34 @@ function ProductPhotoSet({ onBalance }) {
   );
 }
 
+function FocalPicker({ url, value, onChange, height }) {
+  const ref = useRef(null);
+  const parse = (v) => { const m = /(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/.exec(v || ""); return m ? { x: +m[1], y: +m[2] } : { x: 50, y: 50 }; };
+  const pt = parse(value);
+  const setFrom = (clientX, clientY) => {
+    const el = ref.current; if (!el) return; const r = el.getBoundingClientRect();
+    let x = ((clientX - r.left) / r.width) * 100, y = ((clientY - r.top) / r.height) * 100;
+    x = Math.max(0, Math.min(100, x)); y = Math.max(0, Math.min(100, y));
+    onChange(Math.round(x) + "% " + Math.round(y) + "%");
+  };
+  const onDown = (e) => {
+    const move = (ev) => { const c = ev.touches ? ev.touches[0] : ev; if (ev.cancelable) ev.preventDefault(); setFrom(c.clientX, c.clientY); };
+    move(e.nativeEvent);
+    const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); window.removeEventListener("touchmove", move); window.removeEventListener("touchend", up); };
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+    window.addEventListener("touchmove", move, { passive: false }); window.addEventListener("touchend", up);
+  };
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div ref={ref} onMouseDown={onDown} onTouchStart={onDown} style={{ position: "relative", width: "100%", height: height || 180, cursor: "crosshair", userSelect: "none", overflow: "hidden", border: "1px solid #E5E0D8", background: "#f4f2ee" }}>
+        <img src={url} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: pt.x + "% " + pt.y + "%", display: "block", pointerEvents: "none" }} onError={e => { e.target.style.display = "none"; }} />
+        <div style={{ position: "absolute", left: pt.x + "%", top: pt.y + "%", width: 24, height: 24, marginLeft: -12, marginTop: -12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 0 2px rgba(0,0,0,0.45)", background: "rgba(255,255,255,0.2)", pointerEvents: "none" }} />
+      </div>
+      <div style={{ fontFamily: "sans-serif", fontSize: 10, color: "#8A8175", marginTop: 5 }}>Drag the dot to choose which part of this photo stays centered in thumbnails.</div>
+    </div>
+  );
+}
+
 function PhotoCatalog({ onBalance }) {
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(6);
@@ -9664,13 +9692,13 @@ export default function ChelgyApp() {
     (async()=>{
       const strats = await sbFetch("strategies");
       if (strats && strats.length>0) setAppStrategies(prev=>{
-        const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,isNew:s.is_new}));
+        const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,imageFocus:s.image_focus,isNew:s.is_new}));
         const ids = new Set(mapped.map(x=>x.id));
         return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
       });
       const weekly = await sbFetch("weekly_posts");
       if (weekly && weekly.length>0) setAppWeeklyPosts(prev=>{
-        const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,comments:[]}));
+        const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,imageFocus:w.image_focus,comments:[]}));
         const ids = new Set(mapped.map(x=>x.id));
         return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
       });
@@ -12332,7 +12360,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                           <h2 style={{fontSize:16,fontWeight:400,margin:"10px 0 6px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{cleanTitle(post.title)}</h2>
                           <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>{post.week} · {post.readTime}</div>
                         </div>
-                        {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                        {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",objectPosition:(post.imageFocus||"50% 50%"),flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
                         <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
                       </div>
                     ))}
@@ -12448,7 +12476,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
                   {strategies.slice(0,4).map(s=>(
                     <div key={s.id} onClick={()=>{setSelectedStrategy(s);goTab("learn","strategies");addPts(PTS.strategy);}} style={{background:B.white,padding:"18px",cursor:"pointer"}}>
-                      {s.imageUrl&&<img src={s.imageUrl} alt="" style={{width:"100%",height:120,objectFit:"cover",display:"block",marginBottom:12}} onError={e=>e.target.style.display="none"} />}
+                      {s.imageUrl&&<img src={s.imageUrl} alt="" style={{width:"100%",height:120,objectFit:"cover",objectPosition:(s.imageFocus||"50% 50%"),display:"block",marginBottom:12}} onError={e=>e.target.style.display="none"} />}
                       <Tag gold>{s.level}</Tag>
                       <h3 style={{fontSize:14,fontWeight:400,margin:"10px 0 6px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{cleanTitle(s.title)}</h3>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>{s.category}</div>
@@ -12523,7 +12551,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 6px",lineHeight:1.6}}>{s.summary}</p>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>Avg. time to results: {s.timeToResult}</div>
                     </div>
-                    {s.imageUrl&&<img src={s.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                    {s.imageUrl&&<img src={s.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",objectPosition:(s.imageFocus||"50% 50%"),flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
                     <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
                   </div>
                 ))}
@@ -12621,7 +12649,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <h2 style={{fontSize:16,fontWeight:400,margin:"10px 0 6px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{cleanTitle(post.title)}</h2>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>{post.week} · {post.readTime}</div>
                     </div>
-                    {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
+                    {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",objectPosition:(post.imageFocus||"50% 50%"),flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
                     <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginTop:4}}>
                       {isTrial&&<span style={{color:B.gold}}><Icons.Lock /></span>}
                       <div style={{color:B.stone}}><Icons.ChevronRight /></div>
