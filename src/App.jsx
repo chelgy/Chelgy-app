@@ -1005,14 +1005,23 @@ async function writeImagePrompt(idea, imageType, target, image=null) {
 async function generateGeminiImage(prompt, inputImages, aspectRatio, quality) {
   const token = await freshToken();
   const imgs = Array.isArray(inputImages) ? inputImages : (inputImages ? [inputImages] : []);
-  const res = await fetch("/api/image", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: JSON.stringify({ prompt, inputImages: imgs, inputImage: imgs[0] || null, aspectRatio: aspectRatio || "1:1", quality: quality || "standard" }),
-  });
-  const d = await res.json();
-  if (!d.image) throw new Error(d.error || "No image");
-  return d; // { image, balance }
+  async function call(q) {
+    const res = await fetch("/api/image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ prompt, inputImages: imgs, inputImage: imgs[0] || null, aspectRatio: aspectRatio || "1:1", quality: q || "standard" }),
+    });
+    const d = await res.json();
+    if (!d.image) throw new Error(d.error || "No image");
+    return d; // { image, balance }
+  }
+  try {
+    return await call(quality);
+  } catch (e) {
+    // The photo model can reject the 2K/4K tiers on some requests — fall back to standard so the member still gets their image instead of an error.
+    if (quality && quality !== "standard") { return await call("standard"); }
+    throw e;
+  }
 }
 
 // Uploads a base64 data-URL image to the public "sites" storage bucket and
@@ -1179,7 +1188,7 @@ const Icons = {
 const SLIDES = [
   {bg:"#000000",eyebrow:null,headline:"Welcome to Chelgy.",sub:"Everything you need to master marketing, build your business, and automate the work — in one membership.",items:null,isFinal:false},
   {bg:"#111111",eyebrow:"KNOWLEDGE LIBRARY",headline:"Every marketing strategy. All in one place.",sub:"40+ deep-dive strategies covering SEO, email, content, paid ads, social, branding, AI, and funnels. Updated every week.",items:["SEO & Local Search","Email Marketing","Paid Ads — Meta, Google, TikTok","Brand Strategy","AI-Powered Marketing"],isFinal:false},
-  {bg:"#000000",eyebrow:"AI TOOLS SUITE",headline:"12 AI tools. Included.",sub:"Use them to build your entire business and automate your marketing — content, images, videos, ad campaigns, and a full business launch, all powered by AI.",items:["AI Content Writer","AI Image Creator (Nano Banana 2)","AI Video Studio","Viral Video Generator","Ad Campaign Builder","Business Builder"],isFinal:false},
+  {bg:"#000000",eyebrow:"AI TOOLS SUITE",headline:"17 AI tools. Included.",sub:"Use them to build your entire business and automate your marketing — content, images, product & UGC studios, videos, ad campaigns, client invoicing, and a full business launch, all powered by AI.",items:["AI Content Writer","AI Image Creator","Product Studio","UGC Studio","AI Video Studio","Business Manager","Ad Campaign Builder","Business Builder"],isFinal:false},
   {bg:"#111111",eyebrow:"YOUR AI COACH",headline:"Like having a business coach in your pocket.",sub:"Chelgy learns your business, builds your roadmap, and hands you the highest-impact task to do each day.",items:["A personalized business plan","Your step-by-step roadmap","Daily high-impact tasks","A full audit of your business","Your own 24/7 AI Advisor"],isFinal:false},
   {bg:"#000000",eyebrow:"ONE MEMBERSHIP",headline:"Everything. $100 a month.",sub:"No upsells. No paywalled tiers. Start free and explore before you commit.",items:null,isFinal:true},
 ];
@@ -2446,7 +2455,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       setTimeout(()=>URL.revokeObjectURL(u),1500);
     }catch(e){ window.open(vVidUrl,"_blank"); }
   }
-  async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude(ctxPre+"You are an experienced business coach. Give specific actionable advice. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
+  async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude(ctxPre+"You are an experienced business coach inside Chelgy, an all-in-one AI marketing platform. Give specific actionable advice. When you suggest a tool or a next step, point them to Chelgy's own tools first (Website Builder + in-app domain buying, Image Creator, Product Studio, UGC & Video Studio, Viral Video, Ad Campaign Builder, Content Writer, Voiceover, Backlink & Authority Builder, Business Audit, Grant Finder, and Business Manager for clients & invoices) for anything Chelgy can do; only point them elsewhere for things Chelgy does not offer. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
   async function genViral(){
     if(!vbBiz.trim())return;
     track("tool_used",{tool:"viral_video",platform:vbPlat});onToolUse("viral_video",0);
@@ -2916,11 +2925,10 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 6px",letterSpacing:"0.02em"}}>{["logo","flyer","social","banner"].includes(iType)?"Powered by GPT Image 2 — best for crisp text & logos":"Powered by Nano Banana 2 (Google Gemini)"}</p>
         <div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"],["enhance","Enhance Photo"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
+          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
         {iType==="set" && <PhotoCatalog onBalance={onBalance} />}
-        {iType==="enhance" && <EnhancePhoto onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
-        {!["set","enhance"].includes(iType) && (<>
+        {!["set"].includes(iType) && (<>
         <Card style={{padding:"22px",marginBottom:14}}>
           {!["ad","product","logo","flyer","banner"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
           <Fl label="Your image prompt — edit anything you like"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="Your AI-written prompt appears here — or write your own. Describe the subject, style, colors, lighting, and mood." rows={4} /></Fl>
@@ -3382,6 +3390,41 @@ const DAILY_POOL = [
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
 const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+// -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
+const TOOL_REC = {
+  content:   ["content",   "Content Writer",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
+  images:    ["images",    "Image Creator",                "Create the visuals, logos, flyers and graphics for this in the Image Creator."],
+  ads:       ["ads",       "Ad Campaign Builder",          "Build a ready-to-launch ad campaign for this in the Ad Campaign Builder."],
+  website:   ["website",   "Website Builder",              "Build the site, funnel or landing page — and grab a domain — in the Website Builder."],
+  backlinks: ["backlinks", "Backlink & Authority Builder", "Get backlinks and climb the rankings with the Backlink & Authority Builder."],
+  ugcstudio: ["ugcstudio", "UGC Studio",                   "Make creator-style UGC content for this in the UGC Studio."],
+  video:     ["video",     "Video Studio",                 "Turn this into video — no camera needed — in the Video Studio."],
+  audit:     ["audit",     "Business Audit",               "See exactly where you stand online first with a free Business Audit."],
+  platforms: ["platforms", "Platform Setup Guides",        "Get every profile set up the right way with the Platform Setup Guides."],
+};
+function recFor(topic){
+  const t=(topic||"").toLowerCase();
+  const has=(...k)=>k.some(x=>t.indexOf(x)>-1);
+  if(has("seo","search engine","backlink","rank higher","ranking")) return TOOL_REC.backlinks;
+  if(has("paid ad","paid advertising","facebook ad","google ad","tiktok ad"," ppc","ad campaign")) return TOOL_REC.ads;
+  if(has("video")) return TOOL_REC.video;
+  if(has("influencer","ugc","creator")) return TOOL_REC.ugcstudio;
+  if(has("website","funnel","landing","online presence","platform stack")) return TOOL_REC.website;
+  if(has("brand","logo","flyer","physical")) return TOOL_REC.images;
+  if(has("local","google business","yelp","directory","directories")) return TOOL_REC.audit;
+  if(has("platform setup","profile setup")) return TOOL_REC.platforms;
+  return TOOL_REC.content;
+}
+function ToolCallout({ rec, onGo }){
+  if(!rec) return null;
+  return (
+    <div style={{marginTop:32,background:B.white,border:"1px solid "+B.stone,padding:"18px 20px"}}>
+      <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",textTransform:"uppercase",color:B.gold,fontWeight:700,marginBottom:8}}>Do this in Chelgy</div>
+      <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.6,marginBottom:14}}>{rec[2]}</div>
+      <Btn dark small onClick={()=>onGo(rec[0])}>{"OPEN "+rec[1].toUpperCase()}</Btn>
+    </div>
+  );
+}
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
 const TOOL_ORDER = ["launch","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -4335,7 +4378,7 @@ const GUIDE_CHAPTERS = [
 
 **3. First impressions.** Your logo, colors, images, layout, fonts, and spacing all create a feeling before anyone reads a word. The goal isn't to look like a huge corporation — it's to look clear, intentional, clean, consistent, and believable.
 
-**4. Your website (your digital storefront).** Use Squarespace if you're service-based (salons, studios, consultants, portfolios). Use Shopify if you sell physical products. Choose a clean template, not the fanciest one. Your homepage should answer: What is this? Who's it for? What can I do here? Why trust it? — with a strong headline, a supporting line, a clear call to action, good images, and proof.
+**4. Your website (your digital storefront).** Build it right here in Chelgy's Website Builder — it publishes a complete, professional site for you and connects your domain automatically (no DNS to wrestle with). Only reach for a full outside storefront if you're running a large e-commerce catalog. Choose a clean template, not the fanciest one. Your homepage should answer: What is this? Who's it for? What can I do here? Why trust it? — with a strong headline, a supporting line, a clear call to action, good images, and proof.
 
 **A simple beginner brand kit:** one logo, one main font, one accent font, one main color, one or two supporting colors, and a clear visual style. Pick one direction and stay consistent.
 
@@ -8714,184 +8757,6 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
   );
 }
 
-function EnhancePhoto({ onBalance, useCredits, onToolUse, user, credits }) {
-  const STYLES = [
-    { id: "editorial", label: "Editorial",          desc: "A high-end editorial magazine portrait — elevated art direction, refined styling, rich set design and dramatic-but-tasteful lighting, the kind of image you'd see in a luxury fashion or lifestyle magazine." },
-    { id: "influencer", label: "Influencer / Lifestyle", desc: "An aspirational lifestyle shot with a natural, candid content-creator feel — beautifully styled in a gorgeous setting, warm and effortless, the kind of photo a top influencer would post." },
-    { id: "luxury",    label: "Luxury Setting",      desc: "Placed in a rich, luxurious environment — a five-star hotel lobby, marble interior, designer boutique, penthouse or elegant terrace — with opulent styling and soft, expensive-looking light." },
-    { id: "travel",    label: "Travel / Destination", desc: "Set against a stunning destination backdrop — an Amalfi terrace, a Paris street, a coastal villa, a desert resort — in beautiful golden natural light, like a luxury travel editorial." },
-    { id: "studio",    label: "Studio Editorial",    desc: "A refined studio portrait with elevated art direction, a tasteful backdrop and premium, sculpted lighting — clean, modern and high-fashion." },
-    { id: "outdoor",   label: "Golden Hour",         desc: "A natural outdoor portrait in gorgeous golden-hour light with a beautifully soft, gently blurred setting." },
-    { id: "headshot",  label: "Professional Headshot", desc: "A clean, professional headshot framed from the chest up on a tasteful, softly blurred background — polished and refined." },
-    { id: "custom",    label: "Custom",              desc: "" },
-  ];
-
-  const [photos, setPhotos] = useState([]);
-  const [styleId, setStyleId] = useState("editorial");
-  const [outfit, setOutfit] = useState("");
-  const [environment, setEnvironment] = useState("");
-  const [extra, setExtra] = useState("");
-  const [aspect, setAspect] = useState("4:5");
-  const [quality, setQuality] = useState("2K");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [shots, setShots] = useState([]);
-  const [saveMsg, setSaveMsg] = useState({});
-
-  function costFor(q){ return q === "4K" ? CREDIT_COSTS.image4K : q === "2K" ? CREDIT_COSTS.imageHD : CREDIT_COSTS.image; }
-  const cost = costFor(quality);
-
-  function onUpload(e) {
-    const files = e.target.files;
-    if (!files || !files.length) return;
-    Array.from(files).slice(0, 2).forEach(f => {
-      const r = new FileReader();
-      r.onload = () => setPhotos(prev => prev.length >= 2 ? prev : [...prev, r.result]);
-      r.readAsDataURL(f);
-    });
-    e.target.value = "";
-  }
-
-  function buildPrompt() {
-    const s = STYLES.find(x => x.id === styleId) || STYLES[0];
-    let p = "Re-create the uploaded photo of a person as a high-end, editorial-quality image. ";
-    p += "CRITICAL — LIKENESS: keep the person's face, identity, bone structure, skin tone, hair and distinguishing features perfectly accurate and clearly recognisable — this must obviously be the same person. Do NOT change their face, age or ethnicity, and do not beautify them into someone else. ";
-    p += "CRITICAL — EXPRESSION: preserve their exact expression from the uploaded photo. Do NOT add, remove or change their expression — if they are not smiling in the source photo, do NOT make them smile; if their mouth is closed, keep it closed. Only render facial details that are actually visible in the photo(s) provided; never invent a smile, teeth, or a look the source does not show. ";
-    if (s.desc) p += s.desc + " ";
-    if (outfit.trim()) p += "Dress the person in: " + outfit.trim() + ". ";
-    if (environment.trim()) p += "Set the background / environment as: " + environment.trim() + ". ";
-    if (extra.trim()) p += extra.trim() + " ";
-    p += "Shot as high-end, editorial magazine-quality photography: premium tasteful styling, soft professional lighting, refined composition, an elevated luxury-brand aesthetic, realistic retouching that keeps natural skin texture, crisp and clean. Photorealistic. No text, no watermark, no logos.";
-    return p;
-  }
-
-  async function generate() {
-    if (!photos.length) { setErr("Add a photo of the person first."); return; }
-    if (loading) return;
-    if (!useCredits(cost)) return;
-    setErr(""); setLoading(true);
-    try {
-      const inputImages = photos
-        .map(u => { const m = /^data:(.*?);base64,(.*)$/.exec(u || ""); return m ? { mimeType: m[1], data: m[2] } : null; })
-        .filter(Boolean);
-      const r = await generateGeminiImage(buildPrompt(), inputImages, aspect, quality);
-      if (!r || !r.image) throw new Error("no image");
-      if (typeof r.balance === "number") onBalance(r.balance);
-      const label = (STYLES.find(x => x.id === styleId) || {}).label || "Portrait";
-      setShots(prev => [{ id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), url: r.image, label }, ...prev]);
-      try { onToolUse("enhance_photo", cost); } catch (e) {}
-    } catch (e) {
-      setErr("Sorry — we couldn't create that photo right now. Please try again in a little while.");
-    }
-    setLoading(false);
-  }
-
-  async function saveShot(shot) {
-    setSaveMsg(m => ({ ...m, [shot.id]: "Saving…" }));
-    try {
-      const uid = (user && user.id) || "anon";
-      const url = await uploadSiteImage(shot.url, uid + "/headshot-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5) + ".png");
-      if (!url) throw new Error("save failed");
-      await saveToLibrary(user, "photo", "Enhance Photo — " + shot.label, url);
-      setSaveMsg(m => ({ ...m, [shot.id]: "✓ Saved to Library" }));
-    } catch (e) {
-      setSaveMsg(m => ({ ...m, [shot.id]: "Couldn't save — try again" }));
-    }
-  }
-
-  const Label = ({ children }) => (
-    <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: B.mid, marginBottom: 7, textTransform: "uppercase" }}>{children}</div>
-  );
-  const inpStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 14, boxSizing: "border-box" };
-  const selStyle = { ...inpStyle, cursor: "pointer" };
-  const have = typeof credits === "number" ? credits : null;
-
-  return (
-    <div>
-      <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Georgia,serif", margin: "0 0 4px" }}>Enhance Photo &amp; Headshots</h2>
-      <p style={{ fontFamily: "sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Upload a photo and turn it into a rich, editorial-style image — luxury settings and influencer-worthy styling — while keeping your real face and your real expression.</p>
-      <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em", lineHeight: 1.5 }}>Best results: a clear, well-lit photo where your face is easy to see. Add a second angle for an even better likeness.</div>
-
-      <Card style={{ padding: "22px", marginBottom: 14 }}>
-        <Label>Your photo · up to 2</Label>
-        {photos.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-            {photos.map((u, i) => (
-              <div key={i} style={{ position: "relative" }}>
-                <img src={u} alt="" style={{ width: 76, height: 76, objectFit: "cover", border: "1px solid " + B.stone }} />
-                <button onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: -8, right: -8, width: 20, height: 20, borderRadius: "50%", border: "none", background: B.charcoal, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: "20px", padding: 0 }}>×</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {photos.length < 2 && (
-          <label style={{ display: "block", border: "1px dashed " + B.stone, background: B.white, padding: "16px", textAlign: "center", cursor: "pointer", fontFamily: "sans-serif", fontSize: 12, color: B.goldDark, letterSpacing: "0.02em", marginBottom: 16 }}>
-            {photos.length ? "Add another angle" : "Tap to upload a photo of the person"}
-            <input type="file" accept="image/*" multiple onChange={onUpload} style={{ display: "none" }} />
-          </label>
-        )}
-
-        <Label>Choose a style</Label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-          {STYLES.map(s => (
-            <button key={s.id} onClick={() => setStyleId(s.id)} style={{ textAlign: "left", padding: "12px 13px", border: "1px solid " + (styleId === s.id ? B.charcoal : B.stone), background: styleId === s.id ? B.charcoal : "#fff", color: styleId === s.id ? "#fff" : B.charcoal, cursor: "pointer", fontFamily: "sans-serif", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.01em", lineHeight: 1.3 }}>{s.label}</button>
-          ))}
-        </div>
-
-        <Label>Outfit / clothing · optional</Label>
-        <input value={outfit} onChange={e => setOutfit(e.target.value)} placeholder="e.g. tailored navy blazer, crisp white shirt" style={inpStyle} />
-
-        <Label>Environment / background · optional</Label>
-        <input value={environment} onChange={e => setEnvironment(e.target.value)} placeholder="e.g. bright modern office, soft grey studio backdrop" style={inpStyle} />
-
-        <Label>{styleId === "custom" ? "Describe the photo you want" : "Extra direction · optional"}</Label>
-        <textarea value={extra} onChange={e => setExtra(e.target.value)} rows={styleId === "custom" ? 3 : 2} placeholder={styleId === "custom" ? "Describe the exact look, mood, lighting and framing you want." : "Anything to add — e.g. 'arms crossed', 'marble hotel lobby', 'golden-hour light'."} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
-
-        <Label>Orientation</Label>
-        <select value={aspect} onChange={e => setAspect(e.target.value)} style={selStyle}>
-          <option value="4:5">Portrait (4:5)</option>
-          <option value="1:1">Square (1:1)</option>
-          <option value="9:16">Tall / Story (9:16)</option>
-          <option value="16:9">Landscape (16:9)</option>
-        </select>
-
-        <Label>Quality</Label>
-        <select value={quality} onChange={e => setQuality(e.target.value)} style={selStyle}>
-          <option value="standard">Standard — fast &amp; economical ({CREDIT_COSTS.image} cr)</option>
-          <option value="2K">HD 2K — sharper, recommended ({CREDIT_COSTS.imageHD} cr)</option>
-          <option value="4K">Ultra 4K — maximum detail ({CREDIT_COSTS.image4K} cr)</option>
-        </select>
-
-        <Btn dark disabled={loading || !photos.length} onClick={generate}>
-          {loading ? "CREATING PHOTO..." : ("CREATE PHOTO (" + cost.toLocaleString() + " credits)")}
-        </Btn>
-        <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.mid, marginTop: 10 }}>Uses {cost.toLocaleString()} credits{have !== null ? " · you have " + have.toLocaleString() : ""}. Generate again for more looks.</div>
-      </Card>
-
-      {loading && <div style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "36px", textAlign: "center", fontFamily: "sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.04em" }}>Retouching your photo... (4–8 seconds)</div>}
-      {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "sans-serif", fontSize: 12, color: B.red, marginTop: 4 }}>{err}</div>}
-
-      {shots.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 9, color: B.gold, fontFamily: "sans-serif", fontWeight: 700, letterSpacing: "0.18em", marginBottom: 12, textTransform: "uppercase" }}>Your photos · {shots.length}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {shots.map(shot => (
-              <div key={shot.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "20px" }}>
-                <div style={{ fontFamily: "sans-serif", fontSize: 10, color: B.mid, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{shot.label}</div>
-                <img src={shot.url} alt={shot.label} style={{ maxWidth: "100%", display: "block", marginBottom: 12 }} />
-                <a href={shot.url} download="chelgy-photo.png"><Btn dark small>DOWNLOAD</Btn></a>
-                <button onClick={() => saveShot(shot)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
-                {saveMsg[shot.id] && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(saveMsg[shot.id]).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{saveMsg[shot.id]}</div>}
-                <div style={{ marginTop: 14 }}><ShareBar file={shot.url} filename="chelgy-photo.png" title="Made with Chelgy" text="" /></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   // Studio scene presets — Kive-style "virtual photo sets". Each appends a scene
   // description to the prompt while the uploaded product stays accurate.
@@ -10115,13 +9980,17 @@ Before listing tools, write 2 to 4 warm, confident sentences that make this poin
 ## Your Chelgy toolkit
 For the key roadmap steps, name the EXACT Chelgy tool to use and one sentence on how to use it for that step. Only use tools from this list:
 - Business Builder (builds their entire business — a complete published website, logo, brand strategy, social plan, and launch roadmap)
-- Website Builder (writes and publishes a complete, ready-to-share website for their business)
+- Website Builder (writes and publishes a complete, ready-to-share website — and lets them buy & connect their own domain right inside it)
 - AI Image Creator (logos, flyers, social graphics, product images)
+- Product Studio (studio-quality product photos — clean packshots, lifestyle, or on a model)
 - AI Video Studio & Viral Video Generator (video scripts, viral ideas, AI video)
+- UGC Studio (build a consistent creator, then make authentic talking-to-camera UGC videos)
 - Ad Campaign Builder (ad copy, targeting, budget for Facebook/Instagram/TikTok)
+- Business Manager (clients/CRM, invoices with online payment links, proposals, contracts — all in one place)
 - Business Audit & Competitors (scan your presence, compare to competitors)
+- Backlink & Authority Builder (find real places to get listed, linked & featured, with the outreach written for them)
 - AI Voiceover Studio (studio-quality voiceovers)
-- Business Builder (stage-by-stage plans + a 24/7 AI coach)
+- Business Coach (stage-by-stage plans + a 24/7 AI coach)
 - Grant Finder (search real grants and funding)
 - AI Content Writer (captions, posts, blogs, emails, ad copy)
 - Dropshipping Directory (vetted suppliers)
@@ -10143,7 +10012,7 @@ Keep it specific, encouraging, and skimmable. Short paragraphs. No fluff and no 
 `Based on this member's situation, list their 6 most important "big tasks" to grow toward their #1 goal, in priority order (highest impact first).
 Member: ${stage}; business/idea: ${d.what||"n/a"}; field: ${d.field||"n/a"}; location: ${d.location||"n/a"}; already has: ${haveStr}; #1 goal: ${d.goal||"n/a"}; biggest challenge: ${d.challenge||"n/a"}; hours/week: ${d.hours||"n/a"}.
 For each task also pick the single best Chelgy tool to accomplish it, by its id, or "" if none fits. Tool ids:
-launch = build the whole business (published website + logo + brand + social + launch plan); website = write & publish a complete website; images = make logos, flyers, graphics, product photos; video = video scripts & AI video; viral = viral video ideas; ads = paid ad campaigns; audit = scan presence & competitors; voiceover = voiceovers; business = stage-by-stage plan + AI coach; grants = find funding; content = write posts/captions/emails/blogs; dropshipping = find suppliers; platforms = set up Google Business & social profiles.
+launch = build the whole business (published website + logo + brand + social + launch plan); website = write & publish a complete website; images = make logos, flyers, graphics, product photos; productstudio = studio-quality product photos; video = video scripts & AI video; viral = viral video ideas; ugcstudio = UGC creator & authentic videos; ads = paid ad campaigns; audit = scan presence & competitors; manager = clients, invoices, proposals & contracts; voiceover = voiceovers; business = stage-by-stage plan + AI coach; grants = find funding; content = write posts/captions/emails/blogs; backlinks = get listed, linked & featured; dropshipping = find suppliers; platforms = set up Google Business & social profiles.
 Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item: {"title": short action under 9 words, "detail": one sentence on how or why, "time": estimate like "15 min" or "1 hour", "impact": integer 1-5, "tool": one tool id from the list or ""}.`;
     const raw = await callClaude(prompt, 1800, false);
     let tasks = [];
@@ -10482,7 +10351,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       "- Services section (list each service with a name, one-line description, and price if provided)\n" +
       "- Testimonial placeholders (3 sample testimonials they can customize)\n" +
       "- Call to action copy (compelling button text and surrounding copy)\n" +
-      "- Recommended setup: under a '### Where to build your site' subheading, recommend the best website platform for THIS specific business — Squarespace if they're service-based (salons, studios, consultants, portfolios), Shopify if they sell physical products, with Wix as a simpler alternative — and explain the pick in one line. Then recommend where to buy their domain (Namecheap or GoDaddy), suggest setting up a professional email at their domain (e.g. hello@theirbusiness.com via Google Workspace), and mention Canva for a quick logo if needed. Keep it practical and specific to their business.\n\n" +
+      "- Recommended setup: under a '### Where to build your site' subheading, tell them to build their site right inside Chelgy's own Website Builder — it publishes a complete, professional site for them, and they can buy their domain and have it connected automatically in the same place (open the Website Builder, go to the Domain tab, search a name, and buy it through Chelgy — no DNS to set up; it connects to their Chelgy site for them). Only if this specific business genuinely needs a large, full e-commerce storefront with a big product catalog should you add that Chelgy can also build them a Shopify store — otherwise keep them entirely inside Chelgy's Website Builder. Also suggest a professional email at their domain (e.g. hello@theirbusiness.com via Google Workspace), and tell them to make their logo right in Chelgy's own Image Creator. Keep it practical and specific to their business.\n\n" +
       "[BRAND STRATEGY]\n" +
       "- Brand positioning statement (one paragraph)\n" +
       "- Brand voice (5 adjectives with explanations)\n" +
@@ -10979,7 +10848,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if(!mkGoals.niches.trim()){ setTeamErr("Tell us at least which niche(s) you want to serve."); return; }
     setTeamErr(""); setMkPlanLoading(true);
     const g = mkGoals;
-    const prompt = "You are a warm, encouraging, and genuinely motivating client-acquisition coach for a brand-new freelance marketer who works under the Chelgy agency. Build them an ambitious but friendly 30-day game plan to land their first paying marketing clients — as many as they can. Be encouraging and supportive in tone (like a coach who truly believes in them), while still pushing them to aim high. Do NOT cap their potential or name a small target. This person uses Chelgy's all-in-one toolkit (AI content writer, image creator, video studio, ad builder, business audit, voiceover) to create work and run client campaigns.\n\nIMPORTANT FREEDOM: This marketer is NOT limited to any one niche or any one city. They can work with ANY type of business, in ANY industry, ANYWHERE in the world — almost all of this work is done online (social media, ads, content, email), so the entire world is their market. Make this abundantly clear and exciting in the plan. Their city is only a BONUS for optional in-person outreach (walking into local shops, local networking) — never the limit. The business types they listed are just personal interests/starting points, not a cap. Constantly encourage them to reach out to any business anywhere they think could use marketing help — the fewer limits, the more income.\n\nTHEIR PROFILE:\n- Business types they're personally interested in (just a starting point — NOT a limit): "+(g.niches||"open to any business")+"\n- Where they're based (use ONLY for optional local/in-person ideas — they can serve clients worldwide online): "+(g.location||"flexible — online and worldwide")+"\n- Monthly income goal: "+(g.income||"strong, growing income")+"\n- Time available: "+(g.hours||"part-time")+" per week\n- Experience level: "+(g.experience||"beginner — teach the fundamentals")+"\n\nWrite it as an ambitious but warm and achievable game plan in markdown with EXACTLY these sections:\n\n## Your Goal\n1-2 encouraging lines: land their first clients and build momentum, and what that means for their income — frame it as the exciting start of something they can grow worldwide, as far as they want.\n\n## Who To Reach Out To\nMake it clear they can reach out to ANY business, ANY industry, ANYWHERE — local shops in their city, businesses across the country, and companies around the world online. Give a wide, exciting range of business types and where to find them online (social platforms, directories, marketplaces, communities) AND a few local/in-person ideas using their city as a bonus. Encourage them to trust their gut: if a business looks like it could use better marketing, reach out. Emphasize that going wide = more income.\n\n## Your Outreach Approach\nIMPORTANT: Do NOT prescribe a specific number of contacts per day or per week. Instead, encourage them to reach out to as many businesses as they genuinely can each day — but warn them clearly to protect their accounts: never blast identical copy-pasted messages, personalize each one, vary the wording, space outreach out across the day, and use a healthy mix of channels (DMs, email, calls, in-person) so platforms don't flag or ban them for spam. Set a realistic, kind expectation: most people won't reply, and that is completely normal — it's a numbers game, so the secret is consistent, genuine, personalized volume over time, not a magic quota. Reassure them that a low response rate is expected and not a reflection of their worth.\n\n## Build Your 'Chelgy Marketing Specialist' Social Account\nLAUNCH a personal brand social media account on TikTok/Instagram/YouTube Shorts ALONGSIDE your outreach. This becomes your 24/7 inbound lead machine. When prospects see you consistently posting viral marketing tips, client wins, and behind-the-scenes Chelgy tool usage, they get sold BEFORE you pitch them.\n\nAccount Name: 'Chelgy Marketing Specialist' or '[Your Name] — Chelgy Marketing Specialist'\n\nContent Pillars (mix all types):\n- \"How to get clients\" videos (YOUR tactics — shows you walk the walk)\n- Client before/afters (PROOF you deliver results)\n- Quick marketing tips & education (builds reach & authority)\n- Behind-the-scenes using Chelgy tools (relatability & transparency)\n- Trending sounds/hooks applied to marketing (viral reach)\n\nViral Video Ideas To Post (pick 5 to start):\n1. \"3 Ways [Their Niche] Businesses Are LOSING Clients (And How To Fix It)\" — Hook: show mistake, fix it, CTA: DM for free audit\n2. \"I Helped A [Business Type] Get [X] New Clients In 30 Days — Here's The Process\" — Before/after, strategy breakdown, CTA: DM if interested\n3. \"Stop Doing This On [Platform] (It's Tanking Your Leads)\" — Quick tip + demo fix, CTA: follow for more\n4. \"The #1 Reason [Niche] Businesses Fail At Marketing\" — Story-based, vulnerable, CTA: DM to chat\n5. \"Day In My Life As A Chelgy Marketing Specialist\" — Show the toolkit, process, CTA: link in bio for services\n\nPosting Schedule: Week 1: 1 intro post. Week 2: 3-4 posts. Week 3: daily. Use Chelgy's Video Studio & Image Maker to produce fast.\n\nWhy This Works: By week 2-3, inbound DMs from prospects will START ROLLING IN before you even pitch them. They sell themselves.\n\n## Your First 30 Days\nWeek 1, Week 2, Week 3, Week 4 — each with specific, encouraging actions. Front-load outreach and sample creation. Keep it motivating and doable.\n\n## Your Outreach Scripts\n2-3 ready-to-send scripts (DM, email, and a friendly call/in-person opener) that work for any business anywhere. Short, warm, natural, and personalizable — remind them to tweak each one so it never looks mass-sent.\n\n## Win With Chelgy\nHow to use the Chelgy tools to create free sample work (a sample ad, social post, or mini audit) that wins clients over — turning a 'maybe' into a 'yes'.\n\n## Pricing & Closing\nWhat to charge a first client, how to present it warmly and confidently, and how to handle the 'I need to think about it' response.\n\nBe specific where helpful, ambitious, and above all encouraging and friendly. Speak directly to them as 'you'. No preamble before the first heading.";
+    const prompt = "You are a warm, encouraging, and genuinely motivating client-acquisition coach for a brand-new freelance marketer who works under the Chelgy agency. Build them an ambitious but friendly 30-day game plan to land their first paying marketing clients — as many as they can. Be encouraging and supportive in tone (like a coach who truly believes in them), while still pushing them to aim high. Do NOT cap their potential or name a small target. This person uses Chelgy's all-in-one toolkit (AI content writer, image creator, product studio, UGC studio, video studio, viral video, ad builder, business audit, backlink builder, voiceover, and a business manager for clients & invoices) to create work and run client campaigns.\n\nIMPORTANT FREEDOM: This marketer is NOT limited to any one niche or any one city. They can work with ANY type of business, in ANY industry, ANYWHERE in the world — almost all of this work is done online (social media, ads, content, email), so the entire world is their market. Make this abundantly clear and exciting in the plan. Their city is only a BONUS for optional in-person outreach (walking into local shops, local networking) — never the limit. The business types they listed are just personal interests/starting points, not a cap. Constantly encourage them to reach out to any business anywhere they think could use marketing help — the fewer limits, the more income.\n\nTHEIR PROFILE:\n- Business types they're personally interested in (just a starting point — NOT a limit): "+(g.niches||"open to any business")+"\n- Where they're based (use ONLY for optional local/in-person ideas — they can serve clients worldwide online): "+(g.location||"flexible — online and worldwide")+"\n- Monthly income goal: "+(g.income||"strong, growing income")+"\n- Time available: "+(g.hours||"part-time")+" per week\n- Experience level: "+(g.experience||"beginner — teach the fundamentals")+"\n\nWrite it as an ambitious but warm and achievable game plan in markdown with EXACTLY these sections:\n\n## Your Goal\n1-2 encouraging lines: land their first clients and build momentum, and what that means for their income — frame it as the exciting start of something they can grow worldwide, as far as they want.\n\n## Who To Reach Out To\nMake it clear they can reach out to ANY business, ANY industry, ANYWHERE — local shops in their city, businesses across the country, and companies around the world online. Give a wide, exciting range of business types and where to find them online (social platforms, directories, marketplaces, communities) AND a few local/in-person ideas using their city as a bonus. Encourage them to trust their gut: if a business looks like it could use better marketing, reach out. Emphasize that going wide = more income.\n\n## Your Outreach Approach\nIMPORTANT: Do NOT prescribe a specific number of contacts per day or per week. Instead, encourage them to reach out to as many businesses as they genuinely can each day — but warn them clearly to protect their accounts: never blast identical copy-pasted messages, personalize each one, vary the wording, space outreach out across the day, and use a healthy mix of channels (DMs, email, calls, in-person) so platforms don't flag or ban them for spam. Set a realistic, kind expectation: most people won't reply, and that is completely normal — it's a numbers game, so the secret is consistent, genuine, personalized volume over time, not a magic quota. Reassure them that a low response rate is expected and not a reflection of their worth.\n\n## Build Your 'Chelgy Marketing Specialist' Social Account\nLAUNCH a personal brand social media account on TikTok/Instagram/YouTube Shorts ALONGSIDE your outreach. This becomes your 24/7 inbound lead machine. When prospects see you consistently posting viral marketing tips, client wins, and behind-the-scenes Chelgy tool usage, they get sold BEFORE you pitch them.\n\nAccount Name: 'Chelgy Marketing Specialist' or '[Your Name] — Chelgy Marketing Specialist'\n\nContent Pillars (mix all types):\n- \"How to get clients\" videos (YOUR tactics — shows you walk the walk)\n- Client before/afters (PROOF you deliver results)\n- Quick marketing tips & education (builds reach & authority)\n- Behind-the-scenes using Chelgy tools (relatability & transparency)\n- Trending sounds/hooks applied to marketing (viral reach)\n\nViral Video Ideas To Post (pick 5 to start):\n1. \"3 Ways [Their Niche] Businesses Are LOSING Clients (And How To Fix It)\" — Hook: show mistake, fix it, CTA: DM for free audit\n2. \"I Helped A [Business Type] Get [X] New Clients In 30 Days — Here's The Process\" — Before/after, strategy breakdown, CTA: DM if interested\n3. \"Stop Doing This On [Platform] (It's Tanking Your Leads)\" — Quick tip + demo fix, CTA: follow for more\n4. \"The #1 Reason [Niche] Businesses Fail At Marketing\" — Story-based, vulnerable, CTA: DM to chat\n5. \"Day In My Life As A Chelgy Marketing Specialist\" — Show the toolkit, process, CTA: link in bio for services\n\nPosting Schedule: Week 1: 1 intro post. Week 2: 3-4 posts. Week 3: daily. Use Chelgy's Video Studio & Image Maker to produce fast.\n\nWhy This Works: By week 2-3, inbound DMs from prospects will START ROLLING IN before you even pitch them. They sell themselves.\n\n## Your First 30 Days\nWeek 1, Week 2, Week 3, Week 4 — each with specific, encouraging actions. Front-load outreach and sample creation. Keep it motivating and doable.\n\n## Your Outreach Scripts\n2-3 ready-to-send scripts (DM, email, and a friendly call/in-person opener) that work for any business anywhere. Short, warm, natural, and personalizable — remind them to tweak each one so it never looks mass-sent.\n\n## Win With Chelgy\nHow to use the Chelgy tools to create free sample work (a sample ad, social post, or mini audit) that wins clients over — turning a 'maybe' into a 'yes'.\n\n## Pricing & Closing\nWhat to charge a first client, how to present it warmly and confidently, and how to handle the 'I need to think about it' response.\n\nBe specific where helpful, ambitious, and above all encouraging and friendly. Speak directly to them as 'you'. No preamble before the first heading.";
     const finalPrompt = isTeamSpace ? prompt : prompt.replace("for a brand-new freelance marketer who works under the Chelgy agency","for a brand-new independent freelance marketer who runs their own marketing business — no agency, they set their own prices and keep 100% of what they charge").replace(/Chelgy Marketing Specialist/g,"[Your Name] Marketing");
     let result = "";
     try { result = await callClaude(finalPrompt, 6000, true); } catch(e){ result = ""; }
@@ -11164,7 +11033,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setAiQ("");
     setAiLoading(true);
     const history = newMsgs.slice(-10).map(m=>(m.role==="user"?"Member: ":"Advisor: ")+m.content).join("\n\n");
-    const prompt = "You are the Chelgy Marketing Advisor — sharp, direct, deeply knowledgeable. Practical, specific, actionable advice. No fluff. Short paragraphs. Bold key points."+(bizContext()?(" You are advising this specific business owner: "+bizContext()+"."):"")+" Continue the conversation naturally, remembering what was said earlier.\n\n"+history+"\n\nAdvisor:";
+    const prompt = "You are the Chelgy Marketing Advisor — sharp, direct, deeply knowledgeable. Practical, specific, actionable advice. No fluff. Short paragraphs. Bold key points. Whenever you recommend a tool or a next step, point them to what Chelgy already does for them FIRST, by name: Website Builder (and buying their domain in-app), Image Creator (logos, flyers, social posts, banners), Product Studio, UGC Studio and Video Studio (UGC and testimonial video), Viral Video Generator, Ad Campaign Builder, Content Writer, Voiceover Studio, Backlink & Authority Builder (SEO), Business Audit, Grant Finder, and Business Manager (clients, invoices, proposals, contracts). Only send them to an outside service for something Chelgy genuinely does not offer (for example email hosting like Google Workspace, or a dedicated email-marketing platform)."+(bizContext()?(" You are advising this specific business owner: "+bizContext()+"."):"")+" Continue the conversation naturally, remembering what was said earlier.\n\n"+history+"\n\nAdvisor:";
     const ans = await callClaude(prompt);
     setAdvisorMsgs(m=>[...m, { role:"advisor", content:ans }]);
     setAiLoading(false);
@@ -12713,6 +12582,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ):(
                 <>
                   <Rich text={selectedStrategy.content} />
+                  <ToolCallout rec={recFor(selectedStrategy.category)} onGo={(t)=>goTab("tools",t)} />
                   <div style={{marginTop:36,background:B.offwhite,padding:"20px 22px",borderLeft:"2px solid "+B.gold}}>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:12}}>Have a specific question about this strategy? Type it below.</div>
                     <textarea value={aiQ} onChange={e=>setAiQ(e.target.value)} rows={3} placeholder={"e.g. How do I apply \""+selectedStrategy.title+"\" to my business?"} style={{width:"100%",padding:"12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",marginBottom:12,boxSizing:"border-box",lineHeight:1.6,background:B.white}} />
@@ -12751,6 +12621,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h1 style={{fontFamily:"Georgia,serif",fontSize:28,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>{guideChapter.title}</h1>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:13,margin:"0 0 24px",letterSpacing:"0.01em"}}>{guideChapter.sub}</p>
               <div style={{fontFamily:"sans-serif"}}><Rich text={guideChapter.content} /></div>
+              <ToolCallout rec={recFor((guideChapter.title||"")+" "+(guideChapter.sub||""))} onGo={(t)=>goTab("tools",t)} />
               <div style={{marginTop:30,paddingTop:20,borderTop:"1px solid "+B.stone,display:"flex",justifyContent:"space-between",gap:12}}>
                 {GUIDE_CHAPTERS[guideChapter.num-2]
                   ? <button onClick={()=>{setGuideChapter(GUIDE_CHAPTERS[guideChapter.num-2]);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:B.charcoal,letterSpacing:"0.04em"}}>← Previous</button>
@@ -12813,6 +12684,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ):(
                 <>
                   <Rich text={selectedPost.content} />
+                  <ToolCallout rec={recFor((selectedPost.tag||"")+" "+(selectedPost.title||""))} onGo={(t)=>goTab("tools",t)} />
                   <div style={{borderTop:"1px solid "+B.stone,paddingTop:28,marginTop:36}}>
                     <h3 style={{fontSize:14,fontWeight:400,margin:"0 0 16px",fontFamily:"Georgia,serif"}}>Comments ({(commentsByPost[selectedPost.id]||[]).length})</h3>
                     <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:18,background:B.stone}}>
