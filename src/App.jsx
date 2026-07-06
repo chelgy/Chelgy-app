@@ -116,9 +116,9 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: home, learn, tools, community, profile.
-Valid tools (use with the tools tab): launch, website, images, productstudio, enhance, manager, video, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
-Examples: to send them to make a UGC video → end with [[GO:tools:video]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:enhance]] . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
+Examples: to send them to make a UGC video → end with [[GO:tools:video]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
 
 ═══ STYLE RULES ═══
@@ -2916,10 +2916,11 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 6px",letterSpacing:"0.02em"}}>{["logo","flyer","social","banner"].includes(iType)?"Powered by GPT Image 2 — best for crisp text & logos":"Powered by Nano Banana 2 (Google Gemini)"}</p>
         <div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"sans-serif",fontSize:11,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
+          {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"],["enhance","Enhance Photo"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
         </div>
         {iType==="set" && <PhotoCatalog onBalance={onBalance} />}
-        {!["set"].includes(iType) && (<>
+        {iType==="enhance" && <EnhancePhoto onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
+        {!["set","enhance"].includes(iType) && (<>
         <Card style={{padding:"22px",marginBottom:14}}>
           {!["ad","product","logo","flyer","banner"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
           <Fl label="Your image prompt — edit anything you like"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="Your AI-written prompt appears here — or write your own. Describe the subject, style, colors, lighting, and mood." rows={4} /></Fl>
@@ -3019,7 +3020,6 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
-      {tool==="enhance"&&<EnhancePhoto onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
       {tool==="manager"&&<BusinessManager user={user} bizCtx={bizCtx} locked={locked} onUpgrade={onUpgrade} />}
 
@@ -3381,7 +3381,9 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", enhance:"Enhance Photo & Headshots", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+// Tool display order (most-used first). Change this one line to reorder tools everywhere.
+const TOOL_ORDER = ["launch","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -4151,7 +4153,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Tool Demo Media</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a photo or video for any tool. The <strong>thumbnail</strong> shows on the tool's card in the Tools Hub; the <strong>inside the tool</strong> one shows at the top of that tool, above its description. You can use different images for each. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it.</p>
               <div style={{maxHeight:360,overflowY:"auto",marginBottom:16,paddingRight:4}}>
-                {Object.keys(TOOL_LABELS).filter(k=>k!=="launch").map(k=>(
+                {Object.keys(TOOL_LABELS).sort((a,b)=>TOOL_ORDER.indexOf(a)-TOOL_ORDER.indexOf(b)).map(k=>(
                   <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                     <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{TOOL_LABELS[k]}</div>
                     <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Thumbnail · Tools Hub card</div>
@@ -8380,7 +8382,7 @@ function bmPrint(title, innerHtml) {
 }
 
 function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
-  const TABS = [["clients", "Clients"], ["invoices", "Invoices"], ["proposals", "Proposals"], ["contracts", "Contracts"]];
+  const TABS = [["clients", "Clients"], ["invoices", "Invoices"], ["payments", "Payments"], ["proposals", "Proposals"], ["contracts", "Contracts"]];
   const [tab, setTab] = useState("clients");
   const [clients, setClients] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -8473,6 +8475,17 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
       "<tr><td colspan='3' class='r tot'>Total</td><td class='r tot'>" + money(invTotal(inv), inv.currency) + "</td></tr></table>" +
       (inv.notes ? "<p class='muted'>" + inv.notes + "</p>" : "");
     bmPrint("Invoice " + (inv.number || ""), html);
+  }
+  function printReceipt(inv) {
+    const rows = (inv.items || []).map(it => "<tr><td>" + (it.desc || "") + "</td><td class='r'>" + (Number(it.qty) || 0) + "</td><td class='r'>" + money(it.price, inv.currency) + "</td><td class='r'>" + money((Number(it.qty) || 0) * (Number(it.price) || 0), inv.currency) + "</td></tr>").join("");
+    const paidOn = inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : new Date().toLocaleDateString();
+    const html = "<h1>Receipt</h1><div class='muted'>For Invoice " + (inv.number || "") + (inv.client_name ? " · " + inv.client_name : "") + "</div><div class='muted'>Paid on " + paidOn + "</div>" +
+      "<table><tr><th>Description</th><th class='r'>Qty</th><th class='r'>Price</th><th class='r'>Amount</th></tr>" + rows +
+      "<tr><td colspan='3' class='r'>Subtotal</td><td class='r'>" + money(invSubtotal(inv), inv.currency) + "</td></tr>" +
+      (Number(inv.tax) ? "<tr><td colspan='3' class='r'>Tax (" + inv.tax + "%)</td><td class='r'>" + money(invSubtotal(inv) * (Number(inv.tax) / 100), inv.currency) + "</td></tr>" : "") +
+      "<tr><td colspan='3' class='r tot'>Total Paid</td><td class='r tot'>" + money(invTotal(inv), inv.currency) + "</td></tr></table>" +
+      "<p class='muted'>Payment received in full — thank you!</p>";
+    bmPrint("Receipt " + (inv.number || ""), html);
   }
   function printDoc(kind, d) {
     const html = "<h1>" + (d.title || (kind === "proposal" ? "Proposal" : "Contract")) + "</h1>" + (d.client_name ? "<div class='muted'>Prepared for " + d.client_name + "</div>" : "") + bmMdToHtml(d.body) + (kind === "contract" && d.signed_name ? "<div class='sign'><div class='line'>Signed: " + d.signed_name + (d.signed_at ? " · " + new Date(d.signed_at).toLocaleDateString() : "") + "</div></div>" : (kind === "contract" ? "<div class='sign'><div class='line'>Client signature</div><div class='line'>Date</div></div>" : ""));
@@ -8616,6 +8629,42 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
           </div>
         </div>
       )}
+
+      {tab === "payments" && (() => {
+        const paid = invoices.filter(i => i.status === "paid").slice().sort((a, b) => new Date(b.paid_at || b.created_at) - new Date(a.paid_at || a.created_at));
+        const cur = (paid[0] || invoices[0] || {}).currency;
+        const now = new Date();
+        const sum = (arr) => arr.reduce((s2, i) => s2 + invTotal(i), 0);
+        const monthPaid = paid.filter(i => { const d = new Date(i.paid_at || i.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+        return (
+          <div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+              {[["Received this month", money(sum(monthPaid), cur)], ["Received all time", money(sum(paid), cur)], ["Payments", paid.length]].map(([k, v], i) => (
+                <div key={i} style={{ flex: "1 1 30%", minWidth: 90, background: B.offwhite, border: "1px solid " + B.stone, padding: "11px 13px" }}>
+                  <div style={{ fontFamily: "sans-serif", fontSize: 9, letterSpacing: "0.12em", color: B.mid, textTransform: "uppercase" }}>{k}</div>
+                  <div style={{ fontFamily: "Georgia,serif", fontSize: 18, color: B.charcoal, marginTop: 3 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontFamily: "sans-serif", fontSize: 11.5, color: B.mid, lineHeight: 1.6, margin: "0 0 14px" }}>Every invoice you mark paid — or that a client pays online — shows up here as a payment. Tap <strong>Receipt</strong> to print or save a PDF receipt to send your client.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {paid.map(inv => (
+                <div key={inv.id} style={{ background: B.white, border: "1px solid " + B.stone, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, color: B.charcoal }}>{money(invTotal(inv), inv.currency)} <span style={{ fontWeight: 400, color: B.mid }}>· {inv.client_name || "Client"}</span></div>
+                    <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.mid, marginTop: 3 }}>Invoice {inv.number || "—"} · Paid {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontFamily: "sans-serif", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, padding: "3px 9px", background: B.charcoal, color: "#fff" }}>Paid</span>
+                    <button style={secBtn()} onClick={() => printReceipt(inv)}>Receipt</button>
+                  </div>
+                </div>
+              ))}
+              {!paid.length && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.mid, padding: "8px 0" }}>No payments yet. When you mark an invoice paid, it will appear here with a printable receipt.</div>}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══ PROPOSALS & CONTRACTS (shared) ══ */}
       {(tab === "proposals" || tab === "contracts") && (() => {
@@ -9433,6 +9482,9 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   const [status, setStatus] = useState("");
   const [saveMsg, setSaveMsg] = useState("");
   const [pw, setPw] = useState(false);
+  const [refClip, setRefClip] = useState(null);
+  const [refFrame, setRefFrame] = useState(null);
+  const [refBusy, setRefBusy] = useState(false);
   useEffect(()=>{ if(startImg) setPhoto(startImg); }, [startImg]);
   const DUR = [5, 10, 15];
   function cost(){ return CREDIT_COSTS.seedanceSec * Number(dur); }
@@ -9456,16 +9508,51 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   }
   async function save(){ if(!url) return; setSaveMsg("Saving…"); const r=await saveToLibrary(user,"video","UGC Video",url); setSaveMsg(r.ok?"✓ Saved to your Library":("Couldn't save: "+(r.error||"error"))); setTimeout(()=>setSaveMsg(""),4000); }
   function dl(){ const a=document.createElement("a"); a.href=url; a.download="ugc-video.mp4"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+  function grabFrame(src){
+    return new Promise((resolve,reject)=>{
+      const v=document.createElement("video");
+      v.muted=true; v.playsInline=true; v.preload="auto";
+      v.onloadeddata=()=>{ try{ v.currentTime=Math.min(1,(v.duration||2)/3); }catch(e){ resolve(null); } };
+      v.onseeked=()=>{ try{ const c=document.createElement("canvas"); c.width=v.videoWidth||720; c.height=v.videoHeight||1280; c.getContext("2d").drawImage(v,0,0,c.width,c.height); resolve(c.toDataURL("image/jpeg",0.85)); }catch(e){ reject(e); } };
+      v.onerror=()=>reject(new Error("video")); v.src=src;
+    });
+  }
+  function loadImg(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+  async function buildVisionImage(){
+    if(refFrame && photo){
+      try{
+        const [a,b]=await Promise.all([loadImg(photo),loadImg(refFrame)]);
+        const H=512; const wa=Math.max(64,Math.round(H*(a.width/a.height))||384); const wb=Math.max(64,Math.round(H*(b.width/b.height))||384);
+        const c=document.createElement("canvas"); c.width=wa+wb+12; c.height=H; const ctx=c.getContext("2d");
+        ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,c.width,c.height);
+        ctx.drawImage(a,0,0,wa,H); ctx.drawImage(b,wa+12,0,wb,H);
+        return c.toDataURL("image/jpeg",0.85);
+      }catch(e){ return photo; }
+    }
+    return refFrame || photo || null;
+  }
+  function onRefUpload(e){
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=async()=>{ const src=r.result; setRefClip(src); setRefFrame(null); setRefBusy(true); try{ const fr=await grabFrame(src); if(fr) setRefFrame(fr); }catch(err){} setRefBusy(false); };
+    r.readAsDataURL(f); e.target.value="";
+  }
   async function writePrompt(){
     if(pw) return;
     setPw(true);
     try{
-      const seeNote = photo ? " A REFERENCE PHOTO of the exact creator is attached — study it closely and keep the prompt TRUE to that same person: their face, hair, outfit, setting and overall vibe. Do not restyle or change who they are; only describe natural motion and an action that would fit them and their surroundings." : "";
+      const vis = await buildVisionImage();
+      const seeNote = (refFrame && photo)
+        ? " Two images are attached SIDE BY SIDE: the LEFT image is the exact creator to keep (their face, hair, outfit — never change them); the RIGHT image is a frame from a reference clip showing the scene, action and vibe. Base the movement, action and camera feel on the RIGHT reference, while keeping the LEFT creator's identity intact."
+        : refFrame
+          ? " A frame from a reference clip is attached — study the scene, action, framing and vibe in it, and base the movement and camera feel on what you see."
+          : photo
+            ? " A REFERENCE PHOTO of the exact creator is attached — study it closely and keep the prompt TRUE to that same person: their face, hair, outfit and vibe. Do not restyle or change who they are; only describe natural motion and an action that fits them." : "";
       const brief = "You are a UGC (user-generated content) video director. Write ONE short video prompt for an AI video generator (Seedance) that animates a still photo of a real content creator into an authentic, handheld, talking-to-camera clip."
         + seeNote + " "
         + (prompt.trim() ? ("Base it on this idea: " + prompt.trim() + ". ") : "")
         + "Describe the creator's natural movement and expression, ONE simple action (like holding a product up or gesturing), and the camera feel (handheld phone front camera). Keep it 2-3 sentences, concrete and filmable. No hashtags, no quoted dialogue, no headings — just the visual prompt.";
-      const out = await callClaude(brief, 400, false, photo || null);
+      const out = await callClaude(brief, 400, false, vis);
       if(out && out.trim() && !/^(Unable to generate|Something went wrong)/.test(out)) setPrompt(out.trim());
     }catch(e){}
     setPw(false);
@@ -9486,9 +9573,21 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
           : <label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em",marginBottom:10}}>Tap to upload a creator shot — or make one in the Character tab and hit “Use in video”<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>}
         <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,margin:"4px 0 7px",textTransform:"uppercase"}}>Describe the video (optional)</div>
         <St value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="e.g. She smiles, waves at the camera, then holds the product up next to her face…" rows={3} />
+        {refClip ? (
+          <div style={{display:"flex",alignItems:"center",gap:10,margin:"8px 0 2px"}}>
+            <video src={refClip} muted playsInline preload="metadata" style={{width:60,height:76,objectFit:"cover",border:"1px solid "+B.gold,background:"#000"}} />
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.charcoal,fontWeight:700}}>Reference clip added{refBusy?" — reading a frame…":(refFrame?" ✓":"")}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:9.5,color:B.mid,lineHeight:1.45,marginTop:2}}>Helps Claude picture the scene &amp; action for your prompt. (Matching the actual motion in the video is coming soon.)</div>
+            </div>
+            <button onClick={()=>{ setRefClip(null); setRefFrame(null); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"5px 9px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
+          </div>
+        ) : (
+          <label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"10px 12px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,margin:"8px 0 2px"}}>+ Add a reference clip (optional) — lets Claude see the scene<input type="file" accept="video/*" onChange={onRefUpload} style={{display:"none"}} /></label>
+        )}
         <div style={{display:"flex",alignItems:"center",gap:10,margin:"8px 0 2px",flexWrap:"wrap"}}>
           <button onClick={writePrompt} disabled={pw} style={{background:pw?B.stone:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:pw?"default":"pointer",textTransform:"uppercase"}}>{pw?"Writing…":"✨ Write this with Claude"}</button>
-          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid}}>Claude reads your creator photo (when attached) and writes a prompt true to them.</span>
+          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid}}>Claude reads your creator photo &amp; reference clip (when added) and writes a prompt true to them.</span>
         </div>
         <details style={{margin:"4px 0 2px",fontFamily:"sans-serif"}}>
           <summary style={{fontSize:10.5,color:B.goldDark,cursor:"pointer",letterSpacing:"0.04em",fontWeight:700}}>How to get the best UGC result →</summary>
@@ -10465,7 +10564,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Business Builder"],["website","Website Builder"],["images","Image Creator"],["productstudio","Product Studio"],["enhance","Enhance Photo"],["manager","Business Manager"],["video","Video Studio"],["ugcstudio","UGC Studio"],["viral","Viral Video"],["ads","Ad Builder"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Coach"],["grants","Grant Finder"],["content","Content Writer"],["backlinks","Backlink Builder"],["dropshipping","Dropshipping"],["platforms","Platform Guides"]],
+    tools: [["hub","All Tools"],["library","My Library"],["launch","Business Builder"],["content","Content Writer"],["images","Image Creator"],["manager","Business Manager"],["website","Website Builder"],["viral","Viral Video"],["ugcstudio","UGC Studio"],["video","Video Studio"],["ads","Ad Builder"],["productstudio","Product Studio"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Coach"],["platforms","Platform Guides"],["backlinks","Backlink Builder"],["grants","Grant Finder"],["dropshipping","Dropshipping"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -12748,7 +12847,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"enhance",Icon:Icons.Image,title:"Enhance Photo & Headshots",desc:"Upload a photo of yourself and get a polished professional headshot or portrait — you pick the outfit and setting, your real face stays you."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].map(t=>(
+                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Scripts, storyboards, and AI prompts for HeyGen, Runway, Kling, Sora, and Pika."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].slice().sort((a,b)=>TOOL_ORDER.indexOf(a.id)-TOOL_ORDER.indexOf(b.id)).map(t=>(
                   <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
                     <div>
