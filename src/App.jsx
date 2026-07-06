@@ -9460,10 +9460,12 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     if(pw) return;
     setPw(true);
     try{
-      const brief = "You are a UGC (user-generated content) video director. Write ONE short video prompt for an AI video generator (Seedance) that animates a still photo of a real content creator into an authentic, handheld, talking-to-camera clip. "
+      const seeNote = photo ? " A REFERENCE PHOTO of the exact creator is attached — study it closely and keep the prompt TRUE to that same person: their face, hair, outfit, setting and overall vibe. Do not restyle or change who they are; only describe natural motion and an action that would fit them and their surroundings." : "";
+      const brief = "You are a UGC (user-generated content) video director. Write ONE short video prompt for an AI video generator (Seedance) that animates a still photo of a real content creator into an authentic, handheld, talking-to-camera clip."
+        + seeNote + " "
         + (prompt.trim() ? ("Base it on this idea: " + prompt.trim() + ". ") : "")
         + "Describe the creator's natural movement and expression, ONE simple action (like holding a product up or gesturing), and the camera feel (handheld phone front camera). Keep it 2-3 sentences, concrete and filmable. No hashtags, no quoted dialogue, no headings — just the visual prompt.";
-      const out = await callClaude(brief, 400);
+      const out = await callClaude(brief, 400, false, photo || null);
       if(out && out.trim() && !/^(Unable to generate|Something went wrong)/.test(out)) setPrompt(out.trim());
     }catch(e){}
     setPw(false);
@@ -9486,7 +9488,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
         <St value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="e.g. She smiles, waves at the camera, then holds the product up next to her face…" rows={3} />
         <div style={{display:"flex",alignItems:"center",gap:10,margin:"8px 0 2px",flexWrap:"wrap"}}>
           <button onClick={writePrompt} disabled={pw} style={{background:pw?B.stone:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:pw?"default":"pointer",textTransform:"uppercase"}}>{pw?"Writing…":"✨ Write this with Claude"}</button>
-          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid}}>Let Claude turn your idea into a filmable UGC prompt.</span>
+          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid}}>Claude reads your creator photo (when attached) and writes a prompt true to them.</span>
         </div>
         <details style={{margin:"4px 0 2px",fontFamily:"sans-serif"}}>
           <summary style={{fontSize:10.5,color:B.goldDark,cursor:"pointer",letterSpacing:"0.04em",fontWeight:700}}>How to get the best UGC result →</summary>
