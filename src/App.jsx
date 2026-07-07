@@ -1760,7 +1760,7 @@ function OrdersPanel({ user }){
     </div>
   );
 }
-function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, isAdmin=false }) {
+function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, isAdmin=false, startType=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
@@ -2288,7 +2288,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   const [cBiz,setCBiz]=useState("");const [cTopic,setCTopic]=useState("");const [cTone,setCTone]=useState("Confident & Direct");
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
   const [cSeoType,setCSeoType]=useState("Blog Post");const [cKeyword,setCKeyword]=useState("");
-  const [iType,setIType]=useState("ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("editorial-porcelain");const [iTransparent,setITransparent]=useState(false);
+  const [iType,setIType]=useState(startType||"ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("editorial-porcelain");const [iTransparent,setITransparent]=useState(false);
   const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
   const [ipwIdea,setIpwIdea]=useState("");const [ipwLoad,setIpwLoad]=useState(false);const [ipwErr,setIpwErr]=useState("");
@@ -3392,15 +3392,15 @@ const DAILY_POOL = [
 const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
-  content:   ["content",   "Content Writer",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
-  images:    ["images",    "Image Creator",                "Create the visuals, logos, flyers and graphics for this in the Image Creator."],
-  ads:       ["ads",       "Ad Campaign Builder",          "Build a ready-to-launch ad campaign for this in the Ad Campaign Builder."],
-  website:   ["website",   "Website Builder",              "Build the site, funnel or landing page — and grab a domain — in the Website Builder."],
-  backlinks: ["backlinks", "Backlink & Authority Builder", "Get backlinks and climb the rankings with the Backlink & Authority Builder."],
-  ugcstudio: ["ugcstudio", "UGC Studio",                   "Make creator-style UGC content for this in the UGC Studio."],
-  video:     ["video",     "Video Studio",                 "Turn this into video — no camera needed — in the Video Studio."],
-  audit:     ["audit",     "Business Audit",               "See exactly where you stand online first with a free Business Audit."],
-  platforms: ["platforms", "Platform Setup Guides",        "Get every profile set up the right way with the Platform Setup Guides."],
+  content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
+  images:    ["cat_photo", "Photo & Design",                "Create the visuals, logos, flyers and graphics for this in the Image Creator."],
+  ads:       ["cat_ads", "Advertising",          "Build a ready-to-launch ad campaign for this in the Ad Campaign Builder."],
+  website:   ["cat_website", "Website Builder",              "Build the site, funnel or landing page — and grab a domain — in the Website Builder."],
+  backlinks: ["cat_seo", "SEO", "Get backlinks and climb the rankings with the Backlink & Authority Builder."],
+  ugcstudio: ["cat_video", "Video Studio",                   "Make creator-style UGC content for this in the UGC Studio."],
+  video:     ["cat_video", "Video Studio",                 "Turn this into video — no camera needed — in the Video Studio."],
+  audit:     ["cat_build", "Business Builder",               "See exactly where you stand online first with a free Business Audit."],
+  platforms: ["cat_seo", "SEO",        "Get every profile set up the right way with the Platform Setup Guides."],
 };
 function recFor(topic){
   const t=(topic||"").toLowerCase();
@@ -3427,6 +3427,48 @@ function ToolCallout({ rec, onGo }){
 }
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
 const TOOL_ORDER = ["launch","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
+const CATEGORIES = [
+  { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
+    tabs:[ {label:"Business Builder",tool:"launch"}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
+  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
+    tabs:[ {label:"Website Builder",tool:"website"}, {label:"Dropshipping Directory",tool:"dropshipping"} ] },
+  { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Climb the rankings and get found on Google.",
+    tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
+  { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
+    tabs:[ {label:"Viral Ideas",tool:"viral"}, {label:"UGC",tool:"ugcstudio"}, {label:"Cinematic Video",tool:"video"}, {label:"Voiceover",tool:"voiceover"} ] },
+  { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
+    tabs:[ {label:"Product Photos",tool:"productstudio"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"}, {label:"Banners",tool:"images",startType:"banner"}, {label:"Logos",tool:"images",startType:"logo"}, {label:"Photo Set",tool:"images",startType:"set"} ] },
+  { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan and write ads that convert.",
+    tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"} ] },
+  { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Everything to plan, create, and post your content.",
+    tabs:[ {label:"Content Writer",tool:"content"}, {label:"Platform Setup Guides",tool:"platforms"}, {label:"Viral Ideas",tool:"viral"}, {label:"UGC",tool:"ugcstudio"}, {label:"Product Photos",tool:"productstudio"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"} ] },
+  { id:"cat_paper", title:"Paperwork", icon:"Chart", blurb:"Clients, invoices, proposals, and contracts.",
+    tabs:[ {label:"Business Manager",tool:"manager"} ] },
+];
+const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
+function CategoryView({ cat, toolsProps, isLockedTool }){
+  const [ti,setTi]=useState(0);
+  const tabs=(cat&&cat.tabs)||[];
+  const active=tabs[ti]||tabs[0]||{};
+  const Ic=Icons[cat.icon]||Icons.Star;
+  return (
+    <div style={{paddingTop:28}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"0 20px"}}>
+        <button onClick={()=>toolsProps.onBack&&toolsProps.onBack()} style={{background:"none",border:"none",color:B.mid,fontFamily:"sans-serif",fontSize:11,cursor:"pointer",padding:0,marginBottom:14,letterSpacing:"0.04em"}}>{"\u2190 All tools"}</button>
+        <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}><span style={{color:B.charcoal}}><Ic /></span><h2 style={{fontSize:22,fontWeight:400,margin:0,color:B.charcoal}}>{cat.title}</h2></div>
+        {cat.blurb&&<p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 18px",letterSpacing:"0.01em"}}>{cat.blurb}</p>}
+        <div style={{display:"flex",gap:2,flexWrap:"wrap",borderBottom:"1px solid "+B.stone}}>
+          {tabs.map((t,i)=><Tb key={i} label={t.label} active={i===ti} onClick={()=>setTi(i)} />)}
+        </div>
+        {active.note&&<div style={{background:B.offwhite,borderLeft:"2px solid "+B.gold,padding:"12px 14px",margin:"16px 0 0",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>{active.note}</div>}
+      </div>
+      <div style={{paddingTop:8}}>
+        <ToolsPage key={active.tool+"-"+(active.startType||"")} {...toolsProps} tool={active.tool} startType={active.startType||null} locked={isLockedTool?isLockedTool(active.tool):false} />
+      </div>
+    </div>
+  );
+}
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function dailyTasksFor(dateStr){
@@ -10475,6 +10517,20 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         return;
       }
     }
+    // OAuth returned an ERROR (common with Apple when the Supabase provider config
+    // is incomplete, or when Apple sends no email on a repeat sign-in). Surface the
+    // real message instead of silently dropping to onboarding.
+    if (hash.indexOf("error") > -1 || window.location.search.indexOf("error") > -1) {
+      try {
+        const raw = (hash.indexOf("error") > -1) ? hash.replace(/^#/, "") : window.location.search.replace(/^\?/, "");
+        const ep = new URLSearchParams(raw);
+        const desc = (ep.get("error_description") || ep.get("error") || "").replace(/\+/g, " ");
+        if (desc) pushNotif("Sign-in error: " + decodeURIComponent(desc));
+      } catch (e) {}
+      setPage("onboarding");
+      try { window.history.replaceState({}, "", "/"); } catch {}
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const isAdminUrl = window.location.search.includes("admin");
     const isPay = params.get("payment")==="success";
@@ -12768,27 +12824,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {[{id:"launch",Icon:Icons.Star,title:"Business Builder",desc:"Answer a few questions and Chelgy builds your entire business — a complete published website, logo, brand strategy, social media plan, and launch roadmap, all powered by AI."},{id:"website",Icon:Icons.Globe,title:"Website Builder",desc:"Answer a few questions and Chelgy writes and publishes a complete luxury website for you — headline, story, offerings, and contact — at a shareable link."},{id:"images",Icon:Icons.Image,title:"AI Image Creator",desc:"Powered by Nano Banana 2. Logos, flyers, social graphics, banners, and product images."},{id:"productstudio",Icon:Icons.Image,title:"Product Studio",desc:"Upload your product and drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model."},{id:"manager",Icon:Icons.Chart,title:"Business Manager",desc:"Your clients (CRM), invoices with Stripe payment links, proposals, and contracts — all in one place."},{id:"video",Icon:Icons.Video,title:"AI Video Studio",desc:"Generate finished marketing videos right in Chelgy — from script to cinematic clip, up to 4K, ready to download."},{id:"ugcstudio",Icon:Icons.Video,title:"UGC Studio",desc:"Build a consistent UGC creator, then bring any shot to life as a Seedance 2.0 video."},{id:"viral",Icon:Icons.Flame,title:"Viral Video Generator",desc:"Enter your business and get viral video ideas, the best format, a hook, full script, caption, and hashtags."},{id:"ads",Icon:Icons.Target,title:"Ad Campaign Builder",desc:"Get ad copy, creative direction, exact audience targeting, and budget for Facebook, Instagram, and TikTok."},{id:"audit",Icon:Icons.Chart,title:"Business Audit & Competitors",desc:"We scan your online presence, show what to improve, and compare you against your competitors."},{id:"voiceover",Icon:Icons.Mic,title:"AI Voiceover Studio",desc:"Turn any script into a natural, studio-quality voiceover in seconds."},{id:"business",Icon:Icons.Building,title:"Business Coach",desc:"Stage-by-stage launch plans and a 24/7 AI business coach."},{id:"grants",Icon:Icons.Grant,title:"Grant Finder",desc:"Enter your business and we'll search the web for real grants and funding you might qualify for."},{id:"content",Icon:Icons.Wand,title:"AI Content Writer",desc:"Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blog, email, and ad copy."},{id:"backlinks",Icon:Icons.Target,title:"Backlink & Authority Builder",desc:"Find real, white-hat places to get your business linked, listed & featured — with the outreach written for you."},{id:"dropshipping",Icon:Icons.Package,title:"Dropshipping Directory",desc:"12+ vetted suppliers with direct links, niches, shipping times, and honest notes."},{id:"platforms",Icon:Icons.Globe,title:"Platform Setup Guides",desc:"Step-by-step setup and posting guides for all major business platforms."}].slice().sort((a,b)=>TOOL_ORDER.indexOf(a.id)-TOOL_ORDER.indexOf(b.id)).map(t=>(
-                  <div key={t.id} onClick={()=>setSubTab(t.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
-                    <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><t.Icon /></div>
+                {CATEGORIES.map(c=>{ const Ic=Icons[c.icon]||Icons.Star; return (
+                  <div key={c.id} onClick={()=>setSubTab(c.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
+                    <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><Ic /></div>
                     <div>
-                      <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 6px",letterSpacing:"0.02em"}}>{t.title}</h3>
-                      {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[t.id],"thumb"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
-                        <div style={{margin:"0 0 8px",border:"1px solid "+B.stone,background:"#000",lineHeight:0,width:"100%",maxWidth:200,aspectRatio:"1 / 1",overflow:"hidden",pointerEvents:"none"}}>
-                          {isVid
-                            ? <video src={u} muted playsInline preload="metadata" style={{width:"100%",height:"100%",display:"block",objectFit:"cover"}} />
-                            : <img src={u} alt="" style={{width:"100%",height:"100%",display:"block",objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
-                        </div>
-                      ); })()}
-                      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.65,margin:0}}>{t.desc}</p>
+                      <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 6px",letterSpacing:"0.02em"}}>{c.title}</h3>
+                      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.65,margin:"0 0 8px"}}>{c.blurb}</p>
+                      <p style={{fontFamily:"sans-serif",fontSize:10,color:B.gold,lineHeight:1.5,margin:0,letterSpacing:"0.02em"}}>{c.tabs.map(t=>t.label).join(" · ")}</p>
                     </div>
                   </div>
-                ))}
+                ); })}
               </div>
             </div>
           )}
 
-          {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&(
+          {tab==="tools"&&CAT_BY_ID[subTab]&&(
+            <CategoryView cat={CAT_BY_ID[subTab]}
+              isLockedTool={(t)=> isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(t)) : false}
+              toolsProps={{ onBack:()=>{ setFromLaunch(false); setSubTab("hub"); }, onGoTool:(t)=>goTab("tools", t), credits, useCredits, onBuyCredits:()=>setShowCredits(true), onUpgrade:()=>setShowPaywall(true), onBalance:(n)=>{ if(typeof n==="number") setCredits(n); }, bizCtx:bizContext(), user, prefill, onPrefillDone:()=>setPrefill(null), onBrandProgress:markBrand, multiSite:(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace, marketerMode:isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved"), fromLaunch, onBackToLaunch:()=>{ setFromLaunch(false); setSubTab("launch"); }, onToolUse:logLedger, toolMedia, isAdmin }} />
+          )}
+
+          {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&!CAT_BY_ID[subTab]&&(
             <div style={{paddingTop:28}}>
               <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} isAdmin={isAdmin} />
             </div>
