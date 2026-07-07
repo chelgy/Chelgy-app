@@ -3533,6 +3533,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [inquiriesList, setInquiriesList] = useState([]);
   const [deliverablesList, setDeliverablesList] = useState([]);
   const [inquiriesErr, setInquiriesErr] = useState("");
+  const [reportsList, setReportsList] = useState([]);
+  const [reportsErr, setReportsErr] = useState("");
   const [deliverablesErr, setDeliverablesErr] = useState("");
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
@@ -3595,6 +3597,19 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       }
     }catch(e){ setDeliverablesErr("Couldn't reach the server: "+(e&&e.message||"network error")); }
   }
+  async function loadReports(){
+    setReportsErr("");
+    try{
+      const res=await fetch("/api/community-reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"list",password:ADMIN_PASSWORD})});
+      if(res.ok){ const d=await res.json(); setReportsList(d.reports||[]); }
+      else { let m=""; try{ const t=await res.text(); try{const j=JSON.parse(t);m=j.error||t;}catch{m=t;} }catch{} setReportsErr(m||("server error "+res.status)); }
+    }catch(e){ setReportsErr("Couldn't load reports."); }
+  }
+  async function resolveReport(id){
+    setReportsList(l=>l.filter(r=>r.id!==id));
+    try{ await fetch("/api/community-reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"resolve",id,password:ADMIN_PASSWORD})}); }catch(e){}
+  }
+  useEffect(()=>{ if(view==="reports") loadReports(); },[view]);
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
@@ -3767,7 +3782,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["reports","Reports"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:"1 1 90px",minWidth:90,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px 8px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.08em",fontWeight:view===id?700:400,textAlign:"center"}}>
               {label.toUpperCase()}
             </button>
@@ -3955,6 +3970,30 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
           </div>
         )}
 
+        {view==="reports"&&(
+          <div>
+            <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Community Reports</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px"}}>Members flag posts and replies here. Remove the content or dismiss the report \u2014 aim to act within 24 hours.</p>
+            {reportsErr&&<div style={{background:"#FDECEA",border:"1px solid #C0392B",padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",marginBottom:14}}>{reportsErr}</div>}
+            {reportsList.length===0&&!reportsErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",padding:"20px",background:"#F7F6F4",border:"1px solid #E8E6E1"}}>No open reports right now.</div>}
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {reportsList.map(rp=>(
+                <div key={rp.id} style={{border:"1px solid #E8E6E1",padding:"14px 16px",background:"#fff"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:8}}>
+                    <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.04em"}}>{rp.post_id?"POST":"REPLY"} by {rp.target_author||"unknown"}</span>
+                    <span style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>reported by {rp.reporter_name||"a member"}</span>
+                  </div>
+                  {rp.reason&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#C0392B",marginBottom:6}}>Reason: {rp.reason}</div>}
+                  {rp.snippet&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#333",background:"#F7F6F4",padding:"10px 12px",marginBottom:10,lineHeight:1.5}}>{rp.snippet}</div>}
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={async()=>{ const tok=await freshToken(); try{ if(rp.post_id){ await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-post",id:rp.post_id})}); } else if(rp.comment_id){ await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-comment",id:rp.comment_id})}); } }catch(e){} resolveReport(rp.id); }} style={{background:"#C0392B",color:"#fff",border:"none",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete content</button>
+                    <button onClick={()=>resolveReport(rp.id)} style={{background:"none",color:"#6B6B6B",border:"1px solid #E8E6E1",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Dismiss</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {view==="inquiries"&&(
           <div>
             <div style={{width:24,height:1,background:"#B8955A",marginBottom:16}} />
@@ -10195,6 +10234,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // ─── Forum / community: real data from Supabase (seed posts stay as decoration) ──
   async function loadForum(){
     if(forumLoaded) return; setForumLoaded(true);
+    loadBlocks();
     try {
       const marketerSpace = isTeamSpace && marketerStatus==="approved";
       const audFilter = marketerSpace ? "&audience=eq.marketer" : "&or=(audience.eq.consumer,audience.is.null)";
@@ -10209,6 +10249,26 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       const real = rows.map(r=>({ id:"db-"+r.id, dbId:r.id, real:true, cat:r.category, author:r.author_name, avatar:(r.author_name||"M")[0], time:relTime(r.created_at), pinned:false, title:r.title, body:r.body, upvotes:r.upvotes||0, replies: byPost[r.id]||[] }));
       setForumPosts([...real, ...seeds]);
     } catch(e){}
+  }
+  async function loadBlocks(){
+    try{ const tok=await freshToken(); if(!tok||!user||!user.id) return;
+      const r=await fetch(SUPABASE_URL+"/rest/v1/forum_blocks?select=blocked_name&blocker_id=eq."+user.id,{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
+      const rows=await r.json(); if(Array.isArray(rows)) setBlockedNames(new Set(rows.map(x=>x.blocked_name)));
+    }catch(e){}
+  }
+  async function reportContent(opts){
+    const o=opts||{}; const reason=(window.prompt("Report this content \u2014 tell us what's wrong (optional):")||"").trim();
+    try{ const tok=await freshToken();
+      await fetch(SUPABASE_URL+"/rest/v1/forum_reports",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+(tok||SUPABASE_KEY),"Content-Type":"application/json"},body:JSON.stringify({reporter_id:(user&&user.id)||null,reporter_name:myName||"Member",post_id:o.postId||null,comment_id:o.commentId||null,target_author:o.author||"",reason:reason,snippet:(o.snippet||"").slice(0,300)})});
+    }catch(e){}
+    pushNotif("Thanks \u2014 this has been reported to our team and will be reviewed.");
+  }
+  async function blockAuthor(name){
+    if(!name) return; if(!window.confirm("Block "+name+"? You won't see their posts or replies anymore.")) return;
+    setBlockedNames(sset=>{ const n=new Set(sset); n.add(name); return n; });
+    try{ const tok=await freshToken(); if(tok&&user&&user.id){ await fetch(SUPABASE_URL+"/rest/v1/forum_blocks",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({blocker_id:user.id,blocked_name:name})}); } }catch(e){}
+    if(selectedForumPost && selectedForumPost.author===name) setSelectedForumPost(null);
+    pushNotif(name+" has been blocked.");
   }
   async function loadMembers(){
     try {
@@ -10319,6 +10379,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // Forum state
   const [forumPosts, setForumPosts] = useState(isTeamSpace ? MARKETER_SEED_POSTS : SEED_POSTS);
   const [forumLoaded, setForumLoaded] = useState(false);
+  const [blockedNames, setBlockedNames] = useState(()=>new Set());
   const [realMembers, setRealMembers] = useState([]);
   const [forumCat, setForumCat] = useState("all");
   const [forumReply, setForumReply] = useState("");
@@ -13042,8 +13103,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   </div>
                 </div>
               )}
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
-                {forumPosts.filter(p=>forumCat==="all"||p.cat===forumCat).map(post=>(
+              <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"11px 14px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6}}><strong style={{color:B.charcoal,letterSpacing:"0.03em"}}>Community guidelines:</strong> Be respectful. No harassment, hate speech, explicit content, or spam. Use Report on anything that breaks these rules — violations are removed and can lead to a ban. Questions? chelgyapp@gmail.com.</div>
+                <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+                {forumPosts.filter(p=>(forumCat==="all"||p.cat===forumCat)&&!blockedNames.has(p.author)).map(post=>(
                   <div key={post.id} onClick={()=>{setForumReplyName(myName||"");setSelectedForumPost(post);}} style={{background:B.white,padding:"16px 18px",cursor:"pointer"}}>
                     <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0}}>
@@ -13058,7 +13120,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                         </div>
                         <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 4px",letterSpacing:"0.02em"}}>{post.title}</h3>
                         <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 7px",lineHeight:1.55}}>{post.body.slice(0,110)}{post.body.length>110&&"..."}</p>
-                        <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>by {post.author} · {post.time} · {post.replies.length} replies</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>by {post.author} · {post.time} · {post.replies.length} replies</div>{!isAdmin&&post.author!==(myName||"")&&<div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:16,marginTop:9}}><button onClick={()=>reportContent({postId:post.dbId||null,author:post.author,snippet:post.title+" — "+post.body})} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.mid}}>Report</button><button onClick={()=>blockAuthor(post.author)} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.mid}}>Block</button></div>}
                         {isAdmin&&<div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:8,marginTop:10}}>
                           <button onClick={()=>setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,pinned:!p.pinned}:p))} style={{background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{post.pinned?"Unpin":"Pin"}</button>
                           <button onClick={async ()=>{if(window.confirm("Delete this post permanently?")){if(post.real){const tok=await freshToken();try{await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-post",id:post.dbId})});}catch(e){}}setForumPosts(ps=>ps.filter(p=>p.id!==post.id));}}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete</button>
@@ -13076,7 +13138,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <button onClick={()=>setSelectedForumPost(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:22,padding:0,letterSpacing:"0.1em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:6}}><Icons.ChevronLeft /> Forum</button>
               <Tag>{selectedForumPost.cat}</Tag>
               <h1 style={{fontSize:"clamp(17px,3vw,26px)",fontWeight:400,margin:"12px 0 5px",lineHeight:1.3,fontFamily:"Georgia,serif"}}>{selectedForumPost.title}</h1>
-              <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:20,letterSpacing:"0.04em"}}>by {selectedForumPost.author} · {selectedForumPost.time}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:20,letterSpacing:"0.04em"}}>by {selectedForumPost.author} · {selectedForumPost.time}</div>{!isAdmin&&selectedForumPost.author!==(myName||"")&&<div style={{display:"flex",gap:16,marginBottom:20}}><button onClick={()=>reportContent({postId:selectedForumPost.dbId||null,author:selectedForumPost.author,snippet:selectedForumPost.title+" — "+selectedForumPost.body})} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.mid}}>Report</button><button onClick={()=>blockAuthor(selectedForumPost.author)} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.mid}}>Block</button></div>}
               {isAdmin&&<div style={{display:"flex",gap:8,marginBottom:20}}>
                 <button onClick={()=>setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,pinned:!p.pinned}:p))} style={{background:"none",border:"1px solid "+B.gold,color:B.goldDark,padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{selectedForumPost.pinned?"Unpin":"Pin"}</button>
                 <button onClick={async ()=>{if(window.confirm("Delete this post permanently?")){if(selectedForumPost.real){const tok=await freshToken();try{await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-post",id:selectedForumPost.dbId})});}catch(e){}}setForumPosts(ps=>ps.filter(p=>p.id!==selectedForumPost.id));setSelectedForumPost(null);}}} style={{background:"none",border:"1px solid #C0392B",color:"#C0392B",padding:"5px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete Post</button>
@@ -13085,12 +13147,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{borderTop:"1px solid "+B.stone,paddingTop:22}}>
                 <h3 style={{fontSize:13,fontWeight:400,margin:"0 0 14px",fontFamily:"Georgia,serif"}}>Replies ({selectedForumPost.replies.length})</h3>
                 <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:18,background:B.stone}}>
-                  {selectedForumPost.replies.map((r,i)=>(
+                  {selectedForumPost.replies.map((r,i)=> blockedNames.has(r.author) ? null : (
                     <div key={i} style={{background:B.white,padding:"12px 16px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                         <span style={{fontFamily:"sans-serif",fontWeight:700,fontSize:12,letterSpacing:"0.02em"}}>{r.author}</span>
                         <div style={{display:"flex",alignItems:"center",gap:10}}>
-                          <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{r.time}</span>
+                          <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{r.time}</span>{!isAdmin&&r.author!==(myName||"")&&<><button onClick={()=>reportContent({commentId:r.cid||null,author:r.author,snippet:r.text})} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.mid}}>Report</button><button onClick={()=>blockAuthor(r.author)} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.mid}}>Block</button></>}
                           {isAdmin&&<button onClick={async ()=>{if(selectedForumPost.real&&r.cid){const tok=await freshToken();try{await fetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})},body:JSON.stringify({action:"delete-comment",id:r.cid})});}catch(e){}}const nr=selectedForumPost.replies.filter((_,idx)=>idx!==i);setSelectedForumPost(p=>({...p,replies:nr}));setForumPosts(ps=>ps.map(p=>p.id===selectedForumPost.id?{...p,replies:nr}:p));}} style={{background:"none",border:"none",color:"#C0392B",fontSize:9,letterSpacing:"0.08em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",padding:0}}>Delete</button>}
                         </div>
                       </div>
