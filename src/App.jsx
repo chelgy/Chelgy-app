@@ -3437,7 +3437,7 @@ const CATEGORIES = [
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
-    tabs:[ {label:"Product Photos",tool:"images",startType:"product"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"}, {label:"Banners",tool:"images",startType:"banner"}, {label:"Logos",tool:"images",startType:"logo"}, {label:"Photo Set",tool:"images",startType:"set"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan and write ads that convert.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Everything to plan, create, and post your content.",
