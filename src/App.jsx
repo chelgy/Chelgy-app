@@ -9970,7 +9970,7 @@ export default function ChelgyApp() {
     { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
     { target: null, chooser: true, title: "Where would you like to start?", body: "Pick one and I'll take you straight there — you can always explore the rest whenever you like." },
   ];
-  function endTour() { try { localStorage.setItem("chelgy_tour_done", "1"); } catch(e){} setTourStep(null); setSpotRect(null); }
+  function endTour() { try { localStorage.setItem("chelgy_tour_done", "1"); } catch(e){} if(user && user.id){ freshToken().then(tok=>{ if(tok) patchMyMember(tok, user.id, { tour_done: true }); }).catch(()=>{}); } setTourStep(null); setSpotRect(null); }
   function nextTour() { if (tourStep === null) return; if (tourStep >= TOUR_STEPS.length - 1) endTour(); else setTourStep(tourStep + 1); }
   useEffect(()=>{
     if (page!=="app" || isAdmin) return;
@@ -10030,7 +10030,7 @@ export default function ChelgyApp() {
     try { localStorage.setItem("chelgy_intake", JSON.stringify(d)); localStorage.setItem("chelgy_intake_done","1"); localStorage.setItem("chelgy_last_greeting", todayStr()); } catch(e){}
     setIntake(d);
     if(d.what && (!myBusiness)) setMyBusiness(d.what);
-    if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { intake: d });
+    if(user && user.id){ (user.access_token?Promise.resolve(user.access_token):freshToken()).then(tok=>{ if(tok) patchMyMember(tok, user.id, { intake: d, onboarded: true }); }).catch(()=>{}); }
     setShowIntake(false);
     generatePlan(d);
   }
@@ -10733,7 +10733,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.marketer_status){ setMarketerStatus(m.marketer_status); }
       if(m.marketer_data && typeof m.marketer_data === "object"){ setMarketerData(m.marketer_data); if(Array.isArray(m.marketer_data.coach)) setMkCoachMsgs(m.marketer_data.coach); if(m.marketer_data.goals) setMkGoals(g=>({ ...g, ...m.marketer_data.goals })); }
       if(m.marketer_info && typeof m.marketer_info === "object"){ setMkGoals(g=>({ ...g, location: g.location||m.marketer_info.location||"", experience: g.experience||m.marketer_info.experience||"" })); }
-      if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
+      if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); }catch(e){} }
+      if(m.intake || m.onboarded){ try{ localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
+      if(m.tour_done){ try{ localStorage.setItem("chelgy_tour_done","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
       { const nm=(m.name && String(m.name).trim())?m.name:((m.intake && m.intake.name)?String(m.intake.name):""); if(nm){ setMyName(nm); try{ localStorage.setItem("chelgy_name", nm); }catch(e){} } }
       if(m.business){ setMyBusiness(m.business); }
@@ -12372,7 +12374,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {creditError&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#C0392B",color:"#fff",padding:"12px 20px",fontFamily:"sans-serif",fontSize:12,zIndex:9997,letterSpacing:"0.04em",textAlign:"center",maxWidth:340}}>{creditError}</div>}
 
       {/* ── HEADER ── */}
-      <header style={{background:B.white,borderBottom:"1px solid "+B.stone,flexShrink:0,zIndex:300}}>
+      <header style={{background:B.white,borderBottom:"1px solid "+B.stone,flexShrink:0,zIndex:300,paddingTop:"env(safe-area-inset-top, 0px)"}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div onClick={()=>goTab("home")} style={{cursor:"pointer"}}>
             <img src={LOGO_B64} alt="Chelgy" onClick={handleLogoTap} onTouchEnd={handleLogoTap} style={{height:26,objectFit:"contain",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} />
