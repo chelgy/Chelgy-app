@@ -3185,9 +3185,9 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="platforms"&&selP===null&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Platform Setup Guides</h2>
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Step-by-step instructions for every major business platform.</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:B.stone}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:"transparent"}}>
           {PLATFORMS.map((p,i)=>(
-            <div key={i} onClick={()=>{setSelP(i);setGTab("setup");}} style={{background:B.white,padding:"20px",cursor:"pointer"}}>
+            <div key={i} onClick={()=>{setSelP(i);setGTab("setup");}} style={{background:B.white,padding:"20px",cursor:"pointer",boxShadow:"0 0 0 1px "+B.stone}}>
               <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:8}}><span style={{fontSize:22}}>{p.emoji}</span><h3 style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700,margin:0,letterSpacing:"0.02em"}}>{p.name}</h3></div>
               <div style={{display:"flex",alignItems:"center",gap:8,fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>View guide <Icons.ChevronRight /></div>
             </div>
@@ -3429,24 +3429,24 @@ function ToolCallout({ rec, onGo }){
 const TOOL_ORDER = ["launch","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
-    tabs:[ {label:"Business Builder",tool:"launch"}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
+    tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
     tabs:[ {label:"Website Builder",tool:"website"}, {label:"Dropshipping Directory",tool:"dropshipping"} ] },
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Climb the rankings and get found on Google.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
-    tabs:[ {label:"Viral Ideas",tool:"viral"}, {label:"UGC",tool:"ugcstudio"}, {label:"Cinematic Video",tool:"video"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
-    tabs:[ {label:"Product Photos",tool:"productstudio"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"}, {label:"Banners",tool:"images",startType:"banner"}, {label:"Logos",tool:"images",startType:"logo"}, {label:"Photo Set",tool:"images",startType:"set"} ] },
+    tabs:[ {label:"Product Photos",tool:"images",startType:"product"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"}, {label:"Banners",tool:"images",startType:"banner"}, {label:"Logos",tool:"images",startType:"logo"}, {label:"Photo Set",tool:"images",startType:"set"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan and write ads that convert.",
-    tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"} ] },
+    tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Everything to plan, create, and post your content.",
-    tabs:[ {label:"Content Writer",tool:"content"}, {label:"Platform Setup Guides",tool:"platforms"}, {label:"Viral Ideas",tool:"viral"}, {label:"UGC",tool:"ugcstudio"}, {label:"Product Photos",tool:"productstudio"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"} ] },
+    tabs:[ {label:"Content Writer",tool:"content"}, {label:"Viral Ideas",tool:"viral"}, {label:"UGC",tool:"ugcstudio"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"} ] },
   { id:"cat_paper", title:"Paperwork", icon:"Chart", blurb:"Clients, invoices, proposals, and contracts.",
     tabs:[ {label:"Business Manager",tool:"manager"} ] },
 ];
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
-function CategoryView({ cat, toolsProps, isLockedTool }){
+function CategoryView({ cat, toolsProps, isLockedTool, onNav }){
   const [ti,setTi]=useState(0);
   const tabs=(cat&&cat.tabs)||[];
   const active=tabs[ti]||tabs[0]||{};
@@ -3464,7 +3464,9 @@ function CategoryView({ cat, toolsProps, isLockedTool }){
         {active.note&&<div style={{background:B.offwhite,borderLeft:"2px solid "+B.gold,padding:"12px 14px",margin:"16px 0 0",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>{active.note}</div>}
       </div>
       <div style={{paddingTop:8}}>
-        <ToolsPage key={active.tool+"-"+(active.startType||"")} {...toolsProps} tool={active.tool} startType={active.startType||null} locked={isLockedTool?isLockedTool(active.tool):false} />
+        {active.nav
+          ? <div style={{maxWidth:1100,margin:"0 auto",padding:"36px 20px"}}><div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"32px",textAlign:"center"}}><div style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal,marginBottom:8}}>{active.label}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,marginBottom:20,maxWidth:460,marginLeft:"auto",marginRight:"auto"}}>{active.navBlurb||"Opens as a full guided experience."}</div><Btn dark onClick={()=>onNav&&onNav(active.nav)}>{("Open "+active.label).toUpperCase()}</Btn></div></div>
+          : <ToolsPage key={active.tool+"-"+(active.startType||"")} {...toolsProps} tool={active.tool} startType={active.startType||null} locked={isLockedTool?isLockedTool(active.tool):false} />}
       </div>
     </div>
   );
@@ -4238,9 +4240,9 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Tool Demo Media</div>
               <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a photo or video for any tool. The <strong>thumbnail</strong> shows on the tool's card in the Tools Hub; the <strong>inside the tool</strong> one shows at the top of that tool, above its description. You can use different images for each. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it.</p>
               <div style={{maxHeight:360,overflowY:"auto",marginBottom:16,paddingRight:4}}>
-                {Object.keys(TOOL_LABELS).sort((a,b)=>TOOL_ORDER.indexOf(a)-TOOL_ORDER.indexOf(b)).map(k=>(
+                {[...CATEGORIES.map(c=>[c.id,"◆ "+c.title+" — hub card"]), ...Object.keys(TOOL_LABELS).sort((a,b)=>TOOL_ORDER.indexOf(a)-TOOL_ORDER.indexOf(b)).map(k=>[k,TOOL_LABELS[k]])].map(([k,label])=>(
                   <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
-                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{TOOL_LABELS[k]}</div>
+                    <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{label}</div>
                     <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Thumbnail · Tools Hub card</div>
                     <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:8}} />
                     <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Inside the tool · top of page</div>
@@ -10479,7 +10481,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["launch","Business Builder"],["content","Content Writer"],["images","Image Creator"],["manager","Business Manager"],["website","Website Builder"],["viral","Viral Video"],["ugcstudio","UGC Studio"],["video","Video Studio"],["ads","Ad Builder"],["productstudio","Product Studio"],["audit","Business Audit"],["voiceover","Voiceover Studio"],["business","Business Coach"],["platforms","Platform Guides"],["backlinks","Backlink Builder"],["grants","Grant Finder"],["dropshipping","Dropshipping"]],
+    tools: [["hub","All Tools"],["library","My Library"],["cat_build","Business Builder"],["cat_website","Website Builder"],["cat_seo","SEO"],["cat_video","Video Studio"],["cat_photo","Photo & Design"],["cat_ads","Advertising"],["cat_social","Social Media"],["cat_paper","Paperwork"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -11201,23 +11203,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     </div>
   ) : null;
 
-  const googleBtn = (
-    <div>
-      <div style={{display:"flex",alignItems:"center",gap:12,margin:"2px 0 14px"}}>
-        <div style={{flex:1,height:1,background:"rgba(255,255,255,0.15)"}} />
-        <span style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.4)",letterSpacing:"0.12em"}}>OR</span>
-        <div style={{flex:1,height:1,background:"rgba(255,255,255,0.15)"}} />
-      </div>
-      <button onClick={signInWithGoogle} style={{width:"100%",background:"#fff",color:"#111",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-        <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-      <button onClick={signInWithApple} style={{width:"100%",background:"#000",color:"#fff",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:10}}>
-        <svg width="15" height="15" viewBox="0 0 384 512" fill="#fff"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
-        Continue with Apple
-      </button>
-    </div>
-  );
+  const googleBtn = null;
 
   const teamWrap = (children, dark=true, embedded=false) => embedded ? (
     <div style={{maxWidth:680,margin:"0 auto"}}>{children}</div>
@@ -12026,26 +12012,6 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <h1 style={{fontSize:28,fontWeight:400,margin:"0 0 6px",color:"#fff"}}>Join Chelgy</h1>
             <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.5)",fontSize:13,margin:"0 0 32px",letterSpacing:"0.01em",lineHeight:1.6}}>Everything you need to master marketing, build your business, and automate the work — in one membership.</p>
 
-            {/* Social auth buttons */}
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
-              {/* Google */}
-              <button onClick={signInWithGoogle} style={{width:"100%",background:"#fff",color:"#000",border:"none",padding:"14px 20px",fontSize:13,fontFamily:"sans-serif",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,letterSpacing:"0.02em"}}>
-                <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                Continue with Google
-              </button>
-              <button onClick={signInWithApple} style={{width:"100%",background:"#000",color:"#fff",border:"none",padding:"12px",fontSize:12,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.02em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-                <svg width="15" height="15" viewBox="0 0 384 512" fill="#fff"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
-                Continue with Apple
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
-              <div style={{flex:1,height:1,background:"rgba(255,255,255,0.12)"}} />
-              <span style={{fontFamily:"sans-serif",fontSize:10,color:"rgba(255,255,255,0.35)",letterSpacing:"0.1em"}}>OR</span>
-              <div style={{flex:1,height:1,background:"rgba(255,255,255,0.12)"}} />
-            </div>
-
             {/* Email */}
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
               <input value={signupData.name} onChange={e=>setSignupData(d=>({...d,name:e.target.value}))} placeholder="Full name" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
@@ -12829,8 +12795,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><Ic /></div>
                     <div>
                       <h3 style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 6px",letterSpacing:"0.02em"}}>{c.title}</h3>
+                      {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[c.id],"thumb"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
+                        <div style={{margin:"0 0 8px",border:"1px solid "+B.stone,background:"#000",lineHeight:0,width:"100%",maxWidth:200,aspectRatio:"1 / 1",overflow:"hidden",pointerEvents:"none"}}>
+                          {isVid ? <video src={u} muted playsInline preload="metadata" style={{width:"100%",height:"100%",display:"block",objectFit:"cover"}} /> : <img src={u} alt="" style={{width:"100%",height:"100%",display:"block",objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
+                        </div>
+                      ); })()}
                       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.65,margin:"0 0 8px"}}>{c.blurb}</p>
-                      <p style={{fontFamily:"sans-serif",fontSize:10,color:B.gold,lineHeight:1.5,margin:0,letterSpacing:"0.02em"}}>{c.tabs.map(t=>t.label).join(" · ")}</p>
                     </div>
                   </div>
                 ); })}
@@ -12839,7 +12809,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           )}
 
           {tab==="tools"&&CAT_BY_ID[subTab]&&(
-            <CategoryView cat={CAT_BY_ID[subTab]}
+            <CategoryView cat={CAT_BY_ID[subTab]} onNav={(t)=>setSubTab(t)}
               isLockedTool={(t)=> isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(t)) : false}
               toolsProps={{ onBack:()=>{ setFromLaunch(false); setSubTab("hub"); }, onGoTool:(t)=>goTab("tools", t), credits, useCredits, onBuyCredits:()=>setShowCredits(true), onUpgrade:()=>setShowPaywall(true), onBalance:(n)=>{ if(typeof n==="number") setCredits(n); }, bizCtx:bizContext(), user, prefill, onPrefillDone:()=>setPrefill(null), onBrandProgress:markBrand, multiSite:(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace, marketerMode:isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved"), fromLaunch, onBackToLaunch:()=>{ setFromLaunch(false); setSubTab("launch"); }, onToolUse:logLedger, toolMedia, isAdmin }} />
           )}
