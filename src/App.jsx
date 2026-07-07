@@ -3598,7 +3598,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setPageMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||""),focus:(v&&v.focus)||"center"}; }); setPageMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -3615,7 +3615,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{
       const tok=await freshToken();
       const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
-      const clean={}; Object.keys(pageMediaForm||{}).forEach(k=>{ const full=((pageMediaForm[k]||{}).full||"").trim(); if(full)clean[k]={full}; });
+      const clean={}; Object.keys(pageMediaForm||{}).forEach(k=>{ const full=((pageMediaForm[k]||{}).full||"").trim(); if(full){ const o={full}; const foc=((pageMediaForm[k]||{}).focus||"").trim(); if(foc&&foc!=="center")o.focus=foc; clean[k]=o; } });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"page_media",value:JSON.stringify(clean)})});
       setPageMediaSaved(true); setTimeout(()=>setPageMediaSaved(false),2500);
     }catch(e){}
@@ -4245,8 +4245,10 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{label}</div>
                     <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Thumbnail · Tools Hub card</div>
                     <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",marginBottom:8}} />
+                    {((toolMediaForm[k]&&toolMediaForm[k].thumb)||"").trim() && (()=>{ const u=((toolMediaForm[k]&&toolMediaForm[k].thumb)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.minHeight="34px";e.target.parentNode.setAttribute("data-broken","1");}} />}</div>; })()}
                     <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Inside the tool · top of page</div>
                     <input value={(toolMediaForm[k]&&toolMediaForm[k].full)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                    {((toolMediaForm[k]&&toolMediaForm[k].full)||"").trim() && (()=>{ const u=((toolMediaForm[k]&&toolMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.minHeight="34px";e.target.parentNode.setAttribute("data-broken","1");}} />}</div>; })()}
                   </div>
                 ))}
               </div>
@@ -4254,11 +4256,15 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             </div>
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Page Banners</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a banner photo or video shown at the top of each main page — the same idea as tool banners, but for whole pages. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it. Tip: make one in your Image Creator and paste its link here.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a banner photo or video shown at the top of each main page — the same idea as tool banners, but for whole pages. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it. Tip: make one in your Image Creator and paste its link here. A preview shows under each link. If it stays blank, that URL isn't loading as an image or video (some hosts block hotlinking) - try a direct image file such as one made in your own Image Creator. After you Save, hard-refresh the page to see banner changes.</p>
               {[["home","Home / Dashboard"],["tools","Tools Hub"],["learn","Learn"],["community","Community"],["profile","Profile"]].map(([k,label])=>(
                 <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{label}</div>
-                  <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                  <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
+                  {((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim() && (()=>{ const u=((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMediaForm[k]&&pageMediaForm[k].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":"center center"; return (<div style={{marginTop:8}}>
+                    <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase"}}>Show</span>{[["top","Top"],["center","Center"],["bottom","Bottom"]].map(([fv,fl])=>(<button key={fv} onClick={()=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:fv}}))} style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.04em",padding:"5px 10px",cursor:"pointer",border:"1px solid "+(foc===fv?"#111":"#E8E6E1"),background:foc===fv?"#111":"#fff",color:foc===fv?"#fff":"#6B6B6B"}}>{fl}</button>))}</div>
+                    <div style={{border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",height:120,objectFit:"cover",objectPosition:pos,display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",height:120,objectFit:"cover",objectPosition:pos,display:"block"}} onError={e=>{e.target.style.display="none";}} />}</div>
+                  </div>); })()}
                 </div>
               ))}
               <button onClick={savePageMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{pageMediaSaved?"Saved ✓":"Save Page Banners"}</button>
@@ -12353,11 +12359,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
-          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
+          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMedia&&pageMedia[tab]&&pageMedia[tab].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":"center center"; return (
             <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
               {isVid
-                ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,background:"#000"}} />
-                : <img src={u} alt="" style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover"}} onError={e=>{e.target.parentNode.style.display="none";}} />}
+                ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover",objectPosition:pos,background:"#000"}} />
+                : <img src={u} alt="" style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover",objectPosition:pos}} onError={e=>{e.target.parentNode.style.display="none";}} />}
             </div>
           ); })()}
 
