@@ -3766,9 +3766,9 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {saved&&<div style={{background:"#E8F5EE",border:"1px solid #4CAF82",padding:"10px 16px",fontFamily:"sans-serif",fontSize:12,color:"#2E7D32",marginBottom:16,letterSpacing:"0.04em"}}>Saved successfully!</div>}
 
         {/* Nav */}
-        <div style={{display:"flex",gap:2,marginBottom:28,background:"#E8E6E1"}}>
+        <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:2,marginBottom:28,background:"#E8E6E1"}}>
           {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
-            <button key={id} onClick={()=>setView(id)} style={{flex:1,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",fontWeight:view===id?700:400}}>
+            <button key={id} onClick={()=>setView(id)} style={{flex:"1 1 90px",minWidth:90,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px 8px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.08em",fontWeight:view===id?700:400,textAlign:"center"}}>
               {label.toUpperCase()}
             </button>
           ))}
@@ -4261,9 +4261,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                   <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:"#111111",marginBottom:8}}>{label}</div>
                   <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:12,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
-                  {((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim() && (()=>{ const u=((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMediaForm[k]&&pageMediaForm[k].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":"center center"; return (<div style={{marginTop:8}}>
-                    <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase"}}>Show</span>{[["top","Top"],["center","Center"],["bottom","Bottom"]].map(([fv,fl])=>(<button key={fv} onClick={()=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:fv}}))} style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.04em",padding:"5px 10px",cursor:"pointer",border:"1px solid "+(foc===fv?"#111":"#E8E6E1"),background:foc===fv?"#111":"#fff",color:foc===fv?"#fff":"#6B6B6B"}}>{fl}</button>))}</div>
-                    <div style={{border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",height:120,objectFit:"cover",objectPosition:pos,display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",height:120,objectFit:"cover",objectPosition:pos,display:"block"}} onError={e=>{e.target.style.display="none";}} />}</div>
+                  {((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim() && (()=>{ const u=((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMediaForm[k]&&pageMediaForm[k].focus)||"50% 50%"; const mm=/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(foc); const fx=mm?+mm[1]:50; const fy=mm?+mm[2]:50; const setFoc=(e)=>{ const r=e.currentTarget.getBoundingClientRect(); let x=Math.round(((e.clientX-r.left)/r.width)*100); let y=Math.round(((e.clientY-r.top)/r.height)*100); x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y)); setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:x+"% "+y+"%"}})); }; return (<div style={{marginTop:8}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>Drag the dot to choose what shows</div>
+                    <div onMouseDown={setFoc} onMouseMove={e=>{ if(e.buttons===1) setFoc(e); }} style={{position:"relative",border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:150,overflow:"hidden",cursor:"crosshair",userSelect:"none"}}>
+                      {isVid?<video src={u} muted playsInline style={{width:"100%",height:150,objectFit:"cover",objectPosition:foc,display:"block",pointerEvents:"none"}}/>:<img src={u} alt="preview" draggable={false} style={{width:"100%",height:150,objectFit:"cover",objectPosition:foc,display:"block",pointerEvents:"none"}} onError={e=>{e.target.style.display="none";}} />}
+                      <div style={{position:"absolute",left:fx+"%",top:fy+"%",width:20,height:20,marginLeft:-10,marginTop:-10,borderRadius:"50%",border:"2px solid #fff",boxShadow:"0 0 0 2px rgba(0,0,0,0.55)",pointerEvents:"none"}} />
+                    </div>
                   </div>); })()}
                 </div>
               ))}
@@ -12359,7 +12362,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
-          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMedia&&pageMedia[tab]&&pageMedia[tab].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":"center center"; return (
+          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMedia&&pageMedia[tab]&&pageMedia[tab].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":foc==="center"?"center center":(foc||"center center"); return (
             <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
               {isVid
                 ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover",objectPosition:pos,background:"#000"}} />
