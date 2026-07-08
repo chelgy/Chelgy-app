@@ -9938,6 +9938,15 @@ const SALES_PITCHES = [
   {label:"Objection: already have someone", body:"That's great to hear. Here's the honest question, though \u2014 is the work at the level you actually want it to be? Take one look at what we produce and most people realize what they've been settling for. Let me send a few examples. If it blows your current marketing out of the water, we talk. If not, no harm done."},
   {label:"Objection: too expensive", body:"I hear you. Let me reframe it \u2014 what's one new client worth to you? For most [business type], a single new customer covers a big chunk of the month. This isn't a cost, it's the thing that brings customers through the door. And you're getting premium, high-end work that's crafted to impress \u2014 and it pays for itself in the customers it brings."}
 ];
+const TRANSFORM_LESSONS = [
+  {area:"Website", problem:"No website, or a dated one that doesn't work on phones and doesn't convert visitors.", fix:"We build a modern, high-converting website that makes them look established and turns visitors into paying customers.", pitch:"Your website is your 24/7 salesperson. We'll build one that makes people trust you the second they land on it.", look:"No website, a broken or ugly one, or a site that isn't mobile-friendly."},
+  {area:"Getting found on Google", problem:"Customers search for their service and find competitors instead of them.", fix:"We optimize their Google presence and SEO so they show up at the top when people are ready to buy.", pitch:"Imagine being the first name people see when they search for what you do \u2014 that's where the ready-to-buy customers are.", look:"Not on page one of Google, no Google Business Profile, or very few reviews."},
+  {area:"Social media", problem:"Inactive or messy social media that doesn't build any trust.", fix:"We turn their social into a polished, active page people are excited to follow and buy from.", pitch:"Your social is often the first thing a customer checks. We'll make it a page that sells for you before you say a word.", look:"Posts rarely, low-quality content, or barely any followers or engagement."},
+  {area:"Branding & identity", problem:"Inconsistent or amateur branding that makes a strong business look small.", fix:"We craft a cohesive, premium brand \u2014 logo, colors, style \u2014 that lets them command higher prices.", pitch:"Great branding lets you charge more and be remembered. We'll make you look like the leader in your space.", look:"Mismatched logos and colors, or a business that looks cheap despite great service."},
+  {area:"Ads & paid growth", problem:"Not running ads, or burning money on ads that don't convert.", fix:"We run targeted campaigns that put them in front of ready-to-buy customers, and we track every dollar.", pitch:"The right ad in front of the right person becomes a paying customer. We make your ad budget actually work.", look:"Wants fast growth, has a budget, or is frustrated trying to run ads themselves."},
+  {area:"Content & staying top of mind", problem:"No steady content, so customers forget them between purchases.", fix:"We produce consistent content \u2014 posts, videos, emails \u2014 that keeps them top of mind and coming back.", pitch:"Customers buy from businesses they keep seeing. We keep you in front of them so you're the obvious choice.", look:"Goes quiet for weeks, has one-time customers, or no email list or newsletter."},
+  {area:"Reviews & reputation", problem:"Too few reviews, or bad ones, scaring customers off.", fix:"We build a simple system that earns more 5-star reviews and keeps their reputation strong.", pitch:"People trust reviews like a friend's recommendation. We'll help you become the most-recommended option in town.", look:"Few reviews, a low star rating, or no plan for collecting them."}
+];
 const INTRO_SECTIONS = [
   {id:"welcome", title:"Welcome to the team", sub:"Everything you need to represent Chelgy, find the right clients, and start closing.", blocks:[
     {t:"p", x:"Chelgy is a full-service, premium marketing agency. Websites, social media, content, ads, SEO, brand and strategy \u2014 we do all of it, at a level above the standard, and we deliver it done-for-you so the client never has to touch it."},
@@ -10082,6 +10091,11 @@ export default function ChelgyApp() {
   const [introSection, setIntroSection] = useState("welcome");
   const [portfolioItems, setPortfolioItems] = useState([]);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [coachMode, setCoachMode] = useState("chat");
+  const [auForm, setAuForm] = useState({name:"",type:"",site:"",social:"",notes:""});
+  const [auResult, setAuResult] = useState("");
+  const [auLoading, setAuLoading] = useState(false);
+  const [openLesson, setOpenLesson] = useState(null);
   const [salesCode, setSalesCode] = useState("");
   const [salesDone, setSalesDone] = useState(()=>{ try{ return new Set(JSON.parse(localStorage.getItem("chelgy_sales_roadmap")||"[]")); }catch{ return new Set(); } });
   const [scMsgs, setScMsgs] = useState([]);
@@ -11305,6 +11319,27 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     }catch(e){ setScMsgs(h=>[...h,{role:"assistant",content:"Connection hiccup — try again in a sec."}]); }
     setScLoading(false);
   }
+  async function runBizAudit(){
+    if(auLoading) return;
+    if(!auForm.name.trim() && !auForm.type.trim()){ setAuResult("Add at least the business name or type to run an audit."); return; }
+    setAuLoading(true); setAuResult("");
+    try{
+      const prompt = SALES_COACH_SYSTEM + "\n\nYou are auditing a specific prospect for a Chelgy sales rep. Here is what the rep knows:\n"
+        + "Business name: " + (auForm.name||"(unknown)") + "\n"
+        + "Type of business: " + (auForm.type||"(unknown)") + "\n"
+        + "Website: " + (auForm.site||"(none mentioned)") + "\n"
+        + "Social media: " + (auForm.social||"(none mentioned)") + "\n"
+        + "What the rep noticed: " + (auForm.notes||"(nothing specific)") + "\n\n"
+        + "Write a short, punchy audit the rep can actually use. Plain text only, no markdown symbols or asterisks. Use these exact section headers on their own line:\n"
+        + "WHAT'S HOLDING THEM BACK\nList 3 to 5 specific things stopping this business from getting more customers and making more money.\n\n"
+        + "WHAT CHELGY WOULD DO\nFor each gap, name the concrete Chelgy service that fixes it (website, SEO/Google, social, branding, ads, content, reviews, email).\n\n"
+        + "BEST FIT\nName the Chelgy package or one-time build that fits best, and one line on why.\n\n"
+        + "YOUR PITCH ANGLE\nGive the rep 2 to 3 sentences they can actually say to this owner to spark interest and book a call.";
+      const out = await callClaude(prompt, 1000);
+      setAuResult((out||"").trim() || "Couldn't generate an audit - try again.");
+    }catch(e){ setAuResult("Connection hiccup - try again in a sec."); }
+    setAuLoading(false);
+  }
   const applyMarketer = async () => {
     setTeamErr("");
     if (!applyForm.name.trim() || !applyForm.why.trim()) { setTeamErr("Please fill in at least your name and why you'd like to join."); return; }
@@ -12409,26 +12444,67 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {salesTab==="coach" && (
             <div style={{display:"flex",flexDirection:"column",minHeight:"70vh"}}>
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>AI Sales Coach</h1>
-              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>Practice a pitch, rewrite a DM, or work through an objection — it knows the Chelgy packages.</p>
-              <div style={{flex:1}}>
-                {scMsgs.length===0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,background:"#fff",border:"1px solid "+B.stone,padding:"14px",lineHeight:1.6}}>Try: "Role-play a salon owner who says it's too expensive," or "Write a cold DM for a new barber shop," or "Which package for a plumber doing $20k/mo?"</div>}
-                {scMsgs.map((m,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
-                    <div style={{maxWidth:"86%",padding:"10px 13px",fontFamily:"sans-serif",fontSize:13,lineHeight:1.55,whiteSpace:"pre-wrap",background:m.role==="user"?B.charcoal:"#fff",color:m.role==="user"?"#fff":B.charcoal,border:m.role==="user"?"none":"1px solid "+B.stone}}>{m.content}</div>
-                  </div>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Practice a pitch, work an objection, or audit a real business {"\u2014"} it knows the Chelgy packages.</p>
+              <div style={{display:"flex",gap:6,marginBottom:14}}>
+                {[["chat","Ask the coach"],["audit","Audit a business"]].map(mm=>(
+                  <button key={mm[0]} onClick={()=>setCoachMode(mm[0])} style={{flex:1,background:coachMode===mm[0]?B.charcoal:"#fff",color:coachMode===mm[0]?"#fff":B.mid,border:"1px solid "+(coachMode===mm[0]?B.charcoal:B.stone),padding:"9px 10px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.03em",cursor:"pointer"}}>{mm[1]}</button>
                 ))}
-                {scLoading && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Coach is thinking…</div>}
               </div>
-              <div style={{display:"flex",gap:8,marginTop:12}}>
-                <input value={scInput} onChange={e=>setScInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askSalesCoach();}} placeholder="Ask your coach…" style={{flex:1,padding:"12px 14px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:14,boxSizing:"border-box"}} />
-                <button onClick={askSalesCoach} disabled={scLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 18px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Send</button>
-              </div>
+              {coachMode==="chat" && (
+                <div style={{display:"flex",flexDirection:"column",flex:1}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,background:B.offwhite,border:"1px solid "+B.stone,padding:"9px 12px",marginBottom:10,lineHeight:1.5}}>Tip: tap <b style={{color:B.charcoal}}>Audit a business</b> above to drop in a real business and get exactly what they need {"\u2014"} plus how to pitch it.</div>
+                  <div style={{flex:1}}>
+                    {scMsgs.length===0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,background:"#fff",border:"1px solid "+B.stone,padding:"14px",lineHeight:1.6}}>Try: "Role-play a salon owner who says it's too expensive," or "Write a cold DM for a new barber shop," or "Which package for a plumber doing $20k/mo?"</div>}
+                    {scMsgs.map((m,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+                        <div style={{maxWidth:"86%",padding:"10px 13px",fontFamily:"sans-serif",fontSize:13,lineHeight:1.55,whiteSpace:"pre-wrap",background:m.role==="user"?B.charcoal:"#fff",color:m.role==="user"?"#fff":B.charcoal,border:m.role==="user"?"none":"1px solid "+B.stone}}>{m.content}</div>
+                      </div>
+                    ))}
+                    {scLoading && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Coach is thinking{"\u2026"}</div>}
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:12}}>
+                    <input value={scInput} onChange={e=>setScInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askSalesCoach();}} placeholder="Ask your coach..." style={{flex:1,padding:"12px 14px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:14,boxSizing:"border-box"}} />
+                    <button onClick={askSalesCoach} disabled={scLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 18px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Send</button>
+                  </div>
+                </div>
+              )}
+              {coachMode==="audit" && (
+                <div>
+                  <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>Tell the coach what you know about a business and it'll tell you exactly what they need to bring in more customers {"\u2014"} and how to pitch it. The more you add, the sharper the audit.</p>
+                  {[["name","Business name","e.g. Bella\u2019s Salon"],["type","Type of business","e.g. hair salon, restaurant, plumber"],["site","Website","paste their site, or write \u201cnone\u201d"],["social","Social media","handles, or \u201cweak / none\u201d"]].map(f=>(
+                    <input key={f[0]} value={auForm[f[0]]} onChange={e=>setAuForm(v=>({...v,[f[0]]:e.target.value}))} placeholder={f[1]+" \u2014 "+f[2]} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:8,boxSizing:"border-box"}} />
+                  ))}
+                  <textarea value={auForm.notes} onChange={e=>setAuForm(v=>({...v,notes:e.target.value}))} placeholder="What did you notice? (old website, no reviews, quiet socials, great product but no brand...)" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box",resize:"vertical"}} />
+                  <button onClick={runBizAudit} disabled={auLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:auLoading?"default":"pointer"}}>{auLoading?"Auditing...":"Run business audit"}</button>
+                  {auResult && <div style={{whiteSpace:"pre-wrap",fontFamily:"sans-serif",fontSize:13,lineHeight:1.65,color:B.charcoal,background:"#fff",border:"1px solid "+B.stone,borderTop:"3px solid "+B.charcoal,padding:"16px 18px",marginTop:16}}>{auResult}</div>}
+                </div>
+              )}
             </div>
           )}
           {salesTab==="pitches" && (
             <div>
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Pitches & packages</h1>
               <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>What you sell, and ready-to-use scripts. Personalize the [brackets] before you send.</p>
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"0 0 6px"}}>What we transform {"\u2014"} quick lessons</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 10px"}}>What Chelgy fixes, how to pitch it, and who to look for. Tap any area.</p>
+              <div style={{marginBottom:24}}>
+                {TRANSFORM_LESSONS.map((L,i)=>{ const open=openLesson===i; return (
+                  <div key={i} style={{border:"1px solid "+B.stone,background:"#fff",marginBottom:6}}>
+                    <button onClick={()=>setOpenLesson(open?null:i)} style={{width:"100%",textAlign:"left",background:"none",border:"none",padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                      <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{L.area}</span>
+                      <span style={{color:B.mid,fontSize:16,lineHeight:1}}>{open?"\u2212":"+"}</span>
+                    </button>
+                    {open && (
+                      <div style={{padding:"0 14px 14px"}}>
+                        <div style={{marginBottom:9}}><div style={{fontFamily:"sans-serif",fontSize:8.5,letterSpacing:"0.12em",textTransform:"uppercase",color:B.mid,fontWeight:700,marginBottom:3}}>The problem</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55}}>{L.problem}</div></div>
+                        <div style={{marginBottom:9}}><div style={{fontFamily:"sans-serif",fontSize:8.5,letterSpacing:"0.12em",textTransform:"uppercase",color:B.mid,fontWeight:700,marginBottom:3}}>What Chelgy does</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55}}>{L.fix}</div></div>
+                        <div style={{marginBottom:9,background:B.offwhite,borderLeft:"3px solid "+B.charcoal,padding:"9px 12px"}}><div style={{fontFamily:"sans-serif",fontSize:8.5,letterSpacing:"0.12em",textTransform:"uppercase",color:B.goldDark,fontWeight:700,marginBottom:3}}>Say it like this</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55,fontStyle:"italic"}}>{L.pitch}</div></div>
+                        <div><div style={{fontFamily:"sans-serif",fontSize:8.5,letterSpacing:"0.12em",textTransform:"uppercase",color:B.mid,fontWeight:700,marginBottom:3}}>Who to look for</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55}}>{L.look}</div></div>
+                      </div>
+                    )}
+                  </div>
+                ); })}
+              </div>
               <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"0 0 8px"}}>Monthly plans</div>
               {SALES_MONTHLY.map(pk=>(
                 <div key={pk.name} style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8}}>
