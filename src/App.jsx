@@ -3655,7 +3655,6 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="reports") loadReports(); },[view]);
   useEffect(()=>{ if(view==="salesteam") loadSalesAdmin(); },[view]);
   useEffect(()=>{ if(view==="portfolio" && !portfolioLoaded) loadPortfolio(); },[view]);
-  useEffect(()=>{ if(isSalesSpace && salesTab==="portfolio" && !portfolioLoaded) loadPortfolio(); },[salesTab]);
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
@@ -10081,6 +10080,8 @@ export default function ChelgyApp() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [salesTab, setSalesTab] = useState("intro");
   const [introSection, setIntroSection] = useState("welcome");
+  const [portfolioItems, setPortfolioItems] = useState([]);
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [salesCode, setSalesCode] = useState("");
   const [salesDone, setSalesDone] = useState(()=>{ try{ return new Set(JSON.parse(localStorage.getItem("chelgy_sales_roadmap")||"[]")); }catch{ return new Set(); } });
   const [scMsgs, setScMsgs] = useState([]);
@@ -10094,6 +10095,7 @@ export default function ChelgyApp() {
   const [dealForm, setDealForm] = useState({client:"",pkg:"",value:"",date:""});
   const [dealSaving, setDealSaving] = useState(false);
   useEffect(()=>{ if(isSalesSpace && user && user.id && salesTab==="account" && !dealsLoaded) loadSalesDeals(); },[salesTab,user,dealsLoaded]);
+  useEffect(()=>{ if(isSalesSpace && salesTab==="portfolio" && !portfolioLoaded) loadPortfolio(); },[salesTab]);
   const [applyForm, setApplyForm] = useState({ name:"", phone:"", location:"", experience:"", why:"", start:"later" });
   const [applying, setApplying] = useState(false);
   const [marketerView, setMarketerView] = useState(()=>{ try { return localStorage.getItem("chelgy_mkview")||"home"; } catch { return "home"; } });
@@ -11256,6 +11258,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       +'<div class="btn"><button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:12px 22px;font-size:13px;border-radius:5px;cursor:pointer">Save as PDF / Print</button></div>'
       +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print()}catch(e){}},400)}</scr'+'ipt></body></html>';
     w.document.write(doc); w.document.close();
+  }
+  async function loadPortfolio(){
+    try{ const r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_items?select=*&order=created_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}}); const rows=await r.json(); if(Array.isArray(rows)) setPortfolioItems(rows); }catch(e){}
+    setPortfolioLoaded(true);
   }
   function openPricingSheet(){
     const monthly=SALES_MONTHLY.map(x=>'<div class="pkg"><h3>'+x.name+'</h3><div class="price">'+x.price+'</div><p class="who">'+x.who+'</p></div>').join("");
