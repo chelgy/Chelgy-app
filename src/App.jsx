@@ -3535,6 +3535,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [inquiriesErr, setInquiriesErr] = useState("");
   const [reportsList, setReportsList] = useState([]);
   const [reportsErr, setReportsErr] = useState("");
+  const [salesAdminDeals, setSalesAdminDeals] = useState([]);
+  const [salesAdminErr, setSalesAdminErr] = useState("");
   const [deliverablesErr, setDeliverablesErr] = useState("");
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
@@ -3609,7 +3611,16 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     setReportsList(l=>l.filter(r=>r.id!==id));
     try{ await fetch("/api/community-reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"resolve",id,password:ADMIN_PASSWORD})}); }catch(e){}
   }
+  async function loadSalesAdmin(){
+    setSalesAdminErr("");
+    try{
+      const res=await fetch("/api/sales-admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"list",password:ADMIN_PASSWORD})});
+      if(res.ok){ const d=await res.json(); setSalesAdminDeals(d.deals||[]); }
+      else { let m=""; try{ const t=await res.text(); try{const j=JSON.parse(t);m=j.error||t;}catch{m=t;} }catch{} setSalesAdminErr(m||("server error "+res.status)); }
+    }catch(e){ setSalesAdminErr("Couldn't load sales data."); }
+  }
   useEffect(()=>{ if(view==="reports") loadReports(); },[view]);
+  useEffect(()=>{ if(view==="salesteam") loadSalesAdmin(); },[view]);
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
@@ -3782,7 +3793,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["reports","Reports"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["reports","Reports"],["salesteam","Sales Team"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:"1 1 90px",minWidth:90,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px 8px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.08em",fontWeight:view===id?700:400,textAlign:"center"}}>
               {label.toUpperCase()}
             </button>
@@ -3918,16 +3929,16 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Service Tiers</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>4</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Foundation, Growth, Premium, Business Builder</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Starter, Business Growth, Market Domination, One-Time Builds</div>
               </div>
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>Monthly Range</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$650–$3.5K</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Contract to month-to-month</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$1K–$3K</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Flat monthly retainers</div>
               </div>
               <div style={{background:"#fff",padding:"22px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:10,textTransform:"uppercase"}}>One-Time Projects</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$5,000</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,color:"#111"}}>$1.5K–$25K</div>
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#999",marginTop:8}}>Chelgy Business Builder (build from scratch)</div>
               </div>
             </div>
@@ -3992,6 +4003,53 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {view==="salesteam"&&(
+          <div>
+            <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Sales Team</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px"}}>Every deal your reps have logged, and how each rep is performing.</p>
+            {salesAdminErr&&<div style={{background:"#FDECEA",border:"1px solid #C0392B",padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",marginBottom:14}}>{salesAdminErr}</div>}
+            {salesAdminDeals.length===0&&!salesAdminErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",padding:"20px",background:"#F7F6F4",border:"1px solid #E8E6E1"}}>No deals logged yet.</div>}
+            {salesAdminDeals.length>0&&(()=>{
+              const byRep={}; salesAdminDeals.forEach(d=>{ const k=d.rep_name||d.rep_id||"Unknown"; if(!byRep[k]) byRep[k]={name:k,count:0,total:0}; byRep[k].count++; byRep[k].total+=Number(d.value)||0; });
+              const board=Object.values(byRep).sort((a,b)=>b.total-a.total);
+              const grandTotal=salesAdminDeals.reduce((a,d)=>a+(Number(d.value)||0),0);
+              return (<div>
+                <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:120,background:"#111",color:"#fff",padding:"16px 18px"}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.12em",textTransform:"uppercase",opacity:0.7,marginBottom:6}}>Total closed</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:26}}>${grandTotal.toLocaleString()}</div>
+                  </div>
+                  <div style={{flex:1,minWidth:120,background:"#fff",border:"1px solid #E8E6E1",padding:"16px 18px"}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.12em",textTransform:"uppercase",color:"#6B6B6B",marginBottom:6}}>Deals</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:26}}>{salesAdminDeals.length}</div>
+                  </div>
+                  <div style={{flex:1,minWidth:120,background:"#fff",border:"1px solid #E8E6E1",padding:"16px 18px"}}>
+                    <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.12em",textTransform:"uppercase",color:"#6B6B6B",marginBottom:6}}>Active reps</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:26}}>{board.length}</div>
+                  </div>
+                </div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#6B6B6B",marginBottom:8}}>Leaderboard</div>
+                <div style={{border:"1px solid #E8E6E1",background:"#fff",marginBottom:24}}>
+                  {board.map((r,i)=>(
+                    <div key={r.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderTop:i?"1px solid #F0EEEA":"none"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontFamily:"Georgia,serif",fontSize:16,color:"#B8955A",width:20}}>{i+1}</span><div><div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:600}}>{r.name}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{r.count} deal{r.count===1?"":"s"}</div></div></div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:16}}>${r.total.toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#6B6B6B",marginBottom:8}}>All deals</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {salesAdminDeals.map(d=>(
+                    <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid #E8E6E1",background:"#fff",padding:"11px 14px"}}>
+                      <div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:600}}>{d.client||"\u2014"}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{d.rep_name||"rep"} · {d.package||""} · {(d.closed_at||"").slice(0,10)}</div></div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:14}}>${(Number(d.value)||0).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>);
+            })()}
           </div>
         )}
         {view==="inquiries"&&(
@@ -4590,7 +4648,7 @@ const DELIVERABLE_TYPES = [
       {k:"client",label:"Client business name",ph:"e.g. Bella's Bistro"},
       {k:"about",label:"About the client / their situation",ph:"e.g. New Italian spot, weak social media, no Google profile",type:"textarea"},
       {k:"services",label:"Services you'll provide",ph:"e.g. Social media management, Google Business setup, monthly content",type:"textarea"},
-      {k:"price",label:"Your pricing",ph:"e.g. $1,200/mo"}
+      {k:"price",label:"Your pricing",ph:"e.g. $2,000/mo"}
     ],
     prompt:(f,who)=>"Write a polished, persuasive marketing services PROPOSAL from \""+who+"\" (an independent marketing consultant) to the client \""+(f.client||"the client")+"\". Client situation: "+(f.about||"a business that needs marketing help")+". Services to propose: "+(f.services||"marketing services")+". Pricing: "+(f.price||"to be discussed")+". Structure it professionally with: a warm intro, the client's challenge, your proposed solution and deliverables, why work with you, simple pricing, a timeline, and a clear next step to get started. Confident, clear, and client-ready. Use markdown headings. No preamble before the first heading."
   },
@@ -4598,7 +4656,7 @@ const DELIVERABLE_TYPES = [
     fields:[
       {k:"client",label:"Bill to (client)",ph:"e.g. Bella's Bistro"},
       {k:"items",label:"Services & amounts",ph:"e.g. Social media management — $800\nGoogle Business setup — $400",type:"textarea"},
-      {k:"total",label:"Total due",ph:"e.g. $1,200"},
+      {k:"total",label:"Total due",ph:"e.g. $2,000"},
       {k:"due",label:"Payment terms / due date",ph:"e.g. Net 15 · due July 15, 2026"},
       {k:"num",label:"Invoice # (optional)",ph:"e.g. 001"}
     ],
@@ -4608,7 +4666,7 @@ const DELIVERABLE_TYPES = [
     fields:[
       {k:"client",label:"Client business name",ph:"e.g. Bella's Bistro"},
       {k:"services",label:"Scope of work",ph:"e.g. Monthly social media management and ad campaigns",type:"textarea"},
-      {k:"price",label:"Payment terms",ph:"e.g. $1,200/mo, due on the 1st"},
+      {k:"price",label:"Payment terms",ph:"e.g. $2,000/mo, due on the 1st"},
       {k:"term",label:"Length / term",ph:"e.g. 3-month minimum, then month-to-month"}
     ],
     prompt:(f,who)=>"Draft a clear, professional MARKETING SERVICES AGREEMENT (contract) between \""+who+"\" (the \"Marketer,\" an independent contractor) and \""+(f.client||"the Client")+"\" (the \"Client\"). Scope of work: "+(f.services||"")+". Payment terms: "+(f.price||"")+". Term: "+(f.term||"")+". Include standard sections: Parties, Scope of Services, Term and Termination, Fees and Payment, Client Responsibilities, Ownership of Work, Confidentiality, Independent Contractor status, and signature lines for both parties. Use plain, readable language. End with a brief line noting this is a template and both parties should review it before signing. Use markdown. No preamble before the first heading."
@@ -4805,9 +4863,9 @@ const CLIENT_ACQUISITION = [
 ];
 
 const MARKETER_PRICING = [
-  { id:"foundation", name:"FOUNDATION / Local Presence", 
-    monthToMonth:800, contract:650, minContract:12,
-    description:"Perfect for local service businesses and startups just getting online.",
+  { id:"foundation", name:"STARTER GROWTH", 
+    monthToMonth:1000, contract:1000, minContract:1,
+    description:"Get a business looking professional and showing up on Google — for new or small local businesses.",
     includes:[
       "Initial Consultation & Growth Strategy",
       "Google Business Profile setup & optimization",
@@ -4817,13 +4875,13 @@ const MARKETER_PRICING = [
       "Monthly review & reporting"
     ],
     effort:"8-10 hrs/week",
-    marketRevenue:{monthToMonth:"$800/mo", contract:"$650/mo × 12"}
+    marketRevenue:{monthToMonth:"$1,000/mo", contract:"$1,000/mo"}
   },
-  { id:"growth", name:"GROWTH / Accelerator",
-    monthToMonth:1500, contract:1200, minContract:12,
-    description:"For growing businesses ready to scale locally and online.",
+  { id:"growth", name:"BUSINESS GROWTH",
+    monthToMonth:2000, contract:2000, minContract:1,
+    description:"The lead-generation engine — for established businesses that want more leads, consistently.",
     includes:[
-      "Everything in Foundation +",
+      "Everything in Starter Growth +",
       "Website audit or build/redesign",
       "SEO strategy & keyword research",
       "Blogging (1-2 articles/month)",
@@ -4833,14 +4891,14 @@ const MARKETER_PRICING = [
       "Analytics dashboard & monthly reporting"
     ],
     effort:"15-18 hrs/week",
-    marketRevenue:{monthToMonth:"$1,500/mo", contract:"$1,200/mo × 12"},
+    marketRevenue:{monthToMonth:"$2,000/mo", contract:"$2,000/mo"},
     note:"* Ad spend ($300-500+/month) is separate, billed directly to client"
   },
-  { id:"premium", name:"PREMIUM / Full-Service",
-    monthToMonth:3500, contract:3000, minContract:12,
-    description:"Complete marketing takeover for serious growth and revenue scaling.",
+  { id:"premium", name:"MARKET DOMINATION",
+    monthToMonth:3000, contract:3000, minContract:1,
+    description:"The full outsourced marketing department — for businesses that want to own their market. Ad spend separate.",
     includes:[
-      "Everything in Growth +",
+      "Everything in Business Growth +",
       "Advanced SEO & technical optimization",
       "Content creation (4-6 blog posts/month)",
       "Ad Scaling & Performance Optimization",
@@ -4852,12 +4910,12 @@ const MARKETER_PRICING = [
       "Weekly performance reports"
     ],
     effort:"25-30 hrs/week",
-    marketRevenue:{monthToMonth:"$3,500/mo", contract:"$3,000/mo × 12"},
+    marketRevenue:{monthToMonth:"$3,000/mo", contract:"$3,000/mo"},
     note:"* Ad spend ($1,000-3,000+/month) is separate, billed directly to client"
   },
-  { id:"special", name:"BUSINESS BUILDER / Done-For-You",
+  { id:"special", name:"ONE-TIME BUILDS",
     projectPrice:5000, paymentModel:"One-time project",
-    description:"Build a complete business from scratch — brand, website, marketing foundation, and launch strategy.",
+    description:"One-time project builds — Business Launch $1,500, Brand Foundation $3,000, Business Growth Accelerator $5,000, Business Transformation $7,000, and the Chelgy Signature Business Build $25,000.",
     includes:[
       "Deep-dive business strategy consultation",
       "Brand identity & visual design (logo, colors, fonts, brand guide)",
@@ -4872,9 +4930,9 @@ const MARKETER_PRICING = [
       "Deliverables package (brand guide, website assets, content calendar, marketing roadmap)"
     ],
     effort:"60-80 hours over 30-60 days",
-    marketRevenue:"$5,000 one-time",
+    marketRevenue:"$1,500–$25,000 one-time",
     ideal:"Entrepreneurs, startups, service pros launching first business",
-    note:"* $1,000 ad spend separate; marketer manages initial campaign. Additional ad spend billed to client. After launch, can transition to Foundation/Growth/Premium retainer."
+    note:"* $1,000 ad spend separate; marketer manages initial campaign. Additional ad spend billed to client. After launch, can transition to a Starter Growth / Business Growth / Market Domination retainer."
   }
 ];
 
@@ -9748,6 +9806,43 @@ function StoreBuilderTab({ user }) {
 }
 
 
+const SALES_ACCESS_CODE = "CHELGY2026";
+const SALES_IN = {width:"100%",padding:"13px 15px",marginBottom:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.18)",color:"#fff",fontSize:14,fontFamily:"sans-serif",outline:"none",boxSizing:"border-box"};
+const SALES_MONTHLY = [
+  {name:"Starter Growth",price:"$1,000/mo",who:"New or very small local businesses that need to look professional and get found on Google."},
+  {name:"Business Growth",price:"$2,000/mo",who:"Established businesses that want more leads, consistently."},
+  {name:"Market Domination",price:"$3,000/mo",who:"Businesses that want to own their market — a full outsourced marketing department. Ad spend billed separately."}
+];
+const SALES_ONETIME = [
+  {name:"Business Launch",price:"$1,500",who:"Brand-new businesses that need a proper online presence",up:"Starter Growth"},
+  {name:"Brand Foundation",price:"$3,000",who:"Businesses ready to compete professionally",up:"Business Growth"},
+  {name:"Business Growth Accelerator",price:"$5,000",who:"Businesses that want a lead-generating system",up:"Market Domination"},
+  {name:"Business Transformation",price:"$7,000",who:"Established companies needing a full overhaul",up:"Market Domination"},
+  {name:"Chelgy Signature Business Build",price:"$25,000",who:"Serious, funded businesses that want everything built to scale",up:"Market Domination"}
+];
+const SALES_PLAN_SHEETS = [
+  {name:"Starter Growth",price:"$1,000/mo",who:"New or very small local businesses that need to look professional and get found on Google.",includes:["Marketing strategy & setup","Google Business Profile optimization","Local SEO - get found on Google Maps","8 social media posts per month","AI-designed graphics & images","One blog article per month","Basic reputation management","Monthly analytics report","Email support"]},
+  {name:"Business Growth",price:"$2,000/mo",who:"Established businesses that want more leads, consistently.",includes:["Everything in Starter Growth","Full social media management (16 posts/mo)","2 SEO blog articles per month","Local SEO campaign","Monthly email marketing campaign","Landing page creation","Conversion optimization","Lead capture setup","Priority support"]},
+  {name:"Market Domination",price:"$3,000/mo",who:"Businesses that want to own their market - a full outsourced marketing department.",includes:["Everything in Business Growth","Unlimited website updates","Weekly strategy meetings","Advanced SEO & link building","Google Ads management","Meta (Facebook & Instagram) Ads management","Sales funnel & CRM automation","Competitor analysis","Priority turnaround","Ad spend billed separately"]}
+];
+const SALES_ROADMAP = [
+  {id:"offer",n:"01",title:"Know the offer",blurb:"Master what you're selling before you sell it.",items:["Learn the 3 monthly plans and 5 one-time services (see Pitches)","Memorize the one-line promise of each package","Know which business type buys which package"]},
+  {id:"list",n:"02",title:"Build your list",blurb:"Find businesses that need what you sell.",items:["Pick 2–3 business types to focus on this week","Pull 20–30 prospects from Instagram, Google Maps, or local groups","Set a daily outreach target and track it"]},
+  {id:"reach",n:"03",title:"Reach out",blurb:"Start conversations, not pitches.",items:["Use the DM / email / call scripts in Pitches","Open with a genuine compliment + one observation","Follow up 2–3 times — most replies come after the first message"]},
+  {id:"pitch",n:"04",title:"Run the pitch",blurb:"Diagnose, then prescribe the right package.",items:["Ask qualifying questions to find their pain","Match them to the right package and sell the transformation","Handle objections: price, 'I do it myself', 'does it work?'","Ask for the close"]},
+  {id:"close",n:"05",title:"Close & hand off",blurb:"Get the signature and log the win.",items:["Get them signed up and collect first payment","Hand the client to fulfillment — your delivery job is done","Log the deal in your Account tab"]},
+  {id:"grow",n:"06",title:"Keep the pipeline full",blurb:"Your income = new clients closed.",items:["Ask every happy client for a referral","Prospect daily — always be filling the top","Review what's working and double down on it"]}
+];
+const SALES_PITCHES = [
+  {label:"Cold DM (Instagram)",body:"Hey [name]! Genuinely love what you're doing with [business] — [specific compliment]. Quick thing I noticed though: [observation, e.g. you're tough to find on Google / your site doesn't match how good your work is]. I help businesses like yours fix exactly that — done for you, every month. Mind if I send over what that could look like?"},
+  {label:"Cold email",body:"Subject: quick idea for [business]\n\nHi [name] — I came across [business] and [specific compliment]. I work with [business type] to [get found on Google / bring in more leads / look premium online], fully done-for-you. I put together a quick idea of what we could do for you — open to me sending it over?\n\n[Your name], Chelgy"},
+  {label:"Follow-up",body:"Hey [name], floating this back up in case it got buried! Even if now's not the time, happy to send over a couple examples of what we've done for other [business type] — no pressure at all."},
+  {label:"Objection: too expensive",body:"Totally fair. Quick question — what's one new client worth to you? For most [business type] a single new customer covers most of the month. This isn't a cost, it's how you get more of those — and it's cheaper and less hassle than hiring someone."},
+  {label:"Objection: I can do it myself",body:"You absolutely could — the question is whether you want to spend your nights on captions, SEO, and ads instead of running your business. We do it consistently, at a level that actually converts, so you get your time back and better results."}
+];
+const SALES_PRICING_TEXT = "MONTHLY PLANS: Starter Growth $1,000/mo (new/small local, look professional + get found); Business Growth $2,000/mo (established, want more leads consistently); Market Domination $3,000/mo (own their market, full outsourced marketing dept, ad spend separate). ONE-TIME: Business Launch $1,500 (brand new, needs presence) then Starter; Brand Foundation $3,000 (ready to compete) then Business Growth; Business Growth Accelerator $5,000 (wants a lead system) then Market Domination; Business Transformation $7,000 (established, full overhaul) then Market Domination; Chelgy Signature Business Build $25,000 (funded, build everything to scale) then Market Domination. Reps earn commission on the FIRST signature only (no recurring), so focus on closing NEW clients and matching them to the right package.";
+const SALES_COACH_SYSTEM = "You are the Chelgy Sales Coach, a sharp, encouraging sales mentor for a Chelgy sales rep who sells Chelgy's done-for-you marketing services to small businesses. Be tactical, specific, and brief. Help them prospect, write outreach, qualify, pitch, handle objections, role-play prospects, and close. Chelgy packages and prices: " + SALES_PRICING_TEXT + " Who-buys-what guidance is a starting point, not a rule — encourage the rep to experiment and do what works for them. In the long run, reps should be willing to sell to any and all businesses that can pay — not just their chosen focus. Never invent prices or packages beyond this list. Keep replies practical and confidence-building.";
+
 export default function ChelgyApp() {
   const [page, setPage] = useState(CHELGY_HAS_OAUTH_RETURN ? "app" : "onboarding");
   useEffect(()=>{
@@ -9806,6 +9901,7 @@ export default function ChelgyApp() {
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
   const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
+  const [isSalesSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("sales.")||p.get("sales")!==null; } catch { return false; } });
   const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(h.startsWith("marketer.")) return true; const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
   const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
@@ -9815,6 +9911,20 @@ export default function ChelgyApp() {
   const [teamAuth, setTeamAuth] = useState({ name:"", email:"", password:"" });
   const [teamErr, setTeamErr] = useState("");
   const [teamLoading, setTeamLoading] = useState(false);
+  const [salesTab, setSalesTab] = useState("roadmap");
+  const [salesCode, setSalesCode] = useState("");
+  const [salesDone, setSalesDone] = useState(()=>{ try{ return new Set(JSON.parse(localStorage.getItem("chelgy_sales_roadmap")||"[]")); }catch{ return new Set(); } });
+  const [scMsgs, setScMsgs] = useState([]);
+  const [scInput, setScInput] = useState("");
+  const [scLoading, setScLoading] = useState(false);
+  const [salesOnboarded, setSalesOnboarded] = useState(()=>{ try{ return !!localStorage.getItem("chelgy_sales_onboarded"); }catch{ return false; } });
+  const [salesForm, setSalesForm] = useState({experience:"",targets:[],goal:"",channels:[]});
+  const [salesSaving, setSalesSaving] = useState(false);
+  const [salesDeals, setSalesDeals] = useState([]);
+  const [dealsLoaded, setDealsLoaded] = useState(false);
+  const [dealForm, setDealForm] = useState({client:"",pkg:"",value:"",date:""});
+  const [dealSaving, setDealSaving] = useState(false);
+  useEffect(()=>{ if(isSalesSpace && user && user.id && salesTab==="account" && !dealsLoaded) loadSalesDeals(); },[salesTab,user,dealsLoaded]);
   const [applyForm, setApplyForm] = useState({ name:"", phone:"", location:"", experience:"", why:"", start:"later" });
   const [applying, setApplying] = useState(false);
   const [marketerView, setMarketerView] = useState(()=>{ try { return localStorage.getItem("chelgy_mkview")||"home"; } catch { return "home"; } });
@@ -10736,6 +10846,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); }catch(e){} }
       if(m.intake || m.onboarded){ try{ localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
       if(m.tour_done){ try{ localStorage.setItem("chelgy_tour_done","1"); }catch(e){} }
+      if(m.sales_profile){ setSalesForm(sf=>({...sf,...m.sales_profile})); setSalesOnboarded(true); try{ localStorage.setItem("chelgy_sales_onboarded","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
       { const nm=(m.name && String(m.name).trim())?m.name:((m.intake && m.intake.name)?String(m.intake.name):""); if(nm){ setMyName(nm); try{ localStorage.setItem("chelgy_name", nm); }catch(e){} } }
       if(m.business){ setMyBusiness(m.business); }
@@ -10905,6 +11016,105 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if (s) { setUser(s); setMyName(s.name || email.trim()); }
     track("marketer_login");
   };
+  const doSalesSignup = async () => {
+    setTeamErr("");
+    const { name, email, password } = teamAuth;
+    if (!name.trim()) { setTeamErr("Please enter your name."); return; }
+    if (salesCode.trim().toUpperCase() !== SALES_ACCESS_CODE) { setTeamErr("That access code isn't right — ask your Chelgy admin for the sales code."); return; }
+    if (!email.includes("@") || password.length < 6) { setTeamErr("Enter a valid email and a password (6+ characters)."); return; }
+    setTeamLoading(true);
+    const r = await authSignup(email.trim(), password, name.trim());
+    setTeamLoading(false);
+    if (r.error) { setTeamErr(/registered|already/i.test(r.error) ? "That email already has an account — switch to Log in." : r.error); return; }
+    const s = saveSession(r.data || {});
+    if (s) { setUser(s); setMyName(name.trim()); }
+  };
+  const doSalesLogin = async () => {
+    setTeamErr("");
+    const { email, password } = teamAuth;
+    if (!email.includes("@") || !password) { setTeamErr("Enter your email and password."); return; }
+    setTeamLoading(true);
+    const r = await authLogin(email.trim(), password);
+    setTeamLoading(false);
+    if (r.error) { setTeamErr(r.error); return; }
+    const s = saveSession(r.data || {});
+    if (s) { setUser(s); setMyName(s.name || email.trim()); }
+  };
+  const toggleSalesArr = (field,val) => setSalesForm(f=>{ const arr=f[field]||[]; return {...f,[field]: arr.includes(val)?arr.filter(x=>x!==val):[...arr,val]}; });
+  const saveSalesOnboarding = async () => {
+    setTeamErr("");
+    if(!salesForm.experience || !salesForm.goal){ setTeamErr("Pick your experience level and your goal to continue."); return; }
+    setSalesSaving(true);
+    const profile = {...salesForm, at: Date.now()};
+    try{ const tok=await freshToken(); if(tok&&user&&user.id) await patchMyMember(tok, user.id, { sales_profile: profile }); }catch(e){}
+    try{ localStorage.setItem("chelgy_sales_onboarded","1"); }catch(e){}
+    setSalesSaving(false); setSalesOnboarded(true);
+  };
+  async function loadSalesDeals(){
+    try{ const tok=await freshToken(); if(!tok||!user||!user.id){ setDealsLoaded(true); return; }
+      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_deals?select=*&rep_id=eq."+user.id+"&order=closed_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
+      const rows=await r.json(); if(Array.isArray(rows)) setSalesDeals(rows);
+    }catch(e){}
+    setDealsLoaded(true);
+  }
+  async function addSalesDeal(){
+    if(!dealForm.client.trim() || !dealForm.pkg){ setTeamErr("Add a client name and pick a package."); return; }
+    setTeamErr(""); setDealSaving(true);
+    const row={ rep_id:user.id, rep_name:myName||"Rep", client:dealForm.client.trim(), package:dealForm.pkg, value:Number(dealForm.value)||0, closed_at:(dealForm.date||new Date().toISOString().slice(0,10)) };
+    try{ const tok=await freshToken();
+      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_deals",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify(row)});
+      const d=await r.json(); if(Array.isArray(d)&&d[0]) setSalesDeals(l=>[d[0],...l]); else setSalesDeals(l=>[{...row,id:Date.now()},...l]);
+    }catch(e){ setSalesDeals(l=>[{...row,id:Date.now()},...l]); }
+    setDealForm({client:"",pkg:"",value:"",date:""}); setDealSaving(false);
+  }
+  async function deleteSalesDeal(id){
+    setSalesDeals(l=>l.filter(d=>d.id!==id));
+    try{ const tok=await freshToken(); if(tok) await fetch(SUPABASE_URL+"/rest/v1/sales_deals?id=eq."+id,{method:"DELETE",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}}); }catch(e){}
+  }
+  function openPrintable(title, bodyHTML){
+    const w=window.open("","_blank"); if(!w){ pushNotif&&pushNotif("Allow pop-ups to open the printable asset."); return; }
+    const rep=(myName||"").replace(/[<>]/g,"");
+    const doc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+' - Chelgy</title>'
+      +'<style>*{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;line-height:1.55;max-width:720px;margin:0 auto;padding:48px 40px}'
+      +'.wm{font-family:Georgia,serif;font-size:22px;letter-spacing:.02em}.rule{height:2px;background:#111;margin:12px 0 30px}'
+      +'h1{font-family:Georgia,serif;font-weight:400;font-size:30px;margin:0 0 6px}.sub{color:#666;font-size:13px;margin:0 0 26px}'
+      +'.sec{font-family:Georgia,serif;font-size:17px;margin:26px 0 10px}.pkg{border:1px solid #E8E6E1;border-radius:5px;padding:16px 18px;margin-bottom:12px}'
+      +'.pkg h3{font-family:Georgia,serif;font-weight:400;font-size:19px;margin:0 0 2px}.price{font-weight:700;font-size:15px;margin:0 0 6px}.who{color:#555;font-size:13px;margin:0}'
+      +'ul{margin:10px 0 0;padding-left:18px}li{font-size:13px;margin-bottom:5px}.foot{margin-top:40px;border-top:1px solid #E8E6E1;padding-top:14px;color:#999;font-size:11px}'
+      +'.btn{margin-top:26px}@media print{body{padding:24px}.btn{display:none}}</style></head><body>'
+      +'<div class="wm">Chelgy</div><div class="rule"></div>'+bodyHTML
+      +'<div class="foot">Chelgy - chelgy.app'+(rep?(' - Presented by '+rep):'')+'</div>'
+      +'<div class="btn"><button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:12px 22px;font-size:13px;border-radius:5px;cursor:pointer">Save as PDF / Print</button></div>'
+      +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print()}catch(e){}},400)}</scr'+'ipt></body></html>';
+    w.document.write(doc); w.document.close();
+  }
+  function openPricingSheet(){
+    const monthly=SALES_MONTHLY.map(x=>'<div class="pkg"><h3>'+x.name+'</h3><div class="price">'+x.price+'</div><p class="who">'+x.who+'</p></div>').join("");
+    const onetime=SALES_ONETIME.map(x=>'<div class="pkg"><h3>'+x.name+'</h3><div class="price">'+x.price+' - one-time</div><p class="who">'+x.who+'</p></div>').join("");
+    openPrintable("Packages & Pricing", '<h1>Marketing Packages</h1><p class="sub">Monthly plans and one-time builds to grow your business.</p><div class="sec">Monthly Marketing Plans</div>'+monthly+'<div class="sec">One-Time Builds</div>'+onetime);
+  }
+  function openPlanSheet(sh){
+    const inc=(sh.includes||[]).map(i=>'<li>'+i+'</li>').join("");
+    openPrintable(sh.name, '<h1>'+sh.name+'</h1><div class="price" style="font-size:19px;margin:0 0 10px">'+sh.price+'</div><p class="who" style="font-size:14px">'+sh.who+'</p>'+(inc?'<div class="sec" style="font-size:15px">What\'s included</div><ul>'+inc+'</ul>':'')+'<p style="margin-top:24px;font-size:14px;color:#333">Ready to grow? Let\'s talk about getting started.</p>');
+  }
+  function openWhyChelgy(){
+    openPrintable("Why Chelgy", '<h1>Why Chelgy</h1><p class="sub">A full marketing team, without the full-time cost.</p>'
+      +'<div class="pkg"><h3>Everything in one place</h3><p class="who">Strategy, website, SEO, social, ads, email and content - handled by one team, so you can run your business.</p></div>'
+      +'<div class="pkg"><h3>Built to get you found</h3><p class="who">We get you showing up on Google and in front of the right local customers, then keep the leads coming.</p></div>'
+      +'<div class="pkg"><h3>Clear, flat pricing</h3><p class="who">Simple monthly plans from $1,000 to $3,000, plus one-time builds. No surprises.</p></div>'
+      +'<div class="pkg"><h3>Real reporting</h3><p class="who">You see what\'s working every month - traffic, leads and results, in plain English.</p></div>');
+  }
+  function toggleSalesItem(key){ setSalesDone(prev=>{ const n=new Set(prev); n.has(key)?n.delete(key):n.add(key); try{ localStorage.setItem("chelgy_sales_roadmap", JSON.stringify([...n])); }catch(e){} return n; }); }
+  async function askSalesCoach(){
+    const q=scInput.trim(); if(!q||scLoading) return;
+    const hist=[...scMsgs,{role:"user",content:q}]; setScMsgs(hist); setScInput(""); setScLoading(true);
+    try{
+      const convo=hist.map(m=>(m.role==="user"?"REP: ":"COACH: ")+m.content).join("\n\n");
+      const out=await callClaude(SALES_COACH_SYSTEM+"\n\nConversation so far:\n"+convo+"\n\nReply as COACH:", 900);
+      setScMsgs(h=>[...h,{role:"assistant",content:(out||"").trim()||"Sorry — try that again."}]);
+    }catch(e){ setScMsgs(h=>[...h,{role:"assistant",content:"Connection hiccup — try again in a sec."}]); }
+    setScLoading(false);
+  }
   const applyMarketer = async () => {
     setTeamErr("");
     if (!applyForm.name.trim() || !applyForm.why.trim()) { setTeamErr("Please fill in at least your name and why you'd like to join."); return; }
@@ -10998,7 +11208,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setMkCoachMsgs(msgs); setMkCoachInput(""); setMkCoachLoading(true);
     const g = marketerData.goals || mkGoals;
     const indie = !isTeamSpace;
-    const priceLine = MARKETER_PRICING.map(t=>{ const nm=(t.name||"").split(" / ")[0]; return t.projectPrice?(nm+": $"+t.projectPrice.toLocaleString()+" one-time"):(nm+": $"+t.monthToMonth+"/mo month-to-month or $"+t.contract+"/mo on a "+(t.minContract||12)+"-month agreement"); }).join("; ");
+    const priceLine = MARKETER_PRICING.filter(t=>!t.projectPrice).map(t=>{ const nm=(t.name||"").split(" / ")[0]; return nm+": $"+t.monthToMonth.toLocaleString()+"/mo"; }).join("; ") + ". One-time project services: Business Launch $1,500, Brand Foundation $3,000, Business Growth Accelerator $5,000, Business Transformation $7,000, Chelgy Signature Business Build $25,000.";
     const structureNote = indie
       ? " HOW THIS MARKETER OPERATES (use this whenever advising on pricing, what to charge, or income): This person runs their OWN independent marketing business with NO ties to any agency. They set their own prices and keep 100% of everything they charge their clients. When advising on pricing, help them set confident rates based on the value they deliver, their market, and their income goal — do NOT reference any agency, membership, revenue split, or fixed package prices. Ad spend is always separate (clients pay Facebook or Google directly), and they can add their own management fee on top."
       : " HOW CHELGY WORKS (use this whenever advising on pricing, what to charge, or income potential — never invent different numbers): The marketer pays a $100/month Chelgy membership and works UNDER the Chelgy agency. The CLIENT pays Chelgy for the package, and Chelgy pays the marketer their 50% share — a 50/50 split of the service fee. Ad spend is always separate: clients pay Facebook or Google directly, and the marketer can add a management fee on top. Current Chelgy packages and rates: "+priceLine+". The marketer keeps 50% of these fees, so quote clients these package prices and remember your own take-home is half.";
@@ -11255,7 +11465,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (!isTeamSpace && page==="onboarding") return <Onboarding heroImg={heroImg} onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
+  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <Onboarding heroImg={heroImg} onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
   const legalOverlay = legalView ? (
@@ -11340,24 +11550,24 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6,margin:"0 0 14px"}}>As a Chelgy Marketer, you offer standardized service packages to clients. Every marketer offers the same tiers at the same pricing:</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Foundation</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$650–$800/mo</div>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Social, SEO basics, consulting</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Starter Growth</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$1,000/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Strategy, SEO, GBP, 8 social posts</div>
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Growth</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$1,200–$1,500/mo</div>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Full strategy, content, ads</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Business Growth</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$2,000/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Full social, local SEO, email, landing pages</div>
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Premium</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$3,000–$3,500/mo</div>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Complete takeover, dedicated</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Market Domination</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$3,000/mo</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Ads, funnels, automation, weekly strategy</div>
               </div>
               <div style={{background:"#fff",padding:12,borderRadius:3}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>Chelgy Business Builder</div>
-                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$5,000 one-time</div>
-                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Build business from scratch</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.charcoal,marginBottom:4}}>One-Time Builds</div>
+                <div style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>$1,500–$25,000</div>
+                <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,marginTop:4}}>Launches, rebrands & full builds</div>
               </div>
             </div>
             <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,margin:"12px 0 0",lineHeight:1.5}}>💡 <strong>Ad spend is separate</strong> — clients pay Facebook/Google directly. You manage it and charge your service fee on top.</p>
@@ -11751,10 +11961,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div>
                   <label style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:B.mid,marginBottom:6,display:"block",textTransform:"uppercase"}}>Service Tier *</label>
                   <select value={inquiryForm.serviceTier} onChange={e=>setInquiryForm(f=>({...f,serviceTier:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}}>
-                    <option value="foundation">Foundation ($650–$800/mo)</option>
-                    <option value="growth">Growth ($1,200–$1,500/mo)</option>
-                    <option value="premium">Premium ($3,000–$3,500/mo)</option>
-                    <option value="special">Chelgy Business Builder ($5,000 one-time)</option>
+                    <option value="foundation">Starter Growth ($1,000/mo)</option>
+                    <option value="growth">Business Growth ($2,000/mo)</option>
+                    <option value="premium">Market Domination ($3,000/mo)</option>
+                    <option value="special">One-Time Builds ($1,500–$25,000)</option>
                   </select>
                 </div>
                 <div>
@@ -11868,7 +12078,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </button>
             {!indie && <button onClick={()=>setMarketerView("pricing")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:6}}>Service Pricing</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Foundation, Growth, Premium & Chelgy Business Builder packages.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 6px"}}>Starter Growth, Business Growth, Market Domination & One-Time Build packages.</p>
               <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>View →</span>
             </button>}
             {!indie && <button onClick={()=>setMarketerView("contracts")} style={{textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px",cursor:"pointer"}}>
@@ -11895,6 +12105,205 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"16px 18px",marginTop:18,fontFamily:"sans-serif",fontSize:12,color:B.goldDark,lineHeight:1.6}}>Every Chelgy marketing tool — content writer, image creator, video studio, ad builder and more — is right here in the <button onClick={()=>goTab("tools","hub")} style={{background:"none",border:"none",padding:0,margin:0,font:"inherit",color:B.goldDark,fontWeight:700,textDecoration:"underline",cursor:"pointer"}}>Tools</button> tab. Use them to create work for your clients.</div>
         </div>, false, true);
       }
+
+  if (isSalesSpace) {
+    if (!user) return teamWrap(
+      <div style={{paddingTop:30}}>
+        <div style={{width:28,height:1,background:B.gold,marginBottom:18}} />
+        <h1 style={{color:"#fff",fontSize:30,fontWeight:400,margin:"0 0 10px",lineHeight:1.15}}>{teamMode==="signup"?"Join the Chelgy Sales Team":"Welcome back"}</h1>
+        <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:"0 0 26px"}}>{teamMode==="signup"?"Create your rep account to get your roadmap, AI sales coach, pitch scripts, and everything you need to close clients.":"Log in to your Chelgy sales portal."}</p>
+        {teamMode==="signup"&&<input value={teamAuth.name} onChange={e=>setTeamAuth(a=>({...a,name:e.target.value}))} placeholder="Your name" style={SALES_IN} />}
+        <input value={teamAuth.email} onChange={e=>setTeamAuth(a=>({...a,email:e.target.value}))} placeholder="Email" type="email" style={SALES_IN} />
+        <input value={teamAuth.password} onChange={e=>setTeamAuth(a=>({...a,password:e.target.value}))} placeholder="Password" type="password" style={SALES_IN} />
+        {teamMode==="signup"&&<input value={salesCode} onChange={e=>setSalesCode(e.target.value)} placeholder="Sales access code" style={SALES_IN} />}
+        {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#FCA5A5",marginBottom:14}}>{teamErr}</div>}
+        <button onClick={teamMode==="signup"?doSalesSignup:doSalesLogin} disabled={teamLoading} style={{width:"100%",background:B.gold,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:teamLoading?"default":"pointer",textTransform:"uppercase"}}>{teamLoading?"One moment...":(teamMode==="signup"?"Create Account":"Log In")}</button>
+        <div style={{textAlign:"center",marginTop:18}}>
+          <button onClick={()=>{setTeamErr("");setTeamMode(teamMode==="signup"?"login":"signup");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{teamMode==="signup"?"Already have an account? Log in":"New rep? Create an account"}</button>
+        </div>
+      </div>, true);
+
+    const chip=(a)=>({display:"inline-block",margin:"0 8px 8px 0",padding:"9px 14px",borderRadius:20,border:"1px solid "+(a?B.charcoal:B.stone),background:a?B.charcoal:"#fff",color:a?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"});
+    const dealIn={width:"100%",padding:"10px 12px",marginBottom:8,border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,boxSizing:"border-box",background:"#fff"};
+    const SALES_PRICE_MAP=Object.fromEntries([...SALES_MONTHLY,...SALES_ONETIME].map(pk=>[pk.name, Number((pk.price||"").replace(/[^0-9]/g,""))||0]));
+    const salesHdr=(
+      <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
+        <div style={{height:54,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,letterSpacing:"0.22em",color:"#fff"}}>CHELGY <span style={{color:"rgba(255,255,255,0.5)"}}>SALES</span></div>
+          <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.75)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+        </div>
+      </header>
+    );
+    if (!profileChecked && !salesOnboarded) return (<div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>{salesHdr}<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.1em",textTransform:"uppercase"}}>Loading…</div></div>);
+    if (!salesOnboarded) {
+      const Q_EXP=[["new","New to sales"],["some","Some experience"],["pro","Experienced closer"]];
+      const Q_TARGETS=[["local","Local service (salons, spas)"],["trade","Home & trade (contractors)"],["food","Restaurants & food"],["coach","Coaches & creators"],["ecom","E-commerce"],["pro","Professional services"],["unsure","Not sure yet"]];
+      const Q_GOAL=[["first","Land my first client"],["few","1–3 clients a month"],["income","As many as I can — my income"]];
+      const Q_CH=[["ig","Instagram DMs"],["maps","Google Maps"],["groups","Local FB / Nextdoor"],["inperson","In person"],["ref","Referrals"],["cold","Cold call / email"]];
+      const Lbl=(t)=>(<div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em",color:B.charcoal,textTransform:"uppercase",margin:"22px 0 12px"}}>{t}</div>);
+      return (
+        <div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>
+          {salesHdr}
+          <main style={{flex:1,overflowY:"auto",padding:"24px 20px 44px",maxWidth:600,width:"100%",margin:"0 auto",boxSizing:"border-box"}}>
+            <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Welcome{myName?(", "+myName):""} 👋</h1>
+            <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0"}}>A few quick questions so we can tailor your coach and track your progress. Takes 30 seconds.</p>
+            {Lbl("How much sales experience do you have?")}
+            <div>{Q_EXP.map(([v,l])=>(<button key={v} onClick={()=>setSalesForm(f=>({...f,experience:v}))} style={chip(salesForm.experience===v)}>{l}</button>))}</div>
+            {Lbl("Which businesses will you focus on first? (pick any)")}
+            <div>{Q_TARGETS.map(([v,l])=>(<button key={v} onClick={()=>toggleSalesArr("targets",v)} style={chip((salesForm.targets||[]).includes(v))}>{l}</button>))}</div><div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,fontStyle:"italic",marginTop:2}}>Just a starting focus — the best reps sell to any and all businesses that can pay.</div>
+            {Lbl("What's your goal right now?")}
+            <div>{Q_GOAL.map(([v,l])=>(<button key={v} onClick={()=>setSalesForm(f=>({...f,goal:v}))} style={chip(salesForm.goal===v)}>{l}</button>))}</div>
+            {Lbl("Where will you find prospects? (pick any)")}
+            <div>{Q_CH.map(([v,l])=>(<button key={v} onClick={()=>toggleSalesArr("channels",v)} style={chip((salesForm.channels||[]).includes(v))}>{l}</button>))}</div>
+            {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,margin:"16px 0 0"}}>{teamErr}</div>}
+            <button onClick={saveSalesOnboarding} disabled={salesSaving} style={{width:"100%",marginTop:26,background:B.charcoal,color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:salesSaving?"default":"pointer",textTransform:"uppercase"}}>{salesSaving?"Saving…":"Start selling →"}</button>
+          </main>
+        </div>
+      );
+    }
+    const SALES_TABS=[["roadmap","Roadmap"],["coach","Coach"],["pitches","Pitches"],["deliverables","Assets"],["account","Account"]];
+    return (
+      <div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>
+        <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
+          <div style={{height:54,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,letterSpacing:"0.22em",color:"#fff"}}>CHELGY <span style={{color:"rgba(255,255,255,0.5)"}}>SALES</span></div>
+            <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.75)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+          </div>
+        </header>
+        <main style={{flex:1,overflowY:"auto",padding:"22px 18px 96px",maxWidth:640,width:"100%",margin:"0 auto",boxSizing:"border-box"}}>
+          {salesTab==="roadmap" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Your roadmap</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>Six stages from day one to closed deals. Check things off as you go — this is a guide, so adapt it and run with what works best for you.</p>
+              {SALES_ROADMAP.map(st=>(
+                <div key={st.id} style={{background:"#fff",border:"1px solid "+B.stone,padding:"16px 16px 8px",marginBottom:12}}>
+                  <div style={{display:"flex",gap:12,alignItems:"baseline",marginBottom:6}}>
+                    <span style={{fontFamily:"Georgia,serif",fontSize:20,color:B.charcoal}}>{st.n}</span>
+                    <div><div style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700}}>{st.title}</div><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>{st.blurb}</div></div>
+                  </div>
+                  {st.items.map((it,i)=>{ const key=st.id+":"+i; const done=salesDone.has(key); return (
+                    <button key={key} onClick={()=>toggleSalesItem(key)} style={{display:"flex",gap:10,alignItems:"flex-start",width:"100%",textAlign:"left",background:"none",border:"none",borderTop:"1px solid "+B.offwhite,padding:"9px 0",cursor:"pointer"}}>
+                      <span style={{width:16,height:16,borderRadius:4,border:"1.5px solid "+(done?B.green:B.stone),background:done?B.green:"transparent",color:"#fff",fontSize:11,lineHeight:"14px",textAlign:"center",flexShrink:0,marginTop:1}}>{done?"✓":""}</span>
+                      <span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,color:done?B.mid:B.charcoal,textDecoration:done?"line-through":"none"}}>{it}</span>
+                    </button>
+                  ); })}
+                </div>
+              ))}
+            </div>
+          )}
+          {salesTab==="coach" && (
+            <div style={{display:"flex",flexDirection:"column",minHeight:"70vh"}}>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>AI Sales Coach</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>Practice a pitch, rewrite a DM, or work through an objection — it knows the Chelgy packages.</p>
+              <div style={{flex:1}}>
+                {scMsgs.length===0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,background:"#fff",border:"1px solid "+B.stone,padding:"14px",lineHeight:1.6}}>Try: "Role-play a salon owner who says it's too expensive," or "Write a cold DM for a new barber shop," or "Which package for a plumber doing $20k/mo?"</div>}
+                {scMsgs.map((m,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+                    <div style={{maxWidth:"86%",padding:"10px 13px",fontFamily:"sans-serif",fontSize:13,lineHeight:1.55,whiteSpace:"pre-wrap",background:m.role==="user"?B.charcoal:"#fff",color:m.role==="user"?"#fff":B.charcoal,border:m.role==="user"?"none":"1px solid "+B.stone}}>{m.content}</div>
+                  </div>
+                ))}
+                {scLoading && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Coach is thinking…</div>}
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:12}}>
+                <input value={scInput} onChange={e=>setScInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askSalesCoach();}} placeholder="Ask your coach…" style={{flex:1,padding:"12px 14px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:14,boxSizing:"border-box"}} />
+                <button onClick={askSalesCoach} disabled={scLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 18px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Send</button>
+              </div>
+            </div>
+          )}
+          {salesTab==="pitches" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Pitches & packages</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>What you sell, and ready-to-use scripts. Personalize the [brackets] before you send.</p>
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"0 0 8px"}}>Monthly plans</div>
+              {SALES_MONTHLY.map(pk=>(
+                <div key={pk.name} style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10}}><span style={{fontFamily:"sans-serif",fontSize:14,fontWeight:700}}>{pk.name}</span><span style={{fontFamily:"Georgia,serif",fontSize:16}}>{pk.price}</span></div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:4,lineHeight:1.5}}>{pk.who}</div>
+                </div>
+              ))}
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"18px 0 8px"}}>One-time services</div>
+              {SALES_ONETIME.map(pk=>(
+                <div key={pk.name} style={{background:"#fff",border:"1px solid "+B.stone,padding:"12px 16px",marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10}}><span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700}}>{pk.name}</span><span style={{fontFamily:"Georgia,serif",fontSize:15}}>{pk.price}</span></div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:3,lineHeight:1.5}}>{pk.who} → then roll into {pk.up}.</div>
+                </div>
+              ))}
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"18px 0 8px"}}>Scripts</div>
+              {SALES_PITCHES.map((sc,i)=>(
+                <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:10}}><span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{sc.label}</span><button onClick={()=>{try{navigator.clipboard.writeText(sc.body);pushNotif("Copied!");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",padding:"4px 10px",cursor:"pointer",textTransform:"uppercase",color:B.mid}}>Copy</button></div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{sc.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {salesTab==="deliverables" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Client assets</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>Send these to a prospect to help close. Each one opens as a clean, branded page you can save as a PDF or print.</p>
+              {[
+                {label:"Packages & pricing sheet", desc:"All monthly plans and one-time builds, on one page.", fn:openPricingSheet},
+                {label:"Starter Growth one-pager", desc:"$1,000/mo: what's included and who it's for.", fn:()=>openPlanSheet(SALES_PLAN_SHEETS[0])},
+                {label:"Business Growth one-pager", desc:"$2,000/mo: what's included and who it's for.", fn:()=>openPlanSheet(SALES_PLAN_SHEETS[1])},
+                {label:"Market Domination one-pager", desc:"$3,000/mo: what's included and who it's for.", fn:()=>openPlanSheet(SALES_PLAN_SHEETS[2])},
+                {label:"Why Chelgy explainer", desc:"The quick pitch for why a business should work with Chelgy.", fn:openWhyChelgy}
+              ].map(a=>(
+                <button key={a.label} onClick={a.fn} style={{width:"100%",textAlign:"left",background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:"pointer"}}>
+                  <span><span style={{display:"block",fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{a.label}</span><span style={{display:"block",fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:2,lineHeight:1.4}}>{a.desc}</span></span>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",color:"#fff",background:B.charcoal,padding:"6px 10px",textTransform:"uppercase",whiteSpace:"nowrap"}}>Open PDF</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {salesTab==="account" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 14px"}}>Your account</h1>
+              <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"16px",marginBottom:12}}>
+                <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700}}>{myName||"Rep"}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:2}}>{(user&&user.email)||""}</div>
+              </div>
+              <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"16px",marginBottom:12}}>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",marginBottom:6}}>How you get paid</div>
+                <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.55}}>You earn commission on the <strong>first signature</strong> of each client you close — not recurring. Your income is a direct result of how many new clients you close, so keep the pipeline full.</div>
+              </div>
+              <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"16px",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:12}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase"}}>Deals closed</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}><strong>{salesDeals.length}</strong> · ${salesDeals.reduce((a,d)=>a+(Number(d.value)||0),0).toLocaleString()}</div>
+                </div>
+                <input value={dealForm.client} onChange={e=>setDealForm(f=>({...f,client:e.target.value}))} placeholder="Client name" style={dealIn} />
+                <select value={dealForm.pkg} onChange={e=>{const v=e.target.value; setDealForm(f=>({...f,pkg:v,value:SALES_PRICE_MAP[v]?String(SALES_PRICE_MAP[v]):f.value}));}} style={dealIn}>
+                  <option value="">Which package?</option>
+                  {SALES_MONTHLY.map(pk=>(<option key={pk.name} value={pk.name}>{pk.name} ({pk.price})</option>))}
+                  {SALES_ONETIME.map(pk=>(<option key={pk.name} value={pk.name}>{pk.name} ({pk.price})</option>))}
+                </select>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={dealForm.value} onChange={e=>setDealForm(f=>({...f,value:e.target.value}))} placeholder="Deal value $" inputMode="numeric" style={{...dealIn,flex:1}} />
+                  <input type="date" value={dealForm.date} onChange={e=>setDealForm(f=>({...f,date:e.target.value}))} style={{...dealIn,flex:1}} />
+                </div>
+                <button onClick={addSalesDeal} disabled={dealSaving} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"11px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",cursor:dealSaving?"default":"pointer",textTransform:"uppercase"}}>{dealSaving?"Saving…":"+ Log a deal"}</button>
+                {salesDeals.length>0 && (<div style={{marginTop:12}}>
+                  {salesDeals.map(d=>(
+                    <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid "+B.offwhite,padding:"9px 0"}}>
+                      <div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:600}}>{d.client}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid}}>{d.package} · {(d.closed_at||"").slice(0,10)}</div></div>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontFamily:"Georgia,serif",fontSize:14}}>${(Number(d.value)||0).toLocaleString()}</span><button onClick={()=>deleteSalesDeal(d.id)} style={{background:"none",border:"none",color:B.mid,fontSize:18,cursor:"pointer",lineHeight:1}}>×</button></div>
+                    </div>
+                  ))}
+                </div>)}
+                <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginTop:12,lineHeight:1.5}}>Log each client you close. You earn commission on the first signature.</div>
+              </div>
+              <button onClick={doLogout} style={{width:"100%",background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"12px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
+            </div>
+          )}
+        </main>
+        <nav style={{position:"fixed",bottom:0,left:0,right:0,background:B.white,borderTop:"1px solid "+B.stone,display:"flex",paddingBottom:"env(safe-area-inset-bottom,0px)",zIndex:50}}>
+          {SALES_TABS.map(([id,label])=>(
+            <button key={id} onClick={()=>setSalesTab(id)} style={{flex:1,background:"none",border:"none",padding:"12px 4px",cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:salesTab===id?700:400,color:salesTab===id?B.charcoal:B.mid,textTransform:"uppercase"}}>{label}</button>
+          ))}
+        </nav>
+      </div>
+    );
+  }
 
   if (isTeamSpace) {
 
