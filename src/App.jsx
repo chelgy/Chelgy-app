@@ -9828,7 +9828,7 @@ const SALES_FIND_PLACES = [
   ["Nextdoor","local owners right in your area"],
   ["Reddit","r/smallbusiness, r/entrepreneur, and r/[your city]"],
   ["Instagram & TikTok","DM local businesses with weak or inactive pages"],
-  ["Facebook Marketplace","post under Services"],
+  ["Facebook Marketplace","find local businesses listed under Services"],
   ["Alignable","plus local networking & referral groups"],
   ["In person","walk into businesses with outdated branding"],
   ["LinkedIn","search local owners & decision-makers, connect and message"],
@@ -9847,12 +9847,12 @@ const SALES_FIND_PLACES = [
   ["High-spend niches","wedding, beauty, fitness & med-spa directories"]
 ];
 const SALES_FIND_TEXT = "Best places to find both marketing and business-building clients:\n\n" + SALES_FIND_PLACES.map(pn=>"\u2022 "+pn[0]+" \u2014 "+pn[1]).join("\n");
-const SALES_ADS = [
-  {title:"Local business post", body:"Local business owners \ud83d\udc4b Is your marketing not bringing in enough customers? I help businesses like yours show up on Google, look professional online, and actually get leads \u2014 websites, social media, ads, all of it. I'm taking on a few new clients this month. Message me GROWTH and I'll take a free look at your online presence."},
-  {title:"Free marketing audit", body:"FREE marketing audit for local businesses \ud83d\udcc8 Send me your business name and I'll show you exactly what's costing you customers online \u2014 your Google presence, website and social \u2014 plus 3 quick things to fix. No cost, no catch. Comment AUDIT or send me a message."},
-  {title:"Website & online presence", body:"Still don't have a website, or not loving the one you've got? \ud83d\ude2c I build clean, professional sites that get you found on Google and turn visitors into paying customers. Fast turnaround, competitive pricing. Message me and let's get you online the right way."},
-  {title:"Done-for-you marketing", body:"Too busy running your business to keep up with marketing? Let me handle it \ud83d\ude4c Social media, content, ads, SEO and email \u2014 done for you every month so you can focus on your customers. Plans start affordable. Message me INFO for details."},
-  {title:"Get more customers", body:"Want more customers this month? I help local businesses get seen and get booked \u2014 Google, social media, ads and websites that actually work. Premium marketing at prices that make sense. Serious about growing? Send me a message \ud83d\ude80"}
+const SALES_REACHOUTS = [
+  {title:"Cold DM to a local business", body:"Hi [Name]! I came across [Business] and love what you do. I help local businesses get more customers online \u2014 website, social media, Google and ads. I actually spotted a couple of quick things that could bring you more leads. Mind if I share them? No pressure at all."},
+  {title:"Cold email", body:"Hi [Name], I help local businesses in [your area] get found online and bring in more customers. I took a quick look at [Business] and noticed 2-3 things that are probably costing you leads right now. Want me to send them over? Happy to do it free, no strings."},
+  {title:"No or weak website", body:"Hey [Name]! I noticed [Business] doesn't have a website yet (or the current one could use some love). I build clean, professional sites that get you found on Google and turn visitors into paying customers. Would you be open to a quick chat about it?"},
+  {title:"Follow-up message", body:"Hi [Name], just following up on my note about helping [Business] get more customers online. Totally fine if now isn't the right time \u2014 want me to check back next month, or is it worth a quick 10-minute call this week?"},
+  {title:"Referral ask (send to your network)", body:"Hey! Quick one \u2014 I'm helping local businesses grow with marketing (websites, social, ads, all of it) and I'm taking on a few new clients. Do you know any business owner who could use more customers? A quick intro would mean the world \ud83d\ude4f"}
 ];
 const SALES_ROADMAP = [
   {id:"offer",n:"01",title:"Know the offer",blurb:"Master what you're selling before you sell it.",items:["Learn the 3 monthly plans and 5 one-time services (see Pitches)","Memorize the one-line promise of each package","Know which business type buys which package"]},
@@ -12270,9 +12270,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {salesTab==="find" && (
             <div>
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Where to find clients</h1>
-              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 20px"}}>Ready-to-post ads plus every avenue for finding both marketing and business-building clients.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 20px"}}>Every avenue for finding and contacting both marketing and business-building clients \u2014 plus ready-to-send messages to reach out directly.</p>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"0 0 8px"}}>
-                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Where to post to find clients</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Where to find & contact clients</div>
                 <button onClick={()=>{try{navigator.clipboard.writeText(SALES_FIND_TEXT);pushNotif("Copied!");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",padding:"4px 10px",cursor:"pointer",textTransform:"uppercase",color:B.mid}}>Copy</button>
               </div>
               <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"6px 16px 12px",marginBottom:26}}>
@@ -12283,9 +12283,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   </div>
                 ))}
               </div>
-              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"0 0 6px"}}>Ready-to-post ads</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 12px"}}>Copy any of these, tweak a word or two to fit you, and post them where the clients are.</p>
-              {SALES_ADS.map((ad,i)=>(
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"0 0 6px"}}>Ready-to-send outreach messages</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 12px"}}>Copy any of these, swap in the person's name and business, and send it straight to a prospect.</p>
+              {SALES_REACHOUTS.map((ad,i)=>(
                 <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:10}}>
                     <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{ad.title}</span>
@@ -12294,6 +12294,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{ad.body}</div>
                 </div>
               ))}
+              <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,marginTop:18,paddingTop:14,borderTop:"1px solid "+B.stone}}>Posting can work too - running ads or sharing helpful content in local Facebook groups can bring clients to you over time. But your fastest, most reliable wins come from reaching out to people directly, every day.</div>
             </div>
           )}
           {salesTab==="deliverables" && (
