@@ -3656,6 +3656,11 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   }
   useEffect(()=>{ if(view==="reports") loadReports(); },[view]);
   useEffect(()=>{ if(view==="salesteam") loadSalesAdmin(); },[view]);
+  useEffect(()=>{ if(view==="members"){ if((salesAdminLeads||[]).length===0 && (salesAdminDeals||[]).length===0) loadSalesAdmin(); if((marketerApps||[]).length===0) loadMarketers(); } },[view]);
+  const repIdSet = new Set([].concat(salesAdminLeads||[], salesAdminDeals||[]).map(x=>x&&x.rep_id).filter(Boolean));
+  const marketerIdSet = new Set((marketerApps||[]).map(x=>x&&(x.user_id||x.uid)).filter(Boolean));
+  const marketerEmailSet = new Set((marketerApps||[]).map(x=>String((x&&x.email)||"").toLowerCase()).filter(Boolean));
+  function memberRole(m){ if(!m) return null; if(m.user_id && repIdSet.has(m.user_id)) return "Sales rep"; if((m.user_id&&marketerIdSet.has(m.user_id))||(m.email&&marketerEmailSet.has(String(m.email).toLowerCase()))) return "Marketer"; return null; }
   useEffect(()=>{ if(view==="portfolio" && !portfolioLoaded) loadPortfolio(); },[view]);
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
@@ -4245,6 +4250,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:4}}>
                       <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
                         <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#1A1A1A"}}>{m.name||"(no name)"}</span>
+                        {(()=>{ const rl=memberRole(m); return rl?<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#111",color:"#fff",whiteSpace:"nowrap"}}>{rl}</span>:null; })()}
                         <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:m.status==="paid"?"#1A1A1A":"#F0EEE9",color:m.status==="paid"?"#fff":"#6B6B6B"}}>{m.status||"trial"}</span>
                         {m.banned&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#C0392B",color:"#fff"}}>Banned</span>}
                         {m.muted&&<span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:700,padding:"2px 8px",background:"#F2F2F0",color:"#555555",border:"1px solid #111111"}}>Muted</span>}
