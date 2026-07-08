@@ -9937,7 +9937,7 @@ const SALES_PITCHES = [
   {label:"Cold DM (Instagram)", body:"Hey [name]! Love what you're doing with [business]. Quick thought \u2014 with the right online presence, I think you could be reaching a lot more of the right people. We help businesses like yours get found on Google, build a social presence customers love, and bring in leads consistently. Mind if I share a couple of examples of what that looks like? No pressure at all."},
   {label:"Cold email", body:"Subject: a bigger vision for [business]\n\nHi [name] \u2014 I came across [business] and love what you do. I help [business type] transform their online presence: ranking near the top of Google, a social media people are excited to follow, and a steady flow of new customers. I put together a couple of examples of the kind of work we do \u2014 want me to send them over? Happy to show you what's possible for [business]."},
   {label:"Objection: already have someone", body:"That's great to hear. Here's the honest question, though \u2014 is the work at the level you actually want it to be? Take one look at what we produce and most people realize what they've been settling for. Let me send a few examples. If it blows your current marketing out of the water, we talk. If not, no harm done."},
-  {label:"Objection: too expensive", body:"I hear you. Let me reframe it \u2014 what's one new client worth to you? For most [business type], a single new customer covers a big chunk of the month. This isn't a cost, it's the thing that brings customers through the door. And you're getting premium, agency-level work at professional agency rates \u2014 and it pays for itself in the customers it brings."}
+  {label:"Objection: too expensive", body:"I hear you. Let me reframe it \u2014 what's one new client worth to you? For most [business type], a single new customer covers a big chunk of the month. This isn't a cost, it's the thing that brings customers through the door. And you're getting premium, high-end work that's crafted to impress \u2014 and it pays for itself in the customers it brings."}
 ];
 const INTRO_SECTIONS = [
   {id:"welcome", title:"Welcome to the team", sub:"Everything you need to represent Chelgy, find the right clients, and start closing.", blocks:[
@@ -9946,10 +9946,10 @@ const INTRO_SECTIONS = [
     {t:"p", x:"This intro walks you through the business, your role, and the exact playbook. Take it section by section \u2014 by the end you'll know exactly what to do."}
   ]},
   {id:"different", title:"What makes us different", blocks:[
-    {t:"quote", x:"Chelgy delivers premium, agency-level work \u2014 websites, content, brand and strategy \u2014 that competes with the best in the industry. We're priced in line with professional agencies, and the quality is the difference."},
-    {t:"p", x:"That's your whole edge. Plenty of people will \u201cdo marketing\u201d for a business. Almost nobody delivers **genuinely high-end work at a professional, agency level.**"},
+    {t:"quote", x:"Chelgy delivers premium, high-end work \u2014 websites, content, brand and marketing strategy \u2014 crafted to a genuinely high standard. Everything we produce is built to make a business look established, trusted, and impossible to overlook."},
+    {t:"p", x:"That's your whole edge. Plenty of people will \u201cdo marketing\u201d for a business. Almost nobody delivers **genuinely high-end, polished work with real strategy behind it.**"},
     {t:"p", x:"When a prospect sees the caliber of what we produce, the conversation stops being about price and starts being about how soon they can start. Show, don't tell."},
-    {t:"cards", items:[["Premium quality","Design and content that looks like a big-brand budget, not a template."],["Priced like an agency","Professional agency rates \u2014 what stands out is the caliber of the work."],["Done for them","Strategy and execution handled, start to finish."]]}
+    {t:"cards", items:[["Premium quality","Polished, professional design and content \u2014 never templated."],["All in one place","Websites, content, brand, ads, SEO and strategy \u2014 one team handling all of it."],["Done for them","Strategy and execution handled, start to finish."]]}
   ]},
   {id:"selling", title:"What you're selling", sub:"Two ways to work with Chelgy: an ongoing monthly plan, or a one-time project build.", blocks:[
     {t:"h", x:"Monthly marketing plans"},
@@ -9988,7 +9988,7 @@ const INTRO_SECTIONS = [
   {id:"objections", title:"Handling objections", sub:"When they hesitate, sell the finished product \u2014 not \u201cmarketing.\u201d", blocks:[
     {t:"p", x:"Some owners don't think they need marketing, or say they already have someone. Don't argue. **Pivot to what's undeniable: the quality of what Chelgy produces.**"},
     {t:"msg", label:"They already have someone", body:"That's great \u2014 is the work at the level you actually want? Take one look at what we produce and most people realize what they've been settling for. Let me send a few examples, no pressure."},
-    {t:"msg", label:"Not sure it's worth it", body:"Forget \u201cmarketing\u201d for a second \u2014 this is about how your business looks and gets found. We build premium websites and content at a professional, agency level. It pays for itself many times over in the customers it brings."},
+    {t:"msg", label:"Not sure it's worth it", body:"Forget \u201cmarketing\u201d for a second \u2014 this is about how your business looks and gets found. We build premium websites and content to a genuinely high standard. It pays for itself many times over in the customers it brings."},
     {t:"p", x:"Your power move: when someone hesitates, **show them what Chelgy creates.** Use the Portfolio."}
   ]},
   {id:"showing", title:"Showing your work", sub:"The single best way to close is to show real, high-end work.", blocks:[
@@ -11268,7 +11268,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
   function openWhyChelgy(){
     openPrintable("Why Chelgy", '<h1>Why Chelgy</h1><p class="sub">A full marketing team, without the full-time cost.</p>'
-      +'<div class="pkg"><h3>Premium quality, agency-level pricing</h3><p class="who">Top-grade, professional marketing content and design - agency-caliber work at professional agency rates. Clients pay for quality, not a discount.</p></div>'
+      +'<div class="pkg"><h3>Premium quality, done for you</h3><p class="who">Top-grade, professional marketing content and design, produced to a high standard and handled from start to finish.</p></div>'
       +'<div class="pkg"><h3>Everything in one place</h3><p class="who">Strategy, website, SEO, social, ads, email and content - handled by one team, so you can run your business.</p></div>'
       +'<div class="pkg"><h3>Built to get you found</h3><p class="who">We get you showing up on Google and in front of the right local customers, then keep the leads coming.</p></div>'
       +'<div class="pkg"><h3>Clear, flat pricing</h3><p class="who">Simple monthly plans from $1,000 to $3,000, plus one-time builds. No surprises.</p></div>'
