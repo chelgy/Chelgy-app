@@ -10108,7 +10108,14 @@ export default function ChelgyApp() {
   const [dealsLoaded, setDealsLoaded] = useState(false);
   const [dealForm, setDealForm] = useState({client:"",pkg:"",value:"",date:""});
   const [dealSaving, setDealSaving] = useState(false);
+  const [salesLeads, setSalesLeads] = useState([]);
+  const [leadsLoaded, setLeadsLoaded] = useState(false);
+  const [leadForm, setLeadForm] = useState({business:"",contact:"",status:"New",notes:"",follow:""});
+  const [leadSaving, setLeadSaving] = useState(false);
+  const [leadFilter, setLeadFilter] = useState("All");
   useEffect(()=>{ if(isSalesSpace && user && user.id && salesTab==="account" && !dealsLoaded) loadSalesDeals(); },[salesTab,user,dealsLoaded]);
+  useEffect(()=>{ if(isSalesSpace && user && user.id && salesTab==="logs" && !leadsLoaded) loadSalesLeads(); },[salesTab,user,leadsLoaded]);
+  useEffect(()=>{ if(isSalesSpace && user && user.id && !leadsLoaded) loadSalesLeads(); },[user]);
   useEffect(()=>{ if(isSalesSpace && salesTab==="portfolio" && !portfolioLoaded) loadPortfolio(); },[salesTab]);
   const [applyForm, setApplyForm] = useState({ name:"", phone:"", location:"", experience:"", why:"", start:"later" });
   const [applying, setApplying] = useState(false);
@@ -11256,6 +11263,38 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setSalesDeals(l=>l.filter(d=>d.id!==id));
     try{ const tok=await freshToken(); if(tok) await fetch(SUPABASE_URL+"/rest/v1/sales_deals?id=eq."+id,{method:"DELETE",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}}); }catch(e){}
   }
+  const LEAD_STATUSES=["New","Promising","Follow up","Not now","Closed"];
+  function leadColor(st){ return st==="Promising"||st==="Closed"?B.green:st==="Not now"?B.red:st==="Follow up"?B.charcoal:B.mid; }
+  function leadDue(ld){ if(!ld||!ld.follow_up) return false; if(ld.status==="Closed"||ld.status==="Not now") return false; return ld.follow_up <= new Date().toISOString().slice(0,10); }
+  async function loadSalesLeads(){
+    try{ const tok=await freshToken(); if(!tok||!user||!user.id){ setLeadsLoaded(true); return; }
+      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_leads?select=*&rep_id=eq."+user.id+"&order=created_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
+      const rows=await r.json(); if(Array.isArray(rows)){ setSalesLeads(rows); const t=new Date().toISOString().slice(0,10); const due=rows.filter(x=>x.follow_up && x.follow_up<=t && x.status!=="Closed" && x.status!=="Not now").length; if(due>0 && typeof pushNotif==="function") pushNotif(due+" follow-up"+(due>1?"s":"")+" due \u2014 check your Logs."); }
+    }catch(e){}
+    setLeadsLoaded(true);
+  }
+  async function addSalesLead(){
+    if(!leadForm.business.trim()){ setTeamErr("Add a business name."); return; }
+    setTeamErr(""); setLeadSaving(true);
+    const row={ rep_id:user.id, rep_name:myName||"Rep", business:leadForm.business.trim(), contact:leadForm.contact.trim(), status:leadForm.status||"New", notes:leadForm.notes.trim(), follow_up:leadForm.follow||null };
+    try{ const tok=await freshToken();
+      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_leads",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify(row)});
+      const d=await r.json(); if(Array.isArray(d)&&d[0]) setSalesLeads(l=>[d[0],...l]); else setSalesLeads(l=>[{...row,id:Date.now()},...l]);
+    }catch(e){ setSalesLeads(l=>[{...row,id:Date.now()},...l]); }
+    setLeadForm({business:"",contact:"",status:"New",notes:"",follow:""}); setLeadSaving(false);
+  }
+  async function updateLeadStatus(id, status){
+    setSalesLeads(l=>l.map(x=>x.id===id?{...x,status}:x));
+    try{ const tok=await freshToken(); if(tok) await fetch(SUPABASE_URL+"/rest/v1/sales_leads?id=eq."+id,{method:"PATCH",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({status,updated_at:new Date().toISOString()})}); }catch(e){}
+  }
+  async function updateLeadFollow(id, date){
+    setSalesLeads(l=>l.map(x=>x.id===id?{...x,follow_up:date||null}:x));
+    try{ const tok=await freshToken(); if(tok) await fetch(SUPABASE_URL+"/rest/v1/sales_leads?id=eq."+id,{method:"PATCH",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({follow_up:date||null,updated_at:new Date().toISOString()})}); }catch(e){}
+  }
+  async function deleteSalesLead(id){
+    setSalesLeads(l=>l.filter(x=>x.id!==id));
+    try{ const tok=await freshToken(); if(tok) await fetch(SUPABASE_URL+"/rest/v1/sales_leads?id=eq."+id,{method:"DELETE",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}}); }catch(e){}
+  }
   function openPrintable(title, bodyHTML){
     const w=window.open("","_blank"); if(!w){ pushNotif&&pushNotif("Allow pop-ups to open the printable asset."); return; }
     const rep=(myName||"").replace(/[<>]/g,"");
@@ -12386,7 +12425,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>
       );
     }
-    const SALES_TABS=[["intro","Intro"],["coach","Coach"],["pitches","Pitches"],["find","Clients"],["portfolio","Portfolio"],["account","Account"]];
+    const SALES_TABS=[["intro","Intro"],["coach","Coach"],["pitches","Pitches"],["find","Clients"],["portfolio","Portfolio"],["logs","Logs"],["account","Account"]];
     return (
       <div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>
         <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
@@ -12617,6 +12656,55 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ))}
             </div>
           )}
+          {salesTab==="logs" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Client logs</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Log every business you reach out to and track where each one stands {"\u2014"} who's promising, who to follow up with, and who's a no for now.</p>
+              {leadsLoaded && salesLeads.filter(leadDue).length>0 && (
+                <div style={{background:B.charcoal,color:"#fff",padding:"12px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                  <span style={{fontFamily:"sans-serif",fontSize:12.5,lineHeight:1.4}}>You have {salesLeads.filter(leadDue).length} follow-up{salesLeads.filter(leadDue).length>1?"s":""} due today or overdue.</span>
+                  <button onClick={()=>setLeadFilter("Due")} style={{background:"#fff",color:B.charcoal,border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>Show</button>
+                </div>
+              )}
+              <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"16px",marginBottom:18}}>
+                <input value={leadForm.business} onChange={e=>setLeadForm(f=>({...f,business:e.target.value}))} placeholder="Business name" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:8,boxSizing:"border-box"}} />
+                <input value={leadForm.contact} onChange={e=>setLeadForm(f=>({...f,contact:e.target.value}))} placeholder="Contact (phone, email, or @handle)" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:8,boxSizing:"border-box"}} />
+                <select value={leadForm.status} onChange={e=>setLeadForm(f=>({...f,status:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:8,boxSizing:"border-box",background:"#fff"}}>{LEAD_STATUSES.map(st=><option key={st} value={st}>{st}</option>)}</select>
+                <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid,margin:"2px 0 4px"}}>Remind me to follow up on (optional)</div>
+                <input type="date" value={leadForm.follow} onChange={e=>setLeadForm(f=>({...f,follow:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box",color:leadForm.follow?B.charcoal:B.mid}} />
+                <textarea value={leadForm.notes} onChange={e=>setLeadForm(f=>({...f,notes:e.target.value}))} placeholder="Notes (what you discussed, next step...)" rows={2} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box",resize:"vertical"}} />
+                <button onClick={addSalesLead} disabled={leadSaving} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"12px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:leadSaving?"default":"pointer"}}>{leadSaving?"Saving...":"Add to logs"}</button>
+              </div>
+              <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:8,marginBottom:12}}>
+                {["All","Due"].concat(LEAD_STATUSES).map(st=>{ const active=leadFilter===st; const n=st==="All"?salesLeads.length:st==="Due"?salesLeads.filter(leadDue).length:salesLeads.filter(x=>x.status===st).length; return (
+                  <button key={st} onClick={()=>setLeadFilter(st)} style={{flex:"0 0 auto",background:active?B.charcoal:"#fff",color:active?"#fff":B.mid,border:"1px solid "+(active?B.charcoal:B.stone),padding:"6px 11px",fontFamily:"sans-serif",fontSize:10.5,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{st} ({n})</button>
+                ); })}
+              </div>
+              {!leadsLoaded ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Loading...</div>
+               : salesLeads.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"18px",background:"#fff",border:"1px solid "+B.stone}}>No logs yet. Add the first business you reach out to above.</div>
+               : (()=>{ const list=leadFilter==="All"?salesLeads:leadFilter==="Due"?salesLeads.filter(leadDue):salesLeads.filter(x=>x.status===leadFilter);
+                   if(list.length===0) return <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"16px",background:"#fff",border:"1px solid "+B.stone}}>{leadFilter==="Due"?"No follow-ups due right now \u2014 nice work.":("Nothing marked \""+leadFilter+"\" yet.")}</div>;
+                   return list.map(ld=>(
+                     <div key={ld.id} style={{background:"#fff",border:"1px solid "+B.stone,borderLeft:"3px solid "+leadColor(ld.status),padding:"12px 14px",marginBottom:8}}>
+                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                         <div style={{flex:1,minWidth:0}}>
+                           <div style={{fontFamily:"sans-serif",fontSize:13.5,fontWeight:700,color:B.charcoal}}>{ld.business}</div>
+                           {ld.contact && <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,marginTop:2}}>{ld.contact}</div>}
+                           {ld.follow_up && <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,marginTop:4,color:leadDue(ld)?B.red:B.mid}}>{leadDue(ld)?"Follow up due: ":"Follow up: "}{ld.follow_up}</div>}
+                         </div>
+                         <button onClick={()=>deleteSalesLead(ld.id)} style={{background:"none",border:"none",color:B.red,fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>{"\u00d7"}</button>
+                       </div>
+                       {ld.notes && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginTop:7,whiteSpace:"pre-wrap"}}>{ld.notes}</div>}
+                       <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                         <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid}}>Status</span>
+                         <select value={ld.status} onChange={e=>updateLeadStatus(ld.id,e.target.value)} style={{padding:"6px 9px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:leadColor(ld.status),background:"#fff",cursor:"pointer"}}>{LEAD_STATUSES.map(st=><option key={st} value={st}>{st}</option>)}</select>
+                         <span style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginLeft:4}}>Follow up</span>
+                         <input type="date" value={ld.follow_up||""} onChange={e=>updateLeadFollow(ld.id,e.target.value)} style={{padding:"5px 8px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:11,color:B.charcoal,background:"#fff"}} />
+                       </div>
+                     </div>
+                   )); })()}
+            </div>
+          )}
           {salesTab==="account" && (
             <div>
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 14px"}}>Your account</h1>
@@ -12660,7 +12748,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </main>
         <nav style={{position:"fixed",bottom:0,left:0,right:0,background:B.white,borderTop:"1px solid "+B.stone,display:"flex",paddingBottom:"env(safe-area-inset-bottom,0px)",zIndex:50}}>
           {SALES_TABS.map(([id,label])=>(
-            <button key={id} onClick={()=>setSalesTab(id)} style={{flex:1,background:"none",border:"none",padding:"12px 4px",cursor:"pointer",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:salesTab===id?700:400,color:salesTab===id?B.charcoal:B.mid,textTransform:"uppercase"}}>{label}</button>
+            <button key={id} onClick={()=>setSalesTab(id)} style={{flex:1,background:"none",border:"none",padding:"11px 2px",cursor:"pointer",fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.02em",fontWeight:salesTab===id?700:400,color:salesTab===id?B.charcoal:B.mid,textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>
           ))}
         </nav>
       </div>
