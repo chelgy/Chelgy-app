@@ -12452,7 +12452,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
               {coachMode==="chat" && (
                 <div style={{display:"flex",flexDirection:"column",flex:1}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,background:B.offwhite,border:"1px solid "+B.stone,padding:"9px 12px",marginBottom:10,lineHeight:1.5}}>Tip: tap <b style={{color:B.charcoal}}>Audit a business</b> above to drop in a real business and get exactly what they need {"\u2014"} plus how to pitch it.</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,background:B.offwhite,border:"1px solid "+B.stone,padding:"9px 12px",marginBottom:10,lineHeight:1.5}}>Tip: tap <b style={{color:B.charcoal}}>Audit a business</b> above to enter a business's info and get live feedback on exactly what can be done to transform it {"\u2014"} plus how to pitch it.</div>
                   <div style={{flex:1}}>
                     {scMsgs.length===0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,background:"#fff",border:"1px solid "+B.stone,padding:"14px",lineHeight:1.6}}>Try: "Role-play a salon owner who says it's too expensive," or "Write a cold DM for a new barber shop," or "Which package for a plumber doing $20k/mo?"</div>}
                     {scMsgs.map((m,i)=>(
@@ -12563,7 +12563,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Portfolio</h1>
               <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>Download and use these in your pitches - real Chelgy work that shows a prospect exactly what we deliver.</p>
               {!portfolioLoaded ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Loading...</div>
-               : portfolioItems.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"18px",background:"#fff",border:"1px solid "+B.stone,marginBottom:20}}>No examples here yet. Upload work from the admin dashboard (Portfolio tab) and it will show up here to download.</div>
+               : portfolioItems.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"18px",background:"#fff",border:"1px solid "+B.stone,marginBottom:20}}>No examples here yet — Chelgy work is being uploaded soon, and will be available right here for you to download and use in your pitches.</div>
                : (()=>{ const present=[...PORTFOLIO_CATS.filter(c=>portfolioItems.some(it=>it.category===c)), ...Array.from(new Set(portfolioItems.map(it=>it.category))).filter(c=>PORTFOLIO_CATS.indexOf(c)<0)];
                    return present.map(cat=>(
                      <div key={cat} style={{marginBottom:22}}>
