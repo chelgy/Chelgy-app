@@ -24,6 +24,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ deals: Array.isArray(rows) ? rows : [] });
     }
 
+    if (body.action === "leads") {
+      const r = await fetch(SB_URL + "/rest/v1/sales_leads?select=*&order=created_at.desc&limit=1000", { headers: H });
+      const rows = await r.json();
+      return res.status(200).json({ leads: Array.isArray(rows) ? rows : [] });
+    }
+
     return res.status(400).json({ error: "Unknown action." });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });

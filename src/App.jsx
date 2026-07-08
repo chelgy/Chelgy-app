@@ -3537,6 +3537,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [reportsErr, setReportsErr] = useState("");
   const [salesAdminDeals, setSalesAdminDeals] = useState([]);
   const [salesAdminErr, setSalesAdminErr] = useState("");
+  const [salesAdminLeads, setSalesAdminLeads] = useState([]);
   const [portfolioItems, setPortfolioItems] = useState([]);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [pfForm, setPfForm] = useState({category:"Websites",title:"",url:""});
@@ -3650,6 +3651,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const res=await fetch("/api/sales-admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"list",password:ADMIN_PASSWORD})});
       if(res.ok){ const d=await res.json(); setSalesAdminDeals(d.deals||[]); }
       else { let m=""; try{ const t=await res.text(); try{const j=JSON.parse(t);m=j.error||t;}catch{m=t;} }catch{} setSalesAdminErr(m||("server error "+res.status)); }
+      try{ const r2=await fetch("/api/sales-admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"leads",password:ADMIN_PASSWORD})}); if(r2.ok){ const d2=await r2.json(); setSalesAdminLeads(d2.leads||[]); } }catch(e){}
     }catch(e){ setSalesAdminErr("Couldn't load sales data."); }
   }
   useEffect(()=>{ if(view==="reports") loadReports(); },[view]);
@@ -4083,6 +4085,33 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   ))}
                 </div>
               </div>);
+            })()}
+            {salesAdminLeads.length>0 && (()=>{
+              const byRepL={}; salesAdminLeads.forEach(l=>{ const k=l.rep_name||l.rep_id||"Unknown"; (byRepL[k]=byRepL[k]||[]).push(l); });
+              const lc=(st)=>st==="Promising"||st==="Closed"?"#4CAF82":st==="Not now"?"#C0392B":st==="Follow up"?"#111":"#6B6B6B";
+              return (
+                <div style={{marginTop:30,borderTop:"1px solid #E8E6E1",paddingTop:20}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#6B6B6B",marginBottom:12}}>Team logs ({salesAdminLeads.length})</div>
+                  {Object.keys(byRepL).map(rp=>(
+                    <div key={rp} style={{marginBottom:18}}>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:15,marginBottom:7}}>{rp} <span style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>({byRepL[rp].length})</span></div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {byRepL[rp].map(l=>(
+                          <div key={l.id} style={{border:"1px solid #E8E6E1",borderLeft:"3px solid "+lc(l.status),background:"#fff",padding:"10px 12px"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10}}>
+                              <div style={{fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,color:"#111"}}>{l.business}</div>
+                              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:lc(l.status),whiteSpace:"nowrap"}}>{l.status}</div>
+                            </div>
+                            {l.contact && <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",marginTop:2}}>{l.contact}</div>}
+                            {l.notes && <div style={{fontFamily:"sans-serif",fontSize:11,color:"#333",marginTop:5,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{l.notes}</div>}
+                            {l.follow_up && <div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B",marginTop:5}}>Follow up: {l.follow_up}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
             })()}
           </div>
         )}
