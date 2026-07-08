@@ -3537,6 +3537,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [reportsErr, setReportsErr] = useState("");
   const [salesAdminDeals, setSalesAdminDeals] = useState([]);
   const [salesAdminErr, setSalesAdminErr] = useState("");
+  const [portfolioItems, setPortfolioItems] = useState([]);
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [pfForm, setPfForm] = useState({category:"Websites",title:"",url:""});
+  const [pfData, setPfData] = useState(null);
+  const [pfSaving, setPfSaving] = useState(false);
+  const [pfErr, setPfErr] = useState("");
   const [deliverablesErr, setDeliverablesErr] = useState("");
   const [showcaseList, setShowcaseList] = useState([]);
   const [scForm, setScForm] = useState({ tool:"image", url:"", caption:"", prompt:"" });
@@ -3611,6 +3617,33 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     setReportsList(l=>l.filter(r=>r.id!==id));
     try{ await fetch("/api/community-reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"resolve",id,password:ADMIN_PASSWORD})}); }catch(e){}
   }
+  async function loadPortfolio(){
+    try{ const r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_items?select=*&order=created_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}}); const rows=await r.json(); if(Array.isArray(rows)) setPortfolioItems(rows); }catch(e){}
+    setPortfolioLoaded(true);
+  }
+  function onPfFile(e){ const f=e.target&&e.target.files&&e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ setPfData({url:rd.result, mime:f.type||"", name:f.name||"file"}); }; rd.readAsDataURL(f); }
+  async function addPortfolioItem(){
+    if(!pfForm.title.trim()){ setPfErr("Add a title first."); return; }
+    setPfSaving(true); setPfErr("");
+    let url=(pfForm.url||"").trim(); let kind="link";
+    try{
+      if(pfData && pfData.url){
+        const safe=(pfData.name||"file").replace(/[^a-zA-Z0-9._-]/g,"");
+        const up=await uploadSiteImage(pfData.url, "portfolio/"+Date.now()+"-"+safe);
+        if(up){ url=up; kind=(pfData.mime||"").indexOf("video")===0?"video":"image"; }
+        else { setPfErr("Upload failed - try a smaller file, or paste a link instead."); setPfSaving(false); return; }
+      }
+      if(!url){ setPfErr("Upload a file or paste a link."); setPfSaving(false); return; }
+      const res=await fetch("/api/portfolio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"add",password:ADMIN_PASSWORD,category:pfForm.category,title:pfForm.title.trim(),url,kind})});
+      if(res.ok){ const d=await res.json(); if(d&&d.item) setPortfolioItems(l=>[d.item,...l]); setPfForm(f=>({category:f.category,title:"",url:""})); setPfData(null); }
+      else { setPfErr("Couldn't save - check the server / admin password."); }
+    }catch(e){ setPfErr("Something went wrong."); }
+    setPfSaving(false);
+  }
+  async function deletePortfolioItem(id){
+    setPortfolioItems(l=>l.filter(x=>x.id!==id));
+    try{ await fetch("/api/portfolio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete",password:ADMIN_PASSWORD,id})}); }catch(e){}
+  }
   async function loadSalesAdmin(){
     setSalesAdminErr("");
     try{
@@ -3621,6 +3654,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   }
   useEffect(()=>{ if(view==="reports") loadReports(); },[view]);
   useEffect(()=>{ if(view==="salesteam") loadSalesAdmin(); },[view]);
+  useEffect(()=>{ if(view==="portfolio" && !portfolioLoaded) loadPortfolio(); },[view]);
+  useEffect(()=>{ if(isSalesSpace && salesTab==="portfolio" && !portfolioLoaded) loadPortfolio(); },[salesTab]);
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
@@ -3793,7 +3828,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
 
         {/* Nav */}
         <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:2,marginBottom:28,background:"#E8E6E1"}}>
-          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["reports","Reports"],["salesteam","Sales Team"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
+          {[["home","Dashboard"],["strategies","Strategies"],["weekly","The Chelgy Edit"],["showcase","Showcase"],["marketers","Marketers"],["pricing","Pricing"],["inquiries","Inquiries"],["deliverables","Deliverables"],["members","Members"],["reports","Reports"],["salesteam","Sales Team"],["portfolio","Portfolio"],["help","Help Requests"],["subscribers","Subscribers"],["settings","Settings"]].map(([id,label])=>(
             <button key={id} onClick={()=>setView(id)} style={{flex:"1 1 90px",minWidth:90,background:view===id?"#111":"none",color:view===id?"#fff":"#6B6B6B",border:"none",padding:"11px 8px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.08em",fontWeight:view===id?700:400,textAlign:"center"}}>
               {label.toUpperCase()}
             </button>
@@ -4050,6 +4085,38 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 </div>
               </div>);
             })()}
+          </div>
+        )}
+        {view==="portfolio"&&(
+          <div>
+            <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Portfolio</h2>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 16px"}}>Upload example work here. Your sales team can download it from their Portfolio tab to show clients.</p>
+            {pfErr&&<div style={{background:"#FDECEA",border:"1px solid #C0392B",padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",marginBottom:14}}>{pfErr}</div>}
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"16px 18px",marginBottom:20}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                <select value={pfForm.category} onChange={e=>setPfForm(f=>({...f,category:e.target.value}))} style={{padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontFamily:"sans-serif",fontSize:13,background:"#fff"}}>{PORTFOLIO_CATS.map(c=><option key={c} value={c}>{c}</option>)}</select>
+                <input value={pfForm.title} onChange={e=>setPfForm(f=>({...f,title:e.target.value}))} placeholder="Title (e.g. Luxury salon website)" style={{padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontFamily:"sans-serif",fontSize:13}} />
+              </div>
+              <input value={pfForm.url} onChange={e=>setPfForm(f=>({...f,url:e.target.value}))} placeholder="Paste a link (live website, video URL)..." style={{width:"100%",padding:"10px 12px",border:"1px solid #E8E6E1",outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box"}} />
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",marginBottom:6}}>...or upload an image / video file:</div>
+              <input type="file" accept="image/*,video/*" onChange={onPfFile} style={{fontFamily:"sans-serif",fontSize:11,marginBottom:pfData?6:12}} />
+              {pfData&&<div style={{fontFamily:"sans-serif",fontSize:11,color:"#4CAF82",marginBottom:12}}>Selected: {pfData.name}</div>}
+              <button onClick={addPortfolioItem} disabled={pfSaving} style={{background:"#111",color:"#fff",border:"none",padding:"11px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:pfSaving?"default":"pointer"}}>{pfSaving?"Saving...":"Add to portfolio"}</button>
+            </div>
+            {!portfolioLoaded ? <div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B"}}>Loading...</div>
+             : portfolioItems.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",padding:"18px",background:"#F7F6F4",border:"1px solid #E8E6E1"}}>Nothing uploaded yet.</div>
+             : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                 {portfolioItems.map(it=>(
+                   <div key={it.id} style={{display:"flex",alignItems:"center",gap:12,border:"1px solid #E8E6E1",background:"#fff",padding:"10px 12px"}}>
+                     {it.kind==="image"
+                       ? <img src={it.url} alt="" style={{width:46,height:46,objectFit:"cover",flexShrink:0,background:"#F7F6F4"}} />
+                       : <div style={{width:46,height:46,flexShrink:0,background:"#F7F6F4",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase"}}>{it.kind}</div>}
+                     <div style={{flex:1,minWidth:0}}><div style={{fontFamily:"sans-serif",fontSize:12.5,fontWeight:600,color:"#111"}}>{it.title||"Untitled"}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:"#6B6B6B"}}>{it.category} · {it.kind}</div></div>
+                     <a href={it.url} target="_blank" rel="noreferrer" style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"#6B6B6B",textDecoration:"none"}}>Open</a>
+                     <button onClick={()=>deletePortfolioItem(it.id)} style={{background:"none",border:"none",color:"#C0392B",fontSize:18,cursor:"pointer",lineHeight:1}}>{"\u00d7"}</button>
+                   </div>
+                 ))}
+               </div>}
           </div>
         )}
         {view==="inquiries"&&(
@@ -9822,6 +9889,7 @@ const SALES_PLAN_SHEETS = [
   {name:"Business Growth",price:"$2,000/mo",who:"Established businesses that want more leads, consistently.",includes:["Everything in Starter Growth","Full social media management (16 posts/mo)","2 SEO blog articles per month","Local SEO campaign","Monthly email marketing campaign","Landing page creation","Conversion optimization","Lead capture setup","Priority support"]},
   {name:"Market Domination",price:"$3,000/mo",who:"Businesses that want to own their market - a full outsourced marketing department.",includes:["Everything in Business Growth","Unlimited website updates","Weekly strategy meetings","Advanced SEO & link building","Google Ads management","Meta (Facebook & Instagram) Ads management","Sales funnel & CRM automation","Competitor analysis","Priority turnaround","Ad spend billed separately"]}
 ];
+const PORTFOLIO_CATS = ["Websites","AI Images","Flyers","Social Posts","Videos","Other"];
 const SALES_FIND_PLACES = [
   ["Facebook Groups","local business, entrepreneur & small-business groups"],
   ["Craigslist","the services and small-biz-ads sections"],
@@ -9863,11 +9931,81 @@ const SALES_ROADMAP = [
   {id:"grow",n:"06",title:"Keep the pipeline full",blurb:"Your income = new clients closed.",items:["Ask every happy client for a referral","Prospect daily — always be filling the top","Review what's working and double down on it"]}
 ];
 const SALES_PITCHES = [
-  {label:"Cold DM (Instagram)",body:"Hey [name]! Genuinely love what you're doing with [business] — [specific compliment]. Quick thing I noticed though: [observation, e.g. you're tough to find on Google / your site doesn't match how good your work is]. I help businesses like yours fix exactly that — done for you, every month. Mind if I send over what that could look like?"},
-  {label:"Cold email",body:"Subject: quick idea for [business]\n\nHi [name] — I came across [business] and [specific compliment]. I work with [business type] to [get found on Google / bring in more leads / look premium online], fully done-for-you. I put together a quick idea of what we could do for you — open to me sending it over?\n\n[Your name], Chelgy"},
-  {label:"Follow-up",body:"Hey [name], floating this back up in case it got buried! Even if now's not the time, happy to send over a couple examples of what we've done for other [business type] — no pressure at all."},
-  {label:"Objection: too expensive",body:"Totally fair. Quick question — what's one new client worth to you? For most [business type] a single new customer covers most of the month. This isn't a cost, it's how you get more of those — and it's cheaper and less hassle than hiring someone."},
-  {label:"Objection: I can do it myself",body:"You absolutely could — the question is whether you want to spend your nights on captions, SEO, and ads instead of running your business. We do it consistently, at a level that actually converts, so you get your time back and better results."}
+  {label:"The transformation pitch", body:"Hi [name] \u2014 imagine where [business] could be a year from now. Picture your business showing up at the top when people search for what you do, your social media turned into a page customers are genuinely excited to follow, and new leads coming in every single week. That's the transformation we build at Chelgy. We handle all of it \u2014 website, content, social, ads, SEO \u2014 so you can focus on running your business while we grow it. Can I show you what that could look like for [business]?"},
+  {label:"Get found on Google", body:"When someone searches for [business type] near you right now, are they finding you \u2014 or your competitor? Within the first 6 to 12 months of working with us, our goal is to have [business] sitting in one of the top spots on Google for the searches that matter most. That visibility alone can transform your revenue, because it puts you in front of people who are ready to buy the moment they're looking. Let's talk about getting you there."},
+  {label:"Social media transformation", body:"So much business today is won or lost on social media. Most local businesses post here and there and wonder why nothing happens. We turn your social media into a space people actually want to visit \u2014 content they're excited to see, learn from, and share \u2014 a page that builds trust and desire before a customer ever reaches out. Want me to show you a few examples of what we create?"},
+  {label:"Cold DM (Instagram)", body:"Hey [name]! Love what you're doing with [business]. Quick thought \u2014 with the right online presence, I think you could be reaching a lot more of the right people. We help businesses like yours get found on Google, build a social presence customers love, and bring in leads consistently. Mind if I share a couple of examples of what that looks like? No pressure at all."},
+  {label:"Cold email", body:"Subject: a bigger vision for [business]\n\nHi [name] \u2014 I came across [business] and love what you do. I help [business type] transform their online presence: ranking near the top of Google, a social media people are excited to follow, and a steady flow of new customers. I put together a couple of examples of the kind of work we do \u2014 want me to send them over? Happy to show you what's possible for [business]."},
+  {label:"Objection: already have someone", body:"That's great to hear. Here's the honest question, though \u2014 is the work at the level you actually want it to be? Take one look at what we produce and most people realize what they've been settling for. Let me send a few examples. If it blows your current marketing out of the water, we talk. If not, no harm done."},
+  {label:"Objection: too expensive", body:"I hear you. Let me reframe it \u2014 what's one new client worth to you? For most [business type], a single new customer covers a big chunk of the month. This isn't a cost, it's the thing that brings customers through the door. And you're getting premium, agency-level work at professional agency rates \u2014 and it pays for itself in the customers it brings."}
+];
+const INTRO_SECTIONS = [
+  {id:"welcome", title:"Welcome to the team", sub:"Everything you need to represent Chelgy, find the right clients, and start closing.", blocks:[
+    {t:"p", x:"Chelgy helps everyday businesses market like the big brands do \u2014 websites, social media, content, ads, SEO, brand and email. We handle it for them so they can run their business."},
+    {t:"p", x:"Most owners can't afford a real agency and don't have time to figure marketing out. **That's the gap you'll be selling into.** Your job is to find those businesses and open the door."},
+    {t:"p", x:"This intro walks you through the business, your role, and the exact playbook. Take it section by section \u2014 by the end you'll know exactly what to do."}
+  ]},
+  {id:"different", title:"What makes us different", blocks:[
+    {t:"quote", x:"Chelgy delivers premium, agency-level work \u2014 websites, content, brand and strategy \u2014 that competes with the best in the industry. We're priced in line with professional agencies, and the quality is the difference."},
+    {t:"p", x:"That's your whole edge. Plenty of people will \u201cdo marketing\u201d for a business. Almost nobody delivers **genuinely high-end work at a professional, agency level.**"},
+    {t:"p", x:"When a prospect sees the caliber of what we produce, the conversation stops being about price and starts being about how soon they can start. Show, don't tell."},
+    {t:"cards", items:[["Premium quality","Design and content that looks like a big-brand budget, not a template."],["Priced like an agency","Professional agency rates \u2014 what stands out is the caliber of the work."],["Done for them","Strategy and execution handled, start to finish."]]}
+  ]},
+  {id:"selling", title:"What you're selling", sub:"Two ways to work with Chelgy: an ongoing monthly plan, or a one-time project build.", blocks:[
+    {t:"h", x:"Monthly marketing plans"},
+    {t:"price", items:[["Starter Growth","New / small local businesses","$1,000/mo"],["Business Growth","Established, want more leads","$2,000/mo"],["Market Domination","A full outsourced marketing dept","$3,000/mo"]]},
+    {t:"h", x:"One-time project builds"},
+    {t:"price", items:[["Business Launch","Brand-new businesses","$1,500"],["Brand Foundation","Ready to compete","$3,000"],["Growth Accelerator","Wants a lead system","$5,000"],["Business Transformation","Full overhaul","$7,000"],["Signature Build","Everything, built to scale","$25,000"]]},
+    {t:"p", x:"Ad spend is always separate and billed to the client directly. You don't need every detail memorized \u2014 the Pitches tab has it all."}
+  ]},
+  {id:"role", title:"Your role", sub:"Find businesses, reach out, spark interest, and hand the serious ones off to close.", blocks:[
+    {t:"p", x:"You're the front line \u2014 the person who starts the relationship. You don't build websites or run ads yourself. **Chelgy delivers the work; you bring the clients.**"},
+    {t:"cards", items:[["Find","Build a steady list of businesses that need us."],["Reach","Message, email, DM or walk in \u2014 start conversations."],["Close","When they're ready, send their details in and get credited."]]},
+    {t:"callout", title:"How you get paid", body:"You earn commission on the first signature of every new client you close. The more businesses you contact, the more you close. Your focus: start conversations every single day."}
+  ]},
+  {id:"rhythm", title:"Your daily rhythm", sub:"A simple, repeatable loop that turns activity into closed deals.", blocks:[
+    {t:"list", items:["**Know the offer** \u2014 skim Pitches so you can speak with confidence.","**Build your list** \u2014 pull fresh local businesses that need help.","**Reach out** \u2014 contact them directly with the ready-made messages.","**Run the conversation** \u2014 lead with quality and value; book a quick call.","**Hand off & log it** \u2014 send the client in and log the deal in Account.","**Keep the pipeline full** \u2014 always be adding new prospects."]},
+    {t:"p", x:"A rep who messages ten businesses a day will always beat one waiting for leads. **Consistency is the whole game.**"}
+  ]},
+  {id:"site", title:"Using this sales site", sub:"Your whole operation runs from sales.chelgy.app.", blocks:[
+    {t:"list", items:["**Intro** \u2014 this playbook (you're here).","**Coach** \u2014 your AI sales coach; ask it anything.","**Pitches** \u2014 every package, price, and pitch script.","**Clients** \u2014 where to find clients + ready-to-send messages.","**Portfolio** \u2014 example work and sales sheets to send prospects.","**Account** \u2014 your profile and deal tracker."]},
+    {t:"p", x:"Tip: the Portfolio tab has real work you can download and show clients \u2014 the fastest way to sell the premium angle."}
+  ]},
+  {id:"who", title:"Who you're looking for", sub:"Businesses that clearly need help and have money coming in.", blocks:[
+    {t:"cards", items:[["Marketing clients","Running businesses that just need more customers."],["Business builders","Newer businesses that need the whole foundation built."]]},
+    {t:"h", x:"Signs a business needs Chelgy"},
+    {t:"list", items:["No website, or a dated / broken one.","Weak or inactive social media.","Hard to find on Google, few reviews, bad photos.","Great business, but weak branding.","Brand-new or just opening \u2014 needs everything.","Busy owner with no time to market."]},
+    {t:"p", x:"High-spend niches to prioritize: beauty & salons, med-spas, fitness, weddings, real estate, restaurants, contractors, clinics, and boutiques. Over time, sell to **any business that can pay.**"}
+  ]},
+  {id:"find", title:"Where to find them", sub:"You'll never run out of prospects. The Clients tab has the full list + messages.", blocks:[
+    {t:"list", items:["**Instagram & TikTok** \u2014 DM businesses with weak pages.","**Google Maps** \u2014 find businesses with no site or bad photos.","**LinkedIn** \u2014 search and message local owners.","**Facebook Groups & Nextdoor** \u2014 local business communities.","**Yelp & Google Business** \u2014 unclaimed profiles are easy wins.","**Cold email** \u2014 pull businesses from Maps, send a short pitch.","**In person** \u2014 walk into businesses with dated branding.","**Networking & referrals** \u2014 Chamber, BNI, events, client intros."]},
+    {t:"p", x:"Posting ads can bring clients to you over time \u2014 but your fastest wins come from **reaching out directly, every day.**"}
+  ]},
+  {id:"pitch", title:"How to pitch", sub:"You're not cold-selling \u2014 you're starting a conversation about their business.", blocks:[
+    {t:"list", items:["**Open with a genuine observation** \u2014 compliment something real, then name the gap.","**Offer value, not a pitch** \u2014 \u201cmind if I share a couple things that could bring you more customers?\u201d","**Show the quality** \u2014 send examples from the Portfolio. Let the caliber talk.","**Invite a next step** \u2014 \u201cwant to hop on a quick 10-minute call this week?\u201d"]},
+    {t:"msg", label:"Cold DM", body:"Hi [name]! I came across [business] and love what you do. I help local businesses get more customers online \u2014 website, social, Google and ads. I spotted a couple quick things that could bring you more leads. Mind if I share them?"}
+  ]},
+  {id:"objections", title:"Handling objections", sub:"When they hesitate, sell the finished product \u2014 not \u201cmarketing.\u201d", blocks:[
+    {t:"p", x:"Some owners don't think they need marketing, or say they already have someone. Don't argue. **Pivot to what's undeniable: the quality of what Chelgy produces.**"},
+    {t:"msg", label:"They already have someone", body:"That's great \u2014 is the work at the level you actually want? Take one look at what we produce and most people realize what they've been settling for. Let me send a few examples, no pressure."},
+    {t:"msg", label:"Not sure it's worth it", body:"Forget \u201cmarketing\u201d for a second \u2014 this is about how your business looks and gets found. We build premium websites and content at a professional, agency level. It pays for itself many times over in the customers it brings."},
+    {t:"p", x:"Your power move: when someone hesitates, **show them what Chelgy creates.** Use the Portfolio."}
+  ]},
+  {id:"showing", title:"Showing your work", sub:"The single best way to close is to show real, high-end work.", blocks:[
+    {t:"p", x:"Head to the **Portfolio tab** for real examples \u2014 websites, brand work, social content, flyers, images and videos \u2014 that you can download and put in front of a prospect."},
+    {t:"p", x:"When a business owner sees luxury-grade work next to their current setup, the value sells itself. Use it early and often."},
+    {t:"callout", title:"Rule of thumb", body:"Don't describe the quality \u2014 show it. A single great example does more than ten sentences of pitching."}
+  ]},
+  {id:"handoff", title:"When a client says yes", sub:"Pass the warm lead over cleanly so it gets closed and delivered right.", blocks:[
+    {t:"p", x:"When a prospect is ready to move forward, **don't handle contracts or payment yourself.** Do two things:"},
+    {t:"list", items:["**Send the client's details to Chelsea** so she can take it from here.","**Log the deal in your Account tab** so your close is on record and credited."]},
+    {t:"callout", title:"Send this info", body:"Business name, owner / contact name, phone & email, which package they want, and any notes from your conversation. Send it to Chelsea (chelgyapp@gmail.com, or the channel she gives your team)."},
+    {t:"p", x:"The faster you pass a hot lead over, the faster it closes \u2014 and the faster you get paid."}
+  ]},
+  {id:"go", title:"Now go find them", blocks:[
+    {t:"p", x:"You've got the offer, the tools, the messages, and the quality to back it up. The only thing between you and your first close is a conversation."},
+    {t:"p", x:"**Start one today \u2014 then another tomorrow.** Welcome to Chelgy."}
+  ]}
 ];
 const SALES_PRICING_TEXT = "MONTHLY PLANS: Starter Growth $1,000/mo (new/small local, look professional + get found); Business Growth $2,000/mo (established, want more leads consistently); Market Domination $3,000/mo (own their market, full outsourced marketing dept, ad spend separate). ONE-TIME: Business Launch $1,500 (brand new, needs presence) then Starter; Brand Foundation $3,000 (ready to compete) then Business Growth; Business Growth Accelerator $5,000 (wants a lead system) then Market Domination; Business Transformation $7,000 (established, full overhaul) then Market Domination; Chelgy Signature Business Build $25,000 (funded, build everything to scale) then Market Domination. Reps earn commission on the FIRST signature only (no recurring), so focus on closing NEW clients and matching them to the right package.";
 const SALES_COACH_SYSTEM = "You are the Chelgy Sales Coach, a sharp, encouraging sales mentor for a Chelgy sales rep who sells Chelgy's done-for-you marketing services to small businesses. Be tactical, specific, and brief. Help them prospect, write outreach, qualify, pitch, handle objections, role-play prospects, and close. Chelgy packages and prices: " + SALES_PRICING_TEXT + " Who-buys-what guidance is a starting point, not a rule — encourage the rep to experiment and do what works for them. In the long run, reps should be willing to sell to any and all businesses that can pay — not just their chosen focus. Never invent prices or packages beyond this list. Keep replies practical and confidence-building.";
@@ -9940,7 +10078,8 @@ export default function ChelgyApp() {
   const [teamAuth, setTeamAuth] = useState({ name:"", email:"", password:"" });
   const [teamErr, setTeamErr] = useState("");
   const [teamLoading, setTeamLoading] = useState(false);
-  const [salesTab, setSalesTab] = useState("roadmap");
+  const [salesTab, setSalesTab] = useState("intro");
+  const [introSection, setIntroSection] = useState(null);
   const [salesCode, setSalesCode] = useState("");
   const [salesDone, setSalesDone] = useState(()=>{ try{ return new Set(JSON.parse(localStorage.getItem("chelgy_sales_roadmap")||"[]")); }catch{ return new Set(); } });
   const [scMsgs, setScMsgs] = useState([]);
@@ -11128,11 +11267,25 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
   function openWhyChelgy(){
     openPrintable("Why Chelgy", '<h1>Why Chelgy</h1><p class="sub">A full marketing team, without the full-time cost.</p>'
-      +'<div class="pkg"><h3>Premium content at competitive prices</h3><p class="who">Top-grade, professional marketing content and design - the quality big agencies charge a fortune for, at prices that actually make sense for a growing business.</p></div>'
+      +'<div class="pkg"><h3>Premium quality, agency-level pricing</h3><p class="who">Top-grade, professional marketing content and design - agency-caliber work at professional agency rates. Clients pay for quality, not a discount.</p></div>'
       +'<div class="pkg"><h3>Everything in one place</h3><p class="who">Strategy, website, SEO, social, ads, email and content - handled by one team, so you can run your business.</p></div>'
       +'<div class="pkg"><h3>Built to get you found</h3><p class="who">We get you showing up on Google and in front of the right local customers, then keep the leads coming.</p></div>'
       +'<div class="pkg"><h3>Clear, flat pricing</h3><p class="who">Simple monthly plans from $1,000 to $3,000, plus one-time builds. No surprises.</p></div>'
       +'<div class="pkg"><h3>Real reporting</h3><p class="who">You see what\'s working every month - traffic, leads and results, in plain English.</p></div>');
+  }
+  function salesBold(t){ return String(t).split("**").map((seg,i)=> i%2===1 ? <strong key={i} style={{color:B.charcoal,fontWeight:700}}>{seg}</strong> : <span key={i}>{seg}</span>); }
+  function renderIntroBlocks(blocks){
+    return blocks.map((b,i)=>{
+      if(b.t==="p") return <p key={i} style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,margin:"0 0 12px"}}>{salesBold(b.x)}</p>;
+      if(b.t==="h") return <div key={i} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"16px 0 8px"}}>{b.x}</div>;
+      if(b.t==="quote") return <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,borderLeft:"3px solid "+B.charcoal,padding:"16px 18px",margin:"2px 0 14px",fontFamily:"Georgia,serif",fontSize:15,fontStyle:"italic",lineHeight:1.5,color:B.charcoal}}>{b.x}</div>;
+      if(b.t==="list") return <div key={i} style={{margin:"2px 0 14px"}}>{b.items.map((it,j)=>(<div key={j} style={{display:"flex",gap:10,padding:"7px 0",borderTop:j?"1px solid "+B.offwhite:"none"}}><span style={{width:5,height:5,borderRadius:3,background:B.charcoal,marginTop:7,flexShrink:0}} /><span style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.5}}>{salesBold(it)}</span></div>))}</div>;
+      if(b.t==="cards") return <div key={i} style={{display:"flex",gap:8,margin:"2px 0 14px"}}>{b.items.map((c,j)=>(<div key={j} style={{flex:1,background:"#fff",border:"1px solid "+B.stone,padding:"12px 13px"}}><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,marginBottom:4}}>{c[0]}</div><div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5}}>{c[1]}</div></div>))}</div>;
+      if(b.t==="price") return <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,padding:"4px 14px",margin:"2px 0 14px"}}>{b.items.map((r,j)=>(<div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10,padding:"9px 0",borderTop:j?"1px solid "+B.offwhite:"none"}}><div><div style={{fontFamily:"Georgia,serif",fontSize:14,color:B.charcoal}}>{r[0]}</div><div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{r[1]}</div></div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,whiteSpace:"nowrap"}}>{r[2]}</div></div>))}</div>;
+      if(b.t==="msg") return <div key={i} style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"12px 14px",margin:"2px 0 12px"}}><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.14em",textTransform:"uppercase",color:B.goldDark,fontWeight:700,marginBottom:6}}>{b.label}</div><div style={{fontFamily:"sans-serif",fontSize:12,fontStyle:"italic",color:B.charcoal,lineHeight:1.6}}>{b.body}</div></div>;
+      if(b.t==="callout") return <div key={i} style={{background:B.charcoal,color:"#fff",padding:"18px 20px",margin:"6px 0 12px"}}><div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",fontWeight:700,marginBottom:8}}>{b.title}</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.85)",lineHeight:1.6}}>{b.body}</div></div>;
+      return null;
+    });
   }
   function toggleSalesItem(key){ setSalesDone(prev=>{ const n=new Set(prev); n.has(key)?n.delete(key):n.add(key); try{ localStorage.setItem("chelgy_sales_roadmap", JSON.stringify([...n])); }catch(e){} return n; }); }
   async function askSalesCoach(){
@@ -12191,7 +12344,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>
       );
     }
-    const SALES_TABS=[["roadmap","Roadmap"],["coach","Coach"],["pitches","Pitches"],["find","Clients"],["deliverables","Assets"],["account","Account"]];
+    const SALES_TABS=[["intro","Intro"],["coach","Coach"],["pitches","Pitches"],["find","Clients"],["portfolio","Portfolio"],["account","Account"]];
     return (
       <div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>
         <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
@@ -12201,6 +12354,38 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         </header>
         <main style={{flex:1,overflowY:"auto",padding:"22px 18px 96px",maxWidth:640,width:"100%",margin:"0 auto",boxSizing:"border-box"}}>
+          {salesTab==="intro" && (
+            <div>
+              {!introSection ? (
+                <div>
+                  <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Your intro &amp; playbook</h1>
+                  <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>New here? Start at the top. Everything about Chelgy, your role, and how to sell {"\u2014"} in {INTRO_SECTIONS.length} quick sections.</p>
+                  {INTRO_SECTIONS.map((sec,i)=>(
+                    <button key={sec.id} onClick={()=>{setIntroSection(sec.id); if(typeof window!=="undefined") window.scrollTo(0,0);}} style={{width:"100%",textAlign:"left",background:"#fff",border:"1px solid "+B.stone,padding:"13px 15px",marginBottom:8,display:"flex",alignItems:"center",gap:14,cursor:"pointer"}}>
+                      <span style={{fontFamily:"Georgia,serif",fontSize:15,color:B.goldDark,width:22,flexShrink:0}}>{String(i+1).padStart(2,"0")}</span>
+                      <span style={{flex:1,fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{sec.title}</span>
+                      <span style={{color:B.mid,fontSize:16}}>{"\u203a"}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (()=>{
+                const idx=INTRO_SECTIONS.findIndex(x=>x.id===introSection); if(idx<0) return null; const sec=INTRO_SECTIONS[idx];
+                return (<div>
+                  <button onClick={()=>setIntroSection(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,marginBottom:14}}>{"\u2039 All sections"}</button>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:B.goldDark,fontWeight:700,marginBottom:8}}>Section {idx+1} of {INTRO_SECTIONS.length}</div>
+                  <h1 style={{fontFamily:"Georgia,serif",fontSize:25,fontWeight:400,margin:"0 0 8px"}}>{sec.title}</h1>
+                  {sec.sub && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.65,margin:"0 0 16px"}}>{sec.sub}</p>}
+                  {renderIntroBlocks(sec.blocks)}
+                  <div style={{display:"flex",justifyContent:"space-between",gap:10,marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:16}}>
+                    <button onClick={()=>{ if(idx>0){setIntroSection(INTRO_SECTIONS[idx-1].id); window.scrollTo(0,0);} }} disabled={idx===0} style={{background:"none",border:"1px solid "+B.stone,color:idx===0?B.stone:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:idx===0?"default":"pointer"}}>{"\u2039 Prev"}</button>
+                    {idx<INTRO_SECTIONS.length-1
+                      ? <button onClick={()=>{setIntroSection(INTRO_SECTIONS[idx+1].id); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Next \u203a"}</button>
+                      : <button onClick={()=>setIntroSection(null)} style={{background:B.charcoal,border:"none",color:"#fff",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>Done</button>}
+                  </div>
+                </div>);
+              })()}
+            </div>
+          )}
           {salesTab==="roadmap" && (
             <div>
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Your roadmap</h1>
@@ -12295,6 +12480,47 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               ))}
               <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.6,marginTop:18,paddingTop:14,borderTop:"1px solid "+B.stone}}>Posting can work too - running ads or sharing helpful content in local Facebook groups can bring clients to you over time. But your fastest, most reliable wins come from reaching out to people directly, every day.</div>
+            </div>
+          )}
+          {salesTab==="portfolio" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Portfolio</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>Download and use these in your pitches - real Chelgy work that shows a prospect exactly what we deliver.</p>
+              {!portfolioLoaded ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Loading...</div>
+               : portfolioItems.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"18px",background:"#fff",border:"1px solid "+B.stone,marginBottom:20}}>No examples uploaded yet - check back soon.</div>
+               : (()=>{ const present=[...PORTFOLIO_CATS.filter(c=>portfolioItems.some(it=>it.category===c)), ...Array.from(new Set(portfolioItems.map(it=>it.category))).filter(c=>PORTFOLIO_CATS.indexOf(c)<0)];
+                   return present.map(cat=>(
+                     <div key={cat} style={{marginBottom:22}}>
+                       <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",marginBottom:8}}>{cat}</div>
+                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                         {portfolioItems.filter(it=>it.category===cat).map(it=>(
+                           <div key={it.id} style={{background:"#fff",border:"1px solid "+B.stone,overflow:"hidden"}}>
+                             {it.kind==="image" ? <img src={it.url} alt="" style={{width:"100%",height:104,objectFit:"cover",display:"block",background:B.offwhite}} />
+                              : it.kind==="video" ? <video src={it.url} controls style={{width:"100%",height:104,objectFit:"cover",display:"block",background:"#000"}} />
+                              : <div style={{height:104,background:B.offwhite,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase"}}>Link</div>}
+                             <div style={{padding:"9px 11px"}}>
+                               <div style={{fontFamily:"sans-serif",fontSize:11.5,fontWeight:600,color:B.charcoal,lineHeight:1.35,marginBottom:7}}>{it.title||"Untitled"}</div>
+                               <a href={it.url} target="_blank" rel="noreferrer" download style={{fontFamily:"sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:B.charcoal,textDecoration:"none",border:"1px solid "+B.stone,padding:"5px 10px",display:"inline-block"}}>{it.kind==="link"?"View":"Download"}</a>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )); })()}
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"6px 0 6px",paddingTop:16,borderTop:"1px solid "+B.stone}}>Sales sheets</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 12px"}}>Branded one-pagers you can save as a PDF and send a prospect.</p>
+              {[
+                {label:"Packages & pricing sheet", fn:openPricingSheet},
+                {label:"Starter Growth one-pager", fn:()=>openPlanSheet(SALES_PLAN_SHEETS[0])},
+                {label:"Business Growth one-pager", fn:()=>openPlanSheet(SALES_PLAN_SHEETS[1])},
+                {label:"Market Domination one-pager", fn:()=>openPlanSheet(SALES_PLAN_SHEETS[2])},
+                {label:"Why Chelgy explainer", fn:openWhyChelgy}
+              ].map(a=>(
+                <button key={a.label} onClick={a.fn} style={{width:"100%",textAlign:"left",background:"#fff",border:"1px solid "+B.stone,padding:"13px 15px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:"pointer"}}>
+                  <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{a.label}</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",color:"#fff",background:B.charcoal,padding:"6px 10px",textTransform:"uppercase",whiteSpace:"nowrap"}}>Open PDF</span>
+                </button>
+              ))}
             </div>
           )}
           {salesTab==="deliverables" && (
