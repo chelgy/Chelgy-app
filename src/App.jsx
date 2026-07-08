@@ -9941,8 +9941,8 @@ const SALES_PITCHES = [
 ];
 const INTRO_SECTIONS = [
   {id:"welcome", title:"Welcome to the team", sub:"Everything you need to represent Chelgy, find the right clients, and start closing.", blocks:[
-    {t:"p", x:"Chelgy helps everyday businesses market like the big brands do \u2014 websites, social media, content, ads, SEO, brand and email. We handle it for them so they can run their business."},
-    {t:"p", x:"Most owners can't afford a real agency and don't have time to figure marketing out. **That's the gap you'll be selling into.** Your job is to find those businesses and open the door."},
+    {t:"p", x:"Chelgy is a full-service, premium marketing agency. Websites, social media, content, ads, SEO, brand and strategy \u2014 we do all of it, at a level above the standard, and we deliver it done-for-you so the client never has to touch it."},
+    {t:"p", x:"What we sell isn't just marketing \u2014 it's the finished result: a business that looks the part, gets found, and wins customers. **Your job is to find owners who want that level, and open the door.**"},
     {t:"p", x:"This intro walks you through the business, your role, and the exact playbook. Take it section by section \u2014 by the end you'll know exactly what to do."}
   ]},
   {id:"different", title:"What makes us different", blocks:[
@@ -9982,7 +9982,7 @@ const INTRO_SECTIONS = [
     {t:"p", x:"Posting ads can bring clients to you over time \u2014 but your fastest wins come from **reaching out directly, every day.**"}
   ]},
   {id:"pitch", title:"How to pitch", sub:"You're not cold-selling \u2014 you're starting a conversation about their business.", blocks:[
-    {t:"list", items:["**Open with a genuine observation** \u2014 compliment something real, then name the gap.","**Offer value, not a pitch** \u2014 \u201cmind if I share a couple things that could bring you more customers?\u201d","**Show the quality** \u2014 send examples from the Portfolio. Let the caliber talk.","**Invite a next step** \u2014 \u201cwant to hop on a quick 10-minute call this week?\u201d"]},
+    {t:"list", items:["**Open with a genuine observation** \u2014 compliment something real, then point out what's missing.","**Offer value, not a pitch** \u2014 \u201cmind if I share a couple things that could bring you more customers?\u201d","**Show the quality** \u2014 send examples from the Portfolio. Let the caliber talk.","**Invite a next step** \u2014 \u201cwant to hop on a quick 10-minute call this week?\u201d"]},
     {t:"msg", label:"Cold DM", body:"Hi [name]! I came across [business] and love what you do. I help local businesses get more customers online \u2014 website, social, Google and ads. I spotted a couple quick things that could bring you more leads. Mind if I share them?"}
   ]},
   {id:"objections", title:"Handling objections", sub:"When they hesitate, sell the finished product \u2014 not \u201cmarketing.\u201d", blocks:[
@@ -10007,6 +10007,7 @@ const INTRO_SECTIONS = [
     {t:"p", x:"**Start one today \u2014 then another tomorrow.** Welcome to Chelgy."}
   ]}
 ];
+const INTRO_MENU = {welcome:"Welcome",different:"Different",selling:"What you sell",role:"Your role",rhythm:"Daily rhythm",site:"The site",who:"Who to find",find:"Where",pitch:"How to pitch",objections:"Objections",showing:"Show work",handoff:"They say yes",go:"Go!"};
 const SALES_PRICING_TEXT = "MONTHLY PLANS: Starter Growth $1,000/mo (new/small local, look professional + get found); Business Growth $2,000/mo (established, want more leads consistently); Market Domination $3,000/mo (own their market, full outsourced marketing dept, ad spend separate). ONE-TIME: Business Launch $1,500 (brand new, needs presence) then Starter; Brand Foundation $3,000 (ready to compete) then Business Growth; Business Growth Accelerator $5,000 (wants a lead system) then Market Domination; Business Transformation $7,000 (established, full overhaul) then Market Domination; Chelgy Signature Business Build $25,000 (funded, build everything to scale) then Market Domination. Reps earn commission on the FIRST signature only (no recurring), so focus on closing NEW clients and matching them to the right package.";
 const SALES_COACH_SYSTEM = "You are the Chelgy Sales Coach, a sharp, encouraging sales mentor for a Chelgy sales rep who sells Chelgy's done-for-you marketing services to small businesses. Be tactical, specific, and brief. Help them prospect, write outreach, qualify, pitch, handle objections, role-play prospects, and close. Chelgy packages and prices: " + SALES_PRICING_TEXT + " Who-buys-what guidance is a starting point, not a rule — encourage the rep to experiment and do what works for them. In the long run, reps should be willing to sell to any and all businesses that can pay — not just their chosen focus. Never invent prices or packages beyond this list. Keep replies practical and confidence-building.";
 
@@ -10079,7 +10080,7 @@ export default function ChelgyApp() {
   const [teamErr, setTeamErr] = useState("");
   const [teamLoading, setTeamLoading] = useState(false);
   const [salesTab, setSalesTab] = useState("intro");
-  const [introSection, setIntroSection] = useState(null);
+  const [introSection, setIntroSection] = useState("welcome");
   const [salesCode, setSalesCode] = useState("");
   const [salesDone, setSalesDone] = useState(()=>{ try{ return new Set(JSON.parse(localStorage.getItem("chelgy_sales_roadmap")||"[]")); }catch{ return new Set(); } });
   const [scMsgs, setScMsgs] = useState([]);
@@ -12356,31 +12357,24 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         <main style={{flex:1,overflowY:"auto",padding:"22px 18px 96px",maxWidth:640,width:"100%",margin:"0 auto",boxSizing:"border-box"}}>
           {salesTab==="intro" && (
             <div>
-              {!introSection ? (
-                <div>
-                  <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Your intro &amp; playbook</h1>
-                  <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>New here? Start at the top. Everything about Chelgy, your role, and how to sell {"\u2014"} in {INTRO_SECTIONS.length} quick sections.</p>
-                  {INTRO_SECTIONS.map((sec,i)=>(
-                    <button key={sec.id} onClick={()=>{setIntroSection(sec.id); if(typeof window!=="undefined") window.scrollTo(0,0);}} style={{width:"100%",textAlign:"left",background:"#fff",border:"1px solid "+B.stone,padding:"13px 15px",marginBottom:8,display:"flex",alignItems:"center",gap:14,cursor:"pointer"}}>
-                      <span style={{fontFamily:"Georgia,serif",fontSize:15,color:B.goldDark,width:22,flexShrink:0}}>{String(i+1).padStart(2,"0")}</span>
-                      <span style={{flex:1,fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{sec.title}</span>
-                      <span style={{color:B.mid,fontSize:16}}>{"\u203a"}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (()=>{
-                const idx=INTRO_SECTIONS.findIndex(x=>x.id===introSection); if(idx<0) return null; const sec=INTRO_SECTIONS[idx];
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400,margin:"0 0 4px"}}>Your intro &amp; playbook</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.55,margin:"0 0 12px"}}>Everything about Chelgy, your role, and how to sell {"\u2014"} tap through the menu or hit Next.</p>
+              <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:10,marginBottom:16,borderBottom:"1px solid "+B.stone}}>
+                {INTRO_SECTIONS.map((sec,i)=>{ const active=sec.id===introSection; return (
+                  <button key={sec.id} onClick={()=>{setIntroSection(sec.id); if(typeof window!=="undefined") window.scrollTo(0,0);}} style={{flex:"0 0 auto",background:active?B.charcoal:"#fff",color:active?"#fff":B.mid,border:"1px solid "+(active?B.charcoal:B.stone),padding:"7px 12px",fontFamily:"sans-serif",fontSize:11,fontWeight:active?700:600,cursor:"pointer",whiteSpace:"nowrap"}}>{String(i+1).padStart(2,"0")}{"\u2002"}{INTRO_MENU[sec.id]||sec.title}</button>
+                ); })}
+              </div>
+              {(()=>{ const idx=INTRO_SECTIONS.findIndex(x=>x.id===introSection); const rIdx=idx<0?0:idx; const sec=INTRO_SECTIONS[rIdx];
                 return (<div>
-                  <button onClick={()=>setIntroSection(null)} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.mid,padding:0,marginBottom:14}}>{"\u2039 All sections"}</button>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:B.goldDark,fontWeight:700,marginBottom:8}}>Section {idx+1} of {INTRO_SECTIONS.length}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:B.goldDark,fontWeight:700,marginBottom:8}}>Section {rIdx+1} of {INTRO_SECTIONS.length}</div>
                   <h1 style={{fontFamily:"Georgia,serif",fontSize:25,fontWeight:400,margin:"0 0 8px"}}>{sec.title}</h1>
                   {sec.sub && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.65,margin:"0 0 16px"}}>{sec.sub}</p>}
                   {renderIntroBlocks(sec.blocks)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:10,marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:16}}>
-                    <button onClick={()=>{ if(idx>0){setIntroSection(INTRO_SECTIONS[idx-1].id); window.scrollTo(0,0);} }} disabled={idx===0} style={{background:"none",border:"1px solid "+B.stone,color:idx===0?B.stone:B.mid,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:idx===0?"default":"pointer"}}>{"\u2039 Prev"}</button>
-                    {idx<INTRO_SECTIONS.length-1
-                      ? <button onClick={()=>{setIntroSection(INTRO_SECTIONS[idx+1].id); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Next \u203a"}</button>
-                      : <button onClick={()=>setIntroSection(null)} style={{background:B.charcoal,border:"none",color:"#fff",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>Done</button>}
+                    <button onClick={()=>{ if(rIdx>0){setIntroSection(INTRO_SECTIONS[rIdx-1].id); window.scrollTo(0,0);} }} disabled={rIdx===0} style={{background:"none",border:"1px solid "+B.stone,color:rIdx===0?B.stone:B.mid,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:rIdx===0?"default":"pointer"}}>{"\u2039 Prev"}</button>
+                    {rIdx<INTRO_SECTIONS.length-1
+                      ? <button onClick={()=>{setIntroSection(INTRO_SECTIONS[rIdx+1].id); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Next \u203a"}</button>
+                      : <button onClick={()=>{setSalesTab("pitches"); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Go to Pitches \u203a"}</button>}
                   </div>
                 </div>);
               })()}
@@ -12487,7 +12481,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Portfolio</h1>
               <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>Download and use these in your pitches - real Chelgy work that shows a prospect exactly what we deliver.</p>
               {!portfolioLoaded ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Loading...</div>
-               : portfolioItems.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"18px",background:"#fff",border:"1px solid "+B.stone,marginBottom:20}}>No examples uploaded yet - check back soon.</div>
+               : portfolioItems.length===0 ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,padding:"18px",background:"#fff",border:"1px solid "+B.stone,marginBottom:20}}>No examples here yet. Upload work from the admin dashboard (Portfolio tab) and it will show up here to download.</div>
                : (()=>{ const present=[...PORTFOLIO_CATS.filter(c=>portfolioItems.some(it=>it.category===c)), ...Array.from(new Set(portfolioItems.map(it=>it.category))).filter(c=>PORTFOLIO_CATS.indexOf(c)<0)];
                    return present.map(cat=>(
                      <div key={cat} style={{marginBottom:22}}>
