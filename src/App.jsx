@@ -7752,12 +7752,9 @@ function PublicSite({ slug, domain, onNotFound }) {
 const GIFT_TYPES = [
   { key:"caption",  kind:"text",  noun:"social post",      tool:"content",  label:"Content Writer" },
   { key:"viral",    kind:"text",  noun:"viral video idea", tool:"viral",    label:"Viral Video Generator" },
-  { key:"flyer",    kind:"image", noun:"promo flyer",      tool:"images",   label:"Image Creator" },
   { key:"ad",       kind:"text",  noun:"ad hook",          tool:"ads",      label:"Ad Campaign Builder" },
   { key:"grant",    kind:"text",  noun:"grant alert",      tool:"grants",   label:"Grant Finder" },
-  { key:"graphic",  kind:"image", noun:"branded graphic",  tool:"images",   label:"Image Creator" },
   { key:"content",  kind:"text",  noun:"content idea",     tool:"content",  label:"Content Writer" },
-  { key:"quote",    kind:"image", noun:"quote post",       tool:"images",   label:"Image Creator" },
   { key:"audit",    kind:"text",  noun:"marketing tip",    tool:"audit",    label:"Business Audit" },
   { key:"platform", kind:"text",  noun:"growth nudge",     tool:"platforms",label:"Platform Setup Guides" },
 ];
@@ -9825,6 +9822,38 @@ const SALES_PLAN_SHEETS = [
   {name:"Business Growth",price:"$2,000/mo",who:"Established businesses that want more leads, consistently.",includes:["Everything in Starter Growth","Full social media management (16 posts/mo)","2 SEO blog articles per month","Local SEO campaign","Monthly email marketing campaign","Landing page creation","Conversion optimization","Lead capture setup","Priority support"]},
   {name:"Market Domination",price:"$3,000/mo",who:"Businesses that want to own their market - a full outsourced marketing department.",includes:["Everything in Business Growth","Unlimited website updates","Weekly strategy meetings","Advanced SEO & link building","Google Ads management","Meta (Facebook & Instagram) Ads management","Sales funnel & CRM automation","Competitor analysis","Priority turnaround","Ad spend billed separately"]}
 ];
+const SALES_FIND_PLACES = [
+  ["Facebook Groups","local business, entrepreneur & small-business groups"],
+  ["Craigslist","the services and small-biz-ads sections"],
+  ["Nextdoor","local owners right in your area"],
+  ["Reddit","r/smallbusiness, r/entrepreneur, and r/[your city]"],
+  ["Instagram & TikTok","DM local businesses with weak or inactive pages"],
+  ["Facebook Marketplace","post under Services"],
+  ["Alignable","plus local networking & referral groups"],
+  ["In person","walk into businesses with outdated branding"],
+  ["LinkedIn","search local owners & decision-makers, connect and message"],
+  ["Google Maps","find businesses with no website, few reviews, or bad photos"],
+  ["Google Business Profiles","unclaimed or bare-bones listings are easy wins"],
+  ["Yelp","businesses with weak or unclaimed profiles"],
+  ["Chamber of Commerce","member directories, mixers & events"],
+  ["Networking & BNI groups","referral groups built for exactly this"],
+  ["Thumbtack / Bark","service-request marketplaces"],
+  ["Etsy & Shopify sellers","DM stores that need better branding or ads"],
+  ["Cold email","pull local businesses from Google Maps, send a short pitch"],
+  ["Referrals","ask every happy client for two introductions"],
+  ["Local events, markets & pop-ups","every vendor is a potential client"],
+  ["Hashtags & location tags","find local businesses posting low-quality content"],
+  ["New-business & permit listings","brand-new businesses need everything"],
+  ["High-spend niches","wedding, beauty, fitness & med-spa directories"]
+];
+const SALES_FIND_TEXT = "Best places to find both marketing and business-building clients:\n\n" + SALES_FIND_PLACES.map(pn=>"\u2022 "+pn[0]+" \u2014 "+pn[1]).join("\n");
+const SALES_ADS = [
+  {title:"Local business post", body:"Local business owners \ud83d\udc4b Is your marketing not bringing in enough customers? I help businesses like yours show up on Google, look professional online, and actually get leads \u2014 websites, social media, ads, all of it. I'm taking on a few new clients this month. Message me GROWTH and I'll take a free look at your online presence."},
+  {title:"Free marketing audit", body:"FREE marketing audit for local businesses \ud83d\udcc8 Send me your business name and I'll show you exactly what's costing you customers online \u2014 your Google presence, website and social \u2014 plus 3 quick things to fix. No cost, no catch. Comment AUDIT or send me a message."},
+  {title:"Website & online presence", body:"Still don't have a website, or not loving the one you've got? \ud83d\ude2c I build clean, professional sites that get you found on Google and turn visitors into paying customers. Fast turnaround, competitive pricing. Message me and let's get you online the right way."},
+  {title:"Done-for-you marketing", body:"Too busy running your business to keep up with marketing? Let me handle it \ud83d\ude4c Social media, content, ads, SEO and email \u2014 done for you every month so you can focus on your customers. Plans start affordable. Message me INFO for details."},
+  {title:"Get more customers", body:"Want more customers this month? I help local businesses get seen and get booked \u2014 Google, social media, ads and websites that actually work. Premium marketing at prices that make sense. Serious about growing? Send me a message \ud83d\ude80"}
+];
 const SALES_ROADMAP = [
   {id:"offer",n:"01",title:"Know the offer",blurb:"Master what you're selling before you sell it.",items:["Learn the 3 monthly plans and 5 one-time services (see Pitches)","Memorize the one-line promise of each package","Know which business type buys which package"]},
   {id:"list",n:"02",title:"Build your list",blurb:"Find businesses that need what you sell.",items:["Pick 2–3 business types to focus on this week","Pull 20–30 prospects from Instagram, Google Maps, or local groups","Set a daily outreach target and track it"]},
@@ -10060,7 +10089,7 @@ export default function ChelgyApp() {
   const [showTasks, setShowTasks] = useState(false);
   const [showGreeting, setShowGreeting] = useState(false);
   const [giftLoading, setGiftLoading] = useState(false);
-  const [gift, setGift] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_gift_payload"); const day=localStorage.getItem("chelgy_gift_day"); return (v&&day===todayStr())?JSON.parse(v):null; }catch(e){ return null; } });
+  const [gift, setGift] = useState(()=>{ try{ const v=localStorage.getItem("chelgy_gift_payload"); const day=localStorage.getItem("chelgy_gift_day"); if(v&&day===todayStr()){ const g=JSON.parse(v); return (g&&g.kind==="image")?null:g; } return null; }catch(e){ return null; } });
   const [celebrate, setCelebrate] = useState("");
   const [completions, setCompletions] = useState(()=>lsGetJSON("chelgy_completions", {}));
   const [showJournal, setShowJournal] = useState(false);
@@ -11099,6 +11128,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
   function openWhyChelgy(){
     openPrintable("Why Chelgy", '<h1>Why Chelgy</h1><p class="sub">A full marketing team, without the full-time cost.</p>'
+      +'<div class="pkg"><h3>Premium content at competitive prices</h3><p class="who">Top-grade, professional marketing content and design - the quality big agencies charge a fortune for, at prices that actually make sense for a growing business.</p></div>'
       +'<div class="pkg"><h3>Everything in one place</h3><p class="who">Strategy, website, SEO, social, ads, email and content - handled by one team, so you can run your business.</p></div>'
       +'<div class="pkg"><h3>Built to get you found</h3><p class="who">We get you showing up on Google and in front of the right local customers, then keep the leads coming.</p></div>'
       +'<div class="pkg"><h3>Clear, flat pricing</h3><p class="who">Simple monthly plans from $1,000 to $3,000, plus one-time builds. No surprises.</p></div>'
@@ -12161,7 +12191,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>
       );
     }
-    const SALES_TABS=[["roadmap","Roadmap"],["coach","Coach"],["pitches","Pitches"],["deliverables","Assets"],["account","Account"]];
+    const SALES_TABS=[["roadmap","Roadmap"],["coach","Coach"],["pitches","Pitches"],["find","Clients"],["deliverables","Assets"],["account","Account"]];
     return (
       <div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>
         <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
@@ -12233,6 +12263,35 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:10}}><span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{sc.label}</span><button onClick={()=>{try{navigator.clipboard.writeText(sc.body);pushNotif("Copied!");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",padding:"4px 10px",cursor:"pointer",textTransform:"uppercase",color:B.mid}}>Copy</button></div>
                   <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{sc.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {salesTab==="find" && (
+            <div>
+              <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Where to find clients</h1>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 20px"}}>Ready-to-post ads plus every avenue for finding both marketing and business-building clients.</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"0 0 8px"}}>
+                <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Where to post to find clients</div>
+                <button onClick={()=>{try{navigator.clipboard.writeText(SALES_FIND_TEXT);pushNotif("Copied!");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",padding:"4px 10px",cursor:"pointer",textTransform:"uppercase",color:B.mid}}>Copy</button>
+              </div>
+              <div style={{background:"#fff",border:"1px solid "+B.stone,padding:"6px 16px 12px",marginBottom:26}}>
+                {SALES_FIND_PLACES.map(([place,note],i)=>(
+                  <div key={place} style={{padding:"8px 0",borderTop:i?"1px solid "+B.offwhite:"none"}}>
+                    <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{place}</span>
+                    <span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>{" \u2014 "}{note}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"0 0 6px"}}>Ready-to-post ads</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 12px"}}>Copy any of these, tweak a word or two to fit you, and post them where the clients are.</p>
+              {SALES_ADS.map((ad,i)=>(
+                <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:10}}>
+                    <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700}}>{ad.title}</span>
+                    <button onClick={()=>{try{navigator.clipboard.writeText(ad.body);pushNotif("Copied!");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",padding:"4px 10px",cursor:"pointer",textTransform:"uppercase",color:B.mid}}>Copy</button>
+                  </div>
+                  <div style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{ad.body}</div>
                 </div>
               ))}
             </div>
