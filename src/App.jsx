@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import * as IAP from "./iap";
+
+// True only inside the native app (iOS now, Mac later); false on the web (chelgy.app).
+// Used to swap Stripe checkout for Apple's In-App Purchase where required.
+const IS_NATIVE = IAP.iapAvailable();
 
 // ─── CHELGY ASSISTANT (in-app help chat) ─────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1353,7 +1358,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
 }
 
 // ─── PAYWALL ──────────────────────────────────────────────────────────────────
-function Paywall({ onClose, onSubscribe }) {
+function Paywall({ onClose, onSubscribe, onRestore }) {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
       <div style={{background:B.white,width:"100%",maxWidth:600,padding:"36px 28px 40px",position:"relative"}}>
@@ -1370,6 +1375,7 @@ function Paywall({ onClose, onSubscribe }) {
         </div>
         <button onClick={onSubscribe} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>SUBSCRIBE — $100/MONTH</button>
         <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"11px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>MAYBE LATER</button>
+        {IS_NATIVE&&onRestore&&<button onClick={onRestore} style={{width:"100%",background:"none",border:"none",padding:"4px 11px 0",fontSize:10,letterSpacing:"0.08em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer",textDecoration:"underline"}}>Restore purchases</button>}
       </div>
     </div>
   );
@@ -3677,12 +3683,45 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
 
 // ─── CREDIT SHOP ─────────────────────────────────────────────────────────────
-function CreditShop({ onClose, currentCredits, onPurchase }) {
+function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
   const [purchasing, setPurchasing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [buyErr, setBuyErr] = useState("");
 
+  // Web pack id -> Apple product id (note: Agency uses the "agency2" id on Apple).
+  const APPLE_PACK_IDS = {
+    starter: "com.chelgy.app.credits.starter",
+    creator: "com.chelgy.app.credits.creator",
+    pro:     "com.chelgy.app.credits.pro",
+    studio:  "com.chelgy.app.credits.studio",
+    agency:  "com.chelgy.app.credits.agency2",
+  };
+
+  // Native (iOS/Mac): buy the pack through Apple. Credits are granted server-side
+  // by the RevenueCat webhook, so afterwards we poll the server for the real balance.
+  async function buyPackApple(pack) {
+    setBuyErr("");
+    setPurchasing(true);
+    try {
+      const wantId = APPLE_PACK_IDS[pack.id];
+      const pkgs = await IAP.getPackages();
+      const match = pkgs.find(p => p.productId === wantId);
+      if (!match) { setBuyErr("This pack isn't available right now. Please try again shortly."); setPurchasing(false); return; }
+      const res = await IAP.purchase(match.pkg);
+      if (res.cancelled) { setPurchasing(false); return; }
+      if (!res.success) { setBuyErr("That purchase didn't go through. Please try again."); setPurchasing(false); return; }
+      setSuccess(true);
+      const reconcile = () => { try { const ss = loadSession(); if (ss && ss.access_token && ss.id) getMyMember(ss.access_token, ss.id).then(m => { if (m && (typeof m.credits === "number" || typeof m.credits_purchased === "number") && typeof onBalance === "function") { onBalance((m.credits || 0) + (m.credits_purchased || 0)); } }); } catch (e) {} };
+      setTimeout(reconcile, 3000); setTimeout(reconcile, 8000); // webhook may take a moment
+      setPurchasing(false);
+    } catch (e) {
+      setBuyErr("Could not complete the purchase. Please try again.");
+      setPurchasing(false);
+    }
+  }
+
   async function buyPack(pack) {
+    if (IS_NATIVE) { return buyPackApple(pack); }
     setBuyErr("");
     setPurchasing(true);
     try {
@@ -3754,7 +3793,7 @@ function CreditShop({ onClose, currentCredits, onPurchase }) {
         </div>
 
         {buyErr&&<p style={{fontFamily:"sans-serif",fontSize:12,color:B.red,textAlign:"center",marginTop:14,letterSpacing:"0.02em"}}>{buyErr}</p>}
-        <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,textAlign:"center",marginTop:14,letterSpacing:"0.04em"}}>Credits never expire. Secured by Stripe.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,textAlign:"center",marginTop:14,letterSpacing:"0.04em"}}>{IS_NATIVE?"Credits never expire. Purchases are handled securely by the App Store.":"Credits never expire. Secured by Stripe."}</p>
       </div>
     </div>
   );
@@ -11501,6 +11540,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // ─── Stamp "last active" once per app load (for the admin panel) ─────
   useEffect(()=>{
     if(!(user && user.id)) return;
+    IAP.initIAP(user.id); // configure RevenueCat with the Supabase user id (native only; no-op on web)
     freshToken().then(tok=>{ if(tok) Promise.resolve(patchMyMember(tok, user.id, { last_active: new Date().toISOString() })).catch(()=>{}); }).catch(()=>{});
   },[user]);
 
@@ -11603,7 +11643,41 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     if(credits >= 1000) lowWarnedRef.current = false;
   },[credits, isTrial]);
 
+  // Native (iOS/Mac): subscribe through Apple. RevenueCat's webhook flips the
+  // member to active in Supabase, so afterwards we poll for the updated status.
+  async function startAppleMembership(){
+    try {
+      const pkgs = await IAP.getPackages();
+      const memberPkg = pkgs.find(p=>p.isMembership) || pkgs.find(p=>p.productId===IAP.MEMBERSHIP_PRODUCT_ID);
+      if(!memberPkg){ pushNotif("Membership isn't available right now. Please try again shortly."); setProcessing(false); return; }
+      const res = await IAP.purchase(memberPkg.pkg);
+      if(res.cancelled){ setProcessing(false); return; }
+      if(!res.success){ pushNotif("That purchase didn't go through. Please try again."); setProcessing(false); return; }
+      pushNotif("Payment received — activating your membership…");
+      const refreshMem = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} freshToken().then(t=>t?claimMonthlyCredits(t):null).then(tot=>{ if(typeof tot==="number"){ setCredits(tot); lsSet("chelgy_credits", tot); } }); } }); };
+      setTimeout(refreshMem, 2500); setTimeout(refreshMem, 6000); setTimeout(refreshMem, 11000);
+      setProcessing(false);
+    } catch(e){ pushNotif("Something went wrong starting the purchase. Please try again."); setProcessing(false); }
+  }
+
+  // Apple requires a "Restore purchases" action for returning subscribers.
+  async function restoreApple(){
+    try {
+      const info = await IAP.restore();
+      const active = info && info.entitlements && info.entitlements.active && info.entitlements.active[IAP.MEMBERSHIP_ENTITLEMENT];
+      if(active){
+        pushNotif("Purchases restored — reactivating your membership…");
+        const refreshMem = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} } }); };
+        setTimeout(refreshMem, 2000); setTimeout(refreshMem, 6000);
+      } else {
+        pushNotif("We didn't find an active subscription to restore on this Apple ID.");
+      }
+    } catch(e){ pushNotif("Couldn't restore purchases right now. Please try again."); }
+  }
+
   async function startMembershipCheckout(){
+    // Native app → Apple In-App Purchase (Stripe checkout isn't allowed inside the iOS app).
+    if (IS_NATIVE) { await startAppleMembership(); return; }
     // A suspended (past_due) member already HAS a subscription — send them to fix
     // their card in the Stripe portal instead of creating a second subscription.
     if (pastDue) { try { await openBillingPortal(); return; } catch(e){} }
@@ -13716,7 +13790,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
         </div>
       )}
-      {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onSubscribe={()=>{setShowPaywall(false);startUpgrade();}} />}
+      {showPaywall&&<Paywall onClose={()=>setShowPaywall(false)} onSubscribe={()=>{setShowPaywall(false);startUpgrade();}} onRestore={restoreApple} />}
       {showDelAcct&&(
         <div onClick={()=>{ if(!delAcctBusy) setShowDelAcct(false); }} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={e=>e.stopPropagation()} style={{background:B.white,maxWidth:440,width:"100%",padding:"28px 26px",boxSizing:"border-box"}}>
@@ -13732,7 +13806,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>
       )}
       {showReview&&<ReviewPrompt onClose={()=>setShowReview(false)} onReview={()=>{setShowReview(false);window.open("https://apps.apple.com/app/chelgy/id000000000","_blank");}} />}
-      {showCredits&&!isTrial&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} />}
+      {showCredits&&!isTrial&&<CreditShop onClose={()=>setShowCredits(false)} currentCredits={credits} onPurchase={(n)=>setCredits(c=>c+n)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} />}
       {creditError&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#C0392B",color:"#fff",padding:"12px 20px",fontFamily:"sans-serif",fontSize:12,zIndex:9997,letterSpacing:"0.04em",textAlign:"center",maxWidth:340}}>{creditError}</div>}
 
       {/* ── HEADER ── */}
