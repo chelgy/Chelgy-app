@@ -26,12 +26,12 @@ const SUPABASE_URL      = process.env.SUPABASE_URL || "https://yuzvpmxbtjpqtapbo
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 
 // Credit price per search. Keep these in sync with CREDIT_COSTS in App.jsx.
-const COST_SEARCH   = 50;   // names, phones, websites, addresses, ratings
-const COST_ENRICHED = 150;  // the above PLUS email lookups
+const COST_SEARCH   = 300;  // names, phones, websites, addresses, ratings (up to 60 = 3 Google pages)
+const COST_ENRICHED = 2000;  // the above PLUS email lookups (Hunter is the pricey part)
 
 // Never let one request cost too much. Hard caps protect your bill.
-const MAX_RESULTS = 40;   // most Google will return per text search anyway
-const MAX_ENRICH  = 25;   // most emails we'll look up in a single request
+const MAX_RESULTS = 60;   // Google's hard ceiling for one text search (3 pages of 20)
+const MAX_ENRICH  = 12;   // cap email lookups per search — Hunter is billed per lookup
 
 // Confirm the caller is a signed-in Chelgy member; returns { user, token } or null.
 async function verifyMember(authHeader) {
@@ -97,51 +97,72 @@ function domainFromUrl(url) {
 // Ask Google Places (New) for real businesses matching the text query.
 async function searchPlaces(query, count) {
   const wanted = Math.min(Math.max(1, Number(count) || 20), MAX_RESULTS);
-  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-      // Field mask = only pay for / return the fields we actually use.
-      "X-Goog-FieldMask": [
-        "places.displayName",
-        "places.formattedAddress",
-        "places.nationalPhoneNumber",
-        "places.internationalPhoneNumber",
-        "places.websiteUri",
-        "places.rating",
-        "places.userRatingCount",
-        "places.primaryTypeDisplayName",
-        "places.googleMapsUri",
-        "places.businessStatus",
-      ].join(","),
-    },
-    body: JSON.stringify({ textQuery: query, pageSize: wanted }),
-  });
+  const fieldMask = [
+    "places.displayName",
+    "places.formattedAddress",
+    "places.nationalPhoneNumber",
+    "places.internationalPhoneNumber",
+    "places.websiteUri",
+    "places.rating",
+    "places.userRatingCount",
+    "places.primaryTypeDisplayName",
+    "places.googleMapsUri",
+    "places.businessStatus",
+    "nextPageToken",
+  ].join(",");
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = (data && data.error && data.error.message) || ("Places error " + res.status);
-    throw new Error(msg);
+  // Google returns max 20 per page — paginate (up to 3 pages) to reach `wanted`.
+  async function fetchPage(pageToken, attempt) {
+    const body = { textQuery: query, pageSize: 20 };
+    if (pageToken) body.pageToken = pageToken;
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+        "X-Goog-FieldMask": fieldMask,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // A fresh nextPageToken can need a moment before it's valid — retry once.
+      const msg = (data && data.error && data.error.message) || ("Places error " + res.status);
+      if (pageToken && /INVALID_ARGUMENT/i.test(JSON.stringify(data)) && (attempt || 0) < 1) {
+        await new Promise((r) => setTimeout(r, 1600));
+        return fetchPage(pageToken, (attempt || 0) + 1);
+      }
+      throw new Error(msg);
+    }
+    return data;
   }
 
-  const places = Array.isArray(data.places) ? data.places : [];
-  return places.map((p) => {
-    const website = p.websiteUri || "";
-    return {
-      name: (p.displayName && p.displayName.text) || "",
-      category: (p.primaryTypeDisplayName && p.primaryTypeDisplayName.text) || "",
-      address: p.formattedAddress || "",
-      phone: p.nationalPhoneNumber || p.internationalPhoneNumber || "",
-      website: website,
-      domain: domainFromUrl(website),
-      email: "",            // filled in later if enrichment is on
-      rating: typeof p.rating === "number" ? p.rating : null,
-      reviews: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
-      maps_url: p.googleMapsUri || "",
-      status: p.businessStatus || "",
-    };
-  });
+  const collected = [];
+  let token = null;
+  for (let page = 0; page < 3 && collected.length < wanted; page++) {
+    const data = await fetchPage(token, 0);
+    const places = Array.isArray(data.places) ? data.places : [];
+    for (const p of places) {
+      const website = p.websiteUri || "";
+      collected.push({
+        name: (p.displayName && p.displayName.text) || "",
+        category: (p.primaryTypeDisplayName && p.primaryTypeDisplayName.text) || "",
+        address: p.formattedAddress || "",
+        phone: p.nationalPhoneNumber || p.internationalPhoneNumber || "",
+        website: website,
+        domain: domainFromUrl(website),
+        email: "",
+        rating: typeof p.rating === "number" ? p.rating : null,
+        reviews: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
+        maps_url: p.googleMapsUri || "",
+        status: p.businessStatus || "",
+      });
+    }
+    token = data.nextPageToken || null;
+    if (!token) break;
+  }
+
+  return collected.slice(0, wanted);
 }
 
 // Ask Hunter.io for a public business email tied to a domain.

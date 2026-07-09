@@ -34,6 +34,7 @@ const CA_NAV_LABELS = {
   "community": "Community",
   "profile": "Profile",
   "tools/leadfinder": "Lead Finder",
+  "tools/websiteleads": "Website Extractor",
   "tools/outreach": "My Leads & Outreach",
   "tools/launch": "Business Builder",
   "tools/website": "Website Builder",
@@ -1535,7 +1536,7 @@ function LeadFinder({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         </Fl>
         <Fl label="How many">
           <Ss value={count} onChange={e=>setCount(e.target.value)}>
-            {[10,20,40].map(n=><option key={n} value={n}>{n} businesses</option>)}
+            {[20,40,60].map(n=><option key={n} value={n}>{n} businesses</option>)}
           </Ss>
         </Fl>
         <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",margin:"2px 0 16px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>
@@ -1783,6 +1784,116 @@ function MyLeadsOutreach({ useCredits=()=>true, credits=0, onBalance=()=>{}, onT
             </div>
           </Card>
         ))}
+      </div>}
+    </div>
+  );
+}
+
+
+// ─── WEBSITE EXTRACTOR ────────────────────────────────────────────────────────
+// Paste any directory / listicle URL and pull the businesses listed on it,
+// via the secure /api/extract-leads engine (reuses your Claude proxy). Results
+// save into the same leads list as the Google Lead Finder.
+function WebsiteLeads({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null }){
+  const [url,setUrl]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState("");
+  const [note,setNote]=useState("");
+  const [leads,setLeads]=useState([]);
+  const [saved,setSaved]=useState(()=>new Set());
+  const [savingAll,setSavingAll]=useState(false);
+
+  const cost = (CREDIT_COSTS.websiteLeads||200);
+
+  async function run(){
+    setErr(""); setNote("");
+    const u=url.trim();
+    if(!u){ setErr("Paste a webpage URL — like a \u201ctop 20 [businesses] in [city]\u201d list or a directory page."); return; }
+    if(!useCredits(cost)) return;
+    setLoading(true); setLeads([]); setSaved(new Set());
+    try{
+      const tok=await freshToken();
+      const res=await fetch("/api/extract-leads",{ method:"POST", headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) }, body:JSON.stringify({ url:u }) });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){ setErr(data.error||"Couldn't pull that page. Try a different URL."); setLoading(false); return; }
+      const rows=Array.isArray(data.leads)?data.leads:[];
+      setLeads(rows);
+      if(typeof data.balance==="number") onBalance(data.balance);
+      try{ onToolUse("websiteleads", cost); }catch(e){}
+      if(!rows.length) setNote("No businesses found on that page. It works best on directory or list-style pages with names and contact details.");
+    }catch(e){ setErr("Connection error. Please try again."); }
+    setLoading(false);
+  }
+
+  async function saveLead(lead, i){
+    try{
+      if(!(user&&user.id)){ setErr("Sign in to save leads."); return; }
+      const tok=await freshToken(); if(!tok){ setErr("Your session expired — refresh and sign in."); return; }
+      const res=await fetch(SUPABASE_URL+"/rest/v1/leads",{ method:"POST", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ user_id:user.id, name:lead.name, category:lead.category, address:lead.address, phone:lead.phone, website:lead.website, email:lead.email, status:"new" }) });
+      if(res.ok){ setSaved(prev=>{ const n=new Set(prev); n.add(i); return n; }); }
+      else setErr("Couldn't save that lead. Please try again.");
+    }catch(e){ setErr("Couldn't save that lead. Please try again."); }
+  }
+  async function saveAll(){
+    if(!(user&&user.id)||!leads.length) return;
+    setSavingAll(true);
+    for(let i=0;i<leads.length;i++){ if(!saved.has(i)) await saveLead(leads[i], i); }
+    setSavingAll(false); setNote("Saved to your leads.");
+  }
+  function exportCSV(){
+    if(!leads.length) return;
+    const head=["Name","Category","Phone","Email","Website","Address"];
+    const esc=(v)=>{ const s=(v===null||v===undefined)?"":String(v); return '"'+s.replace(/"/g,'""')+'"'; };
+    const lines=[head.join(",")].concat(leads.map(l=>[l.name,l.category,l.phone,l.email,l.website,l.address].map(esc).join(",")));
+    const blob=new Blob([lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="chelgy-website-leads.csv"; a.click();
+  }
+
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Website Extractor</h2>
+      <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Paste a directory or list page — like a “best [businesses] in [city]” roundup — and pull every business on it, beyond what Google lists.</p>
+
+      <Card style={{padding:"22px",marginBottom:14}}>
+        <Fl label="Webpage URL">
+          <Si value={url} onChange={e=>setUrl(e.target.value)} placeholder="e.g. a “top 20 med spas in Miami” article or a local business directory" onKeyDown={e=>{ if(e.key==="Enter") run(); }} />
+        </Fl>
+        <Btn dark disabled={loading||!url.trim()} onClick={run}>{loading?"READING PAGE…":("EXTRACT BUSINESSES ("+cost.toLocaleString()+" credits)")}</Btn>
+      </Card>
+
+      {err&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px",marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C"}}>{err}</div></div>}
+      {note&&!loading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>{note}</div></div>}
+      {loading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Reading the page and pulling out businesses…</div></div>}
+
+      {!loading&&leads.length>0&&<div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{leads.length} businesses found</div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn small outline onClick={exportCSV}>EXPORT CSV</Btn>
+            <Btn small dark disabled={savingAll} onClick={saveAll}>{savingAll?"SAVING…":"SAVE ALL"}</Btn>
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {leads.map((l,i)=>(
+            <Card key={i} style={{padding:"16px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"1 1 240px",minWidth:0}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>{l.name||"—"}</div>
+                  {l.category&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:8}}>{l.category}</div>}
+                  {l.address&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,marginBottom:6}}>{l.address}</div>}
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",fontFamily:"sans-serif",fontSize:12}}>
+                    {l.phone&&<a href={"tel:"+l.phone} style={{color:B.charcoal,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>{l.phone}</a>}
+                    {l.email&&<a href={"mailto:"+l.email} style={{color:B.charcoal,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>{l.email}</a>}
+                    {l.website&&<a href={/^https?:/i.test(l.website)?l.website:("https://"+l.website)} target="_blank" rel="noopener noreferrer" style={{color:B.mid,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>Website</a>}
+                  </div>
+                </div>
+                <div style={{flexShrink:0}}>
+                  <button onClick={()=>saveLead(l,i)} disabled={saved.has(i)} style={{background:saved.has(i)?B.offwhite:B.white,border:"1px solid "+B.stone,color:saved.has(i)?B.mid:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:saved.has(i)?"default":"pointer",textTransform:"uppercase",whiteSpace:"nowrap"}}>{saved.has(i)?"✓ Saved":"♥ Save"}</button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>}
     </div>
   );
@@ -3370,6 +3481,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="leadfinder"&&<LeadFinder useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
+      {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
+
       {tool==="outreach"&&<MyLeadsOutreach useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
 
@@ -3694,10 +3807,11 @@ const CREDIT_COSTS = {
   klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
   seedanceSec: 4600, // 4K Max per second — Seedance 2.0 4K (~$1.50/s, the absolute ceiling)
   voiceover: 150,
-  leads: 50,          // Lead Finder — one search (names, phones, sites, ratings)
-  leadsEnriched: 150, // Lead Finder — one search PLUS email lookups
-  emailSend: 25,      // Outreach — one compliant email sent
-  smsSend: 40,        // Outreach — one consent-based text sent
+  leads: 300,          // Lead Finder — one Google search of up to 60 businesses
+  leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
+  emailSend: 25,       // Outreach — one compliant email
+  smsSend: 40,         // Outreach — one consent-based text
+  websiteLeads: 200,   // Website Extractor — pull businesses off one webpage
 };
 
 const FREE_CREDITS = {
@@ -3737,7 +3851,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -3774,10 +3888,10 @@ function ToolCallout({ rec, onGo }){
   );
 }
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
-const TOOL_ORDER = ["launch","leadfinder","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
+const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
-  { id:"cat_leads", title:"Leads & Outreach", icon:"Target", blurb:"Find real local businesses, then reach out \u2014 personalized, compliant email and consent-based texts.",
-    tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"My Leads & Outreach",tool:"outreach"} ] },
+  { id:"cat_leads", title:"Leads & Outreach", icon:"Target", blurb:"Find real local businesses on Google or any webpage, then reach out \u2014 compliant email and consent-based texts.",
+    tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"Website Extractor",tool:"websiteleads"}, {label:"My Leads & Outreach",tool:"outreach"} ] },
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
