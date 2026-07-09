@@ -1314,7 +1314,8 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
       <div style={{display:"flex",justifyContent:"flex-end",padding:"20px 24px 0",position:"relative",zIndex:2}}>
         {!s.isFinal&&<button onClick={onSubscribe} style={{background:"none",border:"none",color:"rgba(255,255,255,0.35)",fontFamily:"sans-serif",fontSize:13,cursor:"pointer",letterSpacing:"0.06em"}}>Skip</button>}
       </div>
-      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:idx===0?"flex-end":"center",padding:idx===0?"0 32px 32px":"0 32px",textAlign:"center",opacity:fading?0:1,transition:"opacity 0.22s",position:"relative",zIndex:2}}>
+      <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:idx===0?"0 32px 32px":"24px 32px",textAlign:"center",opacity:fading?0:1,transition:"opacity 0.22s",position:"relative",zIndex:2}}>
+        <div style={{margin:idx===0?"auto 0 0":"auto 0",width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}}>
         <div style={{width:56,height:1,background:"rgba(255,255,255,0.4)",margin:"0 auto 28px"}} />
         {s.eyebrow&&<div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.25em",color:"rgba(255,255,255,0.5)",fontWeight:400,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.25em"}}>{s.eyebrow}</div>}
         {s.eyebrow===null ? (
@@ -1331,6 +1332,7 @@ function Onboarding({ onTrial, onSubscribe, onLogin, heroImg }) {
             </div>
           ))}
         </div>}
+        </div>
       </div>
       <div style={{padding:"0 32px 44px",display:"flex",flexDirection:"column",alignItems:"center",gap:11,position:"relative",zIndex:2}}>
         <div style={{display:"flex",gap:8,marginBottom:18}}>
@@ -1358,9 +1360,9 @@ function Paywall({ onClose, onSubscribe }) {
         <button onClick={onClose} style={{position:"absolute",top:16,right:16,background:"none",border:"none",cursor:"pointer",color:B.mid}}><Icons.X /></button>
         <div style={{width:32,height:1,background:B.gold,marginBottom:20}} />
         <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 10px"}}>Unlock Full Membership</h2>
-        <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 22px",letterSpacing:"0.01em"}}>Subscribe for $100/month to unlock everything — all strategies, all 12 AI tools, the full community, and your AI Advisor.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.75,margin:"0 0 22px",letterSpacing:"0.01em"}}>Subscribe for $100/month to unlock everything — all strategies, all 17 AI tools, the full community, and your AI Advisor.</p>
         <div style={{borderTop:"1px solid "+B.stone,borderBottom:"1px solid "+B.stone,padding:"16px 0",marginBottom:22}}>
-          {["40+ full marketing strategies","12 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","The Chelgy Edit blog and member events"].map((item,i)=>(
+          {["40+ full marketing strategies","17 AI tools — content, images, video and more","Chelgy AI Advisor — unlimited questions","Full community access","The Chelgy Edit blog and member events"].map((item,i)=>(
             <div key={i} style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,padding:"5px 0",display:"flex",gap:12,letterSpacing:"0.02em"}}>
               <span style={{color:B.gold}}>—</span>{item}
             </div>
@@ -2805,8 +2807,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     setVpwLoad(false);
   }
   async function genI(){
-    const needsBiz = !["ad","product","logo","flyer","banner"].includes(iType);
-    if(needsBiz && !iBiz.trim())return;
+    // Business name is optional for every image type — no longer required to generate.
     track("tool_used",{tool:"image_creator",type:iType,aspect:iAspect});onToolUse("image_creator",iQuality==="4K"?CREDIT_COSTS.image4K:iQuality==="2K"?CREDIT_COSTS.imageHD:CREDIT_COSTS.image);
     setILoad(true);setIErr("");setIRes(null);
     const kind={ad:"a high-end advertising image",logo:"a clean, professional logo",flyer:"a luxury, high-end marketing flyer",social:"a scroll-stopping social media graphic",banner:"a polished website/social banner",product:"a premium product photo"}[iType]||"a professional marketing image";
@@ -3381,7 +3382,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         {iType==="set" && <PhotoCatalog onBalance={onBalance} />}
         {!["set"].includes(iType) && (<>
         <Card style={{padding:"22px",marginBottom:14}}>
-          {!["ad","product","logo","flyer","banner"].includes(iType)&&<Fl label="Business Name"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
+          {!["ad","product","logo","flyer","banner"].includes(iType)&&<Fl label="Business Name (optional)"><Si value={iBiz} onChange={e=>setIBiz(e.target.value)} placeholder="e.g. Chelgy Marketing, The Daily Grind..." /></Fl>}
           <Fl label="Your image prompt — edit anything you like"><St value={iExtra} onChange={e=>setIExtra(e.target.value)} placeholder="Your AI-written prompt appears here — or write your own. Describe the subject, style, colors, lighting, and mood." rows={4} /></Fl>
           {iType==="logo"
             ? <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px",display:"flex",alignItems:"center",gap:6}}><span style={{color:B.green}}>✓</span> Logos always export on a transparent background (PNG).</div>
@@ -3890,8 +3891,11 @@ function ToolCallout({ rec, onGo }){
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
 const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
+  /* ===== HIDDEN: Leads & Outreach — re-enable later by uncommenting this one block. =====
+     (All the code, backend files, and saved leads stay in place; this just hides the menu tab.)
   { id:"cat_leads", title:"Leads & Outreach", icon:"Target", blurb:"Find real local businesses on Google or any webpage, then reach out \u2014 compliant email and consent-based texts.",
     tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"Website Extractor",tool:"websiteleads"}, {label:"My Leads & Outreach",tool:"outreach"} ] },
+  ===== END HIDDEN ===== */
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
@@ -13481,7 +13485,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"#fff"}}>Everything unlocked</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"rgba(255,255,255,0.7)"}}>$100<span style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>/mo</span></div>
               </div>
-              {["40+ marketing strategies","12 AI tools — content, images, video","Chelgy AI Advisor","Full community access","The Chelgy Edit"].map((f,i)=>(
+              {["40+ marketing strategies","17 AI tools — content, images, video","Chelgy AI Advisor","Full community access","The Chelgy Edit"].map((f,i)=>(
                 <div key={i} style={{display:"flex",gap:10,padding:"3px 0",fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.5)",letterSpacing:"0.01em"}}>
                   <span style={{color:"rgba(255,255,255,0.4)"}}>—</span>{f}
                 </div>
