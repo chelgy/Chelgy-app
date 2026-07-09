@@ -33,6 +33,7 @@ const CA_NAV_LABELS = {
   "tools": "Tools Hub",
   "community": "Community",
   "profile": "Profile",
+  "tools/leadfinder": "Lead Finder",
   "tools/launch": "Business Builder",
   "tools/website": "Website Builder",
   "tools/images": "AI Image Creator",
@@ -1448,6 +1449,140 @@ const Fl=({label,children})=><div style={{marginBottom:14}}><div style={{fontFam
 const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white,color:B.charcoal}} />;
 const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white,color:B.charcoal}} />;
 const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",color:B.charcoal}}>{children}</select>;
+
+// ─── LEAD FINDER ──────────────────────────────────────────────────────────────
+// Finds real local businesses (via the secure /api/leads engine), then lets the
+// member save them, export a CSV, or jump straight to calling / emailing them.
+// Credits are charged server-side inside /api/leads, so nothing here can be gamed.
+function LeadFinder({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, bizCtx="" }){
+  const [query,setQuery]=useState("");
+  const [count,setCount]=useState(20);
+  const [enrich,setEnrich]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState("");
+  const [note,setNote]=useState("");
+  const [leads,setLeads]=useState([]);
+  const [saved,setSaved]=useState(()=>new Set());
+  const [savingAll,setSavingAll]=useState(false);
+
+  const cost = enrich ? (CREDIT_COSTS.leadsEnriched||150) : (CREDIT_COSTS.leads||50);
+
+  async function runSearch(){
+    setErr(""); setNote("");
+    const q=query.trim();
+    if(!q){ setErr('Tell me what kind of business to find and where — e.g. "med spas in Miami".'); return; }
+    if(!useCredits(cost)) return;
+    setLoading(true); setLeads([]); setSaved(new Set());
+    try{
+      const tok=await freshToken();
+      const res=await fetch("/api/leads",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body:JSON.stringify({ query:q, count:Number(count)||20, enrichEmail:enrich })
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){ setErr(data.error||"Search failed. Please try again."); setLoading(false); return; }
+      const rows=Array.isArray(data.leads)?data.leads:[];
+      setLeads(rows);
+      if(typeof data.balance==="number") onBalance(data.balance);
+      try{ onToolUse("leadfinder", (data.meta&&data.meta.charged)||cost); }catch(e){}
+      if(!rows.length) setNote("No businesses matched that search. Try a broader area or a different category.");
+    }catch(e){ setErr("Connection error. Please try again."); }
+    setLoading(false);
+  }
+
+  async function saveLead(lead, i){
+    try{
+      if(!(user&&user.id)){ setErr("Sign in to save leads."); return false; }
+      const tok=await freshToken(); if(!tok){ setErr("Your session expired — refresh and sign in."); return false; }
+      const res=await fetch(SUPABASE_URL+"/rest/v1/leads",{
+        method:"POST",
+        headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" },
+        body:JSON.stringify({ user_id:user.id, name:lead.name, category:lead.category, address:lead.address, phone:lead.phone, website:lead.website, email:lead.email, rating:lead.rating, reviews:lead.reviews, maps_url:lead.maps_url, status:"new" })
+      });
+      if(res.ok){ setSaved(prev=>{ const n=new Set(prev); n.add(i); return n; }); return true; }
+      setErr("Couldn't save that lead. Please try again."); return false;
+    }catch(e){ setErr("Couldn't save that lead. Please try again."); return false; }
+  }
+
+  async function saveAll(){
+    if(!(user&&user.id)||!leads.length) return;
+    setSavingAll(true); setErr("");
+    for(let i=0;i<leads.length;i++){ if(!saved.has(i)) await saveLead(leads[i], i); }
+    setSavingAll(false); setNote("Saved to your leads.");
+  }
+
+  function exportCSV(){
+    if(!leads.length) return;
+    const head=["Name","Category","Phone","Email","Website","Address","Rating","Reviews","Maps"];
+    const esc=(v)=>{ const s=(v===null||v===undefined)?"":String(v); return '"'+s.replace(/"/g,'""')+'"'; };
+    const lines=[head.join(",")].concat(leads.map(l=>[l.name,l.category,l.phone,l.email,l.website,l.address,l.rating,l.reviews,l.maps_url].map(esc).join(",")));
+    const blob=new Blob([lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="chelgy-leads.csv"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Lead Finder</h2>
+      <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Describe your ideal customer in plain English and pull a live list of real businesses — names, phones, websites{enrich?", emails":""} and more — ready to save, export, or contact.</p>
+
+      <Card style={{padding:"22px",marginBottom:14}}>
+        <Fl label="What businesses, and where?">
+          <Si value={query} onChange={e=>setQuery(e.target.value)} placeholder={'e.g. "boutique fitness studios in Tampa", "med spas near Austin TX"'} onKeyDown={e=>{ if(e.key==="Enter") runSearch(); }} />
+        </Fl>
+        <Fl label="How many">
+          <Ss value={count} onChange={e=>setCount(e.target.value)}>
+            {[10,20,40].map(n=><option key={n} value={n}>{n} businesses</option>)}
+          </Ss>
+        </Fl>
+        <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",margin:"2px 0 16px",fontFamily:"sans-serif",fontSize:12,color:B.charcoal}}>
+          <input type="checkbox" checked={enrich} onChange={e=>setEnrich(e.target.checked)} style={{width:16,height:16,cursor:"pointer",accentColor:B.charcoal}} />
+          <span>Also find email addresses <span style={{color:B.mid}}>(costs more credits)</span></span>
+        </label>
+        <Btn dark disabled={loading||!query.trim()} onClick={runSearch}>{loading?"SEARCHING…":("FIND LEADS ("+cost.toLocaleString()+" credits)")}</Btn>
+      </Card>
+
+      {err&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px",marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C",letterSpacing:"0.02em"}}>{err}</div></div>}
+      {note&&!loading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>{note}</div></div>}
+      {loading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em"}}>Searching live business listings{enrich?" and looking up emails":""}…</div></div>}
+
+      {!loading&&leads.length>0&&<div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+          <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{leads.length} leads found</div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn small outline onClick={exportCSV}>EXPORT CSV</Btn>
+            <Btn small dark disabled={savingAll} onClick={saveAll}>{savingAll?"SAVING…":"SAVE ALL"}</Btn>
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {leads.map((l,i)=>(
+            <Card key={i} style={{padding:"16px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:"1 1 240px",minWidth:0}}>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal,marginBottom:3}}>{l.name||"—"}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:8}}>{[l.category,(l.rating?("★ "+l.rating+(l.reviews?(" ("+l.reviews+")"):"")):"")].filter(Boolean).join("  ·  ")}</div>
+                  {l.address&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,marginBottom:6}}>{l.address}</div>}
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",fontFamily:"sans-serif",fontSize:12}}>
+                    {l.phone&&<a href={"tel:"+l.phone} style={{color:B.charcoal,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>{l.phone}</a>}
+                    {l.email&&<a href={"mailto:"+l.email} style={{color:B.charcoal,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>{l.email}</a>}
+                    {l.website&&<a href={l.website} target="_blank" rel="noopener noreferrer" style={{color:B.mid,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>Website</a>}
+                    {l.maps_url&&<a href={l.maps_url} target="_blank" rel="noopener noreferrer" style={{color:B.mid,textDecoration:"none",borderBottom:"1px solid "+B.stone}}>Maps</a>}
+                  </div>
+                </div>
+                <div style={{flexShrink:0}}>
+                  <button onClick={()=>saveLead(l,i)} disabled={saved.has(i)} style={{background:saved.has(i)?B.offwhite:B.white,border:"1px solid "+B.stone,color:saved.has(i)?B.mid:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:saved.has(i)?"default":"pointer",textTransform:"uppercase",whiteSpace:"nowrap"}}>{saved.has(i)?"✓ Saved":"♥ Save"}</button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
 const Tb=({label,active,onClick})=><button onClick={onClick} style={{background:"none",color:active?B.charcoal:B.mid,border:"none",borderBottom:active?"1px solid "+B.charcoal:"1px solid transparent",padding:"8px 14px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",fontWeight:active?700:400,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</button>;
 // Lightweight Markdown renderer — turns ###, **bold**, lists, tables, --- into real formatting
 function Md({ text }) {
@@ -3028,6 +3163,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="productstudio"&&<ProductStudio onBalance={onBalance} useCredits={useCredits} onToolUse={onToolUse} user={user} credits={credits} />}
 
+      {tool==="leadfinder"&&<LeadFinder useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
+
 
       {tool==="manager"&&<BusinessManager user={user} bizCtx={bizCtx} locked={locked} onUpgrade={onUpgrade} />}
 
@@ -3350,6 +3487,8 @@ const CREDIT_COSTS = {
   klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
   seedanceSec: 4600, // 4K Max per second — Seedance 2.0 4K (~$1.50/s, the absolute ceiling)
   voiceover: 150,
+  leads: 50,          // Lead Finder — one search (names, phones, sites, ratings)
+  leadsEnriched: 150, // Lead Finder — one search PLUS email lookups
 };
 
 const FREE_CREDITS = {
@@ -3389,7 +3528,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -3426,8 +3565,10 @@ function ToolCallout({ rec, onGo }){
   );
 }
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
-const TOOL_ORDER = ["launch","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
+const TOOL_ORDER = ["launch","leadfinder","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
+  { id:"cat_leads", title:"Lead Finder", icon:"Target", blurb:"Find real local businesses to pitch \u2014 names, phones, websites and emails, ready to save, export, or contact.",
+    tabs:[ {label:"Lead Finder",tool:"leadfinder"} ] },
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
