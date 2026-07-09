@@ -34,6 +34,7 @@ const CA_NAV_LABELS = {
   "community": "Community",
   "profile": "Profile",
   "tools/leadfinder": "Lead Finder",
+  "tools/outreach": "My Leads & Outreach",
   "tools/launch": "Business Builder",
   "tools/website": "Website Builder",
   "tools/images": "AI Image Creator",
@@ -1449,6 +1450,158 @@ const Fl=({label,children})=><div style={{marginBottom:14}}><div style={{fontFam
 const Si=(p)=><input {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white,color:B.charcoal}} />;
 const St=(p)=><textarea {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.6,background:B.white,color:B.charcoal}} />;
 const Ss=({children,...p})=><select {...p} style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white,cursor:"pointer",color:B.charcoal}}>{children}</select>;
+
+
+
+// ─── MY LEADS & OUTREACH ──────────────────────────────────────────────────────
+// Loads the member's saved leads, drafts a personalized email per lead with
+// Claude, and sends it through the compliant /api/outreach-email rail.
+function MyLeadsOutreach({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, bizCtx="" }){
+  const [leads,setLeads]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState("");
+  const [sel,setSel]=useState(null);
+  const [goal,setGoal]=useState("Offer a free sample of my work and open a conversation");
+  const [subject,setSubject]=useState("");
+  const [bodyText,setBody]=useState("");
+  const [drafting,setDrafting]=useState(false);
+  const [sending,setSending]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [filter,setFilter]=useState("all");
+
+  const cost = (CREDIT_COSTS.emailSend||25);
+
+  async function load(){
+    setLoading(true); setErr("");
+    try{
+      if(!(user&&user.id)){ setLoading(false); return; }
+      const tok=await freshToken();
+      const res=await fetch(SUPABASE_URL+"/rest/v1/leads?select=*&user_id=eq."+user.id+"&order=created_at.desc",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const rows=await res.json().catch(()=>[]);
+      setLeads(Array.isArray(rows)?rows:[]);
+    }catch(e){ setErr("Couldn't load your leads. Please refresh and try again."); }
+    setLoading(false);
+  }
+  useEffect(()=>{ load(); },[]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function draft(lead){
+    setDrafting(true); setMsg("");
+    try{
+      const sender=(user&&user.name)?user.name:"my business";
+      const prompt="You are writing a short, warm, PERSONALIZED cold outreach email on behalf of \""+sender+"\".\n"
+        +(bizCtx?("About the sender: "+bizCtx+"\n"):"")
+        +"Recipient business: "+(lead.name||"")+(lead.category?(" ("+lead.category+")"):"")+(lead.address?(", located at "+lead.address):"")+".\n"
+        +"Goal of the email: "+goal+".\n\n"
+        +"Rules: under 120 words, friendly and specific to their business, no spammy hype, exactly one soft call to action. Do NOT add a signature, mailing address, or unsubscribe line — those are attached automatically. Return EXACTLY in this format:\nSUBJECT: <one line>\n\n<email body>";
+      const out=await callClaude(prompt, 700, false);
+      const m=String(out||"").match(/SUBJECT:\s*(.+?)\n([\s\S]*)/i);
+      if(m){ setSubject(m[1].trim()); setBody(m[2].trim()); }
+      else { setSubject("A quick idea for "+(lead.name||"you")); setBody(String(out||"").trim()); }
+    }catch(e){ setMsg("Couldn't draft that email. Please try again."); }
+    setDrafting(false);
+  }
+
+  function openCompose(lead){ setSel(lead); setSubject(""); setBody(""); setMsg(""); setGoal("Offer a free sample of my work and open a conversation"); }
+
+  async function send(){
+    if(!sel) return;
+    if(!sel.email){ setMsg("This lead has no email address yet. Run the Lead Finder with \u201cfind emails\u201d turned on."); return; }
+    if(!subject.trim()||!bodyText.trim()){ setMsg("Add a subject and a message first (or draft one with Claude)."); return; }
+    if(!useCredits(cost)) return;
+    setSending(true); setMsg("");
+    try{
+      const tok=await freshToken();
+      const res=await fetch("/api/outreach-email",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body:JSON.stringify({ leadId:sel.id, to:sel.email, subject:subject.trim(), body:bodyText.trim(), fromName:(user&&user.name)||"" })
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){ setMsg(data.error||"Couldn't send. Please try again."); setSending(false); return; }
+      if(typeof data.balance==="number") onBalance(data.balance);
+      try{ onToolUse("outreach", cost); }catch(e){}
+      try{ await fetch(SUPABASE_URL+"/rest/v1/leads?id=eq."+sel.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ status:"contacted" }) }); }catch(e){}
+      setLeads(prev=>prev.map(l=>l.id===sel.id?{...l,status:"contacted"}:l));
+      setMsg("✓ Sent to "+sel.email+". Any reply goes straight to your own inbox.");
+      setSel(null);
+    }catch(e){ setMsg("Connection error. Please try again."); }
+    setSending(false);
+  }
+
+  async function setStatus(lead, status){
+    try{ const tok=await freshToken(); await fetch(SUPABASE_URL+"/rest/v1/leads?id=eq."+lead.id,{ method:"PATCH", headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=minimal" }, body:JSON.stringify({ status }) }); setLeads(prev=>prev.map(l=>l.id===lead.id?{...l,status}:l)); }catch(e){}
+  }
+
+  const shown = leads.filter(l=> filter==="all" ? true : (l.status||"new")===filter );
+  const statusColor=(s)=> s==="contacted"?"#4CAF82" : s==="replied"?"#B8955A" : s==="booked"?"#2E7D32" : B.mid;
+
+  if(sel){
+    return (
+      <div>
+        <button onClick={()=>setSel(null)} style={{background:"none",border:"none",color:B.mid,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",cursor:"pointer",padding:0,marginBottom:16,textTransform:"uppercase"}}>← Back to leads</button>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>Email {sel.name||"this lead"}</h2>
+        <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>{sel.email? ("To: "+sel.email) : "This lead has no email on file yet."}</p>
+
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="What's your goal for this email?">
+            <Si value={goal} onChange={e=>setGoal(e.target.value)} placeholder="e.g. offer a free sample, book a 10-minute call" />
+          </Fl>
+          <Btn outline small disabled={drafting} onClick={()=>draft(sel)}>{drafting?"DRAFTING…":"✍ DRAFT WITH CLAUDE"}</Btn>
+        </Card>
+
+        <Card style={{padding:"22px",marginBottom:14}}>
+          <Fl label="Subject"><Si value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Your subject line" /></Fl>
+          <Fl label="Message"><St value={bodyText} onChange={e=>setBody(e.target.value)} rows={10} placeholder="Write your email, or draft one with Claude above." /></Fl>
+          <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"11px 13px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6}}>A compliant footer — your business mailing address and a one-click unsubscribe link — is added automatically. Replies go to your own email.</div>
+          <Btn dark disabled={sending||!sel.email} onClick={send}>{sending?"SENDING…":("SEND EMAIL ("+cost.toLocaleString()+" credits)")}</Btn>
+        </Card>
+        {msg&&<div style={{background:msg.charAt(0)==="✓"?"#EAF6EF":B.offwhite,border:"1px solid "+(msg.charAt(0)==="✓"?"#BFE3CC":B.stone),padding:"14px 16px"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:msg.charAt(0)==="✓"?"#2E7D32":B.charcoal}}>{msg}</div></div>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",margin:"0 0 4px"}}>My Leads & Outreach</h2>
+      <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.02em"}}>Every business you've saved, ready to contact. Draft a personalized email with Claude and send it — compliant and inbox-friendly.</p>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {[["all","All"],["new","New"],["contacted","Contacted"],["replied","Replied"],["booked","Booked"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setFilter(k)} style={{background:filter===k?B.charcoal:B.white,color:filter===k?"#fff":B.charcoal,border:"1px solid "+(filter===k?B.charcoal:B.stone),padding:"7px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{l}</button>
+        ))}
+      </div>
+
+      {err&&<div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:"16px",marginBottom:14}}><div style={{fontFamily:"sans-serif",fontSize:12,color:"#9B2C2C"}}>{err}</div></div>}
+      {loading&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Loading your leads…</div></div>}
+      {!loading&&!shown.length&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"28px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,marginBottom:6}}>No saved leads here yet.</div><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Head to the Lead Finder, run a search, and hit Save to build your list.</div></div>}
+
+      {!loading&&shown.length>0&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {shown.map(l=>(
+          <Card key={l.id} style={{padding:"16px 18px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 240px",minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:3,flexWrap:"wrap"}}>
+                  <span style={{fontFamily:"Georgia,serif",fontSize:16,color:B.charcoal}}>{l.name||"—"}</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:8,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:statusColor(l.status),border:"1px solid "+statusColor(l.status)+"55",padding:"2px 7px"}}>{l.status||"new"}</span>
+                </div>
+                <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:8}}>{[l.category,l.email||l.phone].filter(Boolean).join("  ·  ")}</div>
+                <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                  {["contacted","replied","booked"].map(st=>(
+                    <button key={st} onClick={()=>setStatus(l,st)} style={{background:"none",border:"none",color:B.mid,fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",cursor:"pointer",padding:0,textDecoration:"underline",textUnderlineOffset:"3px"}}>mark {st}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{flexShrink:0,display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
+                <button onClick={()=>openCompose(l)} disabled={!l.email} style={{background:l.email?B.charcoal:B.stone,border:"none",color:l.email?"#fff":B.mid,padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:l.email?"pointer":"not-allowed",textTransform:"uppercase",whiteSpace:"nowrap"}}>✉ Email</button>
+                {l.phone&&<a href={"tel:"+l.phone} style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",color:B.mid,textDecoration:"none",textTransform:"uppercase"}}>Call</a>}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>}
+    </div>
+  );
+}
 
 // ─── LEAD FINDER ──────────────────────────────────────────────────────────────
 // Finds real local businesses (via the secure /api/leads engine), then lets the
@@ -3165,6 +3318,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="leadfinder"&&<LeadFinder useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
+      {tool==="outreach"&&<MyLeadsOutreach useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
+
 
       {tool==="manager"&&<BusinessManager user={user} bizCtx={bizCtx} locked={locked} onUpgrade={onUpgrade} />}
 
@@ -3489,6 +3644,7 @@ const CREDIT_COSTS = {
   voiceover: 150,
   leads: 50,          // Lead Finder — one search (names, phones, sites, ratings)
   leadsEnriched: 150, // Lead Finder — one search PLUS email lookups
+  emailSend: 25,      // Outreach — one compliant email sent
 };
 
 const FREE_CREDITS = {
@@ -3528,7 +3684,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -3565,10 +3721,10 @@ function ToolCallout({ rec, onGo }){
   );
 }
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
-const TOOL_ORDER = ["launch","leadfinder","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
+const TOOL_ORDER = ["launch","leadfinder","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
-  { id:"cat_leads", title:"Lead Finder", icon:"Target", blurb:"Find real local businesses to pitch \u2014 names, phones, websites and emails, ready to save, export, or contact.",
-    tabs:[ {label:"Lead Finder",tool:"leadfinder"} ] },
+  { id:"cat_leads", title:"Leads & Outreach", icon:"Target", blurb:"Find real local businesses, then email them \u2014 personalized, compliant outreach that lands in inboxes.",
+    tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"My Leads & Outreach",tool:"outreach"} ] },
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
