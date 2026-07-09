@@ -3684,7 +3684,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
 // ─── CREDIT SHOP ─────────────────────────────────────────────────────────────
 function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
-  const [purchasing, setPurchasing] = useState(false);
+  const [purchasingId, setPurchasingId] = useState(null);
   const [success, setSuccess] = useState(false);
   const [buyErr, setBuyErr] = useState("");
 
@@ -3701,32 +3701,32 @@ function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
   // by the RevenueCat webhook, so afterwards we poll the server for the real balance.
   async function buyPackApple(pack) {
     setBuyErr("");
-    setPurchasing(true);
+    setPurchasingId(pack.id);
     try {
       const wantId = APPLE_PACK_IDS[pack.id];
       const pkgs = await IAP.getPackages();
       const match = pkgs.find(p => p.productId === wantId);
-      if (!match) { setBuyErr("This pack isn't available right now. Please try again shortly."); setPurchasing(false); return; }
+      if (!match) { setBuyErr("This pack isn't available right now. Please try again shortly."); setPurchasingId(null); return; }
       const res = await IAP.purchase(match.pkg);
-      if (res.cancelled) { setPurchasing(false); return; }
-      if (!res.success) { setBuyErr("That purchase didn't go through. Please try again."); setPurchasing(false); return; }
+      if (res.cancelled) { setPurchasingId(null); return; }
+      if (!res.success) { setBuyErr("That purchase didn't go through. Please try again."); setPurchasingId(null); return; }
       setSuccess(true);
       const reconcile = () => { try { const ss = loadSession(); if (ss && ss.access_token && ss.id) getMyMember(ss.access_token, ss.id).then(m => { if (m && (typeof m.credits === "number" || typeof m.credits_purchased === "number") && typeof onBalance === "function") { onBalance((m.credits || 0) + (m.credits_purchased || 0)); } }); } catch (e) {} };
       setTimeout(reconcile, 3000); setTimeout(reconcile, 8000); // webhook may take a moment
-      setPurchasing(false);
+      setPurchasingId(null);
     } catch (e) {
       setBuyErr("Could not complete the purchase. Please try again.");
-      setPurchasing(false);
+      setPurchasingId(null);
     }
   }
 
   async function buyPack(pack) {
     if (IS_NATIVE) { return buyPackApple(pack); }
     setBuyErr("");
-    setPurchasing(true);
+    setPurchasingId(pack.id);
     try {
       const token = await freshToken();
-      if (!token) { setBuyErr("Please log in before purchasing."); setPurchasing(false); return; }
+      if (!token) { setBuyErr("Please log in before purchasing."); setPurchasingId(null); return; }
       const res = await fetch("/api/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3735,16 +3735,16 @@ function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
       const d = await res.json();
       if (d && d.url) { window.location.href = d.url; return; } // off to Stripe
       setBuyErr((d && d.error) || "Could not start checkout. Please try again.");
-      setPurchasing(false);
+      setPurchasingId(null);
     } catch {
       setBuyErr("Could not reach checkout. Please try again.");
-      setPurchasing(false);
+      setPurchasingId(null);
     }
   }
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 20px",overflowY:"auto"}}>
-      <div style={{background:"#fff",width:"100%",maxWidth:520,padding:"32px 28px",position:"relative",maxHeight:"90vh",overflowY:"auto"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9998,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"max(24px,env(safe-area-inset-top,24px)) 20px 24px",overflowY:"auto"}}>
+      <div style={{background:"#fff",width:"100%",maxWidth:520,padding:"32px 28px",position:"relative",maxHeight:"90vh",overflowY:"auto",margin:"auto"}}>
         <button onClick={onClose} style={{position:"absolute",top:14,right:14,background:"none",border:"none",cursor:"pointer",color:"#6B6B6B"}}><Icons.X /></button>
 
         <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
@@ -3785,8 +3785,8 @@ function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
                 </div>
               </div>
               <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12,lineHeight:1.5}}>{pack.description}</div>
-              <button onClick={()=>buyPack(pack)} disabled={purchasing} style={{background:pack.popular?B.charcoal:B.white,color:pack.popular?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 20px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:purchasing?"not-allowed":"pointer"}}>
-                {purchasing?"PROCESSING...":"BUY NOW"}
+              <button onClick={()=>buyPack(pack)} disabled={!!purchasingId} style={{background:pack.popular?B.charcoal:B.white,color:pack.popular?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 20px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:purchasingId?"not-allowed":"pointer"}}>
+                {purchasingId===pack.id?"PROCESSING...":"BUY NOW"}
               </button>
             </div>
           ))}
@@ -10618,9 +10618,9 @@ export default function ChelgyApp() {
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
-  const [isTeamSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
-  const [isSalesSpace] = useState(()=>{ try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("sales.")||p.get("sales")!==null; } catch { return false; } });
-  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(h.startsWith("marketer.")) return true; const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
+  const [isTeamSpace] = useState(()=>{ if(IS_NATIVE) return false; try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
+  const [isSalesSpace] = useState(()=>{ if(IS_NATIVE) return false; try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("sales.")||p.get("sales")!==null; } catch { return false; } });
+  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ if(IS_NATIVE) return false; try { const h=(window.location.hostname||"").toLowerCase(); if(h.startsWith("marketer.")) return true; const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
   const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
   const [domainMiss,setDomainMiss] = useState(false);
@@ -11496,6 +11496,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   useEffect(()=>{ try{ const ss=loadSession(); if(ss&&cgIsDemoEmail(ss.email)){ setIsDemo(true); setIsPaid(true); setIsTrial(false); setPage("app"); } }catch(e){} },[]);
   useEffect(()=>{
     if(!user || !user.id) return;
+    if(IS_NATIVE) return; // native app is always the consumer app — never switch to marketer mode
     (async()=>{
       try{
         const p=new URLSearchParams(window.location.search);
@@ -13859,7 +13860,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       </header>
 
       {/* ── SCROLLABLE CONTENT ── */}
-      <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:BOT_H+16}}>
+      <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:"calc("+(BOT_H+16)+"px + env(safe-area-inset-bottom,0px))"}}>
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
           {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMedia&&pageMedia[tab]&&pageMedia[tab].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":foc==="center"?"center center":(foc||"center center"); return (
             <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
@@ -14948,7 +14949,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
       {/* ── ADMIN MODE FLOATING CONTROL (shows when browsing the app as admin) ── */}
       {isAdmin && !adminPanelOpen && (
-        <div style={{position:"fixed",right:14,bottom:BOT_H+14,zIndex:350,display:"flex",alignItems:"center",gap:8,background:B.charcoal,padding:"8px 10px 8px 14px",borderRadius:30,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
+        <div style={{position:"fixed",right:14,bottom:"calc("+(BOT_H+14)+"px + env(safe-area-inset-bottom,0px))",zIndex:350,display:"flex",alignItems:"center",gap:8,background:B.charcoal,padding:"8px 10px 8px 14px",borderRadius:30,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
           <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase"}}>Admin</span>
           <button onClick={()=>setAdminPanelOpen(true)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Panel</button>
           <button onClick={()=>{setIsAdmin(false);setAdminAuthed(false);setAdminPanelOpen(true);}} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.25)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Exit</button>
@@ -14956,7 +14957,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       )}
 
       {/* ── BOTTOM NAV ── */}
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1400,margin:"0 auto",height:"100%",display:"flex"}}>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,boxSizing:"content-box",paddingBottom:"env(safe-area-inset-bottom,0px)",background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1400,margin:"0 auto",height:BOT_H,display:"flex"}}>
         {[
           {id:"home",label:"HOME",Icon:Icons.Home},
           {id:"learn",label:"LEARN",Icon:Icons.Learn},
