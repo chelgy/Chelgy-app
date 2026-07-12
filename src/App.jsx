@@ -2104,6 +2104,227 @@ function defaultSection(type){
     default: return {type};
   }
 }
+// ============================================================================
+// FAKE IT — train a model of YOURSELF, then put yourself anywhere.
+// ============================================================================
+function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+  const [model, setModel] = useState(null);       // the user's trained model (if any)
+  const [loading, setLoading] = useState(true);
+  const [files, setFiles] = useState([]);         // photos chosen for training
+  const [consent, setConsent] = useState(false);
+  const [training, setTraining] = useState(false);
+  const [err, setErr] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [aspect, setAspect] = useState("4:5");
+  const [busy, setBusy] = useState(false);
+  const [image, setImage] = useState(null);
+
+  const TRAIN_COST = CREDIT_COSTS.fakeitTrain;
+  const IMAGE_COST = CREDIT_COSTS.fakeitImage;
+  const MIN_PHOTOS = 8, MAX_PHOTOS = 25;
+
+  // Load the user's model + poll while it's training.
+  useEffect(()=>{
+    let alive = true, timer = null;
+    async function load(){
+      try{
+        const tok = await freshToken();
+        if(!tok || !user || !user.id){ if(alive) setLoading(false); return; }
+        const r = await fetch(SUPABASE_URL+"/rest/v1/user_models?user_id=eq."+user.id+"&select=*&order=created_at.desc&limit=1",
+          { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+        const rows = r.ok ? await r.json() : [];
+        const m = Array.isArray(rows) ? rows[0] : null;
+        if(!alive) return;
+        setModel(m||null);
+        setLoading(false);
+        if(m && m.status==="training"){ timer = setTimeout(load, 20000); } // check again in 20s
+      }catch(e){ if(alive) setLoading(false); }
+    }
+    load();
+    return ()=>{ alive=false; if(timer) clearTimeout(timer); };
+  },[user]);
+
+  function pickFiles(e){
+    const list = Array.from((e.target && e.target.files) || []);
+    setErr("");
+    const imgs = list.filter(f=>/^image\//.test(f.type));
+    if(imgs.length > MAX_PHOTOS){ setErr("Please pick at most "+MAX_PHOTOS+" photos."); return; }
+    setFiles(imgs);
+  }
+
+  async function startTraining(){
+    setErr("");
+    if(files.length < MIN_PHOTOS){ setErr("Pick at least "+MIN_PHOTOS+" photos of yourself (more angles = better results)."); return; }
+    if(!consent){ setErr("Please confirm these are photos of you."); return; }
+    if(Number(credits) < TRAIN_COST){ setErr("Training costs "+TRAIN_COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    if(!useCredits(TRAIN_COST)) return; // deducts up front
+
+    setTraining(true);
+    try{
+      const tok = await freshToken();
+      if(!tok) throw new Error("Please sign in again.");
+      // Upload each photo into THIS user's private folder.
+      const paths = [];
+      for(let i=0;i<files.length;i++){
+        const f = files[i];
+        const ext = (f.name.split(".").pop()||"jpg").toLowerCase();
+        const path = user.id+"/"+Date.now()+"-"+i+"."+ext;
+        const up = await fetch(SUPABASE_URL+"/storage/v1/object/ai-twin-training/"+path, {
+          method:"POST",
+          headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type": f.type||"image/jpeg" },
+          body: f,
+        });
+        if(!up.ok) throw new Error("Photo upload failed. Try again.");
+        paths.push(path);
+      }
+      const r = await fetch("/api/fakeit-train", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({ paths, consent:true, name:"My Fake It Model" }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Could not start training.");
+      setModel(d.model||null);
+      setFiles([]);
+      track("tool_used",{tool:"fakeit_train"}); onToolUse("fakeit_train", TRAIN_COST);
+    }catch(e){
+      setErr((e&&e.message)||"Training could not start.");
+    }
+    setTraining(false);
+  }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!prompt.trim()){ setErr("Describe the scene — a place, an outfit, a vibe."); return; }
+    if(Number(credits) < IMAGE_COST){ setErr("Each image costs "+IMAGE_COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    if(!useCredits(IMAGE_COST)) return;
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/fakeit-generate", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({ prompt: prompt.trim(), modelId: model && model.id, aspect }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Could not create that image.");
+      setImage(d.image);
+      track("tool_used",{tool:"fakeit_image"}); onToolUse("fakeit_image", IMAGE_COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  const IDEAS = [
+    "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress",
+    "in a Paris cafe in a tailored trench coat, film photography look",
+    "on a rooftop in Tokyo at night, neon lights, streetwear",
+    "walking a marble hotel lobby in a cream suit, editorial magazine shot",
+    "on a yacht in Greece, white linen, sun-drenched",
+  ];
+
+  if(loading) return <div style={{padding:40,textAlign:"center",fontFamily:"sans-serif",color:B.mid,fontSize:12}}>Loading…</div>;
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      {/* ---------- No model yet: TRAIN ---------- */}
+      {(!model || model.status==="failed") && (
+        <div>
+          <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Train your model</h3>
+          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+            Upload {MIN_PHOTOS}–{MAX_PHOTOS} photos of <strong>yourself</strong>. We'll train a private AI model of you — then you can put yourself anywhere. Takes about 30–60 minutes, one time only.
+          </p>
+
+          <div style={{background:"#FAF8F4",border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+            <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
+            <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
+              <li>Clear photos of your face — different angles, expressions, lighting</li>
+              <li>Mix close-ups and full-body shots</li>
+              <li>Just you in frame — no group photos, no sunglasses, no heavy filters</li>
+            </ul>
+          </div>
+
+          {model && model.status==="failed" && (
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>Last training didn't work{model.error?(": "+model.error):"."} You can try again.</p>
+          )}
+
+          <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+          {files.length>0 && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 12px"}}>{files.length} photo{files.length===1?"":"s"} selected {files.length<MIN_PHOTOS?("— add "+(MIN_PHOTOS-files.length)+" more"):"✓"}</p>}
+
+          <label style={{display:"flex",gap:10,alignItems:"flex-start",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
+            <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+            <span>These are photos of <strong>me</strong>, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.</span>
+          </label>
+
+          {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <button onClick={startTraining} disabled={training} style={{background:B.charcoal,color:"#fff",border:"none",padding:"14px 28px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:training?"not-allowed":"pointer",opacity:training?0.6:1}}>
+              {training?"STARTING…":"TRAIN MY MODEL"}
+            </button>
+            <CreditTag n={TRAIN_COST} />
+            <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>one-time · you have {Number(credits).toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Training in progress ---------- */}
+      {model && model.status==="training" && (
+        <div style={{textAlign:"center",padding:"48px 20px"}}>
+          <div style={{fontSize:40,marginBottom:16}}>✨</div>
+          <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 8px"}}>Training your model…</h3>
+          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,maxWidth:420,margin:"0 auto"}}>
+            This takes about 30–60 minutes. You can close the app — we'll keep going. Come back and your model will be waiting.
+          </p>
+        </div>
+      )}
+
+      {/* ---------- Model ready: GENERATE ---------- */}
+      {model && model.status==="ready" && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#0a7",background:"#eafaf3",border:"1px solid #bfe8d8",padding:"4px 10px",borderRadius:20}}>● Your model is ready</span>
+          </div>
+          <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Put yourself anywhere</h3>
+          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
+            Describe the place, the outfit, the vibe. You don't need to say "me" — the model already knows.
+          </p>
+
+          <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress…" rows={3}
+            style={{width:"100%",boxSizing:"border-box",padding:12,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:10,resize:"vertical"}} />
+
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+            {IDEAS.map((idea,i)=>(
+              <button key={i} onClick={()=>setPrompt(idea)} style={{background:"#F7F5F0",border:"1px solid "+B.stone,color:B.mid,fontFamily:"sans-serif",fontSize:11,padding:"6px 10px",cursor:"pointer",textAlign:"left"}}>{idea.slice(0,42)}…</button>
+            ))}
+          </div>
+
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+            {["4:5","1:1","9:16","16:9"].map(a=>(
+              <button key={a} onClick={()=>setAspect(a)} style={{background:aspect===a?B.charcoal:"#fff",color:aspect===a?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:11,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{a}</button>
+            ))}
+          </div>
+
+          {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
+            <button onClick={generate} disabled={busy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"14px 28px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+              {busy?"CREATING…":"CREATE"}
+            </button>
+            <CreditTag n={IMAGE_COST} />
+            <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>per image · you have {Number(credits).toLocaleString()}</span>
+          </div>
+
+          {image && (
+            <div>
+              <img src={image} alt="" style={{width:"100%",display:"block",border:"1px solid "+B.stone}} />
+              <a href={image} download="fakeit.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 function CreditTag({ n, style }){
   return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#F2EEE6", border:"1px solid #E3DCCB", color:"#8A7B5E", fontFamily:"sans-serif", fontSize:9, fontWeight:700, letterSpacing:"0.06em", padding:"3px 8px", borderRadius:20, textTransform:"uppercase", whiteSpace:"nowrap", ...(style||{}) }}>◆ {Number(n).toLocaleString()} credits</span>;
 }
@@ -3489,6 +3710,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="leadfinder"&&<LeadFinder useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
+      {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
 
       {tool==="outreach"&&<MyLeadsOutreach useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
@@ -3852,6 +4074,8 @@ const CREDIT_COSTS = {
   emailSend: 25,       // Outreach — one compliant email
   smsSend: 40,         // Outreach — one consent-based text
   websiteLeads: 200,   // Website Extractor — pull businesses off one webpage
+  fakeitTrain: 7500,   // Fake It — train your personal model (one-time, ~$2.40 to us)
+  fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)
 };
 
 const FREE_CREDITS = {
@@ -3944,7 +4168,7 @@ const CATEGORIES = [
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
-    tabs:[ {label:"AI Photos",tool:"images"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"fakeit"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan and write ads that convert.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Everything to plan, create, and post your content.",
