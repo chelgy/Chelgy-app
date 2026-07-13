@@ -2548,10 +2548,10 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     <div style={{maxWidth:820,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Get on podcasts</h3>
       <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>
-        Find shows in your niche, then let Claude write a pitch tailored to each one. You review and send it yourself \u2014 that's what actually gets replies.
+        Find shows in your niche, then let Claude write a pitch tailored to each one. You review and send it yourself — that's what actually gets replies.
       </p>
       <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:"0 0 18px",background:B.white,border:"1px solid "+B.stone,padding:10}}>
-        Chasing <strong>backlinks</strong> instead? Guest articles live in <strong>SEO → Backlink &amp; Authority Builder</strong> \u2014 it finds the sites, writes the pitch, and now writes the article too.
+        Chasing <strong>backlinks</strong> instead? Guest articles live in <strong>SEO → Backlink &amp; Authority Builder</strong> — it finds the sites, writes the pitch, and now writes the article too.
       </p>
 
       {/* --- who you are (used for every pitch) --- */}
@@ -2579,7 +2579,7 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       {/* --- results --- */}
-      {shows && shows.length===0 && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid}}>No shows matched. Try broader words \u2014 "marketing" instead of "AI marketing for dentists".</p>}
+      {shows && shows.length===0 && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid}}>No shows matched. Try broader words — "marketing" instead of "AI marketing for dentists".</p>}
 
       {shows && shows.length>0 && (
         <div>
@@ -2672,11 +2672,11 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     <div style={{maxWidth:820,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Get in the press</h3>
       <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>
-        Start with an honest read on whether you have a story worth pitching \u2014 then write the pitch.
+        Start with an honest read on whether you have a story worth pitching — then write the pitch.
       </p>
       <div style={{background:B.white,border:"1px solid "+B.stone,padding:12,marginBottom:16}}>
         <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:0}}>
-          <strong>Straight talk:</strong> no tool can get you into Forbes automatically \u2014 anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter, in their language. That's what this does.
+          <strong>Straight talk:</strong> no tool can get you into Forbes automatically — anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter, in their language. That's what this does.
         </p>
       </div>
 
@@ -5035,7 +5035,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginTop:24}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>LAYOUT</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>Tool category order</div>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.5}}>Sets both the Tools Hub cards and the Tools menu. Put your best tools at the top \u2014 that\u2019s what people see first.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.5}}>Sets both the Tools Hub cards and the Tools menu. Put your best tools at the top — that’s what people see first.</p>
               <div style={{display:"flex",flexDirection:"column",gap:1,background:"#E8E6E1",border:"1px solid #E8E6E1",marginBottom:16}}>
                 {catList.map((id,i)=>{
                   const c = CAT_BY_ID[id];
@@ -10759,7 +10759,7 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
           <>
             <div style={{ background:B.white, border:"1px solid "+B.stone, padding:12, marginBottom:12 }}>
               <p style={{ fontFamily:"sans-serif", fontSize:11.5, color:B.mid, lineHeight:1.55, margin:0 }}>
-                They said yes? Write the guest post. A good article earns the link \u2014 and the relationship. Keep the selling to your author bio.
+                They said yes? Write the guest post. A good article earns the link — and the relationship. Keep the selling to your author bio.
               </p>
             </div>
             <Label>Article topic</Label>
