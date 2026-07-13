@@ -2325,6 +2325,160 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
     </div>
   );
 }
+// ============================================================================
+// GET FEATURED — find podcasts in your niche, and pitch them properly.
+// ============================================================================
+function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [query, setQuery] = useState("");
+  const [emailOnly, setEmailOnly] = useState(true);
+  const [shows, setShows] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [err, setErr] = useState("");
+
+  const [you, setYou] = useState("");
+  const [angle, setAngle] = useState("");
+  const [picked, setPicked] = useState(null);
+  const [pitch, setPitch] = useState(null);
+  const [writing, setWriting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const COST = CREDIT_COSTS.podcastPitch;
+
+  async function search(){
+    setErr(""); setShows(null); setPitch(null); setPicked(null);
+    if(query.trim().length < 2){ setErr("What would you talk about? e.g. \"AI marketing for small business\""); return; }
+    setSearching(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/podcast-search", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({ query: query.trim(), emailOnly }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Search failed.");
+      setShows(d.shows||[]);
+      track("tool_used",{tool:"podcast_search"});
+    }catch(e){ setErr((e&&e.message)||"Search failed."); }
+    setSearching(false);
+  }
+
+  async function writePitch(show){
+    setErr(""); setPitch(null); setPicked(show); setCopied(false);
+    if(you.trim().length < 10){ setErr("First, tell us who you are (the box above the results)."); return; }
+    if(Number(credits) < COST){ setErr("A pitch costs "+COST+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    if(!useCredits(COST)) return;
+    setWriting(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/podcast-pitch", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({ show, you: you.trim(), angle: angle.trim() }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Could not write that pitch.");
+      setPitch(d);
+      if(typeof d.balance === "number") onBalance(d.balance);
+      track("tool_used",{tool:"podcast_pitch"}); onToolUse("podcast_pitch", COST);
+    }catch(e){ setErr((e&&e.message)||"Could not write that pitch."); }
+    setWriting(false);
+  }
+
+  function copyPitch(){
+    const txt = (pitch.subject?("Subject: "+pitch.subject+"\n\n"):"") + pitch.body;
+    try{ navigator.clipboard.writeText(txt); setCopied(true); setTimeout(()=>setCopied(false), 2000); }catch(e){}
+  }
+
+  function ago(unix){
+    if(!unix) return "";
+    const days = Math.floor((Date.now()/1000 - unix) / 86400);
+    if(days < 14) return "active this week";
+    if(days < 60) return "active recently";
+    if(days < 200) return "last episode a few months ago";
+    return "may be inactive";
+  }
+
+  return (
+    <div style={{maxWidth:820,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Get on podcasts</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Find shows in your niche, then let Claude write a pitch tailored to each one. You review and send it yourself \u2014 that's what actually gets replies.
+      </p>
+
+      {/* --- who you are (used for every pitch) --- */}
+      <div style={{background:"#FAF8F4",border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>About you \u2014 the guest</div>
+        <textarea value={you} onChange={e=>setYou(e.target.value)} rows={3} placeholder="I'm a founder who built an AI marketing platform for small businesses. Before that I ran an agency for 6 years..."
+          style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:10}} />
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>What you'd talk about (optional)</div>
+        <textarea value={angle} onChange={e=>setAngle(e.target.value)} rows={2} placeholder="How solo founders can compete with agencies using AI \u2014 and where AI still falls short."
+          style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical"}} />
+      </div>
+
+      {/* --- search --- */}
+      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+        <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") search();}}
+          placeholder="Search shows \u2014 e.g. small business marketing"
+          style={{flex:1,minWidth:220,padding:"11px 12px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,boxSizing:"border-box"}} />
+        <button onClick={search} disabled={searching} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 22px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:searching?"not-allowed":"pointer",opacity:searching?0.6:1}}>{searching?"SEARCHING\u2026":"SEARCH"}</button>
+      </div>
+      <label style={{display:"flex",gap:8,alignItems:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:16,cursor:"pointer"}}>
+        <input type="checkbox" checked={emailOnly} onChange={e=>setEmailOnly(e.target.checked)} />
+        Only show podcasts with a contact email
+      </label>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      {/* --- results --- */}
+      {shows && shows.length===0 && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid}}>No shows matched. Try broader words \u2014 "marketing" instead of "AI marketing for dentists".</p>}
+
+      {shows && shows.length>0 && (
+        <div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{shows.length} shows \u00b7 contact info comes from public RSS feeds, so some are generic inboxes.</p>
+          {shows.map(sh=>(
+            <div key={sh.id} style={{border:"1px solid "+B.stone,padding:14,marginBottom:10,background:"#fff"}}>
+              <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                {sh.artwork && <img src={sh.artwork} alt="" style={{width:56,height:56,objectFit:"cover",flexShrink:0,border:"1px solid "+B.stone}} />}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"serif",fontSize:16,color:B.charcoal,marginBottom:2}}>{sh.title}</div>
+                  {sh.author && <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:4}}>{sh.author}</div>}
+                  <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.5,marginBottom:6}}>{String(sh.description).slice(0,160)}{sh.description.length>160?"\u2026":""}</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",fontFamily:"sans-serif",fontSize:10}}>
+                    {sh.hasEmail
+                      ? <span style={{color:"#0a7",background:"#eafaf3",border:"1px solid #bfe8d8",padding:"3px 7px",borderRadius:12,fontWeight:700}}>\u2713 {sh.email}</span>
+                      : <span style={{color:B.mid,background:"#f5f5f5",border:"1px solid "+B.stone,padding:"3px 7px",borderRadius:12}}>no email in feed</span>}
+                    <span style={{color:B.mid}}>{sh.episodeCount} episodes</span>
+                    <span style={{color:B.mid}}>{ago(sh.lastUpdate)}</span>
+                    {sh.website && <a href={sh.website} target="_blank" rel="noreferrer" style={{color:B.goldDark}}>site \u2197</a>}
+                  </div>
+                </div>
+                <button onClick={()=>writePitch(sh)} disabled={writing} style={{flexShrink:0,background:"#fff",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 12px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:writing?"not-allowed":"pointer"}}>
+                  {writing&&picked&&picked.id===sh.id?"WRITING\u2026":"WRITE PITCH"}
+                </button>
+              </div>
+
+              {/* the written pitch, inline under its show */}
+              {pitch && picked && picked.id===sh.id && (
+                <div style={{marginTop:12,borderTop:"1px solid "+B.stone,paddingTop:12}}>
+                  {pitch.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {pitch.subject}</div>}
+                  <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.65,whiteSpace:"pre-wrap",background:"#FAF8F4",border:"1px solid "+B.stone,padding:12}}>{pitch.body}</div>
+                  <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                    <button onClick={copyPitch} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY PITCH"}</button>
+                    {sh.hasEmail && <a href={"mailto:"+sh.email+"?subject="+encodeURIComponent(pitch.subject||"")+"&body="+encodeURIComponent(pitch.body)} style={{background:"#fff",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,textDecoration:"none",display:"inline-block"}}>OPEN IN EMAIL</a>}
+                  </div>
+                  <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginTop:8,lineHeight:1.5}}>Read it before you send. A pitch that sounds like you beats a perfect one that doesn't.</p>
+                </div>
+              )}
+            </div>
+          ))}
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Each pitch costs <strong>{COST} credits</strong> \u00b7 searching is free \u00b7 you have {Number(credits).toLocaleString()}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreditTag({ n, style }){
   return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#F2EEE6", border:"1px solid #E3DCCB", color:"#8A7B5E", fontFamily:"sans-serif", fontSize:9, fontWeight:700, letterSpacing:"0.06em", padding:"3px 8px", borderRadius:20, textTransform:"uppercase", whiteSpace:"nowrap", ...(style||{}) }}>◆ {Number(n).toLocaleString()} credits</span>;
 }
@@ -3711,6 +3865,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
       {tool==="outreach"&&<MyLeadsOutreach useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
@@ -4078,6 +4233,7 @@ const CREDIT_COSTS = {
   websiteLeads: 200,   // Website Extractor — pull businesses off one webpage
   fakeitTrain: 7500,   // Fake It — train your personal model (one-time, ~$2.40 to us)
   fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)
+  podcastPitch: 100,   // Get Featured — one AI-written pitch (search itself is free)
 };
 
 const FREE_CREDITS = {
@@ -4169,6 +4325,8 @@ const CATEGORIES = [
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+  { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Find podcasts in your niche and pitch them properly \u2014 with a message written for that specific show.",
+    tabs:[ {label:"Podcasts",tool:"getfeatured"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of yourself \u2014 then put yourself anywhere. Any location, any outfit, any vibe.",
     tabs:[ {label:"Fake It",tool:"fakeit"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
@@ -11634,7 +11792,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["cat_build","Business Builder"],["cat_website","Website Builder"],["cat_seo","SEO"],["cat_video","Video Studio"],["cat_fakeit","Fake It"],["cat_photo","Photo & Design"],["cat_ads","Advertising"],["cat_social","Social Media"],["cat_paper","Paperwork"]],
+    tools: [["hub","All Tools"],["library","My Library"],["cat_build","Business Builder"],["cat_website","Website Builder"],["cat_seo","SEO"],["cat_video","Video Studio"],["cat_fakeit","Fake It"],["cat_pr","Get Featured"],["cat_photo","Photo & Design"],["cat_ads","Advertising"],["cat_social","Social Media"],["cat_paper","Paperwork"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
