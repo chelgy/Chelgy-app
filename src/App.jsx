@@ -2234,7 +2234,7 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
             Upload {MIN_PHOTOS}–{MAX_PHOTOS} photos of <strong>yourself</strong>. We'll train a private AI model of you — then you can put yourself anywhere. Takes about 30–60 minutes, one time only.
           </p>
 
-          <div style={{background:"#FAF8F4",border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
             <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
             <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
               <li>Clear photos of your face — different angles, expressions, lighting</li>
@@ -2405,13 +2405,13 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>
         Find shows in your niche, then let Claude write a pitch tailored to each one. You review and send it yourself \u2014 that's what actually gets replies.
       </p>
-      <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:"0 0 18px",background:"#FAF8F4",border:"1px solid "+B.stone,padding:10}}>
-        Chasing <strong>backlinks</strong> instead? Guest articles live in <strong>SEO \u2192 Backlink &amp; Authority Builder</strong> \u2014 it finds the sites, writes the pitch, and now writes the article too.
+      <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:"0 0 18px",background:B.white,border:"1px solid "+B.stone,padding:10}}>
+        Chasing <strong>backlinks</strong> instead? Guest articles live in <strong>SEO → Backlink &amp; Authority Builder</strong> \u2014 it finds the sites, writes the pitch, and now writes the article too.
       </p>
 
       {/* --- who you are (used for every pitch) --- */}
-      <div style={{background:"#FAF8F4",border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
-        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>About you \u2014 the guest</div>
+      <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>About you — the guest</div>
         <textarea value={you} onChange={e=>setYou(e.target.value)} rows={3} placeholder="I'm a founder who built an AI marketing platform for small businesses. Before that I ran an agency for 6 years..."
           style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:10}} />
         <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>What you'd talk about (optional)</div>
@@ -2438,7 +2438,7 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       {shows && shows.length>0 && (
         <div>
-          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{shows.length} shows \u00b7 contact info comes from public RSS feeds, so some are generic inboxes.</p>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{shows.length} shows · contact info comes from public RSS feeds, so some are generic inboxes.</p>
           {shows.map(sh=>(
             <div key={sh.id} style={{border:"1px solid "+B.stone,padding:14,marginBottom:10,background:"#fff"}}>
               <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -2449,11 +2449,11 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
                   <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.5,marginBottom:6}}>{String(sh.description).slice(0,160)}{sh.description.length>160?"\u2026":""}</div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",fontFamily:"sans-serif",fontSize:10}}>
                     {sh.hasEmail
-                      ? <span style={{color:"#0a7",background:"#eafaf3",border:"1px solid #bfe8d8",padding:"3px 7px",borderRadius:12,fontWeight:700}}>\u2713 {sh.email}</span>
+                      ? <span style={{color:"#0a7",background:"#eafaf3",border:"1px solid #bfe8d8",padding:"3px 7px",borderRadius:12,fontWeight:700}}>✓ {sh.email}</span>
                       : <span style={{color:B.mid,background:"#f5f5f5",border:"1px solid "+B.stone,padding:"3px 7px",borderRadius:12}}>no email in feed</span>}
                     <span style={{color:B.mid}}>{sh.episodeCount} episodes</span>
                     <span style={{color:B.mid}}>{ago(sh.lastUpdate)}</span>
-                    {sh.website && <a href={sh.website} target="_blank" rel="noreferrer" style={{color:B.goldDark}}>site \u2197</a>}
+                    {sh.website && <a href={sh.website} target="_blank" rel="noreferrer" style={{color:B.goldDark}}>site ↗</a>}
                   </div>
                 </div>
                 <button onClick={()=>writePitch(sh)} disabled={writing} style={{flexShrink:0,background:"#fff",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 12px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:writing?"not-allowed":"pointer"}}>
@@ -2465,7 +2465,7 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
               {pitch && picked && picked.id===sh.id && (
                 <div style={{marginTop:12,borderTop:"1px solid "+B.stone,paddingTop:12}}>
                   {pitch.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {pitch.subject}</div>}
-                  <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.65,whiteSpace:"pre-wrap",background:"#FAF8F4",border:"1px solid "+B.stone,padding:12}}>{pitch.body}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.65,whiteSpace:"pre-wrap",background:B.white,border:"1px solid "+B.stone,padding:12}}>{pitch.body}</div>
                   <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
                     <button onClick={copyPitch} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY PITCH"}</button>
                     {sh.hasEmail && <a href={"mailto:"+sh.email+"?subject="+encodeURIComponent(pitch.subject||"")+"&body="+encodeURIComponent(pitch.body)} style={{background:"#fff",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,textDecoration:"none",display:"inline-block"}}>OPEN IN EMAIL</a>}
@@ -2475,7 +2475,7 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
               )}
             </div>
           ))}
-          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Each pitch costs <strong>{COST} credits</strong> \u00b7 searching is free \u00b7 you have {Number(credits).toLocaleString()}</p>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Each pitch costs <strong>{COST} credits</strong> · searching is free · you have {Number(credits).toLocaleString()}</p>
         </div>
       )}
     </div>
@@ -2529,7 +2529,7 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>
         Start with an honest read on whether you have a story worth pitching \u2014 then write the pitch.
       </p>
-      <div style={{background:"#FAF8F4",border:"1px solid "+B.stone,padding:12,marginBottom:16}}>
+      <div style={{background:B.white,border:"1px solid "+B.stone,padding:12,marginBottom:16}}>
         <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:0}}>
           <strong>Straight talk:</strong> no tool can get you into Forbes automatically \u2014 anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter, in their language. That's what this does.
         </p>
@@ -2551,7 +2551,7 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
       {tab==="pitch" && (
         <>
-          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Outlet or reporter \u00b7 optional</div>
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Outlet or reporter · optional</div>
           <input value={outlet} onChange={e=>setOutlet(e.target.value)} placeholder="e.g. Tampa Bay Times \u2014 Sarah Chen, small business desk"
             style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:12}} />
         </>
@@ -2570,7 +2570,7 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       {out && (
         <div>
           {out.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {out.subject}</div>}
-          <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",background:"#FAF8F4",border:"1px solid "+B.stone,padding:16}}>{out.body}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",background:B.white,border:"1px solid "+B.stone,padding:16}}>{out.body}</div>
           <button onClick={copyOut} style={{marginTop:10,background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY"}</button>
         </div>
       )}
@@ -4412,33 +4412,44 @@ function ToolCallout({ rec, onGo }){
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
 const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
-  { id:"cat_leads", title:"Leads", icon:"Target", blurb:"Find real local businesses on Google or pull them off any webpage \u2014 names, sites, phones, and addresses, ready to export.",
+  { id:"cat_leads", title:"Leads", icon:"Target", blurb:"Build a list of real businesses to sell to. Search any city and industry on Google, or pull every business off a directory page — you get names, websites, phone numbers and addresses, ready to export to a spreadsheet.",
     tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"Website Extractor",tool:"websiteleads"} ] },
   /* NOTE: "My Leads & Outreach" (mass email + SMS) is intentionally NOT listed here.
      The tool code and api files still exist — add {label:"My Leads & Outreach",tool:"outreach"}
      back to the tabs above to re-enable it. */
-  { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
+  { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Start a business from nothing, or fix the one you have. Answer a few questions and get your website, logo, brand and launch plan built for you — then audit what's working, ask a coach anything, and find grants you actually qualify for.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
-  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
+  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build a real website and put it online today. Pick a look, let Chelgy write and design it, connect your own domain, and — if you're selling — source products from vetted suppliers without holding any stock.",
     tabs:[ {label:"Website Builder",tool:"website"}, {label:"Dropshipping Directory",tool:"dropshipping"} ] },
-  { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Climb the rankings and get found on Google.",
+  { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
-  { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
+  { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Make videos without a camera, a crew, or leaving your desk. Cinematic clips, creator-style UGC with a face and a voice, viral hooks worth filming, and studio voiceovers — from a sentence to a finished cut.",
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
-  { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Find podcasts in your niche and pitch them properly \u2014 with a message written for that specific show.",
+  { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
-  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of yourself \u2014 then put yourself anywhere. Any location, any outfit, any vibe.",
+  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of your own face — once — then put yourself anywhere. The Amalfi Coast, a Paris café, a rooftop in Tokyo, in any outfit, in any light. It's really you, and you never left the house.",
     tabs:[ {label:"Fake It",tool:"fakeit"} ] },
-  { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
+  { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
-  { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan and write ads that convert.",
+  { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
-  { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Everything to plan, create, and post your content.",
+  { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Never stare at a blank caption again. Get post ideas worth filming, captions in your voice, creator-style UGC clips, and scroll-stopping flyers and graphics — enough to fill your calendar for the month.",
     tabs:[ {label:"Content Writer",tool:"content"}, {label:"Viral Ideas",tool:"viral"}, {label:"UGC",tool:"ugcstudio"}, {label:"Flyers",tool:"images",startType:"flyer"}, {label:"Social Graphics",tool:"images",startType:"social"} ] },
-  { id:"cat_paper", title:"Paperwork", icon:"Chart", blurb:"Clients, invoices, proposals, and contracts.",
+  { id:"cat_paper", title:"Paperwork", icon:"Chart", blurb:"The boring half of the business, handled. Track clients, send invoices that get paid, and generate proposals and contracts that look like they came from a firm with a legal department.",
     tabs:[ {label:"Business Manager",tool:"manager"} ] },
 ];
 const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
+
+// Category order is editable in Admin (app_settings key "cat_order" = comma-separated ids).
+// Anything not in the saved list keeps its place at the end, so a NEW category never vanishes.
+function orderedCategories(savedOrder){
+  const ids = String(savedOrder||"").split(",").map(x=>x.trim()).filter(Boolean);
+  if(!ids.length) return CATEGORIES;
+  const seen = new Set(); const out = [];
+  ids.forEach(id=>{ const c = CAT_BY_ID[id]; if(c && !seen.has(id)){ out.push(c); seen.add(id); } });
+  CATEGORIES.forEach(c=>{ if(!seen.has(c.id)) out.push(c); });
+  return out;
+}
 function CategoryView({ cat, toolsProps, isLockedTool, onNav }){
   const [ti,setTi]=useState(0);
   const tabs=(cat&&cat.tabs)||[];
@@ -4681,6 +4692,21 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     }catch(e){}
     setDbLoading(false);
   }
+  const [catList, setCatList] = useState(CATEGORIES.map(c=>c.id));
+  const [catSaved, setCatSaved] = useState(false);
+  useEffect(()=>{ loadAppSettings().then(st=>{ if(st&&st.cat_order){ const ids=String(st.cat_order).split(",").map(x=>x.trim()).filter(Boolean); const seen=new Set(); const out=[]; ids.forEach(id=>{ if(CAT_BY_ID[id]&&!seen.has(id)){ out.push(id); seen.add(id);} }); CATEGORIES.forEach(c=>{ if(!seen.has(c.id)) out.push(c.id); }); setCatList(out); } }); },[]);
+  function moveCat(i, dir){ setCatList(prev=>{ const a=[...prev]; const j=i+dir; if(j<0||j>=a.length) return a; const t=a[i]; a[i]=a[j]; a[j]=t; return a; }); }
+  async function saveCatOrder(){
+    setDbLoading(true);
+    try{
+      const tok=await freshToken();
+      const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"cat_order",value:catList.join(",")})});
+      setCatSaved(true); setTimeout(()=>setCatSaved(false),2500);
+    }catch(e){}
+    setDbLoading(false);
+  }
+
   async function saveHeroImages(){
     setDbLoading(true);
     try{
@@ -4860,6 +4886,36 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B"}}>Publish new weekly content</div>
               </div>
             </div>
+
+            <div style={{background:"#fff",border:"1px solid #E8E6E1",padding:"24px",marginTop:24}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:"#B8955A",letterSpacing:"0.18em",marginBottom:10,fontWeight:700}}>LAYOUT</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:18,marginBottom:6}}>Tool category order</div>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px",lineHeight:1.5}}>Sets both the Tools Hub cards and the Tools menu. Put your best tools at the top \u2014 that\u2019s what people see first.</p>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:"#E8E6E1",border:"1px solid #E8E6E1",marginBottom:16}}>
+                {catList.map((id,i)=>{
+                  const c = CAT_BY_ID[id];
+                  if(!c) return null;
+                  return (
+                    <div key={id} style={{background:"#fff",padding:"12px 14px",display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{fontFamily:"sans-serif",fontSize:11,color:"#B0B0B0",width:20,flexShrink:0}}>{i+1}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:"#111"}}>{c.title}</div>
+                        <div style={{fontFamily:"sans-serif",fontSize:11,color:"#6B6B6B",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(c.tabs||[]).map(t=>t.label).join(" \u00b7 ")}</div>
+                      </div>
+                      <div style={{display:"flex",gap:4,flexShrink:0}}>
+                        <button onClick={()=>moveCat(i,-1)} disabled={i===0} style={{background:"none",border:"1px solid #E8E6E1",width:30,height:30,cursor:i===0?"default":"pointer",color:i===0?"#D5D5D5":"#111",fontSize:13,lineHeight:1,padding:0}}>{"\u2191"}</button>
+                        <button onClick={()=>moveCat(i,1)} disabled={i===catList.length-1} style={{background:"none",border:"1px solid #E8E6E1",width:30,height:30,cursor:i===catList.length-1?"default":"pointer",color:i===catList.length-1?"#D5D5D5":"#111",fontSize:13,lineHeight:1,padding:0}}>{"\u2193"}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <button onClick={saveCatOrder} disabled={dbLoading} style={{background:"#111",color:"#fff",border:"none",padding:"11px 22px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:dbLoading?"default":"pointer",textTransform:"uppercase"}}>{dbLoading?"Saving…":"Save order"}</button>
+                <button onClick={()=>setCatList(CATEGORIES.map(c=>c.id))} style={{background:"none",border:"1px solid #E8E6E1",padding:"11px 18px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",cursor:"pointer",color:"#6B6B6B",textTransform:"uppercase"}}>Reset</button>
+                {catSaved&&<span style={{fontFamily:"sans-serif",fontSize:12,color:"#2E7D32"}}>{"\u2713 Saved \u2014 refresh the app to see it"}</span>}
+              </div>
+            </div>
           </div>
         )}
 
@@ -5018,7 +5074,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
         {view==="reports"&&(
           <div>
             <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Community Reports</h2>
-            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px"}}>Members flag posts and replies here. Remove the content or dismiss the report \u2014 aim to act within 24 hours.</p>
+            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",margin:"0 0 18px"}}>Members flag posts and replies here. Remove the content or dismiss the report — aim to act within 24 hours.</p>
             {reportsErr&&<div style={{background:"#FDECEA",border:"1px solid #C0392B",padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,color:"#C0392B",marginBottom:14}}>{reportsErr}</div>}
             {reportsList.length===0&&!reportsErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"#6B6B6B",padding:"20px",background:"#F7F6F4",border:"1px solid #E8E6E1"}}>No open reports right now.</div>}
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -10556,24 +10612,24 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
         )}
         {mode === "article" && (
           <>
-            <div style={{ background:"#FAF8F4", border:"1px solid "+B.stone, padding:12, marginBottom:12 }}>
+            <div style={{ background:B.white, border:"1px solid "+B.stone, padding:12, marginBottom:12 }}>
               <p style={{ fontFamily:"sans-serif", fontSize:11.5, color:B.mid, lineHeight:1.55, margin:0 }}>
                 They said yes? Write the guest post. A good article earns the link \u2014 and the relationship. Keep the selling to your author bio.
               </p>
             </div>
             <Label>Article topic</Label>
             <input value={artTopic} onChange={e => setArtTopic(e.target.value)} placeholder="e.g. 5 ways small salons can fill slow weekdays" style={inpStyle} />
-            <Label>Publishing on \u00b7 optional</Label>
+            <Label>Publishing on · optional</Label>
             <input value={targetName} onChange={e => setTargetName(e.target.value)} placeholder="e.g. Salon Today, or the blog's name" style={inpStyle} />
-            <Label>Your business \u2014 for the author bio</Label>
+            <Label>Your business — for the author bio</Label>
             <input value={biz} onChange={e => setBiz(e.target.value)} placeholder="e.g. Bloom Salon, Tampa" style={inpStyle} />
-            <Label>Your website \u00b7 optional \u2014 the one link back</Label>
+            <Label>Your website · optional — the one link back</Label>
             <input value={site} onChange={e => setSite(e.target.value)} placeholder="e.g. bloomsalon.com" style={inpStyle} />
             <Label>Length</Label>
             <select value={artLen} onChange={e => setArtLen(e.target.value)} style={inpStyle}>
-              <option value="800">Short \u2014 ~800 words</option>
-              <option value="1200">Standard \u2014 ~1,200 words</option>
-              <option value="1800">In-depth \u2014 ~1,800 words</option>
+              <option value="800">Short — ~800 words</option>
+              <option value="1200">Standard — ~1,200 words</option>
+              <option value="1800">In-depth — ~1,800 words</option>
             </select>
           </>
         )}
@@ -10766,7 +10822,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
         <div style={{marginTop:12}}>
           <Fl label="Video engine"><Ss value={vmodel} onChange={e=>setVmodel(e.target.value)}>{UGC_MODELS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}</Ss></Fl>
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 14px"}}>{curModel().note} <strong>{curModel().per.toLocaleString()} credits per second</strong> \u2014 this clip: <strong>{cost().toLocaleString()} credits</strong>.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 14px"}}>{curModel().note} <strong>{curModel().per.toLocaleString()} credits per second</strong> — this clip: <strong>{cost().toLocaleString()} credits</strong>.</p>
         <Btn dark disabled={busy||(!prompt.trim()&&!photo)} onClick={gen}>{busy?"GENERATING VIDEO...":("GENERATE VIDEO ("+cost().toLocaleString()+" credits)")}</Btn>
       </Card>
       {busy&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{status||"Working..."}</div></div>}
@@ -11701,7 +11757,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [homeHero, setHomeHero] = useState(HOME_HERO);
   const [toolMedia, setToolMedia] = useState({});
   const [pageMedia, setPageMedia] = useState({});
-  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } }); },[]);
+  const [catOrder, setCatOrder] = useState("");
+  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } }); },[]);
+  const CATS = orderedCategories(catOrder);   // admin-editable order
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
   const [selectedForumPost, setSelectedForumPost] = useState(null);
@@ -11938,7 +11996,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["cat_build","Business Builder"],["cat_website","Website Builder"],["cat_seo","SEO"],["cat_video","Video Studio"],["cat_fakeit","Fake It"],["cat_pr","Get Featured"],["cat_photo","Photo & Design"],["cat_ads","Advertising"],["cat_social","Social Media"],["cat_paper","Paperwork"]],
+    tools: [["hub","All Tools"],["library","My Library"], ...CATS.map(c=>[c.id, c.title])],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -13691,7 +13749,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {salesTab==="find" && (
             <div>
               <h1 style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Where to find clients</h1>
-              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 20px"}}>Every avenue for finding and contacting both marketing and business-building clients \u2014 plus ready-to-send messages to reach out directly.</p>
+              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 20px"}}>Every avenue for finding and contacting both marketing and business-building clients — plus ready-to-send messages to reach out directly.</p>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"0 0 8px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Where to find & contact clients</div>
                 <button onClick={()=>{try{navigator.clipboard.writeText(SALES_FIND_TEXT);pushNotif("Copied!");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",padding:"4px 10px",cursor:"pointer",textTransform:"uppercase",color:B.mid}}>Copy</button>
@@ -14842,7 +14900,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Tools Hub</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em"}}>Use these tools to build your entire business and automate your marketing — all in one place.</p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:0,background:"transparent"}}>
-                {CATEGORIES.map(c=>{ const Ic=Icons[c.icon]||Icons.Star; return (
+                {CATS.map(c=>{ const Ic=Icons[c.icon]||Icons.Star; return (
                   <div key={c.id} onClick={()=>setSubTab(c.id)} style={{background:B.white,padding:"22px",cursor:"pointer",display:"flex",gap:16,alignItems:"flex-start",boxShadow:"0 0 0 1px "+B.stone}}>
                     <div style={{color:B.charcoal,flexShrink:0,marginTop:2}}><Ic /></div>
                     <div>
