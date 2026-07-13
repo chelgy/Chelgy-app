@@ -4154,11 +4154,11 @@ function ToolCallout({ rec, onGo }){
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
 const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
-  /* ===== HIDDEN: Leads & Outreach — re-enable later by uncommenting this one block. =====
-     (All the code, backend files, and saved leads stay in place; this just hides the menu tab.)
-  { id:"cat_leads", title:"Leads & Outreach", icon:"Target", blurb:"Find real local businesses on Google or any webpage, then reach out \u2014 compliant email and consent-based texts.",
-    tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"Website Extractor",tool:"websiteleads"}, {label:"My Leads & Outreach",tool:"outreach"} ] },
-  ===== END HIDDEN ===== */
+  { id:"cat_leads", title:"Leads", icon:"Target", blurb:"Find real local businesses on Google or pull them off any webpage \u2014 names, sites, phones, and addresses, ready to export.",
+    tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"Website Extractor",tool:"websiteleads"} ] },
+  /* NOTE: "My Leads & Outreach" (mass email + SMS) is intentionally NOT listed here.
+     The tool code and api files still exist — add {label:"My Leads & Outreach",tool:"outreach"}
+     back to the tabs above to re-enable it. */
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Launch and steer your business \u2014 build it, see where you stand, get advice, and find funding.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build and publish your site, connect a domain, and source products to sell.",
