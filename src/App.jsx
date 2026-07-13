@@ -2402,8 +2402,11 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   return (
     <div style={{maxWidth:820,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Get on podcasts</h3>
-      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>
         Find shows in your niche, then let Claude write a pitch tailored to each one. You review and send it yourself \u2014 that's what actually gets replies.
+      </p>
+      <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:"0 0 18px",background:"#FAF8F4",border:"1px solid "+B.stone,padding:10}}>
+        Chasing <strong>backlinks</strong> instead? Guest articles live in <strong>SEO \u2192 Backlink &amp; Authority Builder</strong> \u2014 it finds the sites, writes the pitch, and now writes the article too.
       </p>
 
       {/* --- who you are (used for every pitch) --- */}
@@ -2473,6 +2476,102 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             </div>
           ))}
           <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Each pitch costs <strong>{COST} credits</strong> \u00b7 searching is free \u00b7 you have {Number(credits).toLocaleString()}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// PRESS — figure out if you have a story, then pitch it.
+// ============================================================================
+function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [tab, setTab] = useState("targets");
+  const [you, setYou] = useState("");
+  const [story, setStory] = useState("");
+  const [outlet, setOutlet] = useState("");
+  const [out, setOut] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
+  const COST = CREDIT_COSTS.podcastPitch;
+
+  async function run(mode){
+    setErr(""); setOut(null); setCopied(false);
+    if(you.trim().length < 10){ setErr("Tell us about your business first."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    if(!useCredits(COST)) return;
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/press-pitch", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({ mode, you:you.trim(), story:story.trim(), outlet:outlet.trim() }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Something went wrong.");
+      setOut(d);
+      if(typeof d.balance === "number") onBalance(d.balance);
+      track("tool_used",{tool:"press_"+mode}); onToolUse("press_"+mode, COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  function copyOut(){
+    const txt = (out.subject?("Subject: "+out.subject+"\n\n"):"") + out.body;
+    try{ navigator.clipboard.writeText(txt); setCopied(true); setTimeout(()=>setCopied(false),2000); }catch(e){}
+  }
+
+  return (
+    <div style={{maxWidth:820,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Get in the press</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>
+        Start with an honest read on whether you have a story worth pitching \u2014 then write the pitch.
+      </p>
+      <div style={{background:"#FAF8F4",border:"1px solid "+B.stone,padding:12,marginBottom:16}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:0}}>
+          <strong>Straight talk:</strong> no tool can get you into Forbes automatically \u2014 anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter, in their language. That's what this does.
+        </p>
+      </div>
+
+      <div style={{display:"flex",gap:0,borderBottom:"1px solid "+B.stone,marginBottom:16}}>
+        {[["targets","Do I have a story?"],["pitch","Write the pitch"]].map(([id,label])=>(
+          <button key={id} onClick={()=>{setTab(id);setOut(null);setErr("");}} style={{background:"none",border:"none",borderBottom:"2px solid "+(tab===id?B.charcoal:"transparent"),color:tab===id?B.charcoal:B.mid,padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,fontWeight:tab===id?700:500,cursor:"pointer",marginBottom:-1}}>{label}</button>
+        ))}
+      </div>
+
+      <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Your business</div>
+      <textarea value={you} onChange={e=>setYou(e.target.value)} rows={3} placeholder="I run a salon in Tampa that switched to a 4-day week last year. Revenue is up 20% and staff turnover went to zero."
+        style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:12}} />
+
+      <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{tab==="targets"?"What you think the story is \u00b7 optional":"The story"}</div>
+      <textarea value={story} onChange={e=>setStory(e.target.value)} rows={2} placeholder="The 4-day week actually works for a small service business \u2014 here are the numbers."
+        style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:12}} />
+
+      {tab==="pitch" && (
+        <>
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Outlet or reporter \u00b7 optional</div>
+          <input value={outlet} onChange={e=>setOutlet(e.target.value)} placeholder="e.g. Tampa Bay Times \u2014 Sarah Chen, small business desk"
+            style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:12}} />
+        </>
+      )}
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
+        <button onClick={()=>run(tab)} disabled={busy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"13px 26px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+          {busy?"WORKING\u2026":(tab==="targets"?"CHECK MY STORY":"WRITE THE PITCH")}
+        </button>
+        <CreditTag n={COST} />
+        <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>you have {Number(credits).toLocaleString()}</span>
+      </div>
+
+      {out && (
+        <div>
+          {out.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {out.subject}</div>}
+          <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",background:"#FAF8F4",border:"1px solid "+B.stone,padding:16}}>{out.body}</div>
+          <button onClick={copyOut} style={{marginTop:10,background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY"}</button>
         </div>
       )}
     </div>
@@ -3866,6 +3965,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
       {tool==="outreach"&&<MyLeadsOutreach useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
@@ -4326,7 +4426,7 @@ const CATEGORIES = [
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Find podcasts in your niche and pitch them properly \u2014 with a message written for that specific show.",
-    tabs:[ {label:"Podcasts",tool:"getfeatured"} ] },
+    tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of yourself \u2014 then put yourself anywhere. Any location, any outfit, any vibe.",
     tabs:[ {label:"Fake It",tool:"fakeit"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
@@ -10295,6 +10395,7 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
     { id: "find",       label: "Find opportunities" },
     { id: "outreach",   label: "Write outreach" },
     { id: "assets",     label: "Linkable assets" },
+    { id: "article",    label: "Write the article" },
     { id: "competitor", label: "Competitor check" },
   ];
   const [mode, setMode] = useState("find");
@@ -10308,6 +10409,8 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
   const [offer, setOffer] = useState("");
   const [tone, setTone] = useState("Warm & professional");
   const [competitor, setCompetitor] = useState("");
+  const [artTopic, setArtTopic] = useState("");
+  const [artLen, setArtLen] = useState("1200");
 
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
@@ -10348,6 +10451,26 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
       "\n\nReturn a subject line (if it's an email) and the message body, ready to paste and lightly personalize. Keep it short and human. Then add 2 quick follow-up tips.";
     run(p, false);
   }
+  function genArticle() {
+    if (!artTopic.trim() || !biz.trim()) return;
+    const p = "You are a skilled ghostwriter writing a GUEST ARTICLE that will be published on someone else's website. " +
+      "This is the article itself \u2014 not a pitch. It must be good enough that the host site is glad they ran it.\n\n" +
+      "RULES:\n" +
+      "- Genuinely useful and specific. Real advice, real examples, real numbers where you can.\n" +
+      "- Write for THEIR audience, not yours. Do not make it an advert for my business.\n" +
+      "- Self-promotion belongs in ONE place only: a short author bio at the very end, with a single natural link back to my site.\n" +
+      "- No fluff intros ('In today's fast-paced world...'). Start with something worth reading.\n" +
+      "- Use clear H2 subheadings. Include a title and a 1-sentence summary at the top.\n" +
+      "- Target roughly " + artLen + " words.\n\n" +
+      "PUBLICATION / BLOG: " + (targetName.trim() || "(a relevant industry blog)") +
+      "\nARTICLE TOPIC: " + artTopic +
+      "\nMY BUSINESS (for the author bio only): " + biz +
+      (site.trim() ? ("\nMY SITE (for the one bio link): " + site) : "") +
+      (niche.trim() ? ("\nMY NICHE: " + niche) : "") +
+      "\n\nWrite the full article, then the author bio." +
+      "\n\nAfter the article, add a short section titled 'BEFORE YOU SEND' with 3 quick reminders (e.g. match their house style, check their guest-post guidelines, don't over-link).";
+    run(p, false);
+  }
   function genAssets() {
     if (!biz.trim()) return;
     const p = "You are a content strategist specializing in 'linkable assets' — content so useful that people naturally link to it, which earns white-hat backlinks and grows audience. Suggest 5 linkable-asset ideas tailored to this business. Favor local stat roundups, free templates / checklists / calculators, original mini-surveys, and 'best [thing] in [city]' guides." +
@@ -10372,9 +10495,9 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
   const inpStyle = { width: "100%", padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: "#111", marginBottom: 14, boxSizing: "border-box" };
   const selStyle = { ...inpStyle, cursor: "pointer" };
 
-  const canRun = mode === "find" ? biz.trim() : mode === "outreach" ? (targetName.trim() && biz.trim()) : mode === "assets" ? biz.trim() : competitor.trim();
+  const canRun = mode === "find" ? biz.trim() : mode === "outreach" ? (targetName.trim() && biz.trim()) : mode === "assets" ? biz.trim() : mode === "article" ? (artTopic.trim() && biz.trim()) : competitor.trim();
   function onGenerate() {
-    guard(() => { if (mode === "find") genFind(); else if (mode === "outreach") genOutreach(); else if (mode === "assets") genAssets(); else genCompetitor(); });
+    guard(() => { if (mode === "find") genFind(); else if (mode === "outreach") genOutreach(); else if (mode === "assets") genAssets(); else if (mode === "article") genArticle(); else genCompetitor(); });
   }
 
   return (
@@ -10429,6 +10552,29 @@ function AuthorityBuilder({ onToolUse, locked, onUpgrade, bizCtx, user }) {
             <input value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Tampa, FL" style={inpStyle} />
             <Label>Audience / niche · optional</Label>
             <input value={niche} onChange={e => setNiche(e.target.value)} placeholder="e.g. busy moms, local brides" style={inpStyle} />
+          </>
+        )}
+        {mode === "article" && (
+          <>
+            <div style={{ background:"#FAF8F4", border:"1px solid "+B.stone, padding:12, marginBottom:12 }}>
+              <p style={{ fontFamily:"sans-serif", fontSize:11.5, color:B.mid, lineHeight:1.55, margin:0 }}>
+                They said yes? Write the guest post. A good article earns the link \u2014 and the relationship. Keep the selling to your author bio.
+              </p>
+            </div>
+            <Label>Article topic</Label>
+            <input value={artTopic} onChange={e => setArtTopic(e.target.value)} placeholder="e.g. 5 ways small salons can fill slow weekdays" style={inpStyle} />
+            <Label>Publishing on \u00b7 optional</Label>
+            <input value={targetName} onChange={e => setTargetName(e.target.value)} placeholder="e.g. Salon Today, or the blog's name" style={inpStyle} />
+            <Label>Your business \u2014 for the author bio</Label>
+            <input value={biz} onChange={e => setBiz(e.target.value)} placeholder="e.g. Bloom Salon, Tampa" style={inpStyle} />
+            <Label>Your website \u00b7 optional \u2014 the one link back</Label>
+            <input value={site} onChange={e => setSite(e.target.value)} placeholder="e.g. bloomsalon.com" style={inpStyle} />
+            <Label>Length</Label>
+            <select value={artLen} onChange={e => setArtLen(e.target.value)} style={inpStyle}>
+              <option value="800">Short \u2014 ~800 words</option>
+              <option value="1200">Standard \u2014 ~1,200 words</option>
+              <option value="1800">In-depth \u2014 ~1,800 words</option>
+            </select>
           </>
         )}
         {mode === "competitor" && (
