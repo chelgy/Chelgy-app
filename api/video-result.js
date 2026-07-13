@@ -2,7 +2,10 @@
 // If the job FAILED, it refunds the credits that were charged at start —
 // exactly once, server-side, without trusting the browser.
 //
-// Env: WAVESPEED_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Jobs whose id starts with "g:" are Google (Veo) jobs and are polled at Google;
+// everything else is polled at WaveSpeed.
+//
+// Env: WAVESPEED_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -40,6 +43,48 @@ export default async function handler(req, res) {
     const id = body.id;
     if (!id) return res.status(400).json({ error: "Missing id" });
 
+    // ── Google (Veo) jobs ────────────────────────────────────────────────
+    if (String(id).startsWith("g:")) {
+      const opName = String(id).slice(2); // "models/veo-.../operations/abc123"
+      const GKEY = (process.env.GEMINI_API_KEY || "").trim();
+      const gr = await fetch("https://generativelanguage.googleapis.com/v1beta/" + opName, {
+        headers: { "x-goog-api-key": GKEY }
+      });
+      const g = await gr.json();
+      if (!gr.ok) {
+        return res.status(gr.status).json({ error: (g && g.error && g.error.message) || "Video service error" });
+      }
+
+      if (!g.done) return res.status(200).json({ status: "processing", output: null });
+
+      // Finished with an error → refund exactly once.
+      if (g.error) {
+        const job = await claimRefund(id);
+        if (job && job.user_id && job.cost) await addCredits(job.user_id, job.cost, "refund:video-failed");
+        return res.status(200).json({ status: "failed", output: null });
+      }
+
+      // Pull the video link out of the response.
+      const resp = g.response || {};
+      const samples =
+        (resp.generateVideoResponse && resp.generateVideoResponse.generatedSamples) ||
+        resp.generatedSamples || resp.videos || [];
+      const first = Array.isArray(samples) ? samples[0] : null;
+      let uri = first && ((first.video && first.video.uri) || first.uri || first.gcsUri);
+
+      if (!uri) {
+        const job = await claimRefund(id);
+        if (job && job.user_id && job.cost) await addCredits(job.user_id, job.cost, "refund:video-failed");
+        return res.status(200).json({ status: "failed", output: null });
+      }
+
+      // Google's file link needs the API key to download, so hand back a
+      // proxied link the browser can fetch without exposing the key.
+      const out = "/api/video-file?u=" + encodeURIComponent(uri);
+      return res.status(200).json({ status: "completed", output: out });
+    }
+
+    // ── WaveSpeed jobs ───────────────────────────────────────────────────
     const r = await fetch("https://api.wavespeed.ai/api/v3/predictions/" + id + "/result", {
       headers: { "Authorization": "Bearer " + process.env.WAVESPEED_API_KEY }
     });

@@ -4064,8 +4064,10 @@ const CREDIT_COSTS = {
   video: 500,      // Standard 480p — WAN 2.2
   videoHD: 1000,   // HD 720p — WAN 2.2 (≈2x the standard cost)
   video1080: 2500, // Premium 1080p — WAN 2.7 (~$0.75/clip, the priciest model)
-  veoSec: 1250,    // Cinematic Pro per second WITH audio — Veo 3.1 ($0.40/s, ~3x markup)
+  veoSec: 1250,    // Cinematic Pro per second WITH audio — Veo 3.1 Standard ($0.40/s, ~3x markup)
   veoSecSilent: 625, // Cinematic Pro per second, video only — Veo 3.1 ($0.20/s)
+  veoLiteSec: 150,   // Veo 3.1 Lite per second, 720p w/ audio ($0.05/s, ~3x markup) — the cheap tier
+  veoFastSec: 300,   // Veo 3.1 Fast per second, 720p w/ audio ($0.10/s, ~3x markup)
   klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
   seedanceSec: 4600, // 4K Max per second — Seedance 2.0 4K (~$1.50/s, the absolute ceiling)
   voiceover: 150,
@@ -4167,8 +4169,10 @@ const CATEGORIES = [
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"From idea to finished video \u2014 no camera needed.",
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of yourself \u2014 then put yourself anywhere. Any location, any outfit, any vibe.",
+    tabs:[ {label:"Fake It",tool:"fakeit"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Product photos, branded graphics, and logos \u2014 all your visuals in one place.",
-    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"fakeit"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan and write ads that convert.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Everything to plan, create, and post your content.",
@@ -10330,20 +10334,28 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   const [refFrame, setRefFrame] = useState(null);
   const [refBusy, setRefBusy] = useState(false);
   useEffect(()=>{ if(startImg) setPhoto(startImg); }, [startImg]);
+  const [vmodel, setVmodel] = useState("veolite");   // default to the affordable tier
+  const UGC_MODELS = [
+    { id:"veolite",    label:"Veo 3.1 Lite \u2014 fast & affordable",      per:CREDIT_COSTS.veoLiteSec,  note:"Great for volume. Most UGC looks great here." },
+    { id:"veofast",    label:"Veo 3.1 Fast \u2014 sharper motion",         per:CREDIT_COSTS.veoFastSec,  note:"Crisper movement and detail." },
+    { id:"seedance4k", label:"Seedance 2.0 \u2014 4K, best product detail", per:CREDIT_COSTS.seedanceSec, note:"Highest fidelity for product shots. Slowest & priciest." },
+    { id:"veo",        label:"Veo 3.1 Cinematic \u2014 hero shots",         per:CREDIT_COSTS.veoSec,      note:"Top-tier realism. Use for your best clip." },
+  ];
+  function curModel(){ return UGC_MODELS.find(m=>m.id===vmodel) || UGC_MODELS[0]; }
   const DUR = [5, 10, 15];
-  function cost(){ return CREDIT_COSTS.seedanceSec * Number(dur); }
+  function cost(){ return curModel().per * Number(dur); }
   function onUpload(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPhoto(r.result); r.readAsDataURL(f); e.target.value=""; }
   async function gen(){
     if(!prompt.trim() && !photo){ setErr("Add a creator photo or describe the video."); return; }
     if(!useCredits(cost())) return;
-    track("tool_used",{tool:"ugc_video",model:"seedance4k"}); onToolUse("ugc_video",cost());
+    track("tool_used",{tool:"ugc_video",model:vmodel}); onToolUse("ugc_video",cost());
     setBusy(true); setUrl(""); setErr(""); setStatus("Starting the video engine…");
     try{
       const p = prompt.trim() || "Bring this UGC creator photo to life with subtle, natural movement — as if they are filming themselves talking to the camera. Realistic, handheld, authentic user-generated-content feel.";
-      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:"seedance4k", duration:Number(dur), audio:false});
+      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:vmodel, duration:Number(dur), audio:false});
       if(!started||!started.id){ setErr("Sorry — we couldn't start that video right now. Please try again in a little while."); setBusy(false); setStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
-      setStatus("Creating your Seedance 2.0 video — 4K can take up to 10 minutes. Keep this tab open.");
+      setStatus("Creating your video with "+curModel().label.split(" \u2014 ")[0]+" — this can take a few minutes. Keep this tab open.");
       const out = await pollVideo(started.id);
       if(!out){ setErr("The video didn't finish in time. Your credits were refunded."); if(typeof started.balance==="number") onBalance(started.balance+cost()); setBusy(false); setStatus(""); return; }
       setUrl(out); setStatus("");
@@ -10405,7 +10417,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     <div>
       <Card style={{padding:"22px",marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginBottom:12}}>
-          <span style={{display:"inline-block",background:B.charcoal,color:"#fff",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",padding:"5px 10px"}}>4K Max · Seedance 2.0</span>
+          <span style={{display:"inline-block",background:B.charcoal,color:"#fff",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",padding:"5px 10px"}}>{curModel().label.split(" \u2014 ")[0]}</span>
           <CreditTag n={cost()} />
         </div>
         <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Creator photo</div>
@@ -10447,7 +10459,10 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
           <Fl label="Orientation"><Ss value={orient} onChange={e=>setOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option><option value="square">Square (1:1)</option></Ss></Fl>
           <Fl label="Length"><Ss value={dur} onChange={e=>setDur(e.target.value)}>{DUR.map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"2px 0 14px"}}>Every UGC video is generated with <strong>Seedance 2.0</strong> for the most realistic, multi-shot 4K results.</p>
+        <div style={{marginTop:12}}>
+          <Fl label="Video engine"><Ss value={vmodel} onChange={e=>setVmodel(e.target.value)}>{UGC_MODELS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}</Ss></Fl>
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 14px"}}>{curModel().note} <strong>{curModel().per.toLocaleString()} credits per second</strong> \u2014 this clip: <strong>{cost().toLocaleString()} credits</strong>.</p>
         <Btn dark disabled={busy||(!prompt.trim()&&!photo)} onClick={gen}>{busy?"GENERATING VIDEO...":("GENERATE VIDEO ("+cost().toLocaleString()+" credits)")}</Btn>
       </Card>
       {busy&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{status||"Working..."}</div></div>}
@@ -11619,7 +11634,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"],["newsletter","Newsletter"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
-    tools: [["hub","All Tools"],["library","My Library"],["cat_build","Business Builder"],["cat_website","Website Builder"],["cat_seo","SEO"],["cat_video","Video Studio"],["cat_photo","Photo & Design"],["cat_ads","Advertising"],["cat_social","Social Media"],["cat_paper","Paperwork"]],
+    tools: [["hub","All Tools"],["library","My Library"],["cat_build","Business Builder"],["cat_website","Website Builder"],["cat_seo","SEO"],["cat_video","Video Studio"],["cat_fakeit","Fake It"],["cat_photo","Photo & Design"],["cat_ads","Advertising"],["cat_social","Social Media"],["cat_paper","Paperwork"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };

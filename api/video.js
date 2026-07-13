@@ -3,13 +3,18 @@
 // Quality tiers:
 //   480p / 720p  -> WAN 2.2      (fast, economical)          | 5/10s   | "size"
 //   1080p        -> WAN 2.7      (premium)                   | 5/10/15 | "resolution" + "aspect_ratio"
-//   veo          -> Veo 3.1      (Hollywood-grade + audio)   | 4/6/8s  | "resolution" + "aspect_ratio" + "generate_audio"
+//   veolite      -> Veo 3.1 Lite  (cheap tier, 720p+audio)   | 4/6/8s  | DIRECT to Google
+//   veofast      -> Veo 3.1 Fast  (sharper, 720p+audio)      | 4/6/8s  | DIRECT to Google
+//   veo          -> Veo 3.1       (cinematic 1080p+audio)    | 4/6/8s  | DIRECT to Google
+//
+// NOTE: All Veo tiers now call Google's Gemini API DIRECTLY (no WaveSpeed markup).
+// Google job ids are stored with a "g:" prefix so video-result.js knows to poll Google.
 //   kling4k      -> Kling 3.0 4K (true 4K cinematic)         | 5/10/15 | "duration" + "aspect_ratio" + "sound"
 //   seedance4k   -> Seedance 2.0 (4K multi-shot, native A/V) | 5/10/15 | "resolution":"4K" + "aspect_ratio"
 //
 // Credits are deducted server-side BEFORE the job starts; the job is recorded
 // so a later failure (caught in video-result.js) can be refunded automatically.
-// Env: WAVESPEED_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+// Env: WAVESPEED_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
@@ -55,6 +60,10 @@ async function recordVideoJob(id, userId, cost) {
 }
 function videoCost(quality, duration, wantAudio) {
   const d = Number(duration);
+  // Google direct pricing (per second, 720p with audio):
+  //   Lite $0.05  -> 150 credits/s   |  Fast $0.10 -> 300  |  Standard $0.40 -> 1250
+  if (quality === "veolite") return 150 * d;
+  if (quality === "veofast") return 300 * d;
   if (quality === "veo") return (wantAudio ? 1250 : 625) * d;
   if (quality === "kling4k") return 1300 * d;
   if (quality === "seedance4k") return 4600 * d;
@@ -72,15 +81,19 @@ export default async function handler(req, res) {
     if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
     const key = (process.env.WAVESPEED_API_KEY || "").trim();
-    if (!key) return res.status(500).json({ error: "Video service is not configured." });
+    const GKEY = (process.env.GEMINI_API_KEY || "").trim();
+    const isVeo = ["veolite", "veofast", "veo"].includes(body.quality);
+    if (isVeo && !GKEY) return res.status(500).json({ error: "Video service is not configured." });
+    if (!isVeo && !key) return res.status(500).json({ error: "Video service is not configured." });
 
     const orientation = ["landscape", "portrait", "square"].includes(body.orientation) ? body.orientation : "landscape";
-    const quality = ["480p", "720p", "1080p", "veo", "kling4k", "seedance4k"].includes(body.quality) ? body.quality : "480p";
+    const quality = ["480p", "720p", "1080p", "veolite", "veofast", "veo", "kling4k", "seedance4k"].includes(body.quality) ? body.quality : "480p";
     const wantAudio = body.audio !== false; // default true (Veo only)
 
     const DUR = {
       "480p": [5, 10], "720p": [5, 10], "1080p": [5, 10, 15],
-      "veo": [4, 6, 8], "kling4k": [5, 10, 15], "seedance4k": [5, 10, 15]
+      "veolite": [4, 6, 8], "veofast": [4, 6, 8], "veo": [4, 6, 8],
+      "kling4k": [5, 10, 15], "seedance4k": [5, 10, 15]
     };
     const allowed = DUR[quality];
     let duration = allowed.includes(Number(body.duration)) ? Number(body.duration) : allowed[0];
@@ -100,6 +113,67 @@ export default async function handler(req, res) {
 
     const image = body.image;
     let imageUrl = null;
+
+    // ── Veo tiers go DIRECT to Google (no WaveSpeed) ──────────────────────
+    if (isVeo) {
+      const GOOGLE_MODEL = {
+        veolite: "veo-3.1-lite-generate-preview",
+        veofast: "veo-3.1-fast-generate-preview",
+        veo:     "veo-3.1-generate-preview",
+      }[quality];
+      const resolution = quality === "veo" ? "1080p" : "720p";
+
+      // Google accepts the image inline as base64 (no separate upload step).
+      const instance = { prompt };
+      if (image && /^data:.*;base64,/.test(image)) {
+        const m = image.match(/^data:(.*?);base64,(.*)$/);
+        instance.image = { bytesBase64Encoded: (m && m[2]) || "", mimeType: (m && m[1]) || "image/png" };
+      } else if (image && /^https?:\/\//.test(image)) {
+        // Fetch the remote image and inline it.
+        try {
+          const ir = await fetch(image);
+          const buf = Buffer.from(await ir.arrayBuffer());
+          instance.image = { bytesBase64Encoded: buf.toString("base64"), mimeType: ir.headers.get("content-type") || "image/png" };
+        } catch { /* proceed as text-to-video */ }
+      }
+
+      // Deduct credits before starting.
+      const paidG = await spend(token, cost, "video:" + quality + ":" + duration + "s");
+      if (!paidG.ok) return res.status(402).json({ error: paidG.error });
+
+      const gr = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/" + GOOGLE_MODEL + ":predictLongRunning",
+        {
+          method: "POST",
+          headers: { "x-goog-api-key": GKEY, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [instance],
+            parameters: {
+              aspectRatio: VEO_ASPECT,
+              resolution: resolution,
+              durationSeconds: duration,
+              generateAudio: wantAudio,
+              sampleCount: 1,
+            },
+          }),
+        }
+      );
+      const gdata = await gr.json();
+      if (!gr.ok) {
+        await refund(userId, cost, "refund:video-submit");
+        const msg = (gdata && gdata.error && gdata.error.message) || "Video service error";
+        return res.status(gr.status).json({ error: msg + " Your credits were refunded." });
+      }
+      const opName = gdata && gdata.name; // e.g. "models/veo-.../operations/abc123"
+      if (!opName) {
+        await refund(userId, cost, "refund:video-noid");
+        return res.status(502).json({ error: "No job id returned. Your credits were refunded." });
+      }
+      const gid = "g:" + opName;            // "g:" tells video-result.js to poll Google
+      await recordVideoJob(gid, userId, cost);
+      return res.status(200).json({ id: gid, balance: paidG.balance });
+    }
+    // ── everything below here is WaveSpeed ────────────────────────────────
 
     if (image && /^https?:\/\//.test(image)) {
       imageUrl = image;
@@ -143,15 +217,6 @@ export default async function handler(req, res) {
       } else {
         modelPath = "kwaivgi/kling-v3.0-4k/text-to-video";
         input = { prompt, duration: duration, aspect_ratio: ASPECTS[orientation], sound: true, cfg_scale: 0.5 };
-      }
-    } else if (quality === "veo") {
-      // Cinematic Pro — Google Veo 3.1 (native 1080p + synchronized audio)
-      if (imageUrl) {
-        modelPath = "google/veo3.1/image-to-video";
-        input = { prompt, image: imageUrl, aspect_ratio: VEO_ASPECT, resolution: "1080p", duration: duration, generate_audio: wantAudio, seed: -1 };
-      } else {
-        modelPath = "google/veo3.1/text-to-video";
-        input = { prompt, aspect_ratio: VEO_ASPECT, resolution: "1080p", duration: duration, generate_audio: wantAudio, seed: -1 };
       }
     } else if (quality === "1080p") {
       // Premium — WAN 2.7
