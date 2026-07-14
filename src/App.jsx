@@ -2225,6 +2225,11 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
   const [look,setLook]       = useState("capri");
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
+  const shot = "full";   // Crop picker removed on purpose — all 18 presets are ENVIRONMENTAL looks
+                         // ("the location is the co-star"), so cropping tight into them wastes the preset.
+                         // Beauty / half-body need their OWN presets, built around what sits right
+                         // behind the face. The endpoint still accepts shot:"beauty"|"half" — the
+                         // plumbing is ready, it just needs looks worth cropping into.
   const [quality,setQuality] = useState("high");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
@@ -2264,7 +2269,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
         headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
         body: JSON.stringify({
           mode:"editorial", preset:look, consent:true,
-          scene: extra.trim(), aspectRatio:aspect, quality,
+          scene: extra.trim(), aspectRatio:aspect, shot, quality,
           photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
         }),
       });
@@ -2272,7 +2277,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       setImage(d.image);
       setGallery(g=>[d.image,...g].slice(0,24));
       if(typeof d.balance==="number") onBalance(d.balance);
-      track("tool_used",{tool:"highfashion",look,quality}); onToolUse("highfashion", COST);
+      track("tool_used",{tool:"highfashion",look,shot,quality}); onToolUse("highfashion", COST);
     }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
     setBusy(false);
   }
@@ -2326,9 +2331,12 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:6,boxSizing:"border-box"}} />
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>The location, light and grading come from the look. Don't describe your outfit — that comes from your photo.</p>
 
-      {/* No Shape picker: this is an EDIT. Forcing a new aspect ratio makes the model
-          recompose, and recomposing means redrawing your face and pose. */}
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px"}}>The result keeps your photo's shape and crop — that's what stops it redrawing you.</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
@@ -2478,9 +2486,12 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="pull back a little wider"
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:18,boxSizing:"border-box"}} />
 
-      {/* No Shape picker: this is an EDIT. Forcing a new aspect ratio makes the model
-          recompose, and recomposing means redrawing your face and pose. */}
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px"}}>The result keeps your photo's shape and crop — that's what stops it redrawing you.</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
@@ -2540,6 +2551,11 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   const [photos,setPhotos]   = useState([]);   // [{mimeType,data,preview}]
   const [scene,setScene]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
+  const shot = "full";   // Crop picker removed on purpose — all 18 presets are ENVIRONMENTAL looks
+                         // ("the location is the co-star"), so cropping tight into them wastes the preset.
+                         // Beauty / half-body need their OWN presets, built around what sits right
+                         // behind the face. The endpoint still accepts shot:"beauty"|"half" — the
+                         // plumbing is ready, it just needs looks worth cropping into.
   const [quality,setQuality] = useState("standard");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
@@ -2621,6 +2637,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           scene: scene.trim(),
           consent: true,
           aspectRatio: aspect,
+          shot,
           quality,
           photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
         }),
@@ -2641,7 +2658,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       setImage(d.image);
       setGallery(g=>[d.image,...g].slice(0,24));
       if(typeof d.balance==="number") onBalance(d.balance);
-      track("tool_used",{tool:"restage",quality}); onToolUse("restage", COST);
+      track("tool_used",{tool:"restage",shot,quality}); onToolUse("restage", COST);
     }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
     setBusy(false);
   }

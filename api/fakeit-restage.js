@@ -214,11 +214,18 @@ const LOOK = {
   // Shared spine. Every preset gets this.
   base:
     "SHOOT IT LIKE A FASHION EDITORIAL, NOT A STOCK PHOTO.\n" +
-    "  - Framing: wide and environmental. The location is the co-star. Leave generous negative " +
-    "space. Place the person OFF-CENTRE, using roughly a third of the frame. Do NOT centre them. " +
-    "Do not crop tight to the face.\n" +
-    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Not smiling at the camera. " +
-    "Not posing for the camera. They look away, past the lens, or down.\n" +
+    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Never a cheesy grin, " +
+    "never a chirpy 'say cheese' smile, never mugging for the camera. Cool, unbothered, a little " +
+    "unreadable. A faint, knowing half-smile is allowed - a broad happy one is not.\n" +
+    "  - GAZE - VARY IT. Do not default to looking away every time. Pick whatever suits the frame:\n" +
+    "      * straight down the lens: a direct, cool, unblinking, mysterious stare. Often the " +
+    "strongest frame in a set - use it freely.\n" +
+    "      * toward the camera but focused PAST it, at something behind the photographer.\n" +
+    "      * eyes lowered, looking down and away, lost in thought.\n" +
+    "      * in profile, looking off out of frame.\n" +
+    "      * eyes closed, chin lifted, face turned up into the light.\n" +
+    "      * over the shoulder, back half-turned to camera, glancing round.\n" +
+    "    The only thing forbidden is a posed, smiling, camera-pleasing expression.\n" +
     "  - Camera: full-frame, 35mm or 50mm lens, at eye level or slightly low. Real depth of field " +
     "with a soft falloff, not a fake blurred cut-out.\n" +
     "  - Grain: real 35mm film grain, visible in the shadows and flat tones.\n" +
@@ -394,6 +401,35 @@ const LOOK = {
 // Do not water down the preservation list in "restage". Every line in it is
 // there because leaving it out lets the model drift somewhere.
 // ─────────────────────────────────────────────────────────────────────────────
+// SHOT SIZE. Pulled out of LOOK.base so it's a dial, not a hardcode. Framing is
+// half of what makes a picture feel editorial, and one crop for everything gets
+// boring fast.
+// ─────────────────────────────────────────────────────────────────────────────
+const SHOT = {
+  beauty: { label: "Beauty", body:
+    "FRAMING - BEAUTY SHOT. Tight and intimate. Head and shoulders, or head to upper chest. The face " +
+    "fills most of the frame. Crop into the top of the head or the shoulders if it makes a stronger " +
+    "picture - editorial crops are bold, not polite. Shoot on an 85mm at a wide aperture: shallow " +
+    "focus, the eyes tack sharp, the environment dissolved into soft colour and shape behind. The " +
+    "LOCATION still reads through the light, the colour and the bokeh, even though little of it is " +
+    "visible. This shot lives on SKIN and EYES: real pores, real texture, catchlights, the fine hairs " +
+    "at the hairline. Do not centre the face perfectly - offset it, let it breathe unevenly." },
+
+  half: { label: "Half Body", body:
+    "FRAMING - HALF BODY. From the top of the head (or cropped just into it) down to roughly mid-thigh. " +
+    "The person and the place share the frame about equally. Shoot on a 50mm at eye level or slightly " +
+    "below. You can see the outfit properly - the cut, the drape, the fabric, the hands. Enough of the " +
+    "location to know exactly where she is. Place her OFF-CENTRE, weight the frame to one side, leave " +
+    "real negative space on the other." },
+
+  full: { label: "Full Frame", body:
+    "FRAMING - FULL FRAME. Wide and environmental. The LOCATION is the co-star, not a backdrop. The " +
+    "whole body in frame with air above and below. Shoot on a 35mm. Place the person OFF-CENTRE, using " +
+    "roughly a third of the frame, and leave generous negative space. Do NOT centre her. Do not crop " +
+    "tight. The scale of the place against the person IS the picture." }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // The preservation block. Every mode that keeps the person uses this, word for
 // word. Each line is here because leaving it out lets the model drift.
 // Short and blunt ON PURPOSE. The previous version of this was ~400 words and it
@@ -431,8 +467,9 @@ const INTEGRATE =
   "believable shadow in the direction the new light dictates.\n" +
   "  - Match the depth of field, focus falloff and grain of the new scene.\n\n";
 
-function buildPrompt(scene, mode, preset) {
+function buildPrompt(scene, mode, preset, shot) {
   const s = String(scene || "").trim();
+  const framing = (SHOT[shot] || SHOT.full).body;
 
   // ── HIGH FASHION ──
   if (mode === "editorial") {
@@ -442,6 +479,7 @@ function buildPrompt(scene, mode, preset) {
       KEEP_PERSON +
       "PUT HER HERE:\n" + look.body + "\n\n" +
       (s ? "Also: " + s + "\n\n" : "") +
+      framing + "\n\n" +
       LOOK.base + "\n\n" +
       "The result must look like a real frame from a fashion magazine editorial, shot on film, of " +
       "THIS person on location. Photographed, not generated."
@@ -482,6 +520,7 @@ function buildPrompt(scene, mode, preset) {
   return (
     "Create a photograph of the person in the attached reference photos, " + s + ".\n\n" +
     KEEP_PERSON +
+    framing + "\n\n" +
     "REALISM:\n" +
     "Light the scene with a single clear directional source so shadows fall believably across one " +
     "side of her face. Render it as a real photograph - natural film grain, believable depth of " +
@@ -531,6 +570,7 @@ export default async function handler(req, res) {
     const mode = MODES.includes(body.mode) ? body.mode : "restage";
 
     const preset = LOOK[body.preset] ? body.preset : "capri";
+    const shot   = SHOT[body.shot] ? body.shot : "full";   // beauty | half | full
 
     const stylePhoto = (body.stylePhoto && body.stylePhoto.data && body.stylePhoto.mimeType)
       ? body.stylePhoto : null;
@@ -580,7 +620,7 @@ export default async function handler(req, res) {
 
     // ── Only now do we take the money ──
     const cost = quality === "high" ? 450 : 150;
-    const paid = await spend(token, cost, "restage:" + mode + (mode === "editorial" ? ":" + preset : "") + ":" + quality);
+    const paid = await spend(token, cost, "restage:" + mode + (mode === "editorial" ? ":" + preset : "") + ":" + shot + ":" + quality);
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
     // ── Generate ──
@@ -614,7 +654,7 @@ export default async function handler(req, res) {
 
     const parts = [
       ...sendPhotos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
-      { text: buildPrompt(scene, mode, preset) }
+      { text: buildPrompt(scene, mode, preset, shot) }
     ];
 
     let r, data;
