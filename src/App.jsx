@@ -2203,9 +2203,20 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
     const list = Array.from((e.target && e.target.files) || []);
     setErr("");
     const imgs = list.filter(f=>/^image\//.test(f.type));
-    if(imgs.length > MAX_PHOTOS){ setErr("Please pick at most "+MAX_PHOTOS+" photos."); return; }
-    setFiles(imgs);
+    // ADD to what's already picked (don't wipe it) — people upload in batches.
+    setFiles(prev=>{
+      const merged = [...prev];
+      imgs.forEach(f=>{
+        const dupe = merged.some(x=>x.name===f.name && x.size===f.size);
+        if(!dupe && merged.length < MAX_PHOTOS) merged.push(f);
+      });
+      if(prev.length + imgs.length > MAX_PHOTOS) setErr("Max "+MAX_PHOTOS+" photos — we kept the first "+MAX_PHOTOS+".");
+      return merged;
+    });
+    // Let the same file be re-picked later if they remove it.
+    try{ e.target.value = ""; }catch(err){}
   }
+  function removeFile(i){ setFiles(prev=>prev.filter((_,x)=>x!==i)); setErr(""); }
 
   async function startTraining(){
     setErr("");
@@ -2229,7 +2240,11 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
           headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type": f.type||"image/jpeg" },
           body: f,
         });
-        if(!up.ok) throw new Error("Photo upload failed. Try again.");
+        if(!up.ok){
+          let why = "";
+          try{ const j = await up.json(); why = (j && (j.message || j.error)) || ""; }catch(e2){}
+          throw new Error("Photo upload failed (" + up.status + ")" + (why ? ": " + why : ". Try again."));
+        }
         paths.push(path);
       }
       const r = await fetch("/api/fakeit-train", {
@@ -2304,7 +2319,19 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
           )}
 
           <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
-          {files.length>0 && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 12px"}}>{files.length} photo{files.length===1?"":"s"} selected {files.length<MIN_PHOTOS?("— add "+(MIN_PHOTOS-files.length)+" more"):"✓"}</p>}
+          {files.length>0 && (
+            <div style={{marginBottom:14}}>
+              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{files.length} photo{files.length===1?"":"s"} selected {files.length<MIN_PHOTOS?("— add "+(MIN_PHOTOS-files.length)+" more"):"✓"} · you can add more in batches</p>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {files.map((f,i)=>(
+                  <div key={i} style={{position:"relative",width:60,height:74,border:"1px solid "+B.stone,background:"#fff"}}>
+                    <img src={URL.createObjectURL(f)} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
+                    <button onClick={()=>removeFile(i)} title="Remove" style={{position:"absolute",top:-6,right:-6,width:18,height:18,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:"18px",padding:0,cursor:"pointer",fontFamily:"sans-serif"}}>×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <label style={{display:"flex",gap:10,alignItems:"flex-start",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
             <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
