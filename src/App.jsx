@@ -11362,9 +11362,20 @@ export default function ChelgyApp() {
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
-  const [isTeamSpace] = useState(()=>{ if(IS_NATIVE) return false; try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("team.")||p.get("team")!==null; } catch { return false; } });
-  const [isSalesSpace] = useState(()=>{ if(IS_NATIVE) return false; try { const h=window.location.hostname||""; const p=new URLSearchParams(window.location.search); return h.startsWith("sales.")||p.get("sales")!==null; } catch { return false; } });
-  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ if(IS_NATIVE) return false; try { const h=(window.location.hostname||"").toLowerCase(); if(h.startsWith("marketer.")) return true; const p=new URLSearchParams(window.location.search); if(p.get("marketer")!==null){ const v=(p.get("marketer")||"").toLowerCase(); if(v==="0"||v==="off"||v==="false"){ try{localStorage.removeItem("chelgy_marketer");}catch(e){} return false; } try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return true; } return localStorage.getItem("chelgy_marketer")==="1"; } catch { return false; } });
+  // ── WHICH SPACE ARE WE IN? ─────────────────────────────────────────────
+  // The SUBDOMAIN decides. Nothing else. No URL params, no saved flags, and no
+  // account setting can flip you into a portal — so chelgy.app is ALWAYS the
+  // consumer app, for everyone, every time.
+  //   chelgy.app          -> consumer
+  //   team.chelgy.app     -> team portal
+  //   sales.chelgy.app    -> sales portal
+  //   marketer.chelgy.app -> marketer portal
+  //   native iOS/Mac app  -> always consumer
+  const [isTeamSpace] = useState(()=>{ if(IS_NATIVE) return false; try { return (window.location.hostname||"").toLowerCase().startsWith("team."); } catch { return false; } });
+  const [isSalesSpace] = useState(()=>{ if(IS_NATIVE) return false; try { return (window.location.hostname||"").toLowerCase().startsWith("sales."); } catch { return false; } });
+  const [isMarketerSpace, setIsMarketerSpace] = useState(()=>{ if(IS_NATIVE) return false; try { return (window.location.hostname||"").toLowerCase().startsWith("marketer."); } catch { return false; } });
+  // Clean up the old sticky flag from previous builds — it no longer does anything.
+  useEffect(()=>{ try{ localStorage.removeItem("chelgy_marketer"); }catch(e){} },[]);
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
   const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
   const [domainMiss,setDomainMiss] = useState(false);
@@ -12242,18 +12253,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   useEffect(()=>{ try{ const ss=loadSession(); if(ss&&cgIsDemoEmail(ss.email)){ setIsDemo(true); setIsPaid(true); setIsTrial(false); setPage("app"); } }catch(e){} },[]);
   useEffect(()=>{
     if(!user || !user.id) return;
-    if(IS_NATIVE) return; // native app is always the consumer app — never switch to marketer mode
+    if(IS_NATIVE) return;            // native app is always the consumer app
+    if(!isMarketerSpace) return;     // on chelgy.app we do NOTHING — the account flag can no longer drag you into the portal
+    // We're on marketer.chelgy.app. If this account isn't marked as a marketer yet, mark it.
     (async()=>{
       try{
-        const p=new URLSearchParams(window.location.search);
-        const raw=p.get("marketer");
-        const off = raw!==null && ["0","off","false"].includes((raw||"").toLowerCase());
-        if(off){
-          if(user.is_marketer || isMarketerSpace){ const tok=await freshToken(); if(tok) await cgWriteMarketerFlag(tok,false); setUser(u=>(u&&u.is_marketer)?{...u,is_marketer:false}:u); setIsMarketerSpace(false); try{localStorage.removeItem("chelgy_marketer");}catch(e){} }
-          return;
-        }
-        if(user.is_marketer && !isMarketerSpace){ setIsMarketerSpace(true); try{localStorage.setItem("chelgy_marketer","1");}catch(e){} return; }
-        if(isMarketerSpace && !user.is_marketer){ const tok=await freshToken(); if(tok) await cgWriteMarketerFlag(tok,true); setUser(u=>u?{...u,is_marketer:true}:u); }
+        if(!user.is_marketer){ const tok=await freshToken(); if(tok) await cgWriteMarketerFlag(tok,true); setUser(u=>u?{...u,is_marketer:true}:u); }
       }catch(e){}
     })();
   },[user, isMarketerSpace]);
