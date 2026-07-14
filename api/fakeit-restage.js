@@ -457,6 +457,32 @@ const KEEP_PERSON =
   "never plastic. Do not smooth or beautify her.\n" +
   "  - Body: her real proportions. Do not slim or lengthen her.\n\n";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SKIN & LIGHT. This is the block that kills the "AI matte face."
+//
+// Left alone, the model renders flat, even, retouched-looking skin — because it
+// was trained on beauty-retouched images where retouchers DELETE exactly the
+// highlights that make skin look real. So we have to (a) explicitly demand the
+// specular highlights back and (b) explicitly forbid the matte look, or it
+// reverts to airbrushed every time. Both halves are load-bearing.
+const SKIN =
+  "SKIN MUST LOOK LIT AND REAL, NOT MATTE AND RETOUCHED:\n" +
+  "  - Give the skin real SPECULAR HIGHLIGHTS - the small bright hotspots where light bounces off " +
+  "the natural oil and moisture of the face: the tops of the cheekbones, the bridge and tip of the " +
+  "nose, the brow bones, the cupid's bow, a wet gleam on the lower lip, the chin, the tops of the " +
+  "shoulders and collarbones. These highlights are what make skin read as real skin.\n" +
+  "  - Put bright, sharp CATCHLIGHTS in the eyes - a real reflection of the light source. Eyes " +
+  "without catchlights look dead and fake.\n" +
+  "  - Let the skin have a natural sheen and a slight dewiness. A little shine is correct. Sweat-" +
+  "sheen in warm light is correct.\n" +
+  "  - Keep real texture underneath: visible pores, fine lines, faint unevenness, the soft peach-" +
+  "fuzz at the hairline and jaw catching the light.\n" +
+  "  - FORBIDDEN: flat matte skin, evenly-lit skin, powdered or airbrushed skin, blurred or " +
+  "smoothed skin, a uniform poreless surface, that plastic or waxy 'AI face' look, beauty-filter " +
+  "skin. If the face looks retouched or matte, it is WRONG.\n" +
+  "  - The light on the face must have clear DIRECTION: one side brighter, the other falling into " +
+  "shadow, with the highlights sitting on the lit side. Never flat, frontal, shadowless light.\n\n";
+
 const INTEGRATE =
   "Then integrate them into that environment so it looks real:\n" +
   "  - Relight the person to match the new scene. Match the direction of the light, its colour " +
@@ -481,6 +507,7 @@ function buildPrompt(scene, mode, preset, shot) {
       (s ? "Also: " + s + "\n\n" : "") +
       framing + "\n\n" +
       LOOK.base + "\n\n" +
+      SKIN +
       "The result must look like a real frame from a fashion magazine editorial, shot on film, of " +
       "THIS person on location. Photographed, not generated."
     );
@@ -511,6 +538,7 @@ function buildPrompt(scene, mode, preset, shot) {
       "the mood. The only person in the result is OUR person from the first images.\n\n" +
 
       (s ? "Also: " + s + "\n\n" : "") +
+      SKIN +
       "It must look like our person was really photographed on that set, by that photographer, on " +
       "that camera, on that day. Photographed, not generated."
     );
@@ -521,12 +549,9 @@ function buildPrompt(scene, mode, preset, shot) {
     "Create a photograph of the person in the attached reference photos, " + s + ".\n\n" +
     KEEP_PERSON +
     framing + "\n\n" +
-    "REALISM:\n" +
-    "Light the scene with a single clear directional source so shadows fall believably across one " +
-    "side of her face. Render it as a real photograph - natural film grain, believable depth of " +
-    "field, natural catchlights in the eyes, slightly imperfect framing. Avoid a glossy, waxy, " +
-    "airbrushed or CGI look. Avoid flat, directionless studio lighting. It must look photographed, " +
-    "not generated."
+    SKIN +
+    "Render it as a real photograph - natural film grain, believable depth of field, slightly " +
+    "imperfect framing. It must look photographed, not generated."
   );
 }
 
