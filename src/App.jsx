@@ -2296,7 +2296,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
 
       <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
         <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
-          <strong style={{color:B.charcoal}}>How your photos are handled.</strong> Your photos are sent to our image provider to create your picture and are not used to train any model or shown to anyone else. Every upload is automatically checked, and photos that are explicit or appear to show a minor are rejected and never generated. Fake It is for photos of yourself only — uploading someone else's face, or generating explicit or impersonating content, will get your account closed.
+          <strong style={{color:B.charcoal}}>How your photos are handled.</strong> Your photos are sent to our image provider to create your picture. They are not used to train any model and are not shown to anyone else. Fake It is adults-only and for photos of yourself only — every upload is automatically checked, and photos that appear to show a minor are rejected. Uploading someone else's face, or generating impersonating content, will get your account closed.
         </p>
       </div>
 

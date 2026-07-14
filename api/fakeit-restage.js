@@ -58,49 +58,87 @@ async function refund(userId, amount, reason) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GUARD 1 — the words. Blocks explicit / non-consensual scene descriptions.
+// GUARD 1 — the words.
+//
+// ALSO TUNED PERMISSIVE. Fashion words are NOT banned. "in a bikini on a beach",
+// "in lingerie", "in a bodysuit", "sexy going-out look" are all normal, expected
+// requests for this app and they go straight through.
+//
+// What's banned is only: literal porn, minors, and impersonation/deepfake intent.
 // ─────────────────────────────────────────────────────────────────────────────
 const BANNED = [
-  "nude","naked","nudity","topless","bottomless","undressed","strip","stripping",
-  "porn","porno","pornographic","xxx","nsfw","explicit","erotic","erotica",
-  "sex","sexual","sexy","seductive","provocative","lingerie","underwear","bra ",
-  "panties","thong","bikini","lewd","fetish","bdsm","onlyfans","escort",
-  "genitals","breasts","boobs","nipple","cleavage","butt","ass ","crotch",
-  "child","kid","minor","teen","underage","toddler","baby","schoolgirl","loli",
-  "rape","molest","abuse","non-consensual","nonconsensual","without consent",
-  "revenge porn","deepfake","deep fake","blackmail","impersonate","identity theft"
+  // Literal porn / sex acts
+  "nude","naked","nudity","topless","bottomless","porn","porno","pornographic",
+  "xxx","hardcore","explicit sex","sex act","having sex","blowjob","masturbat",
+  "genitals","penis","vagina","nipples","onlyfans",
+
+  // Minors — anything pairing a child with this tool
+  "child","children","kid","kids","minor","underage","teen","teenage","toddler",
+  "baby","infant","schoolgirl","schoolboy","loli","preteen","pre-teen","12 year",
+  "13 year","14 year","15 year","16 year","17 year",
+
+  // Non-consent / abuse
+  "rape","molest","non-consensual","nonconsensual","without consent","revenge porn",
+
+  // Impersonation / deepfake intent
+  "deepfake","deep fake","impersonate","impersonating","identity theft","blackmail"
 ];
 function promptIsBlocked(text) {
   const t = " " + String(text || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ") + " ";
-  return BANNED.find(w => t.includes(w.trim().length === w.length ? " " + w + " " : " " + w.trim()));
+  return BANNED.find(w => t.includes(" " + w) || t.includes(w + " "));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GUARD 2 — the picture. THIS IS THE NEW ONE.
+// GUARD 2 — the picture.
 //
-// The word-blocklist above only reads what the user TYPES. It cannot stop
-// someone uploading an already-explicit photo and typing something totally
-// innocent like "on a beach at sunset". The words are clean; the input isn't.
+// TUNED DELIBERATELY PERMISSIVE. Our users are adults posting fashion, going-out
+// looks, gym content, swimwear and bodysuits. That is NORMAL CONTENT and it must
+// pass. A filter that blocks a crop top is a broken filter.
 //
-// So before the photo goes anywhere near the image generator, we show it to
-// Gemini and ask: is this explicit, and is this an adult? If either answer is
-// wrong, we reject and NOTHING is generated and NOTHING is charged.
+// So this checks for exactly TWO things:
 //
-// Fails CLOSED: if the safety check itself errors out, we reject. We'd rather
-// annoy a user than let one bad image through.
+//   1. MINORS  — hard block, non-negotiable. Feeding a child's photo into an
+//      image generator that restages them into new scenes and outfits is the
+//      exact mechanic behind CSAM. One incident = criminal liability, permanent
+//      App Store removal, and Stripe/RevenueCat termination. This will almost
+//      never fire on a real user, because real users upload photos of themselves.
+//
+//   2. ACTUAL NUDITY — exposed genitals, exposed nipples, or sex acts. NOT
+//      "sexy". Not revealing. Not a bikini. Only literal nudity.
+//
+// Note we are NOT trying to be Google's filter. Gemini has its own safety layer
+// downstream: if someone asks for genuine porn, GOOGLE refuses and returns no
+// image, and the handler below refunds them. This guard exists for the one thing
+// Google's filter won't reliably save us from — the minors case.
+//
+// Fails CLOSED on the minors question: if the check itself errors, we reject.
 // ─────────────────────────────────────────────────────────────────────────────
 async function photoIsSafe(key, images) {
   const parts = [
     ...images.map(im => ({ inlineData: { mimeType: im.mimeType, data: im.data } })),
     { text:
-      "You are a content-safety filter for a photo app. Look at the attached image(s).\n" +
+      "You are a narrow content-safety filter for an adult photo app. Look at the attached image(s).\n" +
       "Answer with a single JSON object and NOTHING else. No prose, no markdown fences.\n" +
-      '{"explicit": true|false, "minor": true|false, "hasFace": true|false}\n\n' +
-      '"explicit"  = true if the image shows nudity, exposed genitals or nipples, sexual acts, ' +
-      "or is clearly pornographic or sexually explicit. Ordinary clothing, swimwear at a beach/pool, " +
-      "gym wear, and everyday fashion are NOT explicit.\n" +
-      '"minor"     = true if any person shown appears to be under 18.\n' +
-      '"hasFace"   = true if at least one clear human face is visible.'
+      '{"minor": true|false, "nudity": true|false, "hasFace": true|false}\n\n' +
+
+      '"minor" = true ONLY if a person shown clearly appears to be under 18 (a child or ' +
+      "adolescent). If the person plausibly appears to be an adult, answer false. Do not guess " +
+      "low. Adults with youthful faces are still adults.\n\n" +
+
+      '"nudity" = true ONLY for LITERAL nudity: exposed genitals, exposed nipples/areolae, ' +
+      "or a depicted sex act.\n" +
+      "The following are NOT nudity and MUST return false — this app is for fashion and social " +
+      "content and these are its normal, expected use:\n" +
+      "  - swimwear, bikinis, one-piece swimsuits\n" +
+      "  - bodysuits, leotards, crop tops, bralettes, sheer or mesh fabric over covered skin\n" +
+      "  - lingerie worn as an outfit, going-out and club wear\n" +
+      "  - low-cut tops, cleavage, bare midriffs, short skirts, shorts\n" +
+      "  - gym and athletic wear, sports bras\n" +
+      "  - bare legs, bare arms, bare shoulders, bare back\n" +
+      "  - suggestive or flattering poses in clothing\n" +
+      "Revealing, form-fitting, or sexy is NOT nudity. Only literal exposure counts.\n\n" +
+
+      '"hasFace" = true if at least one clear human face is visible.'
     }
   ];
 
@@ -119,13 +157,18 @@ async function photoIsSafe(key, images) {
 
     const v = JSON.parse(match[0]);
 
-    if (v.minor === true)    return { ok: false, reason: "This photo appears to show a minor. Fake It is adults-only, and only for photos of yourself." };
-    if (v.explicit === true) return { ok: false, reason: "That photo looks explicit. Please upload an ordinary, clothed photo of yourself." };
-    if (v.hasFace === false) return { ok: false, reason: "We couldn't find a clear face in that photo. Upload a photo where your face is visible and well lit." };
+    // Hard block. This is the one that matters.
+    if (v.minor === true)  return { ok: false, reason: "Fake It is adults-only, and only for photos of yourself. This photo appears to show someone under 18." };
+
+    // Literal nudity only. Sexy, revealing and swimwear all pass.
+    if (v.nudity === true) return { ok: false, reason: "Please upload a clothed photo of yourself." };
+
+    // Not a safety block, just a quality one — no face means a bad restage.
+    if (v.hasFace === false) return { ok: false, reason: "We couldn't find a clear face in that photo. Try one where your face is visible and well lit." };
 
     return { ok: true };
   } catch {
-    // Fail closed. Never let an unchecked photo through.
+    // Fail closed. An unchecked photo never reaches the generator.
     return { ok: false, reason: "We couldn't check that photo. Please try again." };
   }
 }
