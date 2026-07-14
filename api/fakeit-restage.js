@@ -396,41 +396,25 @@ const LOOK = {
 // ─────────────────────────────────────────────────────────────────────────────
 // The preservation block. Every mode that keeps the person uses this, word for
 // word. Each line is here because leaving it out lets the model drift.
+// Short and blunt ON PURPOSE. The previous version of this was ~400 words and it
+// made things WORSE — image editors follow short, forceful commands and start
+// paraphrasing (i.e. regenerating) when you bury the instruction in an essay.
+// Every word here is load-bearing. Do not pad it back out.
 const KEEP_PERSON =
-  "═══ ABSOLUTE, NON-NEGOTIABLE RULE — THIS OVERRIDES EVERYTHING ELSE BELOW ═══\n" +
-  "The person in the attached photograph must appear in the output as THE SAME HUMAN BEING. Not a " +
-  "similar-looking person. Not an idealised version. Not a model who resembles them. The SAME " +
-  "person, recognisable instantly by anyone who knows them.\n\n" +
+  "This is a PHOTO EDIT, not a new photo. Keep the attached photograph of the person and change " +
+  "ONLY the background behind them.\n\n" +
 
-  "TREAT THE PERSON AS A FIXED, UNEDITABLE LAYER. You are compositing them into a new background. " +
-  "You are NOT redrawing them. If any instruction later in this prompt would change the person, " +
-  "IGNORE that instruction. The environment must bend around the person, never the reverse.\n\n" +
+  "The person is a locked, uneditable layer:\n" +
+  "  - SAME face. Same bone structure, same expression, same eye direction. Not a lookalike - the " +
+  "same human being.\n" +
+  "  - SAME pose. Every limb, every finger, the exact tilt of the head. Do not re-pose them.\n" +
+  "  - SAME body. Do not slim, lengthen or flatter it.\n" +
+  "  - SAME hair, SAME outfit, SAME jewellery, down to every fold and detail.\n" +
+  "  - SAME skin texture. No smoothing, no retouching, no beautifying.\n\n" +
 
-  "COPY THE PERSON PIXEL-FOR-PIXEL. Preserve, with zero alteration:\n" +
-  "  - FACE: the exact bone structure, jawline, cheekbones, brow, nose shape, lip shape, eye shape " +
-  "and eye spacing. The exact skin tone. The exact expression. The exact eye direction. Any freckles, " +
-  "moles, marks or scars stay exactly where they are.\n" +
-  "  - POSE: the exact position of the head, neck, shoulders, torso, arms, hands, fingers, legs and " +
-  "feet. The exact tilt of the head. The exact angle of the body to camera. Do NOT re-pose, " +
-  "straighten, or 'improve' the pose in any way.\n" +
-  "  - BODY: the exact body shape, proportions and size. Do NOT slim, lengthen, lift, sculpt, or " +
-  "otherwise flatter the body. Their body is correct as photographed.\n" +
-  "  - HAIR: the exact style, length, texture, parting and colour, including every flyaway and stray " +
-  "strand exactly where it falls.\n" +
-  "  - OUTFIT: every garment, its exact cut, drape, fabric, colour, pattern, logo and detail. Every " +
-  "fold and wrinkle. Do NOT restyle, swap, add or remove clothing.\n" +
-  "  - ACCESSORIES: all jewellery, bags, glasses, watches, and anything held, exactly as they are.\n" +
-  "  - SKIN: real texture - pores, fine lines, natural unevenness, blemishes, sheen. Do NOT smooth, " +
-  "retouch, airbrush, blur, even out, or beautify the skin in any way.\n\n" +
-
-  "FORBIDDEN: changing the face. Changing the pose. Changing the body. Changing the outfit. " +
-  "Prettifying. Slimming. Smoothing. Making them look more like a professional model. Substituting a " +
-  "different person. Blending in a second face. If the output shows a different person, the image is " +
-  "a FAILURE, no matter how good the environment looks.\n\n" +
-
-  "The ONLY thing you may change about the person is the LIGHT falling on them and the COLOUR GRADE " +
-  "applied to them, so they sit believably in the new environment.\n" +
-  "═══════════════════════════════════════════════════════════════════════════\n\n";
+  "Keep the original framing and crop. Do not zoom, pan, or re-compose.\n" +
+  "The only thing you may change about the person is the light on them and the colour grade.\n" +
+  "If the output shows a different person or a different pose, it has FAILED.\n\n";
 
 const INTEGRATE =
   "Then integrate them into that environment so it looks real:\n" +
@@ -449,14 +433,19 @@ function buildPrompt(scene, mode, preset) {
   if (mode === "editorial") {
     const look = LOOK[preset] || LOOK.capri;
     return (
-      "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
       KEEP_PERSON +
-      "PLACE THEM IN THIS WORLD:\n" + look.body + "\n\n" +
-      (s ? "The user also asks for: " + s + "\n\n" : "") +
-      LOOK.base + "\n\n" +
+      "REPLACE THE BACKGROUND WITH THIS:\n" + look.body + "\n\n" +
+      (s ? "Also: " + s + "\n\n" : "") +
       INTEGRATE +
-      "The result must look like a real frame from a high-fashion magazine editorial, shot on film, " +
-      "of THIS EXACT PERSON on location. Photographed, not generated."
+      // NOTE: LOOK.base (the "shoot it like an editorial" block) is deliberately
+      // NOT used here. It asks for off-centre framing, a wide environmental shot
+      // and the subject looking away — all of which REQUIRE re-posing and
+      // re-composing, which is the exact opposite of a faithful edit. In an edit,
+      // the editorial feel has to come from the LIGHT and the GRADE, not the pose.
+      "The look and mood come from the LIGHT and the COLOUR GRADE, not from moving the person. " +
+      "Grade it like a film-shot fashion editorial: real 35mm grain, no plastic sheen, no clean " +
+      "even digital lighting, no HDR. It must look like this exact photo of this exact person was " +
+      "really taken on location there."
     );
   }
 
@@ -548,7 +537,7 @@ export default async function handler(req, res) {
     const consent = body.consent === true;
     const photos  = (Array.isArray(body.photos) ? body.photos : [])
       .filter(p => p && p.data && p.mimeType)
-      .slice(0, 3); // 3 references is plenty; more just costs money
+      .slice(0, 5); // up to 5. Only "reimagine" uses more than one — see sendPhotos below.
 
     // Belt-and-braces: if something huge still gets through, say so in plain
     // English instead of letting the platform return an unparseable error.
@@ -623,7 +612,21 @@ export default async function handler(req, res) {
 
     // ── Generate ──
     const model = quality === "high" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
-    const imageConfig = quality === "high" ? { aspectRatio, imageSize: "2K" } : { aspectRatio };
+
+    // ⚠️ THE BIG ONE. Sending an aspectRatio on an EDIT is self-defeating.
+    // If the source photo is 3:4 and we demand 4:5, the model physically CANNOT
+    // preserve the person's pixels — the canvas is a different shape, so it must
+    // recompose, and once it recomposes it REDRAWS the person. That is exactly
+    // why the pose and face kept drifting: we were saying "don't change them" and
+    // "change the shape of the picture" in the same breath, and the second one wins.
+    //
+    // So: only "reimagine" (which genuinely generates a new photo) gets an aspect
+    // ratio. Every compositing mode inherits the source photo's shape and says
+    // nothing about framing.
+    const isEdit = mode !== "reimagine";
+    const imageConfig = {};
+    if (!isEdit) imageConfig.aspectRatio = aspectRatio;
+    if (quality === "high") imageConfig.imageSize = "2K";
 
     // Photo ORDER MATTERS. In stylematch the prompt says "IMAGE 1 is the person,
     // IMAGE 2 is the style reference" — so the person MUST go first.

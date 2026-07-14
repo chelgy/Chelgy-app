@@ -2302,12 +2302,9 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:6,boxSizing:"border-box"}} />
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>The location, light and grading come from the look. Don't describe your outfit — that comes from your photo.</p>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
+      {/* No Shape picker: this is an EDIT. Forcing a new aspect ratio makes the model
+          recompose, and recomposing means redrawing your face and pose. */}
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px"}}>The result keeps your photo's shape and crop — that's what stops it redrawing you.</p>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
@@ -2450,12 +2447,9 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="pull back a little wider"
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:18,boxSizing:"border-box"}} />
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
+      {/* No Shape picker: this is an EDIT. Forcing a new aspect ratio makes the model
+          recompose, and recomposing means redrawing your face and pose. */}
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px"}}>The result keeps your photo's shape and crop — that's what stops it redrawing you.</p>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
@@ -2511,7 +2505,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
    Server: /api/fakeit-restage.js  (consent + word blocklist + photo NSFW check)
    ═══════════════════════════════════════════════════════════════════════════ */
 function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
-  const MAX_PHOTOS = 3;
+  const MAX_PHOTOS = 5;   // only "reimagine" uses more than one; restage composites from photo 1
   const [photos,setPhotos]   = useState([]);   // [{mimeType,data,preview}]
   const [scene,setScene]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
@@ -2660,7 +2654,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
       {photos.length>0 && (
         <div style={{marginBottom:14}}>
-          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS}{mode==="restage" && photos.length>1 ? " — only the first is restaged" : ""}</p>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS}{mode==="restage" ? (photos.length>1 ? " — only the first is restaged" : "") : " — more photos means a better face match"}</p>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {photos.map((p,i)=>(
               <div key={i} style={{position:"relative"}}>
@@ -2696,12 +2690,18 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         ))}
       </div>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
+      {/* Shape ONLY appears in reimagine. Forcing a shape on an EDIT makes the model
+          recompose the frame, and recomposing means redrawing the person — which is
+          what was wrecking the pose and face. Edits now inherit the photo's shape. */}
+      {mode==="reimagine" && (<>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+        <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+          {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+      </>)}
+      {mode!=="reimagine" && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px"}}>The result keeps your photo's shape and crop — that's what stops it redrawing you.</p>}
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
