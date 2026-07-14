@@ -2136,6 +2136,200 @@ function shrinkImage(file, maxEdge = 1024, quality = 0.88) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Restage — "Fake It", rebuilt on Gemini reference photos.
+
+   The old FakeIt (below) trained a model of your face on fal/Flux, then
+   INVENTED a new face from scratch on every generate. That's why it came out
+   plastic — there was never a real photo underneath.
+
+   This sends a REAL photo of you to Gemini as a reference and asks it to
+   restage that person into a new scene. Your actual skin, pores and hair
+   survive because they were photographed, not generated. Same trick Retake AI
+   uses. No training, no 45-minute wait.
+
+   Server: /api/fakeit-restage.js  (consent + word blocklist + photo NSFW check)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+  const MAX_PHOTOS = 3;
+  const [photos,setPhotos]   = React.useState([]);   // [{mimeType,data,preview}]
+  const [scene,setScene]     = React.useState("");
+  const [aspect,setAspect]   = React.useState("4:5");
+  const [quality,setQuality] = React.useState("standard");
+  const [consent,setConsent] = React.useState(false);
+  const [busy,setBusy]       = React.useState(false);
+  const [err,setErr]         = React.useState("");
+  const [image,setImage]     = React.useState(null);
+  const [gallery,setGallery] = React.useState([]);
+
+  const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
+
+  async function pickFiles(e){
+    const files = Array.from(e.target.files||[]);
+    if(!files.length) return;
+    setErr("");
+    const room = MAX_PHOTOS - photos.length;
+    if(room <= 0){ setErr("Three reference photos is the maximum."); e.target.value=""; return; }
+    const next = [];
+    for(const f of files.slice(0,room)){
+      if(f.size > 8*1024*1024){ setErr("Each photo needs to be under 8MB."); continue; }
+      try{
+        const data = await new Promise((res,rej)=>{
+          const rd = new FileReader();
+          rd.onload = ()=>res(String(rd.result).split(",")[1]);
+          rd.onerror = ()=>rej(new Error("read failed"));
+          rd.readAsDataURL(f);
+        });
+        next.push({ mimeType:f.type||"image/jpeg", data, preview:URL.createObjectURL(f) });
+      }catch{ setErr("One of those photos couldn't be read."); }
+    }
+    setPhotos(p=>[...p,...next]);
+    e.target.value="";
+  }
+  function removePhoto(i){ setPhotos(p=>p.filter((_,n)=>n!==i)); }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!consent){ setErr("Please confirm these are photos of you."); return; }
+    if(!photos.length){ setErr("Upload at least one clear photo of your face."); return; }
+    if(!scene.trim()){ setErr("Describe the scene — a place, an outfit, a vibe."); return; }
+    if(Number(credits) < COST){
+      setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+".");
+      onBuyCredits(); return;
+    }
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/fakeit-restage", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({
+          scene: scene.trim(),
+          consent: true,
+          aspectRatio: aspect,
+          quality,
+          photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
+        }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Could not create that photo.");
+      setImage(d.image);
+      setGallery(g=>[d.image,...g].slice(0,24));
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"restage",quality}); onToolUse("restage", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  const IDEAS = [
+    "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress",
+    "in a Paris café in a tailored trench coat, film photography look",
+    "on a rooftop in Tokyo at night, city lights behind me",
+    "walking through a sunlit New York street in autumn, camel coat",
+    "on a white sand beach at sunrise, linen shirt, barefoot",
+    "in a modern studio with soft window light, cream knit sweater",
+  ];
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Put yourself anywhere</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Upload a photo of your face, describe a place, and get a real-looking photo of you there. Your real skin, your real hair — we're restaging your actual photo, not inventing a face. No training, no waiting.
+      </p>
+
+      <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
+        <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
+          <li>Use a clear, well-lit photo where your face is easy to see</li>
+          <li>One to three photos — a couple of angles helps</li>
+          <li>No sunglasses, no heavy filters, just you in frame</li>
+        </ul>
+      </div>
+
+      <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {photos.length>0 && (
+        <div style={{marginBottom:14}}>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS}</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {photos.map((p,i)=>(
+              <div key={i} style={{position:"relative"}}>
+                <img src={p.preview} alt="" style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone}} />
+                <button onClick={()=>removePhoto(i)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"14px 0 6px"}}>Where are you?</p>
+      <textarea value={scene} onChange={e=>setScene(e.target.value)} rows={3}
+        placeholder="on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress"
+        style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box"}} />
+
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",margin:"8px 0 16px"}}>
+        {IDEAS.map(idea=>(
+          <button key={idea} onClick={()=>setScene(idea)} style={{padding:"6px 11px",border:"1px solid "+B.stone,background:"#fff",fontFamily:"sans-serif",fontSize:11,color:B.mid,cursor:"pointer",textAlign:"left"}}>{idea.length>44?idea.slice(0,44)+"…":idea}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
+          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is sharper and holds your face better. Standard is plenty for social.</p>
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:14,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+          These are photos of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+        </span>
+      </label>
+
+      <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
+          <strong style={{color:B.charcoal}}>How your photos are handled.</strong> Your photos are sent to our image provider to create your picture. They are not used to train any model and are not shown to anyone else. Fake It is adults-only and for photos of yourself only — every upload is automatically checked, and photos that appear to show a minor are rejected. Uploading someone else's face, or generating impersonating content, will get your account closed.
+        </p>
+      </div>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={generate}>
+        {busy ? "MAKING YOUR PHOTO…" : "PUT ME THERE · "+COST.toLocaleString()+" CREDITS"}
+      </Btn>
+
+      {busy && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>Usually takes 10–20 seconds.</p>}
+
+      {image && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <a href={image} download="fakeit.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+        </div>
+      )}
+
+      {gallery.length>1 && (
+        <div style={{marginTop:26}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>This session</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {gallery.map((g,i)=>(
+              <img key={i} src={g} alt="" onClick={()=>setImage(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />
+            ))}
+          </div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"8px 0 0"}}>Download anything you want to keep — this clears when you refresh.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [model, setModel] = useState(null);       // the user's trained model (if any)
   const [loading, setLoading] = useState(true);
@@ -4275,6 +4469,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
@@ -4643,7 +4838,9 @@ const CREDIT_COSTS = {
   smsSend: 40,         // Outreach — one consent-based text
   websiteLeads: 200,   // Website Extractor — pull businesses off one webpage
   fakeitTrain: 7500,   // Fake It — train your personal model (one-time, ~$2.40 to us)
-  fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)
+  fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)  [legacy fal/Flux, hidden]
+  restageStd: 150,     // Fake It — restage one photo of you, standard (~$0.04 to us)
+  restageHigh: 450,    // Fake It — restage one photo of you, 2K (~$0.15 to us)
   podcastPitch: 100,   // Get Featured — one AI-written pitch (search itself is free)
   pressFind: 300,      // Get Featured — live web search for real outlets + bylines
 };
@@ -4751,8 +4948,25 @@ const CATEGORIES = [
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
-  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of your own face — once — then put yourself anywhere, in photo or video. The Amalfi Coast, a Paris café, a rooftop in Tokyo. Any outfit, any light. Videos even lip-sync what you say. It's really you, and you never left the house.",
+  /* ═══════════════════════════════════════════════════════════════════════
+     HIDDEN: Fake It (old fal / Flux version)  —  uncomment to bring it back.
+     ───────────────────────────────────────────────────────────────────────
+     Why it's hidden: the Flux LoRA route renders a plastic, cartoony face. The
+     trigger-word bug IS fixed (it returns the right race + hair now), but Flux's
+     base model has a waxy "AI portrait" look we can't prompt our way out of, and
+     Flux 2's better skin lives in [pro], which cannot be LoRA-trained.
+     REPLACED BY the Restage flow below: a real photo of you goes to Gemini as a
+     reference, so your real skin survives. Same trick Retake AI uses.
+     NOTHING is deleted: the FakeIt component, the tool==="fakeit" route, the api
+     files (fakeit-train.js, fal-webhook.js, fakeit-generate.js, fakeit-video.js),
+     the trained models and every generated image in Supabase are all untouched.
+
+  { id:"cat_fakeit_old", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of your own face — once — then put yourself anywhere.",
     tabs:[ {label:"Fake It",tool:"fakeit"} ] },
+
+     ═══════════════════════════════════════════════════════════════════════ */
+  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
+    tabs:[ {label:"Fake It",tool:"restage"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
