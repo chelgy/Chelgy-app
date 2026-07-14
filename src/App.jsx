@@ -778,7 +778,7 @@ function track(event, props = {}) {
 
 // ─── BRAND ─── v2.1 wide─────────────────────────────────────────────────────────────────
 const B = {
-  cream:"#FFFFFF", white:"#FFFFFF", offwhite:"#F7F6F4", stone:"#E8E6E1",
+  cream:"#FFFFFF", white:"#FFFFFF", offwhite:"#F7F6F4", stone:"#111111", stoneBg:"#E8E6E1",
   mid:"#6B6B6B", charcoal:"#111111", gold:"#111111", goldLight:"#F2F2F0",
   goldDark:"#555555", green:"#4CAF82", red:"#C0392B",
 };
@@ -802,7 +802,7 @@ const HOME_HERO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBw
 
 
 const LEVELS = [
-  { level: 1, title: "Newcomer",     min: 0,    max: 49,   color: B.stone },
+  { level: 1, title: "Newcomer",     min: 0,    max: 49,   color: B.stoneBg },
   { level: 2, title: "Learner",      min: 50,   max: 149,  color: "#A8C4A0" },
   { level: 3, title: "Strategist",   min: 150,  max: 349,  color: "#7BB3A8" },
   { level: 4, title: "Marketer",     min: 350,  max: 699,  color: B.gold },
@@ -1387,7 +1387,7 @@ function Tag({ children, gold, green:g }) {
   return <span style={{background:gold?B.goldLight:g?"#E8F5EE":B.offwhite,color:gold?B.goldDark:g?B.green:B.mid,fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,padding:"3px 9px",textTransform:"uppercase",whiteSpace:"nowrap"}}>{children}</span>;
 }
 function Btn({ children, dark, outline, gold, small, disabled, onClick, full, style:s={} }) {
-  return <button onClick={onClick} disabled={disabled} style={{background:disabled?B.stone:dark?B.charcoal:gold?B.gold:outline?"transparent":B.offwhite,color:disabled?B.mid:dark?"#fff":gold?B.charcoal:B.charcoal,border:outline?"1px solid "+B.charcoal:"none",padding:small?"9px 18px":"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:disabled?"not-allowed":"pointer",width:full?"100%":"auto",...s}}>{children}</button>;
+  return <button onClick={onClick} disabled={disabled} style={{background:disabled?B.stoneBg:dark?B.charcoal:gold?B.gold:outline?"transparent":B.offwhite,color:disabled?B.mid:dark?"#fff":gold?B.charcoal:B.charcoal,border:outline?"1px solid "+B.charcoal:"none",padding:small?"9px 18px":"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:disabled?"not-allowed":"pointer",width:full?"100%":"auto",...s}}>{children}</button>;
 }
 function Card({ children, onClick, style:s={} }) {
   const [h,setH]=useState(false);
@@ -1401,7 +1401,7 @@ function PBar({ points }) {
   const lv=getLevel(points),nl=nextLevel(points);
   if (!nl) return <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,letterSpacing:"0.06em"}}>MAX LEVEL</span>;
   const pct=Math.round(((points-lv.min)/(nl.min-lv.min))*100);
-  return <div><div style={{display:"flex",justifyContent:"space-between",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:5,letterSpacing:"0.04em"}}><span>{points} pts</span><span>{nl.min} for Lv.{nl.level}</span></div><div style={{height:1,background:B.stone}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.5s"}} /></div></div>;
+  return <div><div style={{display:"flex",justifyContent:"space-between",fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:5,letterSpacing:"0.04em"}}><span>{points} pts</span><span>{nl.min} for Lv.{nl.level}</span></div><div style={{height:1,background:B.stoneBg}}><div style={{height:"100%",width:pct+"%",background:B.gold,transition:"width 0.5s"}} /></div></div>;
 }
 function Rich({ text }) {
   // Handles **bold** and [text](url) links inside a line
@@ -1426,7 +1426,7 @@ function Rich({ text }) {
     const t=line.trim();
     if(!t)return<br key={i}/>;
     // Horizontal rule (---, ***, ___)
-    if(/^(-{3,}|\*{3,}|_{3,})$/.test(t))return<div key={i} style={{height:1,background:B.stone,margin:"16px 0"}} />;
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(t))return<div key={i} style={{height:1,background:B.stoneBg,margin:"16px 0"}} />;
     // Markdown headings (# .. ######) — with OR without a space after the hashes, trailing # stripped
     const h=t.match(/^(#{1,6})\s*(.*?)\s*#*$/);
     if(h&&h[2]){
@@ -1786,7 +1786,7 @@ function MyLeadsOutreach({ useCredits=()=>true, credits=0, onBalance=()=>{}, onT
                 </div>
               </div>
               <div style={{flexShrink:0,display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
-                <button onClick={()=>openCompose(l,"email")} disabled={!l.email} style={{background:l.email?B.charcoal:B.stone,border:"none",color:l.email?"#fff":B.mid,padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:l.email?"pointer":"not-allowed",textTransform:"uppercase",whiteSpace:"nowrap"}}>✉ Email</button>
+                <button onClick={()=>openCompose(l,"email")} disabled={!l.email} style={{background:l.email?B.charcoal:B.stoneBg,border:"none",color:l.email?"#fff":B.mid,padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:l.email?"pointer":"not-allowed",textTransform:"uppercase",whiteSpace:"nowrap"}}>✉ Email</button>
                 <button onClick={()=>openCompose(l,"sms")} disabled={!l.phone||l.sms_consent!==true} title={l.phone&&l.sms_consent!==true?"Tick “can text” once they've agreed":""} style={{background:"none",border:"1px solid "+((l.phone&&l.sms_consent===true)?B.charcoal:B.stone),color:(l.phone&&l.sms_consent===true)?B.charcoal:B.mid,padding:"8px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:(l.phone&&l.sms_consent===true)?"pointer":"not-allowed",textTransform:"uppercase",whiteSpace:"nowrap"}}>✆ Text</button>
               </div>
             </div>
@@ -1927,7 +1927,7 @@ function Md({ text }) {
   while (i < lines.length) {
     const t = lines[i].trim();
     if (!t) { i++; continue; }
-    if (/^---+$/.test(t) || /^\*\*\*+$/.test(t)) { blocks.push(<div key={i} style={{height:1,background:B.stone,margin:"16px 0"}} />); i++; continue; }
+    if (/^---+$/.test(t) || /^\*\*\*+$/.test(t)) { blocks.push(<div key={i} style={{height:1,background:B.stoneBg,margin:"16px 0"}} />); i++; continue; }
     const h = t.match(/^(#{1,4})\s+(.*)$/);
     if (h) { const lvl = h[1].length; const size = lvl===1?19:lvl===2?16:14;
       blocks.push(<div key={i} style={{fontFamily:"Georgia,serif",fontWeight:lvl<=2?400:700,fontSize:size,color:B.charcoal,margin:"18px 0 8px"}}>{inline(h[2].replace(/[#*]/g,"").trim())}</div>); i++; continue; }
@@ -4072,7 +4072,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
           <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:20,lineHeight:1.6}}>Tell us about your business and Chelgy builds the whole site — words, layout, and a matching look chosen for you. You can switch themes and fine-tune everything after it's made.</div>
 
-          <div style={{display:"flex",gap:6,marginBottom:8}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:3,background:n<=wmStep?B.gold:B.stone}}></div>)}</div>
+          <div style={{display:"flex",gap:6,marginBottom:8}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:3,background:n<=wmStep?B.gold:B.stoneBg}}></div>)}</div>
           <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:20,textTransform:"uppercase"}}>Step {wmStep} of 5 · {["The basics","Your positioning","What you offer","Your story","Finishing touches"][wmStep-1]}</div>
 
           {wmStep===1&&<div>
@@ -4089,14 +4089,14 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <textarea value={wmAudience} onChange={e=>setWmAudience(e.target.value)} placeholder="Your ideal client or customer — who they are, what they want, how they want to feel." rows={3} style={wmTa} />
             <div style={wmLbl}>What makes you different</div>
             <textarea value={wmDiff} onChange={e=>setWmDiff(e.target.value)} placeholder="Your edge — why people choose you. Your approach, values, or signature." rows={3} style={wmTa} />
-            <div style={wmLbl}>Vibe <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>Vibe <span style={{color:B.stoneBg,fontWeight:400}}>· optional</span></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>{["Luxury","Minimal","Warm","Bold","Playful","Classic","Modern","Earthy","Feminine","Editorial"].map(v=>{const on=(wmTone||"").split(", ").indexOf(v)>=0;return <button key={v} onClick={()=>setWmTone(t=>{const a=t?t.split(", ").filter(Boolean):[];return a.indexOf(v)>=0?a.filter(x=>x!==v).join(", "):[...a,v].join(", ");})} style={{padding:"8px 14px",border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.charcoal:"#fff",color:on?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{v}</button>;})}</div>
           </div>}
 
           {wmStep===3&&<div>
             <div style={wmLbl}>Your {wmKind==="products"?"products":(wmKind==="both"?"products & services":"services")} · list them</div>
             <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={5} style={wmTa} />
-            <div style={wmLbl}>{wmKind==="services"?"Photos":"Product / service photos"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>{wmKind==="services"?"Photos":"Product / service photos"} <span style={{color:B.stoneBg,fontWeight:400}}>· optional</span></div>
             <div style={{marginBottom:12}}>
               {wmPhotos.map((p,idx)=>(
                 <div key={idx} style={{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid "+B.stone,background:"#fff",padding:8,marginBottom:8,position:"relative"}}>
@@ -4116,9 +4116,9 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           </div>}
 
           {wmStep===4&&<div>
-            <div style={wmLbl}>Your story <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>Your story <span style={{color:B.stoneBg,fontWeight:400}}>· optional</span></div>
             <textarea value={wmAbout} onChange={e=>setWmAbout(e.target.value)} placeholder="A little about you or the founder — the journey, the why, what you care about." rows={4} style={wmTa} />
-            <div style={wmLbl}>Photo of you <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>Photo of you <span style={{color:B.stoneBg,fontWeight:400}}>· optional</span></div>
             <div style={{maxWidth:200,marginBottom:10}}>{wmSelf
               ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:120}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
               : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:120,border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for your About section)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
@@ -4126,9 +4126,9 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           </div>}
 
           {wmStep===5&&<div>
-            <div style={wmLbl}>Contact details <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>Contact details <span style={{color:B.stoneBg,fontWeight:400}}>· optional</span></div>
             <textarea value={wmContact} onChange={e=>setWmContact(e.target.value)} placeholder={"Address, email, hours — whatever you'd like shown.\nWe'll use tasteful placeholders if you skip this."} rows={3} style={wmTa} />
-            <div style={wmLbl}>Logo <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+            <div style={wmLbl}>Logo <span style={{color:B.stoneBg,fontWeight:400}}>· optional</span></div>
             <div style={{maxWidth:220,marginBottom:10}}>{wmLogo
               ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:90}}><img src={wmLogo} alt="logo" style={{maxHeight:72,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
               : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:90,border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
@@ -4370,7 +4370,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         </div>
         {bStage!==null&&<div style={{marginBottom:28}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:13,textTransform:"uppercase",fontWeight:700}}>Your Action Plan</div>
-          <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+          <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
             {BIZ[bStage].steps.slice(0,locked?5:BIZ[bStage].steps.length).map((step,i)=>(
               <div key={i} style={{background:B.white,padding:"16px 18px",display:"flex",gap:14,alignItems:"flex-start"}}>
                 <div style={{width:22,height:22,border:"1px solid "+B.gold,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:B.gold}}>{i+1}</span></div>
@@ -4401,7 +4401,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 18px",letterSpacing:"0.02em"}}>12 trusted suppliers, all vetted and ready to use.</p>
         {locked ? (
           <div style={{background:B.offwhite,border:"1px dashed "+B.stone,padding:"32px 20px",textAlign:"center"}}>
-            <div style={{color:B.stone,marginBottom:14,display:"flex",justifyContent:"center"}}><Icons.Lock /></div>
+            <div style={{color:B.stoneBg,marginBottom:14,display:"flex",justifyContent:"center"}}><Icons.Lock /></div>
             <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,fontWeight:700,marginBottom:6}}>Supplier directory is members-only</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:"0 auto 16px",maxWidth:340}}>Upgrade to unlock all 12 vetted suppliers with direct links, shipping times, and honest notes.</p>
             <button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK SUPPLIERS</button>
@@ -4410,7 +4410,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:18}}>
           {dNiches.map(n=><button key={n} onClick={()=>setDFilt(n)} style={{background:"none",color:dFilt===n?B.charcoal:B.mid,border:"none",borderBottom:dFilt===n?"1px solid "+B.charcoal:"1px solid transparent",padding:"6px 4px",fontSize:10,fontFamily:"sans-serif",cursor:"pointer",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:dFilt===n?700:400}}>{n}</button>)}
         </div>
-        <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:26,background:B.stone}}>
+        <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:26,background:B.stoneBg}}>
           {SUPPLIERS.filter(s=>dFilt==="All"||s.niche===dFilt).map(s=>(
             <div key={s.name} style={{background:B.white,padding:"16px 20px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
@@ -4454,7 +4454,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           <div style={{display:"flex",gap:0,marginBottom:22,borderBottom:"1px solid "+B.stone}}>
             {[["setup","Setup Guide"],["posting","How to Post"],["tips","Pro Tips"]].map(([id,l])=><Tb key={id} label={l} active={gTab===id} onClick={()=>setGTab(id)} />)}
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+          <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
             {(gTab==="setup"?PLATFORMS[selP].setup:gTab==="posting"?PLATFORMS[selP].posting:PLATFORMS[selP].tips).map((item,i)=>(
               <div key={i} style={{background:B.white,padding:"13px 16px",display:"flex",gap:12,alignItems:"flex-start"}}>
                 {gTab!=="tips"?<div style={{width:20,height:20,border:"1px solid "+(PLATFORMS[selP].color||B.gold),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:PLATFORMS[selP].color||B.gold}}>{i+1}</span></div>:<span style={{color:B.gold,fontSize:14}}>—</span>}
@@ -4546,7 +4546,7 @@ function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
         </div>
 
         {/* Credit costs reference */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:B.stone,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:B.stoneBg,marginBottom:20}}>
           {[{label:"Image",cost:"120–750 cr"},{label:"Video",cost:"from 500 cr"},{label:"Voiceover",cost:"150 cr"}].map((item,i)=>(
             <div key={i} style={{background:B.white,padding:"10px 12px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,marginBottom:3}}>{item.label}</div>
@@ -4558,7 +4558,7 @@ function CreditShop({ onClose, currentCredits, onPurchase, onBalance }) {
         {success&&<div style={{background:"#E8F5EE",border:"1px solid #4CAF82",padding:"11px 14px",fontFamily:"sans-serif",fontSize:12,color:"#2E7D32",marginBottom:14,letterSpacing:"0.04em"}}>Credits added successfully!</div>}
 
         {/* Credit packs */}
-        <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+        <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
           {CREDIT_PACKS.map(pack=>(
             <div key={pack.id} style={{background:pack.popular?B.goldLight:B.white,padding:"18px 20px",position:"relative"}}>
               {pack.popular&&<div style={{position:"absolute",top:-1,right:16,background:B.gold,color:"#fff",fontSize:8,letterSpacing:"0.14em",fontWeight:700,padding:"3px 10px",fontFamily:"sans-serif"}}>MOST POPULAR</div>}
@@ -9486,7 +9486,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
                 {TONES.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </label>
-            <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stone:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing…":"✨ Write my post"}</button>
+            <button disabled={busy||topic.trim().length<MIN} onClick={write} style={{background:(busy||topic.trim().length<MIN)?B.stoneBg:B.charcoal,color:(busy||topic.trim().length<MIN)?B.mid:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",cursor:(busy||topic.trim().length<MIN)?"default":"pointer"}}>{busy?"Writing…":"✨ Write my post"}</button>
           </div>
         </div>
       )}
@@ -9605,7 +9605,7 @@ function CJConnect({ user }) {
     <div>
       <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Paste your CJ API key" style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid " + B.stone, borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, marginBottom: 10, color: B.charcoal }} />
       {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
-      <button onClick={connect} disabled={busy} style={{ padding: "11px 20px", background: busy ? B.stone : B.charcoal, color: busy ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
+      <button onClick={connect} disabled={busy} style={{ padding: "11px 20px", background: busy ? B.stoneBg : B.charcoal, color: busy ? B.mid : "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
         {busy ? "Connecting…" : "Connect CJ account"}
       </button>
     </div>
@@ -11135,7 +11135,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
           <label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"10px 12px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark,margin:"8px 0 2px"}}>+ Add a reference clip (optional) — lets Claude see the scene<input type="file" accept="video/*" onChange={onRefUpload} style={{display:"none"}} /></label>
         )}
         <div style={{display:"flex",alignItems:"center",gap:10,margin:"8px 0 2px",flexWrap:"wrap"}}>
-          <button onClick={writePrompt} disabled={pw} style={{background:pw?B.stone:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:pw?"default":"pointer",textTransform:"uppercase"}}>{pw?"Writing…":"✨ Write this with Claude"}</button>
+          <button onClick={writePrompt} disabled={pw} style={{background:pw?B.stoneBg:B.charcoal,color:"#fff",border:"none",padding:"8px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:pw?"default":"pointer",textTransform:"uppercase"}}>{pw?"Writing…":"✨ Write this with Claude"}</button>
           <span style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid}}>Claude reads your creator photo &amp; reference clip (when added) and writes a prompt true to them.</span>
         </div>
         <details style={{margin:"4px 0 2px",fontFamily:"sans-serif"}}>
@@ -13476,7 +13476,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>No clients yet. Add your first one to keep their brand, goals, logins, and notes all in one place.</p>
                   <button onClick={newClient} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Add Your First Client</button>
                 </div>
-              : <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+              : <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stoneBg}}>
                   {list.map(c=>(
                     <button key={c.id} onClick={()=>openClient(c)} style={{textAlign:"left",background:B.white,border:"none",padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
                       <div>
@@ -13535,7 +13535,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <div style={{marginBottom:28}}>
             <h2 style={{fontSize:18,fontWeight:400,margin:"0 0 4px",color:B.charcoal}}>{title}</h2>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 14px"}}>{blurb}</p>
-            <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+            <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stoneBg}}>
               {items.map(it=>(
                 <div key={it.id} style={{background:B.white,padding:"16px 18px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:8}}>
@@ -13584,8 +13584,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <span style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",fontWeight:700}}>{doneCount} of {(cl.steps||[]).length} done</span>
                 <span style={{fontFamily:"Georgia,serif",fontSize:18,color:percent===100?B.green:B.gold}}>{percent}%</span>
               </div>
-              <div style={{height:3,background:B.stone,marginBottom:22}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold,transition:"width 0.3s"}} /></div>
-              <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+              <div style={{height:3,background:B.stoneBg,marginBottom:22}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold,transition:"width 0.3s"}} /></div>
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stoneBg}}>
                 {(cl.steps||[]).map((step,i)=>{
                   const checked = !!doneMap[i];
                   return (
@@ -13605,7 +13605,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
             <h1 style={{fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>Campaign Checklists</h1>
             <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,lineHeight:1.6,margin:"0 0 18px"}}>Step-by-step playbooks so you never miss a step. Tap one to start, and check off steps as you go — your progress saves automatically.</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stoneBg}}>
               {(CAMPAIGN_CHECKLISTS||[]).filter(Boolean).map(cl=>{ const percent=pct(cl); return (
                 <button key={cl.id} onClick={()=>setChecklistId(cl.id)} style={{textAlign:"left",background:B.white,border:"none",padding:"20px",cursor:"pointer"}}>
                   <span style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700}}>{cl.category}</span>
@@ -13615,7 +13615,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <span style={{fontFamily:"sans-serif",fontSize:10,color:percent===100?B.green:B.mid,fontWeight:700,letterSpacing:"0.04em"}}>{percent===100?"✓ Complete":(percent>0?percent+"% done":(cl.steps||[]).length+" steps")}</span>
                     <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700,letterSpacing:"0.04em"}}>{percent>0&&percent<100?"Continue →":"Open →"}</span>
                   </div>
-                  {percent>0&&<div style={{height:2,background:B.stone,marginTop:10}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold}} /></div>}
+                  {percent>0&&<div style={{height:2,background:B.stoneBg,marginTop:10}}><div style={{height:"100%",width:percent+"%",background:percent===100?B.green:B.gold}} /></div>}
                 </button>
               ); })}
             </div>
@@ -13968,7 +13968,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {sec.sub && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.65,margin:"0 0 16px"}}>{sec.sub}</p>}
                   {renderIntroBlocks(sec.blocks)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:10,marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:16}}>
-                    <button onClick={()=>{ if(rIdx>0){setIntroSection(INTRO_SECTIONS[rIdx-1].id); window.scrollTo(0,0);} }} disabled={rIdx===0} style={{background:"none",border:"1px solid "+B.stone,color:rIdx===0?B.stone:B.mid,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:rIdx===0?"default":"pointer"}}>{"\u2039 Prev"}</button>
+                    <button onClick={()=>{ if(rIdx>0){setIntroSection(INTRO_SECTIONS[rIdx-1].id); window.scrollTo(0,0);} }} disabled={rIdx===0} style={{background:"none",border:"1px solid "+B.stone,color:rIdx===0?B.stoneBg:B.mid,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:rIdx===0?"default":"pointer"}}>{"\u2039 Prev"}</button>
                     {rIdx<INTRO_SECTIONS.length-1
                       ? <button onClick={()=>{setIntroSection(INTRO_SECTIONS[rIdx+1].id); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Next \u203a"}</button>
                       : <button onClick={()=>{setSalesTab("pitches"); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Go to Pitches \u203a"}</button>}
@@ -14612,7 +14612,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div><div style={{width:32,height:1,background:B.gold,marginBottom:14}} /><h2 style={{fontSize:25,fontFamily:"Georgia,serif",fontWeight:400,margin:0}}>Your Tasks</h2></div>
               <button onClick={()=>setShowTasks(false)} style={{background:"none",border:"none",cursor:"pointer",color:B.mid,marginTop:4}}><Icons.X/></button>
             </div>
-            <div style={{display:"flex",gap:2,background:B.stone,marginTop:16,marginBottom:4}}>
+            <div style={{display:"flex",gap:2,background:B.stoneBg,marginTop:16,marginBottom:4}}>
               <div style={{flex:1,background:B.white,padding:"14px 16px"}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:5}}>This Week</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:400}}>{sumCompletions(7)} <span style={{fontSize:11,color:B.mid,fontFamily:"sans-serif"}}>done</span></div>
@@ -14626,7 +14626,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {bigTasks.length===0 ? (
               <div style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.7}}>Your roadmap tasks appear here once you build your plan. <button onClick={()=>{setShowTasks(false);setShowIntake(true);}} style={{background:"none",border:"none",color:B.gold,cursor:"pointer",textDecoration:"underline",fontFamily:"sans-serif",fontSize:13,padding:0}}>Build my plan</button></div>
             ) : (
-              <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stoneBg}}>
                 {bigTasks.map(t=>(
                   <div key={t.id} style={{background:t.done?B.offwhite:B.white,padding:"16px 18px"}}>
                     <div onClick={()=>toggleBigTask(t.id)} style={{display:"flex",gap:13,alignItems:"flex-start",cursor:"pointer"}}>
@@ -14646,7 +14646,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
             )}
             <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",margin:"26px 0 10px"}}>Today's Quick Wins</div>
-            <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+            <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stoneBg}}>
               {dailies.map(t=>(
                 <div key={t.id} style={{background:dailyDone[t.id]?B.offwhite:B.white,padding:"14px 18px"}}>
                   <div onClick={()=>toggleDaily(t.id)} style={{display:"flex",gap:13,alignItems:"center",cursor:"pointer"}}>
@@ -14707,7 +14707,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {(()=>{ const wins=journalEntries.filter(e=>{ const diff=(Date.now()-new Date(e.entry_date+"T00:00:00"))/86400000; return diff>=0&&diff<7&&e.wins&&e.wins.trim(); }); if(!wins.length) return null; return (
               <div style={{marginBottom:24}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:12}}>Your wins this week</div>
-                <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stoneBg}}>
                   {wins.map(e=>(<div key={e.id} style={{background:B.white,padding:"12px 16px"}}><div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,marginBottom:3}}>{new Date(e.entry_date+"T00:00:00").toLocaleDateString()}</div><div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>{e.wins}</div></div>))}
                 </div>
               </div>
@@ -14857,7 +14857,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase"}}>Ways To Land Clients</div>
                   <button onClick={()=>{setMkStrat(null);goTab("learn");}} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.gold,letterSpacing:"0.08em"}}>View all</button>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stoneBg}}>
                   {CLIENT_ACQUISITION.slice(1,5).map(s=>(
                     <div key={s.id} onClick={()=>{setMkStrat(s);goTab("learn");}} style={{background:B.white,padding:"18px",cursor:"pointer"}}>
                       <Tag gold>{s.level}</Tag>
@@ -14871,7 +14871,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {appWeeklyPosts&&appWeeklyPosts.length>0&&(
                 <div style={{paddingTop:24}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase",marginBottom:14}}>The Chelgy Edit</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                     {appWeeklyPosts.map(post=>(
                       <div key={post.id} onClick={()=>{setMkPost(post);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.white,padding:"20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                         <div style={{flex:1}}>
@@ -14880,7 +14880,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                           <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>{post.week} · {post.readTime}</div>
                         </div>
                         {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",objectPosition:(post.imageFocus||"50% 50%"),flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
-                        <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
+                        <div style={{color:B.stoneBg,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
                       </div>
                     ))}
                   </div>
@@ -14911,7 +14911,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <input value={mkSearch} onChange={e=>setMkSearch(e.target.value)} placeholder="Search strategies..." style={{flex:1,minWidth:180,padding:"9px 14px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white}} />
                 <select value={mkCat} onChange={e=>setMkCat(e.target.value)} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>{["All",...Array.from(new Set(CLIENT_ACQUISITION.map(s=>s.category)))].map(c=><option key={c}>{c}</option>)}</select>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {CLIENT_ACQUISITION.filter(s=>(mkCat==="All"||s.category===mkCat)&&(s.title.toLowerCase().includes(mkSearch.toLowerCase())||s.summary.toLowerCase().includes(mkSearch.toLowerCase()))).map(s=>(
                   <div key={s.id} onClick={()=>{setMkStrat(s);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.white,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                     <div style={{flex:1}}>
@@ -14920,7 +14920,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 6px",lineHeight:1.6}}>{s.summary}</p>
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>Time to results: {s.timeToResult}</div>
                     </div>
-                    <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
+                    <div style={{color:B.stoneBg,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
                   </div>
                 ))}
               </div>
@@ -14992,7 +14992,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase"}}>Latest Strategies</div>
                   <button onClick={()=>goTab("learn","strategies")} style={{background:"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.gold,letterSpacing:"0.08em"}}>View all</button>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stone}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:2,background:B.stoneBg}}>
                   {strategies.slice(0,4).map(s=>(
                     <div key={s.id} onClick={()=>{setSelectedStrategy(s);goTab("learn","strategies");addPts(PTS.strategy);}} style={{background:B.white,padding:"18px",cursor:"pointer"}}>
                       {s.imageUrl&&<img src={s.imageUrl} alt="" style={{width:"100%",height:120,objectFit:"cover",objectPosition:(s.imageFocus||"50% 50%"),display:"block",marginBottom:12}} onError={e=>e.target.style.display="none"} />}
@@ -15058,7 +15058,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
                 <select value={filterLevel} onChange={e=>setFilterLevel(e.target.value)} style={{padding:"9px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:12,fontFamily:"sans-serif",background:B.white,cursor:"pointer"}}>{levels.map(l=><option key={l}>{l}</option>)}</select>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {appStrategies.filter(s=>(filterCat==="All"||s.category===filterCat)&&(filterLevel==="All Levels"||s.level===filterLevel)&&(s.title.toLowerCase().includes(search.toLowerCase())||s.summary.toLowerCase().includes(search.toLowerCase()))).map(s=>(
                   <div key={s.id} onClick={()=>{track("strategy_viewed",{title:s.title,category:s.category,level:s.level});setSelectedStrategy(s);addPts(PTS.strategy);}} style={{background:B.white,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                     <div style={{flex:1}}>
@@ -15071,7 +15071,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <div style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.04em"}}>Avg. time to results: {s.timeToResult}</div>
                     </div>
                     {s.imageUrl&&<img src={s.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",objectPosition:(s.imageFocus||"50% 50%"),flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
-                    <div style={{color:B.stone,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
+                    <div style={{color:B.stoneBg,flexShrink:0,marginTop:4}}><Icons.ChevronRight /></div>
                   </div>
                 ))}
               </div>
@@ -15118,7 +15118,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>The Marketing Guide</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 22px",letterSpacing:"0.01em",lineHeight:1.6}}>The complete Chelgy playbook — everything that actually brings in customers, from building a business people trust to scaling with paid ads. Read it in order, or jump to what you need.</p>
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {GUIDE_CHAPTERS.map(ch=>(
                   <button key={ch.id} onClick={()=>{setGuideChapter(ch);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{width:"100%",textAlign:"left",background:B.white,border:"none",padding:"18px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16}}>
                     <span style={{fontFamily:"Georgia,serif",fontSize:22,color:B.gold,fontWeight:400,minWidth:28}}>{ch.num}</span>
@@ -15162,7 +15162,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <button key={c} onClick={()=>setBlogCat(c)} style={{flexShrink:0,padding:"7px 14px",border:"1px solid "+(blogCat===c?B.charcoal:B.stone),background:blogCat===c?B.charcoal:B.white,color:blogCat===c?"#fff":B.mid,fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",cursor:"pointer",whiteSpace:"nowrap",textTransform:"uppercase"}}>{c}</button>
                 ))}
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {appWeeklyPosts.filter(p=>blogCat==="All"||p.tag===blogCat).map(post=>(
                   <div key={post.id} onClick={()=>{setSelectedPost(post);addPts(PTS.weekly);}} style={{background:B.white,padding:"20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14}}>
                     <div style={{flex:1}}>
@@ -15173,7 +15173,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     {post.imageUrl&&<img src={post.imageUrl} alt="" style={{width:96,height:72,objectFit:"cover",objectPosition:(post.imageFocus||"50% 50%"),flexShrink:0,display:"block"}} onError={e=>e.target.style.display="none"} />}
                     <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginTop:4}}>
                       {isTrial&&<span style={{color:B.gold}}><Icons.Lock /></span>}
-                      <div style={{color:B.stone}}><Icons.ChevronRight /></div>
+                      <div style={{color:B.stoneBg}}><Icons.ChevronRight /></div>
                     </div>
                   </div>
                 ))}
@@ -15206,7 +15206,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <ToolCallout rec={recFor((selectedPost.tag||"")+" "+(selectedPost.title||""))} onGo={(t)=>goTab("tools",t)} />
                   <div style={{borderTop:"1px solid "+B.stone,paddingTop:28,marginTop:36}}>
                     <h3 style={{fontSize:14,fontWeight:400,margin:"0 0 16px",fontFamily:"Georgia,serif"}}>Comments ({(commentsByPost[selectedPost.id]||[]).length})</h3>
-                    <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:18,background:B.stone}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:18,background:B.stoneBg}}>
                       {(commentsByPost[selectedPost.id]||[]).map(c=>(
                         <div key={c.id} style={{background:B.white,padding:"13px 16px"}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
@@ -15323,7 +15323,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Type of Business</div><input value={launchData.bizType} onChange={e=>setLaunchData(d=>({...d,bizType:e.target.value}))} placeholder="e.g. Hair salon, online coaching, e-commerce store..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
                       <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your Niche</div><input value={launchData.niche} onChange={e=>setLaunchData(d=>({...d,niche:e.target.value}))} placeholder="e.g. Natural hair care for Black women, luxury pet grooming..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
                       <div style={{marginBottom:12}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Your City / Location</div><input value={launchData.location} onChange={e=>setLaunchData(d=>({...d,location:e.target.value}))} placeholder="e.g. Tampa FL, Online, New York City..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
-                      <button onClick={()=>setLaunchStep(2)} disabled={!launchData.bizName.trim()||!launchData.bizType.trim()} style={{background:launchData.bizName.trim()&&launchData.bizType.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.bizName.trim()&&launchData.bizType.trim()?"pointer":"not-allowed"}}>NEXT STEP</button>
+                      <button onClick={()=>setLaunchStep(2)} disabled={!launchData.bizName.trim()||!launchData.bizType.trim()} style={{background:launchData.bizName.trim()&&launchData.bizType.trim()?B.charcoal:B.stoneBg,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.bizName.trim()&&launchData.bizType.trim()?"pointer":"not-allowed"}}>NEXT STEP</button>
                     </Card>
                   )}
 
@@ -15336,7 +15336,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <div style={{marginBottom:16}}><div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:6,textTransform:"uppercase"}}>Price range</div><input value={launchData.priceRange} onChange={e=>setLaunchData(d=>({...d,priceRange:e.target.value}))} placeholder="e.g. $50-$500 per service, $29/month subscription..." style={{width:"100%",padding:"10px 12px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:B.white}} /></div>
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>setLaunchStep(1)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
-                        <button onClick={()=>setLaunchStep(3)} disabled={!launchData.targetCustomer.trim()||!launchData.services.trim()} style={{background:launchData.targetCustomer.trim()&&launchData.services.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.targetCustomer.trim()&&launchData.services.trim()?"pointer":"not-allowed"}}>NEXT STEP</button>
+                        <button onClick={()=>setLaunchStep(3)} disabled={!launchData.targetCustomer.trim()||!launchData.services.trim()} style={{background:launchData.targetCustomer.trim()&&launchData.services.trim()?B.charcoal:B.stoneBg,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.targetCustomer.trim()&&launchData.services.trim()?"pointer":"not-allowed"}}>NEXT STEP</button>
                       </div>
                     </Card>
                   )}
@@ -15354,7 +15354,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       </div>
                       <div style={{display:"flex",gap:10}}>
                         <button onClick={()=>setLaunchStep(2)} style={{background:"none",border:"1px solid "+B.stone,padding:"13px 20px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid}}>BACK</button>
-                        <button onClick={finishLaunch} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stone,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>BUILD MY BUSINESS</button>
+                        <button onClick={finishLaunch} disabled={!launchData.goal.trim()} style={{background:launchData.goal.trim()?B.charcoal:B.stoneBg,color:"#fff",border:"none",padding:"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:launchData.goal.trim()?"pointer":"not-allowed"}}>BUILD MY BUSINESS</button>
                       </div>
                     </Card>
                   )}
@@ -15482,12 +15482,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               )}
               <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"11px 14px",marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6}}><strong style={{color:B.charcoal,letterSpacing:"0.03em"}}>Community guidelines:</strong> Be respectful. No harassment, hate speech, explicit content, or spam. Use Report on anything that breaks these rules — violations are removed and can lead to a ban. Questions? chelgyapp@gmail.com.</div>
-                <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+                <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {forumPosts.filter(p=>(forumCat==="all"||p.cat===forumCat)&&!blockedNames.has(p.author)).map(post=>(
                   <div key={post.id} onClick={()=>{setForumReplyName(myName||"");setSelectedForumPost(post);}} style={{background:B.white,padding:"16px 18px",cursor:"pointer"}}>
                     <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0}}>
-                        <button onClick={async e=>{e.stopPropagation();if(upvoted[post.id])return;if(post.real){const tok=await freshToken();if(!tok)return;setUpvoted(u=>({...u,[post.id]:true}));try{const res=await fetch(SUPABASE_URL+"/rest/v1/rpc/upvote_post",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({p_post:post.dbId})});const cnt=await res.json();if(typeof cnt==="number")setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:cnt}:p));}catch(e){}}else{setUpvoted(u=>({...u,[post.id]:true}));setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:p.upvotes+1}:p));}}} style={{background:"none",border:"none",cursor:"pointer",color:upvoted[post.id]?B.gold:B.stone}}>
+                        <button onClick={async e=>{e.stopPropagation();if(upvoted[post.id])return;if(post.real){const tok=await freshToken();if(!tok)return;setUpvoted(u=>({...u,[post.id]:true}));try{const res=await fetch(SUPABASE_URL+"/rest/v1/rpc/upvote_post",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({p_post:post.dbId})});const cnt=await res.json();if(typeof cnt==="number")setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:cnt}:p));}catch(e){}}else{setUpvoted(u=>({...u,[post.id]:true}));setForumPosts(ps=>ps.map(p=>p.id===post.id?{...p,upvotes:p.upvotes+1}:p));}}} style={{background:"none",border:"none",cursor:"pointer",color:upvoted[post.id]?B.gold:B.stoneBg}}>
                           <Icons.ArrowUp />
                         </button>
                         <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.mid}}>{post.upvotes}</span>
@@ -15524,7 +15524,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <p style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.8,color:B.charcoal,margin:"0 0 28px"}}>{selectedForumPost.body}</p>
               <div style={{borderTop:"1px solid "+B.stone,paddingTop:22}}>
                 <h3 style={{fontSize:13,fontWeight:400,margin:"0 0 14px",fontFamily:"Georgia,serif"}}>Replies ({selectedForumPost.replies.length})</h3>
-                <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:18,background:B.stone}}>
+                <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:18,background:B.stoneBg}}>
                   {selectedForumPost.replies.map((r,i)=> blockedNames.has(r.author) ? null : (
                     <div key={i} style={{background:B.white,padding:"12px 16px"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
@@ -15559,7 +15559,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 22px"}}>Events and Challenges</h2>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:12,textTransform:"uppercase",fontWeight:700}}>Active Challenges</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:1,marginBottom:24,background:B.stone}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:1,marginBottom:24,background:B.stoneBg}}>
                 {[{id:1,title:"7-Day Content Sprint",desc:"Post one piece of content every day for 7 days.",pts:25,cat:"Content"},{id:2,title:"Share Your Win",desc:"Post a business win in the community forum.",pts:10,cat:"Community"},{id:3,title:"Try an AI Tool",desc:"Use one of the AI tools and share your result.",pts:15,cat:"AI Tools"},{id:4,title:"Platform Audit",desc:"Audit one of your social media profiles and post what you improved.",pts:20,cat:"Strategy"}].map(ch=>(
                   <div key={ch.id} style={{background:B.white,padding:"18px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9}}>
@@ -15575,7 +15575,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 ))}
               </div>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:12,textTransform:"uppercase",fontWeight:700}}>Upcoming Events</div>
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {[{id:1,title:"Member Event — Marketing Strategy Session",date:"July 1, 2026",time:"Coming Soon",type:"Member Event"},{id:2,title:"Mastermind: AI Tools for Business Owners",date:"July 8, 2026",time:"Coming Soon",type:"Mastermind"},{id:3,title:"Workshop: Building Your First Email Funnel",date:"July 15, 2026",time:"Coming Soon",type:"Workshop"},{id:4,title:"Community Challenge Kickoff",date:"July 7, 2026",time:"All Day",type:"Challenge"}].map(ev=>(
                   <div key={ev.id} style={{background:B.white,padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                     <div>
@@ -15603,7 +15603,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {["All","Agency","eCommerce","Creator","Entrepreneur","Freelancer"].map(f=><option key={f}>{f}</option>)}
                 </select>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:B.stone}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,background:B.stoneBg}}>
                 {[...realMembers.filter(r=>!(user&&r.id===user.id)),...SEED_MEMBERS,{id:"me",name:myName,avatar:myName[0]||"M",business:myBusiness,bio:myBio,type:"Entrepreneur",badges:["Member"]}].filter(m=>(dirFilter==="All"||m.type===dirFilter)&&((m.name||"").toLowerCase().includes(dirSearch.toLowerCase())||(m.business||"").toLowerCase().includes(dirSearch.toLowerCase()))).map(m=>(
                   <div key={m.id} style={{background:m.id==="me"?B.goldLight:B.white,padding:"18px"}}>
                     <div style={{display:"flex",gap:11,marginBottom:11,alignItems:"center"}}>
@@ -15756,7 +15756,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
                 </div>)}
 
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:2,background:B.stone}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:2,background:B.stoneBg}}>
                 <div style={{background:B.white,padding:"26px"}}>
                   {!editingProfile?(<>
                     <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Business Profile</div>
@@ -15863,12 +15863,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 ))}
               </div>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>All levels</div>
-              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stone}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1,background:B.stoneBg}}>
                 {LEVELS.map((lv,i)=>{
                   const active = myPoints >= lv.min && (!LEVELS[i+1] || myPoints < LEVELS[i+1].min);
                   return (
                     <div key={i} style={{background:active?B.goldLight:B.white,padding:"16px 18px",display:"flex",gap:14,alignItems:"center"}}>
-                      <div style={{width:8,height:8,background:active?lv.color:B.stone,borderRadius:"50%",flexShrink:0}} />
+                      <div style={{width:8,height:8,background:active?lv.color:B.stoneBgBg,borderRadius:"50%",flexShrink:0}} />
                       <div style={{flex:1}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                           <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.04em"}}>Lv.{lv.level} {lv.title}</span>
