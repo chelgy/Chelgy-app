@@ -2225,11 +2225,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
   const [look,setLook]       = useState("capri");
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
-  const shot = "full";   // Crop picker removed on purpose — all 18 presets are ENVIRONMENTAL looks
-                         // ("the location is the co-star"), so cropping tight into them wastes the preset.
-                         // Beauty / half-body need their OWN presets, built around what sits right
-                         // behind the face. The endpoint still accepts shot:"beauty"|"half" — the
-                         // plumbing is ready, it just needs looks worth cropping into.
+  const [shot,setShot]       = useState("full");   // beauty | half | full
   const [quality,setQuality] = useState("high");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
@@ -2330,6 +2326,18 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="leaning on the bonnet, shot from low down"
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:6,boxSizing:"border-box"}} />
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>The location, light and grading come from the look. Don't describe your outfit — that comes from your photo.</p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Crop</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["beauty","Beauty"],["half","Half body"],["full","Full frame"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setShot(v)} style={{padding:"9px 18px",border:"1px solid "+(shot===v?B.charcoal:B.stone),background:shot===v?B.charcoal:"#fff",color:shot===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        {shot==="beauty" ? "Tight on your face — skin, eyes, catchlights. The location shows through the light and the blur behind you."
+         : shot==="half" ? "Head to mid-thigh. You and the place share the frame, and the outfit reads properly."
+         : "Wide and environmental. The location is the co-star — you're about a third of the frame."}
+      </p>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
@@ -2486,6 +2494,18 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="pull back a little wider"
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:18,boxSizing:"border-box"}} />
 
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Crop</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["beauty","Beauty"],["half","Half body"],["full","Full frame"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setShot(v)} style={{padding:"9px 18px",border:"1px solid "+(shot===v?B.charcoal:B.stone),background:shot===v?B.charcoal:"#fff",color:shot===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        {shot==="beauty" ? "Tight on your face — skin, eyes, catchlights. The location shows through the light and the blur behind you."
+         : shot==="half" ? "Head to mid-thigh. You and the place share the frame, and the outfit reads properly."
+         : "Wide and environmental. The location is the co-star — you're about a third of the frame."}
+      </p>
+
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
         {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
@@ -2551,11 +2571,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   const [photos,setPhotos]   = useState([]);   // [{mimeType,data,preview}]
   const [scene,setScene]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
-  const shot = "full";   // Crop picker removed on purpose — all 18 presets are ENVIRONMENTAL looks
-                         // ("the location is the co-star"), so cropping tight into them wastes the preset.
-                         // Beauty / half-body need their OWN presets, built around what sits right
-                         // behind the face. The endpoint still accepts shot:"beauty"|"half" — the
-                         // plumbing is ready, it just needs looks worth cropping into.
+  const [shot,setShot]       = useState("full");   // beauty | half | full
   const [quality,setQuality] = useState("standard");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
