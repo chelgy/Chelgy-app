@@ -445,16 +445,20 @@ const SHOT = {
 // and renders them its own way. Better pictures, close-enough likeness. That is a
 // deliberate trade, made with eyes open.
 const KEEP_PERSON =
-  "IDENTITY - the most important thing:\n" +
+  "IDENTITY - the most important thing, above all else:\n" +
   "Every attached photo is the SAME PERSON, wearing the SAME OUTFIT, from different angles. " +
-  "Study them all together to understand her face and her clothes, then render HER.\n" +
-  "  - Face: same bone structure, same eyes, nose and mouth, same skin tone. Immediately " +
-  "recognisable as this person, not a generic model who vaguely resembles her.\n" +
+  "Study them ALL together to build a complete, precise understanding of her exact face, then " +
+  "render THAT EXACT FACE. Strictly maintain her exact facial likeness and identity. The output " +
+  "must look unmistakably like HER - the same specific woman, not a lookalike, not a relative, not " +
+  "a model who resembles her. If someone who knows her saw the result, they must recognise her " +
+  "instantly.\n" +
+  "  - Face: replicate her EXACT bone structure, the exact shape and spacing of her eyes, her exact " +
+  "nose shape and nose bridge, her exact mouth and lips, her exact jawline and chin, her exact " +
+  "brows, and her exact skin tone. Do not average her features toward a prettier or more generic " +
+  "face. Her specific face is the whole point.\n" +
   "  - Outfit: the same garments she wears in the references - same cut, fabric, colour and " +
   "detail. Do not invent different clothes.\n" +
   "  - Hair: the same style, length, texture and colour, with its natural flyaways.\n" +
-  "  - Skin: real texture - pores, fine lines, natural unevenness. Never airbrushed, never waxy, " +
-  "never plastic. Do not smooth or beautify her.\n" +
   "  - Body: her real proportions. Do not slim or lengthen her.\n\n";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -562,7 +566,7 @@ function buildPrompt(scene, mode, preset, shot) {
 // The browser now downscales photos to ~1280px before upload (see shrink() in
 // App.jsx), which is the real fix. This raises the ceiling as a safety net.
 export const config = {
-  api: { bodyParser: { sizeLimit: "10mb" } }
+  api: { bodyParser: { sizeLimit: "20mb" } }   // 8 reference photos at 1600px + a style photo need more headroom
 };
 
 export default async function handler(req, res) {
@@ -580,7 +584,7 @@ export default async function handler(req, res) {
     // English instead of letting the platform return an unparseable error.
     const totalBytes = photos.reduce((n, p) => n + (p.data ? p.data.length : 0), 0)
                      + (body.stylePhoto && body.stylePhoto.data ? body.stylePhoto.data.length : 0);
-    if (totalBytes > 9 * 1024 * 1024) {
+    if (totalBytes > 19 * 1024 * 1024) {
       return res.status(413).json({ error: "Those photos are too large. Try one photo, or a smaller one." });
     }
 

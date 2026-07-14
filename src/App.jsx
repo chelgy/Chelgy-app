@@ -2142,7 +2142,7 @@ function shrinkImage(file, maxEdge = 1024, quality = 0.88) {
    base64 inflates a file by ~37%, so a raw phone photo blows the limit before
    our code even runs. Also re-encodes iPhone HEIC to JPEG, which Gemini needs.
    ═══════════════════════════════════════════════════════════════════════════ */
-async function cgShrinkPhoto(file, maxDim=1280, quality=0.85){
+async function cgShrinkPhoto(file, maxDim=1600, quality=0.88){   // 1600px: keeps >1024px of FACE detail after the model crops in — the single biggest lever on likeness.
   const url = URL.createObjectURL(file);
   try{
     const img = await new Promise((res,rej)=>{
@@ -2590,7 +2590,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   //   2. iPhone photos are HEIC, which Gemini won't accept. Drawing to a canvas
   //      and re-encoding as JPEG fixes that for free.
   // 1280px on the long edge is plenty for a face reference.
-  async function shrink(file, maxDim=1280, quality=0.85){
+  async function shrink(file, maxDim=1600, quality=0.88){
     const url = URL.createObjectURL(file);
     try{
       const img = await new Promise((res,rej)=>{
