@@ -219,81 +219,167 @@ const LOOK = {
     "Do not crop tight to the face.\n" +
     "  - Attitude: distant, composed, self-possessed, caught mid-thought. Not smiling at the camera. " +
     "Not posing for the camera. They look away, past the lens, or down.\n" +
-    "  - Camera: full-frame, 35mm or 50mm lens, shot at eye level or slightly low. Real depth of " +
-    "field with a soft falloff, not a fake blurred cut-out.\n" +
+    "  - Camera: full-frame, 35mm or 50mm lens, at eye level or slightly low. Real depth of field " +
+    "with a soft falloff, not a fake blurred cut-out.\n" +
     "  - Grain: real 35mm film grain, visible in the shadows and flat tones.\n" +
     "  - Skin: real texture, pores, sheen where sweat or oil would sit. Never airbrushed, never waxy.\n" +
     "  - AVOID at all costs: a centred subject, a smiling subject, flat directionless light, clean " +
     "even studio lighting, a crisp saturated 'clean' digital grade, HDR, a plastic sheen, stock " +
     "photography composition. It must look like an unretouched frame from a magazine shoot.",
 
-  capri: {
-    label: "Capri Harbour",
-    body:
-      "LOCATION: the harbour at Capri. A varnished mahogany-and-white Italian motor launch on green " +
-      "Mediterranean water, chrome fittings catching the sun. Behind, the pastel town stacked up the " +
-      "hillside — ochre, terracotta, faded pink — with moored boats and a hazy limestone cliff.\n" +
-      "LIGHT: low golden sun, late afternoon, raking in from the side and slightly behind, throwing " +
-      "long highlights across the water and rim-lighting the person. Warm, hazy, a little flared.\n" +
-      "GRADE: sun-bleached and warm. Creamy blown highlights. Lifted, milky blacks. Desaturated " +
-      "greens, warm skin, soft contrast. The whole frame slightly hazed, as if shot into the light."
-  },
+  // ── ITALY / COAST ──────────────────────────────────────────────────────────
+  capri: { label: "Capri Harbour", body:
+    "LOCATION: the harbour at Capri. A varnished mahogany-and-white Italian motor launch on green " +
+    "Mediterranean water, chrome fittings catching the sun. Behind, the pastel town stacked up the " +
+    "hillside - ochre, terracotta, faded pink - moored boats, a hazy limestone cliff.\n" +
+    "LIGHT: low golden sun, late afternoon, raking in from the side and slightly behind, throwing " +
+    "long highlights across the water and rim-lighting the person. Warm, hazy, a little flared.\n" +
+    "GRADE: sun-bleached and warm. Creamy blown highlights. Lifted, milky blacks. Desaturated greens, " +
+    "warm skin, soft contrast. The whole frame slightly hazed, as if shot into the light." },
 
-  dubrovnik: {
-    label: "Dubrovnik Stone",
-    body:
-      "LOCATION: the base of an ancient limestone fortress wall on the Adriatic. Huge weathered stone " +
-      "blocks, pale sand and bleached rock underfoot, rusted iron pipework, the sea just out of frame.\n" +
-      "LIGHT: hard, high, unforgiving Mediterranean midday sun. Sharp-edged shadows with real shape. " +
-      "Strong specular highlights on skin. Nothing soft, nothing flattering, nothing filled in.\n" +
-      "GRADE: hot and dry. Bleached sandy stone, deep dense shadows, high contrast, low saturation. " +
-      "A warm sand-and-shadow palette — almost monochrome in the stone, with the skin carrying " +
-      "the only real colour."
-  },
+  capriroad: { label: "Capri Clifftop", body:
+    "LOCATION: a clifftop road high above the sea in Capri. A vintage red Fiat convertible taxi with " +
+    "a fringed canopy parked on cracked concrete, a low stone wall, the Tyrrhenian Sea and a hazy " +
+    "headland far below.\n" +
+    "LIGHT: the sun just gone. A pale gold and lavender sky, soft flat afterglow, no hard shadows. " +
+    "The whole scene lit by the sky itself.\n" +
+    "GRADE: dusty pastel. Faded gold, dove grey, oxidised red. Very low contrast, milky lifted " +
+    "blacks, muted saturation. Romantic, nostalgic, faintly sun-damaged, like old Kodak." },
 
-  desert: {
-    label: "Desert Highway",
-    body:
-      "LOCATION: a vintage American car — a 60s Chevrolet or Cadillac, dust-covered, chrome dulled — " +
-      "on an empty gravel road running dead flat to a distant horizon. Nothing else for miles.\n" +
-      "LIGHT: the last twenty minutes before dark. The sun already below the horizon, so the light is " +
-      "flat, cool and directionless, with a warm sodium glow low along the skyline. Blue hour.\n" +
-      "GRADE: cinematic and cold. Deep desaturated slate-blue sky, warm dusty earth, muted skin. " +
-      "Crushed but not black shadows. A moody, wide, cinematic frame — the emptiness IS the picture."
-  },
+  coastroad: { label: "Coast Road", body:
+    "LOCATION: a headland car park above a harbour. A cream vintage Jaguar E-Type convertible with " +
+    "chrome wire wheels on cracked asphalt, hills and moored yachts hazy in the distance.\n" +
+    "LIGHT: hard low sun, late afternoon, coming almost straight into the lens from behind the " +
+    "subject. Strong rim light, deep contrasty shadows, visible haze and flare.\n" +
+    "GRADE: warm and bleached. Blown white sky, cream paintwork glowing, deep shadows. High contrast " +
+    "but desaturated - a sun-drenched, faintly overexposed 90s campaign look." },
 
-  brutalist: {
-    label: "Brutalist Coast",
-    body:
-      "LOCATION: a raw board-formed concrete interior open to the sea. Bare grey columns and beams, " +
-      "floor-to-ceiling glass, a herringbone timber floor, grey-green ocean churning outside.\n" +
-      "LIGHT: flat, cool, overcast daylight coming in from one huge window. Soft directional light " +
-      "with a long, gentle falloff into shadow. No sun, no sparkle, no fill.\n" +
-      "GRADE: cool, quiet and desaturated. Concrete grey, sea-green, bone white. Muted and " +
-      "atmospheric with lifted blacks. Restrained, architectural, still. Nearly monochrome."
-  },
+  clifftopglass: { label: "Clifftop Glass", body:
+    "LOCATION: a stone and glass house on a cliff edge above a wild ocean. A tall pane of glass " +
+    "throws a full mirror reflection of the person, with the sea, the headland and a winding path " +
+    "doubled in it.\n" +
+    "LIGHT: cool, flat, overcast coastal daylight. Soft, even, directionless, with a slight silver " +
+    "sheen on the glass. No sun.\n" +
+    "GRADE: cold and elegant. Bone white, slate, deep sea green. Low saturation, gentle contrast, " +
+    "crisp but not clinical. Still, expensive, editorial." },
 
-  palmsprings: {
-    label: "Palm Springs Modernist",
-    body:
-      "LOCATION: a mid-century modernist desert house. Warm timber, travertine, huge sliding glass, " +
-      "brushed brass. Outside, raked gravel, agave and aloe, and desert dissolving into haze.\n" +
-      "LIGHT: soft, hazy, diffused early morning light through marine fog or dust. Everything a " +
-      "little veiled, a little low-contrast. Gentle, directional, coming through the glass.\n" +
-      "GRADE: warm neutral and dreamy. Sand, bone, pale timber, dusty sage. Low contrast, lifted " +
-      "blacks, a faint warm bloom in the highlights. Languid, quiet, expensive."
-  },
+  oceandusk: { label: "Ocean at Dusk", body:
+    "LOCATION: standing in flat, glassy, waist-deep water at the ocean's edge as night comes in. " +
+    "Bare rock just breaking the surface. Nothing else - a huge empty horizon.\n" +
+    "LIGHT: the last light after sunset. Very dim, very soft, coming from the sky itself. A single " +
+    "faint edge of light modelling the face and shoulders out of near-darkness.\n" +
+    "GRADE: dark, quiet, almost monochrome. Warm grey water, a pale cream sky, deep shadow. Very low " +
+    "contrast in the sky, rich shadow on the body. Painterly, still, reverent." },
 
-  sandstone: {
-    label: "Sandstone",
-    body:
-      "LOCATION: enormous wind-eroded sandstone formations — wave-like layered rock, honeycombed and " +
-      "sculptural — rising out of pale sand. A vast, empty, primal landscape.\n" +
-      "LIGHT: hard, clean, high sun in a cloudless sky. Crisp shadows carving the rock. Strong, " +
-      "directional, sculptural — light that models form rather than flattering it.\n" +
-      "GRADE: bold and graphic. A deep saturated blue sky against warm ochre sandstone. High " +
-      "contrast, rich shadows, punchy but never garish. Sculptural, elemental, monumental."
-  }
+  // ── STONE / ARCHITECTURE ───────────────────────────────────────────────────
+  dubrovnik: { label: "Dubrovnik Stone", body:
+    "LOCATION: the base of an ancient limestone fortress wall on the Adriatic. Huge weathered stone " +
+    "blocks, pale sand and bleached rock underfoot, rusted iron pipework, the sea just out of frame.\n" +
+    "LIGHT: hard, high, unforgiving Mediterranean midday sun. Sharp-edged shadows with real shape. " +
+    "Strong specular highlights on skin. Nothing soft, nothing flattering, nothing filled in.\n" +
+    "GRADE: hot and dry. Bleached sandy stone, deep dense shadows, high contrast, low saturation. A " +
+    "warm sand-and-shadow palette - almost monochrome in the stone, the skin the only real colour." },
+
+  brutalist: { label: "Brutalist Coast", body:
+    "LOCATION: a raw board-formed concrete interior open to the sea. Bare grey columns and beams, " +
+    "floor-to-ceiling glass, a herringbone timber floor, grey-green ocean churning outside.\n" +
+    "LIGHT: flat, cool, overcast daylight from one huge window. Soft directional light with a long, " +
+    "gentle falloff into shadow. No sun, no sparkle, no fill.\n" +
+    "GRADE: cool, quiet, desaturated. Concrete grey, sea-green, bone white. Muted and atmospheric " +
+    "with lifted blacks. Restrained, architectural, still. Nearly monochrome." },
+
+  whiteconcrete: { label: "White Concrete", body:
+    "LOCATION: a set of broad, pale travertine steps between sharp white concrete forms - a modernist " +
+    "rooftop of hard geometric planes against open sky. Nothing soft anywhere.\n" +
+    "LIGHT: brilliant hard high sun in a cloudless sky. Crisp, graphic, black-edged shadows cutting " +
+    "across the steps. Bright, clean, uncompromising.\n" +
+    "GRADE: bold and graphic. Deep saturated cobalt sky against bone-white stone. High contrast, " +
+    "clean blacks, restrained palette. Sculptural, architectural, powerful." },
+
+  // ── DESERT ─────────────────────────────────────────────────────────────────
+  desert: { label: "Desert Highway", body:
+    "LOCATION: a vintage American car - a 60s Chevrolet or Cadillac, dust-covered, chrome dulled - " +
+    "on an empty gravel road running dead flat to a distant horizon. Nothing else for miles.\n" +
+    "LIGHT: the last twenty minutes before dark. The sun already below the horizon, so the light is " +
+    "flat, cool and directionless, with a warm sodium glow low along the skyline. Blue hour.\n" +
+    "GRADE: cinematic and cold. Deep desaturated slate-blue sky, warm dusty earth, muted skin. " +
+    "Crushed but not black shadows. A moody, wide, cinematic frame - the emptiness IS the picture." },
+
+  desertsunset: { label: "Desert Sunset", body:
+    "LOCATION: leaning into the open door of a battered white 60s Chevrolet on a red dirt plain. " +
+    "Dust on the paintwork, the horizon dead flat and endless.\n" +
+    "LIGHT: the sun on the horizon directly behind the car. Warm, low, glowing, throwing long soft " +
+    "shadows toward camera and haloing the hair. Gentle, golden, hazy.\n" +
+    "GRADE: warm and creamy. Butter-gold sky fading to dusty rose, rust-red earth, glowing skin. Low " +
+    "contrast, lifted blacks, soft blown highlights. Cinematic and romantic." },
+
+  desertsun: { label: "Desert Noon", body:
+    "LOCATION: a wrecked car and broken rock on a stark desert plain, hard mountains behind. " +
+    "Nothing living. Baked, bright, brutal.\n" +
+    "LIGHT: savage overhead noon sun in a deep cloudless sky. Tiny hard shadows straight down. " +
+    "Glaring specular highlights, sweat-sheen, squinting light.\n" +
+    "GRADE: high-contrast and saturated. A deep inky blue sky against bleached ground. Punchy, " +
+    "sharp, glittering. Bold, hot, futuristic - the sky almost navy." },
+
+  desertgold: { label: "Golden Desert", body:
+    "LOCATION: an open desert plain of pale sand and low dunes, distant hills soft in the haze. " +
+    "Empty, huge, silent.\n" +
+    "LIGHT: raking golden hour sun straight into the lens from behind the subject. Every edge lit, " +
+    "the air full of dust and glow. Strong flare and haze. Sparkles catching on fabric.\n" +
+    "GRADE: rich amber and bronze. Deep warm shadows, glowing highlights, heavy atmospheric haze. " +
+    "Sepia-adjacent, sculptural, almost monochromatic in gold." },
+
+  sandstone: { label: "Sandstone", body:
+    "LOCATION: enormous wind-eroded sandstone formations - wave-like layered rock, honeycombed and " +
+    "sculptural - rising out of pale sand. A vast, empty, primal landscape.\n" +
+    "LIGHT: hard, clean, high sun in a cloudless sky. Crisp shadows carving the rock. Strong, " +
+    "directional, sculptural - light that models form rather than flattering it.\n" +
+    "GRADE: bold and graphic. A deep saturated blue sky against warm ochre sandstone. High contrast, " +
+    "rich shadows, punchy but never garish. Sculptural, elemental, monumental." },
+
+  // ── HOUSES / INTERIORS ─────────────────────────────────────────────────────
+  palmsprings: { label: "Palm Springs", body:
+    "LOCATION: a mid-century modernist desert house. Warm timber, travertine, huge sliding glass, " +
+    "brushed brass. Outside, raked gravel, agave and aloe, and desert dissolving into haze.\n" +
+    "LIGHT: soft, hazy, diffused early morning light through marine fog or dust. Everything a little " +
+    "veiled, a little low-contrast. Gentle, directional, through the glass.\n" +
+    "GRADE: warm neutral and dreamy. Sand, bone, pale timber, dusty sage. Low contrast, lifted " +
+    "blacks, a faint warm bloom in the highlights. Languid, quiet, expensive." },
+
+  timberdeck: { label: "Timber Deck", body:
+    "LOCATION: the deck of a modernist timber-and-glass house. Rich vertical hardwood cladding, a " +
+    "huge sliding glass door reflecting the room within, a slatted deck chair, warm wood underfoot.\n" +
+    "LIGHT: soft, warm, ambient afternoon light, mostly bounced off the timber. Gentle directional " +
+    "falloff, deep warm shadow in the corners. Intimate, indoor-outdoor, unhurried.\n" +
+    "GRADE: rich and warm. Mahogany, rust, cognac, deep shadow. Saturated warm tones, moody contrast, " +
+    "creamy skin. Sensual, private, 70s-cinematic." },
+
+  woodroom: { label: "Wood Room", body:
+    "LOCATION: a still, minimal interior with a full wall of rich walnut panelling, sculptural bent-" +
+    "wood furniture and a pale poured concrete floor. Empty, quiet, expensive. A campaign set.\n" +
+    "LIGHT: soft, broad, controlled light from one side, like a huge window just out of frame. Gentle " +
+    "wraparound shadow, no hard edges. Calm and deliberate.\n" +
+    "GRADE: warm neutral and hushed. Walnut brown, cream, bone, oat. Muted saturation, soft contrast, " +
+    "lifted blacks. Serene, luxurious, understated - a heritage fashion house campaign." },
+
+  darkstudio: { label: "Dark Studio", body:
+    "LOCATION: a pure black studio void. No set, no floor line, no props - only the person and " +
+    "darkness.\n" +
+    "LIGHT: a single hard light and a slow shutter. Crisp where it catches, smearing into motion " +
+    "streaks and light trails everywhere else. Dramatic, sculptural, kinetic.\n" +
+    "GRADE: deep black with one saturated colour blazing out of it - scarlet, oxblood, electric " +
+    "orange. Crushed blacks, glowing highlights, heavy motion blur, a doubled ghosting edge. " +
+    "Graphic, avant-garde, high-drama." },
+
+  // ── STREET ─────────────────────────────────────────────────────────────────
+  street: { label: "Street Blur", body:
+    "LOCATION: a narrow city alley of old brick and stone, walking fast through a hard shaft of " +
+    "sunlight. The walls streak past.\n" +
+    "LIGHT: a hard, low, raking beam of sun cutting between buildings, hitting the face and body and " +
+    "leaving the rest in deep shadow. Sharp, dramatic, contrasty.\n" +
+    "GRADE: warm and gritty. Amber sunlight, deep brown-black shadow, blown highlights. Heavy motion " +
+    "blur through the whole background and a smeared, kinetic feel. High contrast, filmic, urgent - " +
+    "a stolen paparazzi frame." },
 };
 //
 //   "restage"   (default) — DON'T regenerate the person. Keep their exact face,
@@ -311,15 +397,40 @@ const LOOK = {
 // The preservation block. Every mode that keeps the person uses this, word for
 // word. Each line is here because leaving it out lets the model drift.
 const KEEP_PERSON =
-  "KEEP THE PERSON EXACTLY AS PHOTOGRAPHED. Preserve, faithfully and without alteration:\n" +
-  "  - Their face: every feature, their exact expression, their exact eye direction.\n" +
-  "  - Their exact pose and body position, including the position of their head, arms, hands and legs.\n" +
-  "  - Their hair, exactly as it falls, including flyaways and stray strands.\n" +
-  "  - Their outfit: every garment, its exact cut, fabric, colour, pattern and detail.\n" +
-  "  - Their jewellery, accessories, bag, and anything they are holding.\n" +
-  "  - Their real skin texture, including pores, marks and natural unevenness.\n" +
-  "Do NOT smooth, retouch, airbrush, slim, or beautify them in any way. Do not change their body. " +
-  "Do not restyle their hair or clothes. The person must be identical to the input photograph.\n\n";
+  "═══ ABSOLUTE, NON-NEGOTIABLE RULE — THIS OVERRIDES EVERYTHING ELSE BELOW ═══\n" +
+  "The person in the attached photograph must appear in the output as THE SAME HUMAN BEING. Not a " +
+  "similar-looking person. Not an idealised version. Not a model who resembles them. The SAME " +
+  "person, recognisable instantly by anyone who knows them.\n\n" +
+
+  "TREAT THE PERSON AS A FIXED, UNEDITABLE LAYER. You are compositing them into a new background. " +
+  "You are NOT redrawing them. If any instruction later in this prompt would change the person, " +
+  "IGNORE that instruction. The environment must bend around the person, never the reverse.\n\n" +
+
+  "COPY THE PERSON PIXEL-FOR-PIXEL. Preserve, with zero alteration:\n" +
+  "  - FACE: the exact bone structure, jawline, cheekbones, brow, nose shape, lip shape, eye shape " +
+  "and eye spacing. The exact skin tone. The exact expression. The exact eye direction. Any freckles, " +
+  "moles, marks or scars stay exactly where they are.\n" +
+  "  - POSE: the exact position of the head, neck, shoulders, torso, arms, hands, fingers, legs and " +
+  "feet. The exact tilt of the head. The exact angle of the body to camera. Do NOT re-pose, " +
+  "straighten, or 'improve' the pose in any way.\n" +
+  "  - BODY: the exact body shape, proportions and size. Do NOT slim, lengthen, lift, sculpt, or " +
+  "otherwise flatter the body. Their body is correct as photographed.\n" +
+  "  - HAIR: the exact style, length, texture, parting and colour, including every flyaway and stray " +
+  "strand exactly where it falls.\n" +
+  "  - OUTFIT: every garment, its exact cut, drape, fabric, colour, pattern, logo and detail. Every " +
+  "fold and wrinkle. Do NOT restyle, swap, add or remove clothing.\n" +
+  "  - ACCESSORIES: all jewellery, bags, glasses, watches, and anything held, exactly as they are.\n" +
+  "  - SKIN: real texture - pores, fine lines, natural unevenness, blemishes, sheen. Do NOT smooth, " +
+  "retouch, airbrush, blur, even out, or beautify the skin in any way.\n\n" +
+
+  "FORBIDDEN: changing the face. Changing the pose. Changing the body. Changing the outfit. " +
+  "Prettifying. Slimming. Smoothing. Making them look more like a professional model. Substituting a " +
+  "different person. Blending in a second face. If the output shows a different person, the image is " +
+  "a FAILURE, no matter how good the environment looks.\n\n" +
+
+  "The ONLY thing you may change about the person is the LIGHT falling on them and the COLOUR GRADE " +
+  "applied to them, so they sit believably in the new environment.\n" +
+  "═══════════════════════════════════════════════════════════════════════════\n\n";
 
 const INTEGRATE =
   "Then integrate them into that environment so it looks real:\n" +
@@ -358,13 +469,9 @@ function buildPrompt(scene, mode, preset) {
 
       "Put the person from IMAGE 1 into the world of IMAGE 2.\n\n" +
 
-      "FROM IMAGE 1, keep the person EXACTLY as photographed:\n" +
-      "  - Their face: every feature, their exact expression, their exact eye direction.\n" +
-      "  - Their exact pose and body position, their head, arms, hands and legs.\n" +
-      "  - Their hair, exactly as it falls.\n" +
-      "  - Their outfit: every garment, its cut, fabric, colour, pattern and detail.\n" +
-      "  - Their jewellery, accessories, and anything they are holding.\n" +
-      "  - Their real skin texture. Do not smooth, retouch, slim or beautify them.\n\n" +
+      KEEP_PERSON +
+
+      "That absolute rule applies to the person in IMAGE 1 ONLY.\n\n" +
 
       "FROM IMAGE 2, take EVERYTHING ELSE — copy its look precisely:\n" +
       "  - The location and environment.\n" +

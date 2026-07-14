@@ -2183,13 +2183,36 @@ async function cgReadJson(r){
   return d;
 }
 
+// Names only — grouped so 18 looks stay scannable instead of a wall of text.
 const CG_LOOKS = [
-  { id:"capri",       label:"Capri Harbour",         desc:"Varnished Italian motor launch, pastel town on the hillside, low golden sun off the water. Sun-bleached, hazy, creamy highlights." },
-  { id:"dubrovnik",   label:"Dubrovnik Stone",       desc:"Ancient limestone fortress wall on the Adriatic. Hard midday sun, sharp shadows, bleached stone. Hot, dry, high contrast." },
-  { id:"desert",      label:"Desert Highway",        desc:"A dust-covered 60s American car on an empty gravel road. Blue hour, flat cool light, warm glow on the horizon. Cinematic and cold." },
-  { id:"brutalist",   label:"Brutalist Coast",       desc:"Raw board-formed concrete open to a grey-green ocean. Flat overcast light through huge glass. Cool, quiet, nearly monochrome." },
-  { id:"palmsprings", label:"Palm Springs Modernist",desc:"Mid-century desert house, travertine and brass, agave outside. Hazy diffused morning fog. Warm neutral, low contrast, languid." },
-  { id:"sandstone",   label:"Sandstone",             desc:"Wind-eroded wave-like rock rising from pale sand. Hard high sun, deep blue sky, sculptural shadows. Bold and graphic." },
+  { group:"Italy & coast", items:[
+    { id:"capri",         label:"Capri Harbour" },
+    { id:"capriroad",     label:"Capri Clifftop" },
+    { id:"coastroad",     label:"Coast Road" },
+    { id:"clifftopglass", label:"Clifftop Glass" },
+    { id:"oceandusk",     label:"Ocean at Dusk" },
+  ]},
+  { group:"Stone & architecture", items:[
+    { id:"dubrovnik",     label:"Dubrovnik Stone" },
+    { id:"brutalist",     label:"Brutalist Coast" },
+    { id:"whiteconcrete", label:"White Concrete" },
+  ]},
+  { group:"Desert", items:[
+    { id:"desert",        label:"Desert Highway" },
+    { id:"desertsunset",  label:"Desert Sunset" },
+    { id:"desertsun",     label:"Desert Noon" },
+    { id:"desertgold",    label:"Golden Desert" },
+    { id:"sandstone",     label:"Sandstone" },
+  ]},
+  { group:"Houses & interiors", items:[
+    { id:"palmsprings",   label:"Palm Springs" },
+    { id:"timberdeck",    label:"Timber Deck" },
+    { id:"woodroom",      label:"Wood Room" },
+    { id:"darkstudio",    label:"Dark Studio" },
+  ]},
+  { group:"Street", items:[
+    { id:"street",        label:"Street Blur" },
+  ]},
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2262,14 +2285,17 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       )}
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"16px 0 8px"}}>Pick a look</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:8,marginBottom:16}}>
-        {CG_LOOKS.map(l=>(
-          <button key={l.id} onClick={()=>setLook(l.id)} style={{textAlign:"left",padding:12,border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,cursor:"pointer"}}>
-            <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",marginBottom:5}}>{l.label}</div>
-            <div style={{fontFamily:"sans-serif",fontSize:11,lineHeight:1.5,color:look===l.id?"rgba(255,255,255,0.72)":B.mid}}>{l.desc}</div>
-          </button>
-        ))}
-      </div>
+      {CG_LOOKS.map(g=>(
+        <div key={g.group} style={{marginBottom:12}}>
+          <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {g.items.map(l=>(
+              <button key={l.id} onClick={()=>setLook(l.id)} style={{padding:"8px 14px",border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{height:6}} />
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
       <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="leaning on the bonnet, shot from low down"
