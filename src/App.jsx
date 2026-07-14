@@ -2152,15 +2152,15 @@ function shrinkImage(file, maxEdge = 1024, quality = 0.88) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const MAX_PHOTOS = 3;
-  const [photos,setPhotos]   = React.useState([]);   // [{mimeType,data,preview}]
-  const [scene,setScene]     = React.useState("");
-  const [aspect,setAspect]   = React.useState("4:5");
-  const [quality,setQuality] = React.useState("standard");
-  const [consent,setConsent] = React.useState(false);
-  const [busy,setBusy]       = React.useState(false);
-  const [err,setErr]         = React.useState("");
-  const [image,setImage]     = React.useState(null);
-  const [gallery,setGallery] = React.useState([]);
+  const [photos,setPhotos]   = useState([]);   // [{mimeType,data,preview}]
+  const [scene,setScene]     = useState("");
+  const [aspect,setAspect]   = useState("4:5");
+  const [quality,setQuality] = useState("standard");
+  const [consent,setConsent] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [image,setImage]     = useState(null);
+  const [gallery,setGallery] = useState([]);
 
   const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
 
