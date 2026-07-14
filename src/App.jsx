@@ -2156,6 +2156,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   const [scene,setScene]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
   const [quality,setQuality] = useState("standard");
+  const [mode,setMode]       = useState("restage");   // "restage" = keep pose+outfit, swap background. "reimagine" = new photo of you.
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
@@ -2237,6 +2238,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           consent: true,
           aspectRatio: aspect,
           quality,
+          mode,
           photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
         }),
       });
@@ -2256,16 +2258,25 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       setImage(d.image);
       setGallery(g=>[d.image,...g].slice(0,24));
       if(typeof d.balance==="number") onBalance(d.balance);
-      track("tool_used",{tool:"restage",quality}); onToolUse("restage", COST);
+      track("tool_used",{tool:"restage",mode,quality}); onToolUse("restage", COST);
     }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
     setBusy(false);
   }
 
-  const IDEAS = [
+  // In restage mode the outfit is KEPT from your photo, so the ideas are PLACES only.
+  // In reimagine mode the outfit is invented, so the ideas can include one.
+  const IDEAS = mode === "restage" ? [
+    "a balcony overlooking the Amalfi Coast at golden hour",
+    "a Paris cafe on a rainy afternoon",
+    "a Tokyo rooftop at night, neon city lights behind",
+    "a sunlit New York street in autumn",
+    "a white sand beach at sunrise",
+    "a minimal studio with soft window light",
+  ] : [
     "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress",
-    "in a Paris café in a tailored trench coat, film photography look",
-    "on a rooftop in Tokyo at night, city lights behind me",
-    "walking through a sunlit New York street in autumn, camel coat",
+    "in a Paris cafe in a tailored trench coat, film photography look",
+    "on a Tokyo rooftop at night, city lights behind me",
+    "walking a sunlit New York street in autumn, camel coat",
     "on a white sand beach at sunrise, linen shirt, barefoot",
     "in a modern studio with soft window light, cream knit sweater",
   ];
@@ -2289,7 +2300,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
       {photos.length>0 && (
         <div style={{marginBottom:14}}>
-          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS}</p>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS}{mode==="restage" && photos.length>1 ? " — only the first is restaged" : ""}</p>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {photos.map((p,i)=>(
               <div key={i} style={{position:"relative"}}>
@@ -2301,10 +2312,23 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         </div>
       )}
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"14px 0 6px"}}>Where are you?</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>What should we do?</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["restage","Same photo, new place"],["reimagine","A whole new photo of me"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{ setMode(v); setScene(""); }} style={{padding:"9px 18px",border:"1px solid "+(mode===v?B.charcoal:B.stone),background:mode===v?B.charcoal:"#fff",color:mode===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        {mode==="restage"
+          ? "Keeps you exactly as you are in the photo — same face, same pose, same outfit, same hair — and only swaps the background, relighting you to match. This is the most accurate option."
+          : "Invents a brand new photo of you in a new pose and outfit. More creative, but it won't look as exactly like you."}
+      </p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>{mode==="restage" ? "Put me here" : "Where are you?"}</p>
       <textarea value={scene} onChange={e=>setScene(e.target.value)} rows={3}
-        placeholder="on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress"
+        placeholder={mode==="restage" ? "a balcony overlooking the Amalfi Coast at golden hour" : "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress"}
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box"}} />
+      {mode==="restage" && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Just describe the place. Your outfit and pose come from your photo — don't describe them here.</p>}
 
       <div style={{display:"flex",gap:6,flexWrap:"wrap",margin:"8px 0 16px"}}>
         {IDEAS.map(idea=>(

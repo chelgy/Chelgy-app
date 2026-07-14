@@ -199,32 +199,74 @@ async function photoIsSafe(key, images) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The locked prompt scaffold.
+// The locked prompt scaffold. The user only supplies the SCENE — they never see
+// or type any of this. Two modes:
 //
-// This is the part that actually keeps the render from going plastic, and the
-// user never sees it or types it. Every call gets it, word for word. The user
-// only supplies the SCENE. Do not water this down — "do not smooth, retouch or
-// beautify" is the single most load-bearing sentence in this whole file.
+//   "restage"   (default) — DON'T regenerate the person. Keep their exact face,
+//                pose, hands, hair and outfit from the photo, and only swap the
+//                world around them, relighting them to match. This is a
+//                compositing job. It is far more faithful, because the person is
+//                literally the photograph — nothing about them is invented.
+//
+//   "reimagine" — generate a NEW photo of the same person in a new pose/outfit.
+//                More creative freedom, less exact. This is the old behaviour.
+//
+// Do not water down the preservation list in "restage". Every line in it is
+// there because leaving it out lets the model drift somewhere.
 // ─────────────────────────────────────────────────────────────────────────────
-function buildPrompt(scene) {
+function buildPrompt(scene, mode) {
+  const s = String(scene).trim();
+
+  if (mode === "reimagine") {
+    return (
+      "Using the attached photo(s) as the reference for this person, generate a new photograph " +
+      "of the SAME person, " + s + ".\n\n" +
+
+      "IDENTITY — the most important instruction:\n" +
+      "Preserve this person's face exactly as it appears in the reference. Keep the same facial " +
+      "structure, bone structure, eyes, nose and mouth, the same skin tone, and the same real skin " +
+      "texture including pores, fine lines and natural unevenness. Keep the same hair texture " +
+      "including its natural frizz and flyaways. Do NOT smooth, retouch, airbrush, slim or beautify " +
+      "them. Do NOT alter their features. They must be immediately recognisable as the person in " +
+      "the reference photo.\n\n" +
+
+      "REALISM:\n" +
+      "Light the scene with a single clear directional source so shadows fall believably across one " +
+      "side of the face. Render it as a real candid photograph - natural grain, believable depth of " +
+      "field, natural catchlights in the eyes, slightly imperfect framing. Avoid a glossy, waxy, " +
+      "airbrushed or CGI look. Avoid flat, directionless studio lighting. It should look photographed, " +
+      "not generated."
+    );
+  }
+
+  // ── DEFAULT: strict compositing. The person is NOT regenerated. ──
   return (
-    "Using the attached photo(s) as the reference for this person, generate a new photograph " +
-    "of the SAME person, " + String(scene).trim() + ".\n\n" +
+    "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
 
-    "IDENTITY — this is the most important instruction:\n" +
-    "Preserve this person's face exactly as it appears in the reference. Keep the same facial " +
-    "structure, the same bone structure, the same eyes, nose and mouth, the same skin tone, and " +
-    "the same real skin texture including pores, fine lines and natural unevenness. Keep the same " +
-    "hair texture, including its natural frizz and flyaways. Do NOT smooth, retouch, airbrush, " +
-    "slim, or beautify them in any way. Do NOT alter their features. They should be immediately " +
-    "recognisable as the person in the reference photo.\n\n" +
+    "KEEP THE PERSON EXACTLY AS PHOTOGRAPHED. Preserve, faithfully and without alteration:\n" +
+    "  - Their face: every feature, their exact expression, their exact eye direction.\n" +
+    "  - Their exact pose and body position, including the position of their head, arms, hands and legs.\n" +
+    "  - Their hair, exactly as it falls, including flyaways and stray strands.\n" +
+    "  - Their outfit: every garment, its exact cut, fabric, colour, pattern and detail.\n" +
+    "  - Their jewellery, accessories, bag, and anything they are holding.\n" +
+    "  - Their real skin texture, including pores, marks and natural unevenness.\n" +
+    "Do NOT smooth, retouch, airbrush, slim, or beautify them in any way. Do not change their body. " +
+    "Do not restyle their hair or clothes. The person must be identical to the input photograph.\n\n" +
 
-    "REALISM:\n" +
-    "Light the scene with a single clear directional light source so shadows fall believably across " +
-    "one side of the face. Render it as a real candid photograph taken on a good camera - natural " +
-    "grain, believable depth of field, natural catchlights in the eyes, slightly imperfect framing. " +
-    "Avoid a glossy, waxy, airbrushed or CGI look. Avoid flat, directionless studio lighting. " +
-    "It should look photographed, not generated."
+    "CHANGE ONLY THE ENVIRONMENT AROUND THEM. Place them in: " + s + "\n\n" +
+
+    "Then integrate them into that environment so it looks real:\n" +
+    "  - Relight the person to match the new scene. Match the direction of the light, its colour " +
+    "temperature, its hardness or softness, and its intensity. If the light in the new scene comes " +
+    "from one side, the light on the person must come from that same side.\n" +
+    "  - Match the colour grade of the person to the environment so they share the same palette.\n" +
+    "  - Add correct contact shadows where the person meets the ground or any surface, and cast a " +
+    "believable shadow in the direction the new light dictates.\n" +
+    "  - Match the depth of field, focus falloff and grain of the new scene.\n" +
+    "  - Keep the same camera angle, distance and framing relative to the person.\n\n" +
+
+    "The result must look like this exact photograph was originally taken in that place - a real " +
+    "photo, not a cut-out pasted onto a backdrop. Photographed, not generated."
   );
 }
 
@@ -259,6 +301,9 @@ export default async function handler(req, res) {
     const allowedRatios = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
     const aspectRatio = allowedRatios.includes(body.aspectRatio) ? body.aspectRatio : "4:5";
     const quality = body.quality === "high" ? "high" : "standard";
+    // "restage" = keep the exact person, swap the world (default, far more faithful).
+    // "reimagine" = generate a new photo of them in a new pose/outfit.
+    const mode = body.mode === "reimagine" ? "reimagine" : "restage";
 
     // ── Basic validation ──
     if (!consent)        return res.status(400).json({ error: "Please confirm these are photos of you before continuing." });
@@ -285,16 +330,21 @@ export default async function handler(req, res) {
 
     // ── Only now do we take the money ──
     const cost = quality === "high" ? 450 : 150;
-    const paid = await spend(token, cost, "restage:" + quality);
+    const paid = await spend(token, cost, "restage:" + mode + ":" + quality);
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
     // ── Generate ──
     const model = quality === "high" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
     const imageConfig = quality === "high" ? { aspectRatio, imageSize: "2K" } : { aspectRatio };
 
+    // In "restage" mode we are editing ONE photograph — passing extra references
+    // just confuses a compositing job (which pose is it meant to keep?). In
+    // "reimagine" mode more references genuinely help identity, so pass them all.
+    const usePhotos = mode === "restage" ? photos.slice(0, 1) : photos;
+
     const parts = [
-      ...photos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
-      { text: buildPrompt(scene) }
+      ...usePhotos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
+      { text: buildPrompt(scene, mode) }
     ];
 
     let r, data;
