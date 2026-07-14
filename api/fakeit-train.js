@@ -117,6 +117,15 @@ export default async function handler(req, res) {
 
     const zipBuffer = makeZip(files);
 
+    // Guard: fal rejects very large uploads (413). The app shrinks photos in the
+    // browser first, so this should never trip — but fail with a clear message
+    // instead of a raw 413 if it somehow does.
+    const MB = zipBuffer.length / (1024 * 1024);
+    if (MB > 45) {
+      res.status(413).json({ error: 'Those photos are too large (' + MB.toFixed(0) + 'MB). Try fewer photos, or smaller ones.' });
+      return;
+    }
+
     // --- 6) Upload the ZIP to fal's file storage ---------------------------
     const zipUrl = await falUpload(zipBuffer, 'training.zip', 'application/zip');
 

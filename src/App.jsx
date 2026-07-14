@@ -2107,12 +2107,42 @@ function defaultSection(type){
 // ============================================================================
 // FAKE IT — train a model of YOURSELF, then put yourself anywhere.
 // ============================================================================
+// Shrink a photo before upload. Modern phone shots are 3-8MB each; 20 of those
+// blow past fal's upload limit (a 413). Training resizes internally anyway, so
+// 1024px on the long edge costs us NOTHING in likeness and cuts size ~10-20x.
+function shrinkImage(file, maxEdge = 1024, quality = 0.88) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        try {
+          let { width: w, height: h } = img;
+          const scale = Math.min(1, maxEdge / Math.max(w, h));
+          w = Math.round(w * scale); h = Math.round(h * scale);
+          const c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          const ctx = c.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          c.toBlob((blob) => {
+            URL.revokeObjectURL(url);
+            resolve(blob || file);   // fall back to the original if anything odd
+          }, "image/jpeg", quality);
+        } catch (e) { URL.revokeObjectURL(url); resolve(file); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    } catch (e) { resolve(file); }
+  });
+}
+
 function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [model, setModel] = useState(null);       // the user's trained model (if any)
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState([]);         // photos chosen for training
   const [consent, setConsent] = useState(false);
   const [training, setTraining] = useState(false);
+  const [trainMsg, setTrainMsg] = useState("");
   const [err, setErr] = useState("");
   const [prompt, setPrompt] = useState("");
   const [aspect, setAspect] = useState("4:5");
@@ -2229,16 +2259,17 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
     try{
       const tok = await freshToken();
       if(!tok) throw new Error("Please sign in again.");
-      // Upload each photo into THIS user's private folder.
+      // Upload each photo into THIS user's private folder — shrunk first, so a
+      // batch of 20+ phone photos doesn't blow past the upload size limit.
       const paths = [];
       for(let i=0;i<files.length;i++){
-        const f = files[i];
-        const ext = (f.name.split(".").pop()||"jpg").toLowerCase();
-        const path = user.id+"/"+Date.now()+"-"+i+"."+ext;
+        setTrainMsg("Preparing photo "+(i+1)+" of "+files.length+"\u2026");
+        const small = await shrinkImage(files[i]);
+        const path = user.id+"/"+Date.now()+"-"+i+".jpg";
         const up = await fetch(SUPABASE_URL+"/storage/v1/object/ai-twin-training/"+path, {
           method:"POST",
-          headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type": f.type||"image/jpeg" },
-          body: f,
+          headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"image/jpeg" },
+          body: small,
         });
         if(!up.ok){
           let why = "";
@@ -2256,10 +2287,12 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
       if(!r.ok) throw new Error(d.error||"Could not start training.");
       setModel(d.model||null);
       setFiles([]);
+      setTrainMsg("");
       track("tool_used",{tool:"fakeit_train"}); onToolUse("fakeit_train", TRAIN_COST);
     }catch(e){
       setErr((e&&e.message)||"Training could not start.");
     }
+    setTrainMsg("");
     setTraining(false);
   }
 
@@ -2344,6 +2377,7 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
             <button onClick={startTraining} disabled={training} style={{background:B.charcoal,color:"#fff",border:"none",padding:"14px 28px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:training?"not-allowed":"pointer",opacity:training?0.6:1}}>
               {training?"STARTING…":"TRAIN MY MODEL"}
             </button>
+            {training&&trainMsg&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{trainMsg}</span>}
             <CreditTag n={TRAIN_COST} />
             <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>one-time · you have {Number(credits).toLocaleString()}</span>
           </div>
@@ -4584,11 +4618,23 @@ function ToolCallout({ rec, onGo }){
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
 const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
+  /* ═══════════════════════════════════════════════════════════════════════
+     HIDDEN: Leads  —  uncomment this ONE block to bring it back.
+     ───────────────────────────────────────────────────────────────────────
+     Why it's hidden: Lead Finder only finds BUSINESSES, so it's B2B-only —
+     useless to the salons/coaches/boutiques who make up most of our users.
+     It also needs a working GOOGLE_PLACES_KEY (currently failing) and Website
+     Extractor is blocked by sites like Yelp.
+     NOTHING is deleted: LeadFinder / WebsiteLeads / Outreach components, the
+     api files (leads.js, extract-leads.js, outreach-*.js) and all saved leads
+     in Supabase are untouched. This only hides the menu entry.
+
   { id:"cat_leads", title:"Leads", icon:"Target", blurb:"Build a list of real businesses to sell to. Search any city and industry on Google, or pull every business off a directory page — you get names, websites, phone numbers and addresses, ready to export to a spreadsheet.",
     tabs:[ {label:"Lead Finder",tool:"leadfinder"}, {label:"Website Extractor",tool:"websiteleads"} ] },
-  /* NOTE: "My Leads & Outreach" (mass email + SMS) is intentionally NOT listed here.
-     The tool code and api files still exist — add {label:"My Leads & Outreach",tool:"outreach"}
-     back to the tabs above to re-enable it. */
+
+     (Mass email + SMS stays off even then — add {label:"My Leads & Outreach",tool:"outreach"}
+      to the tabs above if you ever want it back.)
+     ═══════════════════════════════════════════════════════════════════════ */
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Start a business from nothing, or fix the one you have. Answer a few questions and get your website, logo, brand and launch plan built for you — then audit what's working, ask a coach anything, and find grants you actually qualify for.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
   { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build a real website and put it online today. Pick a look, let Chelgy write and design it, connect your own domain, and — if you're selling — source products from vetted suppliers without holding any stock.",
