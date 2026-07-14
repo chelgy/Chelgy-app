@@ -2220,7 +2220,8 @@ const CG_LOOKS = [
    Runs on /api/fakeit-restage with mode:"editorial".
    ═══════════════════════════════════════════════════════════════════════════ */
 function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
-  const [photo,setPhoto]     = useState(null);
+  const MAX_PHOTOS = 8;
+  const [photos,setPhotos]   = useState([]);
   const [look,setLook]       = useState("capri");
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
@@ -2234,19 +2235,26 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
   const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
 
   async function pick(e){
-    const f = (e.target.files||[])[0];
+    const files = Array.from(e.target.files||[]);
     e.target.value = "";
-    if(!f) return;
-    setErr(""); setBusy(true);
-    try{ setPhoto(await cgShrinkPhoto(f)); }
-    catch{ setErr("That photo couldn't be read. Try a JPG or PNG."); }
+    if(!files.length) return;
+    setErr("");
+    const room = MAX_PHOTOS - photos.length;
+    if(room <= 0){ setErr("Eight photos is the maximum."); return; }
+    setBusy(true);
+    const next = [];
+    for(const f of files.slice(0,room)){
+      try{ next.push(await cgShrinkPhoto(f)); }
+      catch{ setErr("One of those photos couldn't be read. Try a JPG or PNG."); }
+    }
+    setPhotos(p=>[...p,...next]);
     setBusy(false);
   }
 
   async function generate(){
     setErr(""); setImage(null);
-    if(!consent){ setErr("Please confirm this is a photo of you."); return; }
-    if(!photo){ setErr("Upload a clear photo of yourself."); return; }
+    if(!consent){ setErr("Please confirm these are photos of you."); return; }
+    if(!photos.length){ setErr("Upload at least one clear photo of yourself."); return; }
     if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     setBusy(true);
     try{
@@ -2257,7 +2265,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
         body: JSON.stringify({
           mode:"editorial", preset:look, consent:true,
           scene: extra.trim(), aspectRatio:aspect, quality,
-          photos:[{ mimeType:photo.mimeType, data:photo.data }],
+          photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
         }),
       });
       const d = await cgReadJson(r);
@@ -2276,11 +2284,27 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
         Editorial locations with the lighting and colour grading to match. Your face, your pose, your outfit — dropped into a magazine shoot.
       </p>
 
-      <input type="file" accept="image/*" onChange={pick} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
-      {photo && (
-        <div style={{marginBottom:16,position:"relative",display:"inline-block"}}>
-          <img src={photo.preview} alt="" style={{width:90,height:114,objectFit:"cover",border:"1px solid "+B.stone}} />
-          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+      <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
+        <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
+          <li><strong style={{color:B.charcoal}}>Wear the same outfit in every photo.</strong> That's how it learns your clothes as well as your face.</li>
+          <li><strong style={{color:B.charcoal}}>Give it as many as you can</strong> — up to 8. Different angles: straight on, three-quarter, profile, full body, close up.</li>
+          <li>Good light, face clearly visible. No sunglasses, no heavy filters, just you in frame.</li>
+        </ul>
+      </div>
+
+      <input type="file" accept="image/*" multiple onChange={pick} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {photos.length>0 && (
+        <div style={{marginBottom:16}}>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS} — the more angles, the better the likeness</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {photos.map((p,i)=>(
+              <div key={i} style={{position:"relative"}}>
+                <img src={p.preview} alt="" style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone}} />
+                <button onClick={()=>setPhotos(x=>x.filter((_,n)=>n!==i))} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -2317,7 +2341,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
         <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
-          This is a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+          These are photos of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
         </span>
       </label>
 
@@ -2353,7 +2377,8 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
    Runs on /api/fakeit-restage with mode:"stylematch".
    ═══════════════════════════════════════════════════════════════════════════ */
 function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
-  const [me,setMe]           = useState(null);
+  const MAX_PHOTOS = 8;
+  const [me,setMe]           = useState([]);   // up to 8 photos of you, same outfit
   const [style,setStyle]     = useState(null);
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
@@ -2367,22 +2392,27 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
 
   async function pick(e, which){
-    const f = (e.target.files||[])[0];
+    const files = Array.from(e.target.files||[]);
     e.target.value = "";
-    if(!f) return;
+    if(!files.length) return;
     setErr(""); setBusy(true);
     try{
-      const p = await cgShrinkPhoto(f);
-      if(which==="me") setMe(p); else setStyle(p);
+      if(which==="style"){ setStyle(await cgShrinkPhoto(files[0])); }
+      else {
+        const room = MAX_PHOTOS - me.length;
+        const next = [];
+        for(const f of files.slice(0, Math.max(0,room))) next.push(await cgShrinkPhoto(f));
+        setMe(p=>[...p,...next]);
+      }
     }catch{ setErr("That image couldn't be read. Try a JPG or PNG."); }
     setBusy(false);
   }
 
   async function generate(){
     setErr(""); setImage(null);
-    if(!consent){ setErr("Please confirm image 1 is a photo of you."); return; }
-    if(!me){ setErr("Upload image 1 — a clear photo of you."); return; }
-    if(!style){ setErr("Upload image 2 — the look you want to copy."); return; }
+    if(!consent){ setErr("Please confirm these are photos of you."); return; }
+    if(!me.length){ setErr("Upload at least one clear photo of you."); return; }
+    if(!style){ setErr("Upload the look you want to copy."); return; }
     if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     setBusy(true);
     try{
@@ -2393,7 +2423,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         body: JSON.stringify({
           mode:"stylematch", consent:true,
           scene: extra.trim(), aspectRatio:aspect, quality,
-          photos:[{ mimeType:me.mimeType, data:me.data }],
+          photos: me.map(p=>({ mimeType:p.mimeType, data:p.data })),
           stylePhoto:{ mimeType:style.mimeType, data:style.data },
         }),
       });
@@ -2406,21 +2436,6 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     setBusy(false);
   }
 
-  const Slot = ({ label, hint, photo, onPick, onClear }) => (
-    <div style={{flex:"1 1 240px",border:"1px solid "+B.stone,padding:14}}>
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 4px"}}>{label}</p>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>{hint}</p>
-      {photo ? (
-        <div style={{position:"relative",display:"inline-block"}}>
-          <img src={photo.preview} alt="" style={{width:110,height:140,objectFit:"cover",border:"1px solid "+B.stone}} />
-          <button onClick={onClear} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
-        </div>
-      ) : (
-        <input type="file" accept="image/*" onChange={onPick} style={{fontFamily:"sans-serif",fontSize:12,display:"block"}} />
-      )}
-    </div>
-  );
-
   return (
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Style Match</h3>
@@ -2428,18 +2443,34 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         Found a photo with a look you love? Upload it. We'll put you into its world — same location, same lighting, same colour grading, same grain.
       </p>
 
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:18}}>
-        <Slot label="Image 1 · You"
-              hint="A clear photo of you. Your face, pose and outfit are kept exactly."
-              photo={me} onPick={e=>pick(e,"me")} onClear={()=>setMe(null)} />
-        <Slot label="Image 2 · The look"
-              hint="The photo whose location, light and colour you want. Anyone in it is ignored."
-              photo={style} onPick={e=>pick(e,"style")} onClear={()=>setStyle(null)} />
-      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 4px"}}>You</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>Up to 8 photos, <strong style={{color:B.charcoal}}>same outfit in all of them</strong>, different angles. The more you give it, the more it looks like you.</p>
+      <input type="file" accept="image/*" multiple onChange={e=>pick(e,"me")} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:8,display:"block"}} />
+      {me.length>0 && (
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+          {me.map((p,i)=>(
+            <div key={i} style={{position:"relative"}}>
+              <img src={p.preview} alt="" style={{width:70,height:88,objectFit:"cover",border:"1px solid "+B.stone}} />
+              <button onClick={()=>setMe(x=>x.filter((_,n)=>n!==i))} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 4px"}}>The look</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>One photo whose location, lighting and colour grading you want. Anyone in it is ignored.</p>
+      {style ? (
+        <div style={{position:"relative",display:"inline-block",marginBottom:16}}>
+          <img src={style.preview} alt="" style={{width:110,height:140,objectFit:"cover",border:"1px solid "+B.stone}} />
+          <button onClick={()=>setStyle(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+        </div>
+      ) : (
+        <input type="file" accept="image/*" onChange={e=>pick(e,"style")} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:16,display:"block"}} />
+      )}
 
       <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
         <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
-          <strong style={{color:B.charcoal}}>Only the look is copied.</strong> The person in image 2 is ignored entirely — their face, body and clothes have no effect. We take the place, the light, the colour grading, the grain and the framing, and nothing else. Use images you have the right to use; the result is yours, but the reference isn't.
+          <strong style={{color:B.charcoal}}>Only the look is copied.</strong> The person in the look photo is ignored entirely — their face, body and clothes have no effect. We take the place, the light, the colour grading, the grain and the framing, and nothing else. Use images you have the right to use; the result is yours, but the reference isn't.
         </p>
       </div>
 
@@ -2461,14 +2492,14 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
         <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
-          Image 1 is a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+          These are photos of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
         </span>
       </label>
 
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       <Btn dark full disabled={busy} onClick={generate}>
-        {busy ? "MATCHING…" : "PUT ME IN IMAGE 2 · "+COST.toLocaleString()+" CREDITS"}
+        {busy ? "MATCHING…" : "PUT ME IN THIS LOOK · "+COST.toLocaleString()+" CREDITS"}
       </Btn>
       {busy && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>Usually 10 to 25 seconds.</p>}
 
@@ -2505,12 +2536,11 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
    Server: /api/fakeit-restage.js  (consent + word blocklist + photo NSFW check)
    ═══════════════════════════════════════════════════════════════════════════ */
 function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
-  const MAX_PHOTOS = 5;   // only "reimagine" uses more than one; restage composites from photo 1
+  const MAX_PHOTOS = 8;   // more angles of the same outfit = a better likeness. That is the whole strategy.
   const [photos,setPhotos]   = useState([]);   // [{mimeType,data,preview}]
   const [scene,setScene]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
   const [quality,setQuality] = useState("standard");
-  const [mode,setMode]       = useState("restage");   // "restage" = keep pose+outfit, swap background. "reimagine" = new photo of you.
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
@@ -2592,7 +2622,6 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           consent: true,
           aspectRatio: aspect,
           quality,
-          mode,
           photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
         }),
       });
@@ -2612,27 +2641,18 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       setImage(d.image);
       setGallery(g=>[d.image,...g].slice(0,24));
       if(typeof d.balance==="number") onBalance(d.balance);
-      track("tool_used",{tool:"restage",mode,quality}); onToolUse("restage", COST);
+      track("tool_used",{tool:"restage",quality}); onToolUse("restage", COST);
     }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
     setBusy(false);
   }
 
-  // In restage mode the outfit is KEPT from your photo, so the ideas are PLACES only.
-  // In reimagine mode the outfit is invented, so the ideas can include one.
-  const IDEAS = mode === "restage" ? [
-    "a balcony overlooking the Amalfi Coast at golden hour",
-    "a Paris cafe on a rainy afternoon",
-    "a Tokyo rooftop at night, neon city lights behind",
-    "a sunlit New York street in autumn",
-    "a white sand beach at sunrise",
-    "a minimal studio with soft window light",
-  ] : [
-    "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress",
-    "in a Paris cafe in a tailored trench coat, film photography look",
-    "on a Tokyo rooftop at night, city lights behind me",
-    "walking a sunlit New York street in autumn, camel coat",
-    "on a white sand beach at sunrise, linen shirt, barefoot",
-    "in a modern studio with soft window light, cream knit sweater",
+  const IDEAS = [
+    "on a balcony overlooking the Amalfi Coast at golden hour",
+    "in a Paris cafe on a rainy afternoon, film photography look",
+    "on a Tokyo rooftop at night, neon city lights behind me",
+    "walking a sunlit New York street in autumn",
+    "on a white sand beach at sunrise",
+    "in a minimal studio with soft window light",
   ];
 
   return (
@@ -2645,16 +2665,16 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
         <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
         <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
-          <li>Use a clear, well-lit photo where your face is easy to see</li>
-          <li>One to three photos — a couple of angles helps</li>
-          <li>No sunglasses, no heavy filters, just you in frame</li>
+          <li><strong style={{color:B.charcoal}}>Wear the same outfit in every photo.</strong> That's how it learns your clothes as well as your face.</li>
+          <li><strong style={{color:B.charcoal}}>Give it as many as you can</strong> — up to 8. Different angles: straight on, three-quarter, profile, full body, close up.</li>
+          <li>Good light, face clearly visible. No sunglasses, no heavy filters, just you in frame.</li>
         </ul>
       </div>
 
       <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
       {photos.length>0 && (
         <div style={{marginBottom:14}}>
-          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS}{mode==="restage" ? (photos.length>1 ? " — only the first is restaged" : "") : " — more photos means a better face match"}</p>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS} — the more angles, the better the likeness</p>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {photos.map((p,i)=>(
               <div key={i} style={{position:"relative"}}>
@@ -2666,23 +2686,10 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         </div>
       )}
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>What should we do?</p>
-      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-        {[["restage","Same photo, new place"],["reimagine","A whole new photo of me"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{ setMode(v); setScene(""); }} style={{padding:"9px 18px",border:"1px solid "+(mode===v?B.charcoal:B.stone),background:mode===v?B.charcoal:"#fff",color:mode===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        {mode==="restage"
-          ? "Keeps you exactly as you are in the photo — same face, same pose, same outfit, same hair — and only swaps the background, relighting you to match. This is the most accurate option."
-          : "Invents a brand new photo of you in a new pose and outfit. More creative, but it won't look as exactly like you."}
-      </p>
-
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>{mode==="restage" ? "Put me here" : "Where are you?"}</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>Where are you?</p>
       <textarea value={scene} onChange={e=>setScene(e.target.value)} rows={3}
-        placeholder={mode==="restage" ? "a balcony overlooking the Amalfi Coast at golden hour" : "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress"}
+        placeholder="on a balcony overlooking the Amalfi Coast at golden hour"
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box"}} />
-      {mode==="restage" && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Just describe the place. Your outfit and pose come from your photo — don't describe them here.</p>}
 
       <div style={{display:"flex",gap:6,flexWrap:"wrap",margin:"8px 0 16px"}}>
         {IDEAS.map(idea=>(
@@ -2690,18 +2697,12 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         ))}
       </div>
 
-      {/* Shape ONLY appears in reimagine. Forcing a shape on an EDIT makes the model
-          recompose the frame, and recomposing means redrawing the person — which is
-          what was wrecking the pose and face. Edits now inherit the photo's shape. */}
-      {mode==="reimagine" && (<>
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
-        <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-          {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-          ))}
-        </div>
-      </>)}
-      {mode!=="reimagine" && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 14px"}}>The result keeps your photo's shape and crop — that's what stops it redrawing you.</p>}
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
