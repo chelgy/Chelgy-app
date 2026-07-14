@@ -2216,6 +2216,247 @@ const CG_LOOKS = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   HIGH FASHION 2 — same 18 presets, but rendered by GPT Image (gpt-image-2)
+   instead of Gemini, so you can A/B likeness + film-look on your own face.
+   Runs on the existing /api/openai-image endpoint (reference photos → edits).
+
+   The whole prompt is BUILT HERE and sent as one string, because openai-image.js
+   just takes { prompt, inputImages }. The look/skin/framing text below mirrors
+   the Gemini endpoint's blocks — plus HARDER anti-house-style language, because
+   GPT Image's default warm-glossy-clean look fights the film grade even more
+   than Gemini's does.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// The 18 looks, as prompt fragments (same content as the server's LOOK).
+const HF2_LOOKS = {
+  capri:"the harbour at Capri: a varnished mahogany-and-white Italian motor launch on green Mediterranean water, chrome fittings catching the sun, the pastel town stacked up the hillside behind in ochre, terracotta and faded pink, a hazy limestone cliff. Light: low golden late-afternoon sun raking in from the side and slightly behind, long highlights on the water, warm and hazy and a little flared. Colour: sun-bleached and warm, creamy blown highlights, lifted milky blacks, desaturated greens, soft contrast, the frame slightly hazed as if shot into the light.",
+  capriroad:"a clifftop road high above the sea in Capri: a vintage red Fiat convertible taxi with a fringed canopy on cracked concrete, a low stone wall, the Tyrrhenian Sea and a hazy headland far below. Light: the sun just gone, a pale gold and lavender sky, soft flat afterglow, no hard shadows. Colour: dusty pastel, faded gold, dove grey, oxidised red, very low contrast, milky lifted blacks, muted saturation, nostalgic and faintly sun-damaged like old Kodak.",
+  coastroad:"a headland car park above a harbour: a cream vintage Jaguar E-Type convertible with chrome wire wheels on cracked asphalt, hills and moored yachts hazy in the distance. Light: hard low late-afternoon sun almost straight into the lens from behind the subject, strong rim light, deep contrasty shadows, visible haze and flare. Colour: warm and bleached, blown white sky, cream paintwork glowing, deep shadows, high contrast but desaturated, a sun-drenched faintly overexposed 90s campaign look.",
+  clifftopglass:"a stone and glass house on a cliff edge above a wild ocean, a tall pane of glass throwing a full mirror reflection of the person with the sea, the headland and a winding path doubled in it. Light: cool flat overcast coastal daylight, soft even and directionless, a slight silver sheen on the glass, no sun. Colour: cold and elegant, bone white, slate, deep sea green, low saturation, gentle contrast, crisp but not clinical.",
+  oceandusk:"standing in flat glassy waist-deep water at the ocean's edge as night comes in, bare rock just breaking the surface, a huge empty horizon. Light: the last dim soft light after sunset from the sky itself, a single faint edge of light modelling the face and shoulders out of near-darkness. Colour: dark, quiet, almost monochrome, warm grey water, a pale cream sky, deep shadow, very low contrast in the sky, rich shadow on the body, painterly and still.",
+  dubrovnik:"the base of an ancient limestone fortress wall on the Adriatic: huge weathered stone blocks, pale sand and bleached rock underfoot, rusted iron pipework, the sea just out of frame. Light: hard high unforgiving Mediterranean midday sun, sharp-edged shadows, strong specular highlights on skin, nothing soft or filled in. Colour: hot and dry, bleached sandy stone, deep dense shadows, high contrast, low saturation, a warm sand-and-shadow palette almost monochrome in the stone.",
+  brutalist:"a raw board-formed concrete interior open to the sea: bare grey columns and beams, floor-to-ceiling glass, a herringbone timber floor, grey-green ocean churning outside. Light: flat cool overcast daylight from one huge window, soft directional with a long gentle falloff, no sun or sparkle. Colour: cool quiet desaturated, concrete grey, sea-green, bone white, muted and atmospheric with lifted blacks, nearly monochrome.",
+  whiteconcrete:"broad pale travertine steps between sharp white concrete forms, a modernist rooftop of hard geometric planes against open sky. Light: brilliant hard high sun in a cloudless sky, crisp black-edged graphic shadows cutting across the steps. Colour: bold and graphic, deep saturated cobalt sky against bone-white stone, high contrast, clean blacks, sculptural.",
+  desert:"a vintage 60s American car (Chevrolet or Cadillac), dust-covered with dulled chrome, on an empty gravel road running dead flat to a distant horizon, nothing else for miles. Light: the last twenty minutes before dark, sun already below the horizon so the light is flat cool and directionless with a warm sodium glow low on the skyline, blue hour. Colour: cinematic and cold, deep desaturated slate-blue sky, warm dusty earth, muted skin, crushed but not black shadows, wide and cinematic.",
+  desertsunset:"leaning into the open door of a battered white 60s Chevrolet on a red dirt plain, dust on the paintwork, the horizon dead flat and endless. Light: the sun on the horizon directly behind the car, warm low and glowing, long soft shadows toward camera, hair haloed, gentle golden hazy. Colour: warm and creamy, butter-gold sky fading to dusty rose, rust-red earth, glowing skin, low contrast, lifted blacks, soft blown highlights.",
+  desertsun:"a wrecked car and broken rock on a stark desert plain, hard mountains behind, baked and bright. Light: savage overhead noon sun in a deep cloudless sky, tiny hard shadows straight down, glaring specular highlights, sweat-sheen, squinting light. Colour: high-contrast and saturated, a deep inky blue sky against bleached ground, punchy and sharp, bold and hot with the sky almost navy.",
+  desertgold:"an open desert plain of pale sand and low dunes, distant hills soft in the haze, empty and huge. Light: raking golden-hour sun straight into the lens from behind the subject, every edge lit, the air full of dust and glow, strong flare and haze. Colour: rich amber and bronze, deep warm shadows, glowing highlights, heavy atmospheric haze, sepia-adjacent, almost monochromatic in gold.",
+  sandstone:"enormous wind-eroded sandstone formations, wave-like layered honeycombed sculptural rock rising out of pale sand, a vast empty primal landscape. Light: hard clean high sun in a cloudless sky, crisp shadows carving the rock, strong directional sculptural light. Colour: bold and graphic, a deep saturated blue sky against warm ochre sandstone, high contrast, rich shadows, punchy but never garish, monumental.",
+  palmsprings:"a mid-century modernist desert house: warm timber, travertine, huge sliding glass, brushed brass, outside raked gravel and agave and desert dissolving into haze. Light: soft hazy diffused early-morning light through marine fog or dust, everything a little veiled and low-contrast, gentle and directional through the glass. Colour: warm neutral and dreamy, sand, bone, pale timber, dusty sage, low contrast, lifted blacks, a faint warm bloom in the highlights, languid and expensive.",
+  timberdeck:"the deck of a modernist timber-and-glass house: rich vertical hardwood cladding, a huge sliding glass door reflecting the room within, a slatted deck chair, warm wood underfoot. Light: soft warm ambient afternoon light mostly bounced off the timber, gentle directional falloff, deep warm shadow in the corners, intimate and unhurried. Colour: rich and warm, mahogany, rust, cognac, deep shadow, saturated warm tones, moody contrast, creamy skin, sensual and 70s-cinematic.",
+  woodroom:"a still minimal interior with a full wall of rich walnut panelling, sculptural bentwood furniture and a pale poured concrete floor, empty and expensive, a campaign set. Light: soft broad controlled light from one side like a huge window just out of frame, gentle wraparound shadow, no hard edges, calm and deliberate. Colour: warm neutral and hushed, walnut brown, cream, bone, oat, muted saturation, soft contrast, lifted blacks, serene and understated.",
+  darkstudio:"a pure black studio void, no set or floor line, only the person and darkness. Light: a single hard light with a slow shutter, crisp where it catches and smearing into motion streaks and light trails elsewhere, dramatic and kinetic. Colour: deep black with one saturated colour blazing out of it (scarlet, oxblood or electric orange), crushed blacks, glowing highlights, heavy motion blur, a doubled ghosting edge, avant-garde.",
+  street:"a narrow city alley of old brick and stone, walking fast through a hard shaft of sunlight, the walls streaking past. Light: a hard low raking beam of sun cutting between buildings, hitting the face and body, the rest in deep shadow, sharp and dramatic. Colour: warm and gritty, amber sunlight, deep brown-black shadow, blown highlights, heavy motion blur through the background, kinetic like a stolen paparazzi frame.",
+};
+
+const HF2_FRAMING = {
+  beauty:"FRAMING - a tight BEAUTY shot: head and shoulders to upper chest, the face filling most of the frame, an 85mm lens at a wide aperture with shallow focus, eyes tack sharp, the environment dissolved into soft colour and bokeh behind. It lives on skin and eyes.",
+  half:"FRAMING - a HALF BODY shot: from the top of the head down to roughly mid-thigh, a 50mm at eye level, the outfit clearly readable, enough location to know where she is, the person placed off-centre with negative space.",
+  full:"FRAMING - a FULL FRAME environmental shot: the whole body with air above and below, a 35mm, the location as co-star, the person off-centre using about a third of the frame with generous negative space.",
+};
+
+// Build the single prompt string GPT Image receives.
+function buildHF2Prompt(lookId, shotId, extra){
+  const look = HF2_LOOKS[lookId] || HF2_LOOKS.capri;
+  const framing = HF2_FRAMING[shotId] || HF2_FRAMING.full;
+  return (
+"Create a high-fashion editorial photograph of the SAME PERSON shown in the attached reference photos. " +
+"The attached photos are the same woman in the same outfit from different angles.\n\n" +
+
+"IDENTITY - strictly maintain her exact facial likeness and identity. The result must look unmistakably " +
+"like HER - the same specific woman, not a lookalike, not a relative, not a model who resembles her. " +
+"Replicate her exact bone structure, the exact shape and spacing of her eyes, her exact nose and nose " +
+"bridge, her exact mouth and jaw, and her exact skin tone. Do not average her features toward a prettier " +
+"or more generic face. Keep her exact outfit, her exact hair, and her real body - her true height, build " +
+"and proportions. Do not slim, lengthen or idealise her.\n\n" +
+
+"PUT HER HERE: " + look + "\n\n" +
+
+(extra ? "Also: " + extra + "\n\n" : "") +
+
+framing + "\n\n" +
+
+"SHOOT IT LIKE A REAL FILM FASHION EDITORIAL, NOT A CLEAN AI IMAGE:\n" +
+"  - This must look shot on 35mm FILM. Real visible film grain throughout. A real photographic colour " +
+"grade as described above - honour that exact palette and contrast.\n" +
+"  - Skin must look lit and real: specular highlights on the cheekbones, nose and lips, sharp catchlights " +
+"in the eyes, a natural sheen, visible pores and texture. Directional light - one side brighter, the " +
+"other in shadow.\n" +
+"  - The gaze can vary: a cool direct stare down the lens, or looking past the camera, or away. Never a " +
+"posed cheesy smile.\n\n" +
+
+"DO NOT use your default look. FORBIDDEN: a clean, glossy, over-sharp, hyper-HD digital render; smooth " +
+"airbrushed matte skin; bright even flat lighting; a warm cheerful over-saturated 'stock photo' grade; " +
+"a plastic or CGI finish. If it looks like a polished clean AI image instead of a grainy film magazine " +
+"editorial, it is WRONG. Match the film grain and the colour grade above, exactly."
+  );
+}
+
+function HighFashion2({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const MAX_PHOTOS = 8;
+  const [photos,setPhotos]   = useState([]);
+  const [look,setLook]       = useState("capri");
+  const [extra,setExtra]     = useState("");
+  const [aspect,setAspect]   = useState("4:5");
+  const [shot,setShot]       = useState("full");   // beauty | half | full
+  const [quality,setQuality] = useState("high");
+  const [consent,setConsent] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [image,setImage]     = useState(null);
+  const [gallery,setGallery] = useState([]);
+
+  // GPT Image quality maps to "2K"/"4K" in openai-image.js, which charges 420/750.
+  // These MUST match those, or the price shown differs from the price charged.
+  const COST = quality==="high" ? CREDIT_COSTS.hf2High : CREDIT_COSTS.hf2Std;
+
+  async function pick(e){
+    const files = Array.from(e.target.files||[]);
+    e.target.value = "";
+    if(!files.length) return;
+    setErr("");
+    const room = MAX_PHOTOS - photos.length;
+    if(room <= 0){ setErr("Eight photos is the maximum."); return; }
+    setBusy(true);
+    const next = [];
+    for(const f of files.slice(0,room)){
+      try{ next.push(await cgShrinkPhoto(f)); }
+      catch{ setErr("One of those photos couldn't be read. Try a JPG or PNG."); }
+    }
+    setPhotos(p=>[...p,...next]);
+    setBusy(false);
+  }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!consent){ setErr("Please confirm these are photos of you."); return; }
+    if(!photos.length){ setErr("Upload at least one clear photo of yourself."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true);
+    try{
+      const prompt = buildHF2Prompt(look, shot, extra.trim());
+      // GPT Image quality: send "2K" for standard, "4K" for high (openai-image.js maps these to medium/high).
+      const oaQuality = quality==="high" ? "4K" : "2K";
+      const d = await generateOpenAIImage(prompt, photos.map(p=>({ mimeType:p.mimeType, data:p.data })), aspect, oaQuality);
+      setImage(d.image);
+      setGallery(g=>[d.image,...g].slice(0,24));
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"highfashion2",look,shot,quality}); onToolUse("highfashion2", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>High Fashion 2 <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em",color:B.gold,verticalAlign:"middle"}}>· GPT ENGINE</span></h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        The same editorial looks, rendered by a different AI engine. Try the same photos here and in High Fashion, and keep whichever looks more like you.
+      </p>
+
+      <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
+        <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
+          <li><strong style={{color:B.charcoal}}>Wear the same outfit in every photo.</strong> That's how it learns your clothes as well as your face.</li>
+          <li><strong style={{color:B.charcoal}}>Give it as many as you can</strong> — up to 8. Different angles: straight on, three-quarter, profile, full body, close up.</li>
+          <li>Good light, face clearly visible. No sunglasses, no heavy filters, just you in frame.</li>
+        </ul>
+      </div>
+
+      <input type="file" accept="image/*" multiple onChange={pick} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {photos.length>0 && (
+        <div style={{marginBottom:16}}>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{photos.length} photo{photos.length===1?"":"s"} · up to {MAX_PHOTOS} — the more angles, the better the likeness</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {photos.map((p,i)=>(
+              <div key={i} style={{position:"relative"}}>
+                <img src={p.preview} alt="" style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone}} />
+                <button onClick={()=>setPhotos(x=>x.filter((_,n)=>n!==i))} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"16px 0 8px"}}>Pick a look</p>
+      {CG_LOOKS.map(g=>(
+        <div key={g.group} style={{marginBottom:12}}>
+          <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {g.items.map(l=>(
+              <button key={l.id} onClick={()=>setLook(l.id)} style={{padding:"8px 14px",border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{height:6}} />
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
+      <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="leaning on the bonnet, shot from low down"
+        style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:6,boxSizing:"border-box"}} />
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>The location, light and grading come from the look. Don't describe your outfit — that comes from your photo.</p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Crop</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["beauty","Beauty"],["half","Half body"],["full","Full frame"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setShot(v)} style={{padding:"9px 18px",border:"1px solid "+(shot===v?B.charcoal:B.stone),background:shot===v?B.charcoal:"#fff",color:shot===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        {shot==="beauty" ? "Tight on your face — skin, eyes, catchlights. The location shows through the light and the blur behind you."
+         : shot==="half" ? "Head to mid-thigh. You and the place share the frame, and the outfit reads properly."
+         : "Wide and environmental. The location is the co-star — you're about a third of the frame."}
+      </p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["standard","Standard",CREDIT_COSTS.hf2Std],["high","High detail",CREDIT_COSTS.hf2High]].map(([v,l,c])=>(
+          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is worth it here — editorial lives on texture and grain.</p>
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+          These are photos of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+        </span>
+      </label>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={generate}>
+        {busy ? "SHOOTING…" : "SHOOT IT · "+COST.toLocaleString()+" CREDITS"}
+      </Btn>
+      {busy && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>GPT Image is slower — usually 20 to 40 seconds.</p>}
+
+      {image && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <a href={image} download="chelgy-editorial-gpt.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+        </div>
+      )}
+      {gallery.length>1 && (
+        <div style={{marginTop:26}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>This session</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {gallery.map((g,i)=>(<img key={i} src={g} alt="" onClick={()=>setImage(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />))}
+          </div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"8px 0 0"}}>Download anything you want to keep — this clears when you refresh.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
    HIGH FASHION — pick an editorial look, get dropped into it.
    Runs on /api/fakeit-restage with mode:"editorial".
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -4929,6 +5170,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="highfashion2"&&<HighFashion2 credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -5301,6 +5543,8 @@ const CREDIT_COSTS = {
   fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)  [legacy fal/Flux, hidden]
   restageStd: 150,     // Fake It — restage one photo of you, standard (~$0.04 to us)
   restageHigh: 450,    // Fake It — restage one photo of you, 2K (~$0.15 to us)
+  hf2Std: 420,         // High Fashion 2 (GPT Image) — matches openai-image.js "2K" server cost
+  hf2High: 750,        // High Fashion 2 (GPT Image) — matches openai-image.js "4K" server cost
   podcastPitch: 100,   // Get Featured — one AI-written pitch (search itself is free)
   pressFind: 300,      // Get Featured — live web search for real outlets + bylines
 };
@@ -5426,7 +5670,7 @@ const CATEGORIES = [
 
      ═══════════════════════════════════════════════════════════════════════ */
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Style Match",tool:"stylematch"} ] },
+    tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"High Fashion 2",tool:"highfashion2"}, {label:"Style Match",tool:"stylematch"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
