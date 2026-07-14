@@ -23,9 +23,16 @@ const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
 const GEMINI_HOST = "https://generativelanguage.googleapis.com/v1beta/models/";
 
-// Model used to LOOK at the uploaded photo and judge it. Vision in, text out.
-// If Google ever renames this, this is the one line to change.
-const SAFETY_MODEL = "gemini-2.5-flash";
+// Models tried IN ORDER for the photo safety check (vision in, text out).
+// We try several because Google renames these constantly and which ones your
+// API key can reach depends on the project. First one that answers, wins.
+const SAFETY_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-flash-latest",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash-image"   // last resort: the one image.js already proves works
+];
 
 async function getUserId(token) {
   if (!token) return null;
@@ -142,35 +149,53 @@ async function photoIsSafe(key, images) {
     }
   ];
 
-  try {
-    const r = await fetch(GEMINI_HOST + SAFETY_MODEL + ":generateContent?key=" + encodeURIComponent(key), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0 } })
-    });
-    const data = await r.json();
-    if (!r.ok) return { ok: false, reason: "We couldn't check that photo. Please try a different one." };
+  const errors = [];
+
+  for (const model of SAFETY_MODELS) {
+    let r, data;
+    try {
+      r = await fetch(GEMINI_HOST + model + ":generateContent?key=" + encodeURIComponent(key), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0 } })
+      });
+      data = await r.json();
+    } catch (e) {
+      errors.push(model + ": network error");
+      continue; // try the next model
+    }
+
+    if (!r.ok) {
+      // Model doesn't exist / isn't enabled on this key -> try the next one.
+      errors.push(model + ": " + ((data && data.error && data.error.message) || ("HTTP " + r.status)));
+      continue;
+    }
 
     const out = ((data.candidates || [])[0]?.content?.parts || []).map(p => p.text || "").join("");
     const match = out.match(/\{[\s\S]*\}/);
-    if (!match) return { ok: false, reason: "We couldn't check that photo. Please try a different one." };
+    if (!match) {
+      errors.push(model + ": returned no JSON");
+      continue;
+    }
 
-    const v = JSON.parse(match[0]);
+    let v;
+    try { v = JSON.parse(match[0]); }
+    catch { errors.push(model + ": bad JSON"); continue; }
 
-    // Hard block. This is the one that matters.
-    if (v.minor === true)  return { ok: false, reason: "Fake It is adults-only, and only for photos of yourself. This photo appears to show someone under 18." };
-
-    // Literal nudity only. Sexy, revealing and swimwear all pass.
-    if (v.nudity === true) return { ok: false, reason: "Please upload a clothed photo of yourself." };
-
-    // Not a safety block, just a quality one — no face means a bad restage.
+    // ── We got a real answer. Judge it. ──
+    if (v.minor === true)    return { ok: false, reason: "Fake It is adults-only, and only for photos of yourself. This photo appears to show someone under 18." };
+    if (v.nudity === true)   return { ok: false, reason: "Please upload a clothed photo of yourself." };
     if (v.hasFace === false) return { ok: false, reason: "We couldn't find a clear face in that photo. Try one where your face is visible and well lit." };
-
     return { ok: true };
-  } catch {
-    // Fail closed. An unchecked photo never reaches the generator.
-    return { ok: false, reason: "We couldn't check that photo. Please try again." };
   }
+
+  // Every model failed. Fail CLOSED — but say WHY, so this is debuggable instead
+  // of a dead end. This message is what tells us the real problem.
+  return {
+    ok: false,
+    reason: "Photo safety check unavailable — " + (errors[0] || "unknown error") +
+            " (tried: " + SAFETY_MODELS.join(", ") + ")"
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
