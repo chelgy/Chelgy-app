@@ -88,10 +88,20 @@ export default async function handler(req, res) {
       return;
     }
 
-    // The trigger word tells the model "this is the person" — prepend it.
-    const fullPrompt = model.trigger_word
-      ? (model.trigger_word + ', ' + prompt.trim())
-      : prompt.trim();
+    // How hard to push the trained face. Users can nudge this if it's not landing.
+    const s = Number(body.strength);
+    const loraScale = (s >= 0.8 && s <= 1.6) ? s : 1.25;
+
+    // Two things matter here:
+    //  1. The trigger word must come FIRST — it's what activates the person.
+    //  2. Flux's default look is plastic. Explicit photographic language pulls
+    //     it back toward something that looks like a real photo of a real person.
+    const REAL = 'candid photograph, shot on a 50mm lens, natural skin texture with visible pores and fine lines, ' +
+                 'realistic lighting, subtle imperfections, unretouched, photojournalistic, not glamorous, no airbrushing';
+    // The trigger phrase already carries its own class noun ("ohwx woman"), so
+    // don't bolt " person" on the end — that just confuses the encoder further.
+    const trigger = model.trigger_word ? (model.trigger_word + ', ') : '';
+    const fullPrompt = trigger + prompt.trim() + '. ' + REAL;
 
     const sizeMap = {
       '1:1': 'square_hd',
@@ -108,10 +118,12 @@ export default async function handler(req, res) {
       headers: { Authorization: 'Key ' + FAL_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: fullPrompt,
-        loras: [{ path: model.lora_url, scale: 1.0 }],
+        // scale 1.0 was too weak — the base model's default face kept winning.
+        // 1.25 makes the trained likeness actually take over. (Client can override.)
+        loras: [{ path: model.lora_url, scale: loraScale }],
         image_size,
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
+        num_inference_steps: 32,   // a little more refinement
+        guidance_scale: 3.0,       // LOWER = less "AI-glossy", more photographic
         num_images: 1,
         enable_safety_checker: true,   // SAFETY: fal flags NSFW output
         output_format: 'jpeg',

@@ -23,7 +23,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const BUCKET = 'ai-twin-training';
-const TRAINING_STEPS = 1000;          // good likeness without overfitting
+const TRAINING_STEPS = 2000;          // 1000 was too weak — the base model's face kept
+                                     // winning. 2000 burns the likeness in properly.
+                                     // (Higher = stronger likeness but less flexible.)
 const MIN_PHOTOS = 8;
 const MAX_PHOTOS = 25;
 
@@ -130,8 +132,19 @@ export default async function handler(req, res) {
     const zipUrl = await falUpload(zipBuffer, 'training.zip', 'application/zip');
 
     // --- 7) Kick off training (queued; fal will call our webhook when done) --
-    // A unique trigger word so this person's model activates reliably.
-    const triggerWord = 'chlg' + userId.replace(/-/g, '').slice(0, 8);
+    // THE TRIGGER PHRASE — this is what "switches on" the trained face at
+    // generation time, and getting it wrong makes the whole model useless.
+    //
+    // WHAT WENT WRONG BEFORE: we used a random hash like "chlg978e80d7".
+    // Flux's text encoder cannot encode a made-up string like that — it shreds
+    // it into meaningless fragments, so the prompt never actually activates the
+    // LoRA. The model loads, does nothing, and Flux draws a stranger.
+    //
+    // THE FIX: a rare-but-REAL token plus a class noun ("ohwx woman"), which is
+    // the standard DreamBooth convention. "ohwx" is rare enough that it carries
+    // no baggage, but it IS encodable — so it can be bound to this person's face.
+    const subject = (body.subject === 'man' || body.subject === 'person') ? body.subject : 'woman';
+    const triggerWord = 'ohwx ' + subject;
 
     const submit = await fetch(
       'https://queue.fal.run/fal-ai/flux-lora-portrait-trainer?fal_webhook=' + encodeURIComponent(WEBHOOK_URL),

@@ -2141,11 +2141,13 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState([]);         // photos chosen for training
   const [consent, setConsent] = useState(false);
+  const [subject, setSubject] = useState("woman");   // binds the trigger phrase
   const [training, setTraining] = useState(false);
   const [trainMsg, setTrainMsg] = useState("");
   const [err, setErr] = useState("");
   const [prompt, setPrompt] = useState("");
   const [aspect, setAspect] = useState("4:5");
+  const [strength, setStrength] = useState(1.25);   // how hard to push YOUR face
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState(null);
   const [gallery, setGallery] = useState([]);      // every image made this session
@@ -2281,7 +2283,7 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
       const r = await fetch("/api/fakeit-train", {
         method:"POST",
         headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({ paths, consent:true, name:"My Fake It Model" }),
+        body: JSON.stringify({ paths, consent:true, subject, name:"My Fake It Model" }),
       });
       const d = await r.json();
       if(!r.ok) throw new Error(d.error||"Could not start training.");
@@ -2307,7 +2309,7 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
       const r = await fetch("/api/fakeit-generate", {
         method:"POST",
         headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({ prompt: prompt.trim(), modelId: model && model.id, aspect }),
+        body: JSON.stringify({ prompt: prompt.trim(), modelId: model && model.id, aspect, strength }),
       });
       const d = await r.json();
       if(!r.ok) throw new Error(d.error||"Could not create that image.");
@@ -2366,6 +2368,16 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
             </div>
           )}
 
+          <div style={{marginBottom:14}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>You are a…</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {[["woman","Woman"],["man","Man"],["person","Prefer not to say"]].map(([id,label])=>(
+                <button key={id} onClick={()=>setSubject(id)} style={{background:subject===id?B.charcoal:"#fff",color:subject===id?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",fontSize:11,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{label}</button>
+              ))}
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 0"}}>This helps the model lock onto your face properly. It's the single biggest factor in whether the result actually looks like you.</p>
+          </div>
+
           <label style={{display:"flex",gap:10,alignItems:"flex-start",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
             <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
             <span>These are photos of <strong>me</strong>, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.</span>
@@ -2398,8 +2410,9 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
       {/* ---------- Model ready: GENERATE ---------- */}
       {model && model.status==="ready" && (
         <div>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
             <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#0a7",background:"#eafaf3",border:"1px solid #bfe8d8",padding:"4px 10px",borderRadius:20}}>● Your model is ready</span>
+            <button onClick={()=>{ if(window.confirm("Train a new model? This costs "+TRAIN_COST.toLocaleString()+" credits and replaces the current one.")){ setModel(null); setFiles([]); setConsent(false); setImage(null); setErr(""); } }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,padding:"5px 10px",cursor:"pointer",textTransform:"uppercase"}}>Retrain</button>
           </div>
 
           <div style={{display:"flex",gap:0,borderBottom:"1px solid "+B.stone,marginBottom:18}}>
@@ -2502,6 +2515,16 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
             ))}
           </div>
 
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:12,marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,textTransform:"uppercase"}}>How much like you</span>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,fontWeight:700}}>{Number(strength).toFixed(2)}</span>
+            </div>
+            <input type="range" min="0.8" max="1.6" step="0.05" value={strength} onChange={e=>setStrength(Number(e.target.value))} style={{width:"100%",display:"block"}} />
+            <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 0"}}>
+              Doesn't look like you? Push it <strong>up</strong>. Looks like you but stiff and same-y every time? Pull it <strong>down</strong>. 1.25 is a good starting point.
+            </p>
+          </div>
           <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
             {["4:5","1:1","9:16","16:9"].map(a=>(
               <button key={a} onClick={()=>setAspect(a)} style={{background:aspect===a?B.charcoal:"#fff",color:aspect===a?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:11,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{a}</button>
@@ -5028,13 +5051,22 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     const weekly = await sbFetch("weekly_posts");
     if (strats && strats.length > 0) setStrategies(prev=>{
       const mapped = strats.map(s=>({id:s.id,title:s.title,category:s.category,level:s.level,timeToResult:s.time_to_result,summary:s.summary,content:s.content,imageUrl:s.image_url,imageFocus:s.image_focus,isNew:s.is_new}));
-      const ids = new Set(mapped.map(x=>x.id));
-      return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
+      // Same fix as weekly posts: a DB row always beats the built-in seed copy,
+      // matched by title as well as id.
+      const dbIds = new Set(mapped.map(x=>x.id));
+      const dbTitles = new Set(mapped.map(x=>String(x.title||"").trim().toLowerCase()));
+      const keep = prev.filter(x=> !dbIds.has(x.id) && !dbTitles.has(String(x.title||"").trim().toLowerCase()) );
+      return [...mapped, ...keep];
     });
     if (weekly && weekly.length > 0) setWeeklyPosts(prev=>{
       const mapped = weekly.map(w=>({id:w.id,title:w.title,tag:w.tag,week:w.week,readTime:w.read_time,content:w.content,imageUrl:w.image_url,imageFocus:w.image_focus,comments:[]}));
-      const ids = new Set(mapped.map(x=>x.id));
-      return [...mapped, ...prev.filter(x=>!ids.has(x.id))];
+      // Match DB rows to the built-in seed posts by TITLE, not just id — the seed
+      // posts have ids 1/2/3 and no image, so without this an edited old post
+      // would keep losing its picture on reload (the seed copy won).
+      const dbIds = new Set(mapped.map(x=>x.id));
+      const dbTitles = new Set(mapped.map(x=>String(x.title||"").trim().toLowerCase()));
+      const keep = prev.filter(x=> !dbIds.has(x.id) && !dbTitles.has(String(x.title||"").trim().toLowerCase()) );
+      return [...mapped, ...keep];
     });
     const help = await fetchHelpRequests();
     if (help && help.length > 0) {
