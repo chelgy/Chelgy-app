@@ -459,7 +459,11 @@ const KEEP_PERSON =
   "  - Outfit: the same garments she wears in the references - same cut, fabric, colour and " +
   "detail. Do not invent different clothes.\n" +
   "  - Hair: the same style, length, texture and colour, with its natural flyaways.\n" +
-  "  - Body: her real proportions. Do not slim or lengthen her.\n\n";
+  "  - BODY: her real body. Keep her exact height, her exact build, her exact proportions, her " +
+  "exact weight and frame - the same shoulders, waist, hips and limb length as in the references. " +
+  "Do NOT slim her, do NOT lengthen or stretch her, do NOT make her taller or more model-like, do " +
+  "NOT idealise or 'improve' her figure. Her body is correct exactly as photographed. (She may be " +
+  "in any pose - the pose can change, but her actual body shape and height must not.)\n\n";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKIN & LIGHT. This is the block that kills the "AI matte face."
