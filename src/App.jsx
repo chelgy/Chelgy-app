@@ -2164,26 +2164,55 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
 
   const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
 
+  // Shrink the photo IN THE BROWSER before it's uploaded.
+  // Two reasons this is not optional:
+  //   1. Vercel caps a request body at ~4.5MB. Base64 inflates a file by ~37%,
+  //      so one 4MB phone photo becomes ~5.5MB and Vercel rejects the whole
+  //      request before our code even runs — which surfaces in Safari as the
+  //      useless "The string did not match the expected pattern."
+  //   2. iPhone photos are HEIC, which Gemini won't accept. Drawing to a canvas
+  //      and re-encoding as JPEG fixes that for free.
+  // 1280px on the long edge is plenty for a face reference.
+  async function shrink(file, maxDim=1280, quality=0.85){
+    const url = URL.createObjectURL(file);
+    try{
+      const img = await new Promise((res,rej)=>{
+        const i = new Image();
+        i.onload = ()=>res(i);
+        i.onerror = ()=>rej(new Error("Could not read that image."));
+        i.src = url;
+      });
+      let w = img.naturalWidth || img.width;
+      let h = img.naturalHeight || img.height;
+      if(!w || !h) throw new Error("Could not read that image.");
+      if(Math.max(w,h) > maxDim){
+        const scale = maxDim / Math.max(w,h);
+        w = Math.round(w*scale); h = Math.round(h*scale);
+      }
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      const dataUrl = c.toDataURL("image/jpeg", quality);
+      const data = dataUrl.split(",")[1];
+      if(!data) throw new Error("Could not read that image.");
+      return { mimeType:"image/jpeg", data, preview:dataUrl };
+    } finally { URL.revokeObjectURL(url); }
+  }
+
   async function pickFiles(e){
     const files = Array.from(e.target.files||[]);
     if(!files.length) return;
     setErr("");
     const room = MAX_PHOTOS - photos.length;
     if(room <= 0){ setErr("Three reference photos is the maximum."); e.target.value=""; return; }
+    setBusy(true);
     const next = [];
     for(const f of files.slice(0,room)){
-      if(f.size > 8*1024*1024){ setErr("Each photo needs to be under 8MB."); continue; }
-      try{
-        const data = await new Promise((res,rej)=>{
-          const rd = new FileReader();
-          rd.onload = ()=>res(String(rd.result).split(",")[1]);
-          rd.onerror = ()=>rej(new Error("read failed"));
-          rd.readAsDataURL(f);
-        });
-        next.push({ mimeType:f.type||"image/jpeg", data, preview:URL.createObjectURL(f) });
-      }catch{ setErr("One of those photos couldn't be read."); }
+      try{ next.push(await shrink(f)); }
+      catch{ setErr("One of those photos couldn't be read. Try a JPG or PNG."); }
     }
     setPhotos(p=>[...p,...next]);
+    setBusy(false);
     e.target.value="";
   }
   function removePhoto(i){ setPhotos(p=>p.filter((_,n)=>n!==i)); }
@@ -2211,8 +2240,19 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           photos: photos.map(p=>({ mimeType:p.mimeType, data:p.data })),
         }),
       });
-      const d = await r.json();
+      // Do NOT call r.json() blindly. If the server returns an empty body or an
+      // HTML error page (413 too-large, 504 timeout), Safari throws the cryptic
+      // "The string did not match the expected pattern." Read text, parse safely,
+      // and say something a human can act on.
+      const raw = await r.text();
+      let d = {};
+      if(raw){ try{ d = JSON.parse(raw); }catch{ d = null; } }
+      if(d === null){
+        if(r.status === 413) throw new Error("Those photos are too large. Try one photo, or a smaller one.");
+        throw new Error("The server returned an unexpected response ("+r.status+"). Please try again.");
+      }
       if(!r.ok) throw new Error(d.error||"Could not create that photo.");
+      if(!d.image) throw new Error("No image came back. Please try again.");
       setImage(d.image);
       setGallery(g=>[d.image,...g].slice(0,24));
       if(typeof d.balance==="number") onBalance(d.balance);

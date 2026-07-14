@@ -203,6 +203,16 @@ function buildPrompt(scene) {
   );
 }
 
+// Vercel caps a serverless request body at 4.5MB by DEFAULT. Base64 inflates a
+// file by ~37%, so one big phone photo can blow past it — and when it does,
+// Vercel rejects the request before this file ever runs and returns a non-JSON
+// error, which Safari reports as "The string did not match the expected pattern."
+// The browser now downscales photos to ~1280px before upload (see shrink() in
+// App.jsx), which is the real fix. This raises the ceiling as a safety net.
+export const config = {
+  api: { bodyParser: { sizeLimit: "10mb" } }
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -213,6 +223,13 @@ export default async function handler(req, res) {
     const photos  = (Array.isArray(body.photos) ? body.photos : [])
       .filter(p => p && p.data && p.mimeType)
       .slice(0, 3); // 3 references is plenty; more just costs money
+
+    // Belt-and-braces: if something huge still gets through, say so in plain
+    // English instead of letting the platform return an unparseable error.
+    const totalBytes = photos.reduce((n, p) => n + (p.data ? p.data.length : 0), 0);
+    if (totalBytes > 9 * 1024 * 1024) {
+      return res.status(413).json({ error: "Those photos are too large. Try one photo, or a smaller one." });
+    }
 
     const allowedRatios = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
     const aspectRatio = allowedRatios.includes(body.aspectRatio) ? body.aspectRatio : "4:5";
