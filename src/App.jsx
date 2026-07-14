@@ -2640,11 +2640,20 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       {/* --- results --- */}
-      {shows && shows.length===0 && <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid}}>No shows matched. Try broader words — "marketing" instead of "AI marketing for dentists".</p>}
+      {shows && shows.length===0 && (
+        <div style={{background:B.white,border:"1px solid "+B.stone,padding:16}}>
+          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,margin:"0 0 6px",fontWeight:600}}>No shows to show.</p>
+          <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,margin:0,lineHeight:1.6}}>
+            {emailOnly
+              ? "We found shows, but none of them publish a contact email in their feed. Untick \"only show podcasts with a contact email\" to see them all — you can still find their contact on the show's website."
+              : "Nothing matched. Try broader words — \"marketing\" rather than \"AI marketing for dentists\"."}
+          </p>
+        </div>
+      )}
 
       {shows && shows.length>0 && (
         <div>
-          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{shows.length} shows · contact info comes from public RSS feeds, so some are generic inboxes.</p>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{shows.length} shows · emails are pulled live from each show's RSS feed. Not every podcast publishes one — for those, check their website.</p>
           {shows.map(sh=>(
             <div key={sh.id} style={{border:"1px solid "+B.stone,padding:14,marginBottom:10,background:"#fff"}}>
               <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -2736,8 +2745,11 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         Start with an honest read on whether you have a story worth pitching — then write the pitch.
       </p>
       <div style={{background:B.white,border:"1px solid "+B.stone,padding:12,marginBottom:16}}>
-        <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:0}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:"0 0 8px"}}>
           <strong>Straight talk:</strong> no tool can get you into Forbes automatically — anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter, in their language. That's what this does.
+        </p>
+        <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:0}}>
+          <strong>Why there's no send button:</strong> podcasts publish a contact email in their feed — journalists don't. There's no open list of reporter emails (the real databases cost thousands). So: use "Do I have a story?" to find who covers your beat, search the outlet for a recent article on your topic, note the byline, and find that reporter on the outlet's staff page, their LinkedIn, or the paper's tips line. Then paste the pitch in.
         </p>
       </div>
 

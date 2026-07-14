@@ -1,12 +1,14 @@
 // ============================================================================
 // /api/podcast-search.js  —  "Get Featured": find podcasts to pitch
 // ----------------------------------------------------------------------------
-// Searches the free, open Podcast Index for shows in the user's niche.
-// Returns the show, its description, host, website, and any contact email the
-// RSS feed exposes (often a generic inbox — we're honest about that in the UI).
+// Two-step, because it has to be:
+//   1. Podcast Index search  -> gives us shows + their RSS feed URLs.
+//      (The search response does NOT include contact emails. Only ownerName.)
+//   2. Fetch each RSS feed   -> parse <itunes:owner><itunes:email> out of it.
+//      That's where the host's real contact address actually lives.
 //
-// Costs us nothing, so this search is FREE to the user. Only the AI-written
-// pitch (podcast-pitch.js) charges credits.
+// Free: Podcast Index is free, and fetching feeds costs nothing. Only the
+// AI-written pitch (podcast-pitch.js) charges credits.
 //
 // Env: PODCASTINDEX_KEY, PODCASTINDEX_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 // ============================================================================
@@ -27,7 +29,7 @@ async function getUserId(token) {
   } catch { return null; }
 }
 
-// Podcast Index auth: SHA-1 of (key + secret + unix seconds), sent in 3 headers.
+// Podcast Index auth: SHA-1 of (key + secret + unix seconds), in 3 headers.
 function piHeaders(key, secret) {
   const t = Math.floor(Date.now() / 1000).toString();
   const hash = crypto.createHash("sha1").update(key + secret + t).digest("hex");
@@ -39,11 +41,41 @@ function piHeaders(key, secret) {
   };
 }
 
-// Pull an email out of the feed's owner fields (Podcast Index exposes these).
-function feedEmail(f) {
-  const raw = f.ownerEmail || f.itunesOwnerEmail || f.email || "";
-  const m = String(raw).match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
-  return m ? m[0] : "";
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+
+// Pull the host's email out of a podcast's RSS feed.
+// It lives in <itunes:owner><itunes:email>…</itunes:email></itunes:owner>,
+// sometimes in <managingEditor> or <webMaster> instead.
+async function emailFromFeed(feedUrl) {
+  if (!feedUrl || !/^https?:\/\//.test(feedUrl)) return "";
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);   // don't hang on slow feeds
+    const r = await fetch(feedUrl, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": "Chelgy/1.0" },
+    });
+    clearTimeout(timer);
+    if (!r.ok) return "";
+
+    // We only need the <channel> header, not every episode. Read the first
+    // chunk and stop — feeds can be many megabytes.
+    const text = (await r.text()).slice(0, 120000);
+
+    const owner = text.match(/<itunes:owner[\s\S]*?<\/itunes:owner>/i);
+    if (owner) {
+      const em = owner[0].match(/<itunes:email[^>]*>\s*(?:<!\[CDATA\[)?\s*([^<\]]+)/i);
+      if (em && EMAIL_RE.test(em[1].trim())) return em[1].trim();
+    }
+    for (const tag of ["managingEditor", "webMaster"]) {
+      const m = text.match(new RegExp("<" + tag + "[^>]*>\\s*(?:<!\\[CDATA\\[)?\\s*([^<\\]]+)", "i"));
+      if (m) {
+        const hit = m[1].match(EMAIL_RE);
+        if (hit) return hit[0];
+      }
+    }
+    return "";
+  } catch { return ""; }
 }
 
 export default async function handler(req, res) {
@@ -73,31 +105,36 @@ export default async function handler(req, res) {
 
     const feeds = Array.isArray(data.feeds) ? data.feeds : [];
 
-    const shows = feeds
-      .map((f) => {
-        const email = feedEmail(f);
-        return {
-          id: f.id,
-          title: f.title || "",
-          author: f.author || f.ownerName || "",
-          description: String(f.description || "").slice(0, 400),
-          website: f.link || "",
-          artwork: f.artwork || f.image || "",
-          episodeCount: f.episodeCount || 0,
-          lastUpdate: f.lastUpdateTime || 0,        // unix seconds
-          categories: f.categories ? Object.values(f.categories) : [],
-          email,                                     // "" if the feed exposes none
-          hasEmail: !!email,
-        };
-      })
-      // Drop dead shows — nothing worse than pitching a podcast that ended in 2019.
-      .filter((s) => s.title && s.episodeCount > 3)
-      .filter((s) => (emailOnly ? s.hasEmail : true))
-      // Most recently active first — they're the ones actually taking guests.
-      .sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))
-      .slice(0, 25);
+    // Keep only live, real shows before we spend time fetching feeds.
+    const candidates = feeds
+      .filter((f) => f.title && !f.dead && (f.episodeCount || 0) > 3)
+      .sort((a, b) => (b.lastUpdateTime || 0) - (a.lastUpdateTime || 0))
+      .slice(0, 20);
 
-    return res.status(200).json({ ok: true, shows });
+    // Fetch the RSS feeds in parallel to dig out the host emails.
+    const emails = await Promise.all(candidates.map((f) => emailFromFeed(f.url)));
+
+    let shows = candidates.map((f, i) => {
+      const email = emails[i] || "";
+      return {
+        id: f.id,
+        title: f.title || "",
+        author: f.author || f.ownerName || "",
+        description: String(f.description || "").slice(0, 400),
+        website: f.link || "",
+        artwork: f.artwork || f.image || "",
+        episodeCount: f.episodeCount || 0,
+        lastUpdate: f.lastUpdateTime || 0,
+        categories: f.categories ? Object.values(f.categories) : [],
+        email,
+        hasEmail: !!email,
+      };
+    });
+
+    const withEmail = shows.filter((s) => s.hasEmail).length;
+    if (emailOnly) shows = shows.filter((s) => s.hasEmail);
+
+    return res.status(200).json({ ok: true, shows, withEmail, scanned: candidates.length });
   } catch (e) {
     return res.status(500).json({ error: "Could not search podcasts right now." });
   }
