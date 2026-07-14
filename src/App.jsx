@@ -2701,17 +2701,42 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // PRESS — figure out if you have a story, then pitch it.
 // ============================================================================
 function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
-  const [tab, setTab] = useState("targets");
+  const [tab, setTab] = useState("find");
   const [you, setYou] = useState("");
   const [story, setStory] = useState("");
+  const [place, setPlace] = useState("");
   const [outlet, setOutlet] = useState("");
+  const [outlets, setOutlets] = useState(null);
   const [out, setOut] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
   const COST = CREDIT_COSTS.podcastPitch;
+  const FIND_COST = CREDIT_COSTS.pressFind;
 
-  async function run(mode){
+  async function findOutlets(){
+    setErr(""); setOutlets(null); setOut(null);
+    if(you.trim().length < 10){ setErr("Tell us about your business first."); return; }
+    if(Number(credits) < FIND_COST){ setErr("This costs "+FIND_COST+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    if(!useCredits(FIND_COST)) return;
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/press-find", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({ you:you.trim(), story:story.trim(), place:place.trim() }),
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Search failed.");
+      setOutlets(d.outlets||[]);
+      if(typeof d.balance === "number") onBalance(d.balance);
+      track("tool_used",{tool:"press_find"}); onToolUse("press_find", FIND_COST);
+    }catch(e){ setErr((e&&e.message)||"Search failed."); }
+    setBusy(false);
+  }
+
+  async function run(mode, forOutlet){
     setErr(""); setOut(null); setCopied(false);
     if(you.trim().length < 10){ setErr("Tell us about your business first."); return; }
     if(Number(credits) < COST){ setErr("This costs "+COST+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
@@ -2722,7 +2747,7 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const r = await fetch("/api/press-pitch", {
         method:"POST",
         headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({ mode, you:you.trim(), story:story.trim(), outlet:outlet.trim() }),
+        body: JSON.stringify({ mode, you:you.trim(), story:story.trim(), outlet:(forOutlet||outlet).trim() }),
       });
       const d = await r.json();
       if(!r.ok) throw new Error(d.error||"Something went wrong.");
@@ -2738,23 +2763,25 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     try{ navigator.clipboard.writeText(txt); setCopied(true); setTimeout(()=>setCopied(false),2000); }catch(e){}
   }
 
+  const REACH = { local:"Local", trade:"Trade", national:"National", newsletter:"Newsletter" };
+
   return (
     <div style={{maxWidth:820,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Get in the press</h3>
       <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>
-        Start with an honest read on whether you have a story worth pitching — then write the pitch.
+        Find the outlets actually covering your topic right now — then write the pitch.
       </p>
       <div style={{background:B.white,border:"1px solid "+B.stone,padding:12,marginBottom:16}}>
         <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:"0 0 8px"}}>
-          <strong>Straight talk:</strong> no tool can get you into Forbes automatically — anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter, in their language. That's what this does.
+          <strong>Straight talk:</strong> no tool can get you into Forbes automatically — anyone promising that is selling you paid placements on junk sites. What works is a real story, pitched to the right reporter.
         </p>
         <p style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,lineHeight:1.55,margin:0}}>
-          <strong>Why there's no send button:</strong> podcasts publish a contact email in their feed — journalists don't. There's no open list of reporter emails (the real databases cost thousands). So: use "Do I have a story?" to find who covers your beat, search the outlet for a recent article on your topic, note the byline, and find that reporter on the outlet's staff page, their LinkedIn, or the paper's tips line. Then paste the pitch in.
+          <strong>No send button, and here's why:</strong> podcasts publish a contact email in their feed — journalists don't. There's no open list of reporter emails. So we search the web for the outlets and reporters really covering your topic, link you straight to their contact page, and write the pitch. You send it.
         </p>
       </div>
 
       <div style={{display:"flex",gap:0,borderBottom:"1px solid "+B.stone,marginBottom:16}}>
-        {[["targets","Do I have a story?"],["pitch","Write the pitch"]].map(([id,label])=>(
+        {[["find","Find outlets"],["targets","Do I have a story?"],["pitch","Write a pitch"]].map(([id,label])=>(
           <button key={id} onClick={()=>{setTab(id);setOut(null);setErr("");}} style={{background:"none",border:"none",borderBottom:"2px solid "+(tab===id?B.charcoal:"transparent"),color:tab===id?B.charcoal:B.mid,padding:"10px 14px",fontFamily:"sans-serif",fontSize:12,fontWeight:tab===id?700:500,cursor:"pointer",marginBottom:-1}}>{label}</button>
         ))}
       </div>
@@ -2763,14 +2790,22 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       <textarea value={you} onChange={e=>setYou(e.target.value)} rows={3} placeholder="I run a salon in Tampa that switched to a 4-day week last year. Revenue is up 20% and staff turnover went to zero."
         style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:12}} />
 
-      <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{tab==="targets"?"What you think the story is \u00b7 optional":"The story"}</div>
-      <textarea value={story} onChange={e=>setStory(e.target.value)} rows={2} placeholder="The 4-day week actually works for a small service business \u2014 here are the numbers."
+      <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>{tab==="pitch"?"The story":"What you think the story is · optional"}</div>
+      <textarea value={story} onChange={e=>setStory(e.target.value)} rows={2} placeholder="The 4-day week actually works for a small service business — here are the numbers."
         style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:12}} />
+
+      {tab==="find" && (
+        <>
+          <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Where you're based · optional — unlocks local press</div>
+          <input value={place} onChange={e=>setPlace(e.target.value)} placeholder="e.g. Tampa, Florida"
+            style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:12}} />
+        </>
+      )}
 
       {tab==="pitch" && (
         <>
           <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Outlet or reporter · optional</div>
-          <input value={outlet} onChange={e=>setOutlet(e.target.value)} placeholder="e.g. Tampa Bay Times \u2014 Sarah Chen, small business desk"
+          <input value={outlet} onChange={e=>setOutlet(e.target.value)} placeholder="e.g. Tampa Bay Times — Sarah Chen, small business desk"
             style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:12}} />
         </>
       )}
@@ -2778,18 +2813,53 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
-        <button onClick={()=>run(tab)} disabled={busy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"13px 26px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
-          {busy?"WORKING\u2026":(tab==="targets"?"CHECK MY STORY":"WRITE THE PITCH")}
+        <button onClick={()=>{ if(tab==="find") findOutlets(); else run(tab); }} disabled={busy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"13px 26px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+          {busy?"WORKING…":(tab==="find"?"FIND OUTLETS":tab==="targets"?"CHECK MY STORY":"WRITE THE PITCH")}
         </button>
-        <CreditTag n={COST} />
+        <CreditTag n={tab==="find"?FIND_COST:COST} />
         <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>you have {Number(credits).toLocaleString()}</span>
       </div>
 
-      {out && (
+      {busy && tab==="find" && <div style={{background:B.white,border:"1px solid "+B.stone,padding:20,textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:16}}>Searching the web for who's covering this right now…</div>}
+
+      {outlets && outlets.length>0 && tab==="find" && (
         <div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:12}}>{outlets.length} outlets · easiest first · every link came from a live search, not a guess.</p>
+          {outlets.map((o,i)=>(
+            <div key={i} style={{border:"1px solid "+B.stone,padding:14,marginBottom:10,background:"#fff"}}>
+              <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:220}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
+                    <a href={o.url} target="_blank" rel="noreferrer" style={{fontFamily:"serif",fontSize:16,color:B.charcoal,textDecoration:"none"}}>{o.outlet} ↗</a>
+                    {o.reach && <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,background:"#F2EEE6",border:"1px solid "+B.stone,padding:"2px 7px",borderRadius:12}}>{REACH[o.reach]||o.reach}</span>}
+                    {o.difficulty && <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:o.difficulty==="realistic"?"#0a7":o.difficulty==="a stretch"?"#8A7B5E":"#B00",background:o.difficulty==="realistic"?"#eafaf3":"#F7F5F0",border:"1px solid "+B.stone,padding:"2px 7px",borderRadius:12}}>{o.difficulty}</span>}
+                  </div>
+                  {o.why && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,marginBottom:6}}>{o.why}</div>}
+                  {o.reporter && <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.charcoal,marginBottom:4}}><strong>Covers this beat:</strong> {o.reporter}</div>}
+                  {o.articleUrl && o.articleTitle && <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6}}>Recent: <a href={o.articleUrl} target="_blank" rel="noreferrer" style={{color:B.goldDark}}>{String(o.articleTitle).slice(0,70)} ↗</a></div>}
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",fontFamily:"sans-serif",fontSize:11}}>
+                    {o.contactUrl
+                      ? <a href={o.contactUrl} target="_blank" rel="noreferrer" style={{color:"#0a7",fontWeight:700}}>✓ Contact / tips page ↗</a>
+                      : <span style={{color:B.mid}}>no contact page found — try their site footer</span>}
+                  </div>
+                </div>
+                <button onClick={()=>run("pitch", o.outlet + (o.reporter?(" — "+o.reporter):""))} disabled={busy} style={{flexShrink:0,background:"#fff",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 12px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer"}}>WRITE PITCH</button>
+              </div>
+            </div>
+          ))}
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:6}}>Each pitch costs <strong>{COST} credits</strong> · you have {Number(credits).toLocaleString()}</p>
+        </div>
+      )}
+
+      {outlets && outlets.length===0 && tab==="find" && (
+        <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid}}>Nothing came back. Try describing the story more specifically — what's the surprising bit?</p>
+      )}
+
+      {out && (
+        <div style={{marginTop:16}}>
           {out.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {out.subject}</div>}
           <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",background:B.white,border:"1px solid "+B.stone,padding:16}}>{out.body}</div>
-          <button onClick={copyOut} style={{marginTop:10,background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY"}</button>
+          <button onClick={copyOut} style={{marginTop:10,background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED ✓":"COPY"}</button>
         </div>
       )}
     </div>
@@ -4552,6 +4622,7 @@ const CREDIT_COSTS = {
   fakeitTrain: 7500,   // Fake It — train your personal model (one-time, ~$2.40 to us)
   fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)
   podcastPitch: 100,   // Get Featured — one AI-written pitch (search itself is free)
+  pressFind: 300,      // Get Featured — live web search for real outlets + bylines
 };
 
 const FREE_CREDITS = {
