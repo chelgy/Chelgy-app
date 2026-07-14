@@ -199,8 +199,102 @@ async function photoIsSafe(key, images) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The locked prompt scaffold. The user only supplies the SCENE — they never see
-// or type any of this. Two modes:
+// EDITORIAL PRESETS  — the "High Fashion" tab.
+//
+// WHY THESE ARE SO LONG: left to itself this model produces a centred, smiling
+// subject, flat even light, a clean saturated grade and no grain — a stock photo.
+// Every clause below exists to kill one of those defaults. Naming the camera, the
+// lens, the film stock, the light DIRECTION, the grade in photographic terms
+// (lifted blacks, desaturated, blown highlights) and the FRAMING is what separates
+// an editorial frame from a Getty image. Do not trim these down.
+//
+// These describe looks. They do not copy anyone's photographs.
+// ─────────────────────────────────────────────────────────────────────────────
+const LOOK = {
+  // Shared spine. Every preset gets this.
+  base:
+    "SHOOT IT LIKE A FASHION EDITORIAL, NOT A STOCK PHOTO.\n" +
+    "  - Framing: wide and environmental. The location is the co-star. Leave generous negative " +
+    "space. Place the person OFF-CENTRE, using roughly a third of the frame. Do NOT centre them. " +
+    "Do not crop tight to the face.\n" +
+    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Not smiling at the camera. " +
+    "Not posing for the camera. They look away, past the lens, or down.\n" +
+    "  - Camera: full-frame, 35mm or 50mm lens, shot at eye level or slightly low. Real depth of " +
+    "field with a soft falloff, not a fake blurred cut-out.\n" +
+    "  - Grain: real 35mm film grain, visible in the shadows and flat tones.\n" +
+    "  - Skin: real texture, pores, sheen where sweat or oil would sit. Never airbrushed, never waxy.\n" +
+    "  - AVOID at all costs: a centred subject, a smiling subject, flat directionless light, clean " +
+    "even studio lighting, a crisp saturated 'clean' digital grade, HDR, a plastic sheen, stock " +
+    "photography composition. It must look like an unretouched frame from a magazine shoot.",
+
+  capri: {
+    label: "Capri Harbour",
+    body:
+      "LOCATION: the harbour at Capri. A varnished mahogany-and-white Italian motor launch on green " +
+      "Mediterranean water, chrome fittings catching the sun. Behind, the pastel town stacked up the " +
+      "hillside — ochre, terracotta, faded pink — with moored boats and a hazy limestone cliff.\n" +
+      "LIGHT: low golden sun, late afternoon, raking in from the side and slightly behind, throwing " +
+      "long highlights across the water and rim-lighting the person. Warm, hazy, a little flared.\n" +
+      "GRADE: sun-bleached and warm. Creamy blown highlights. Lifted, milky blacks. Desaturated " +
+      "greens, warm skin, soft contrast. The whole frame slightly hazed, as if shot into the light."
+  },
+
+  dubrovnik: {
+    label: "Dubrovnik Stone",
+    body:
+      "LOCATION: the base of an ancient limestone fortress wall on the Adriatic. Huge weathered stone " +
+      "blocks, pale sand and bleached rock underfoot, rusted iron pipework, the sea just out of frame.\n" +
+      "LIGHT: hard, high, unforgiving Mediterranean midday sun. Sharp-edged shadows with real shape. " +
+      "Strong specular highlights on skin. Nothing soft, nothing flattering, nothing filled in.\n" +
+      "GRADE: hot and dry. Bleached sandy stone, deep dense shadows, high contrast, low saturation. " +
+      "A warm sand-and-shadow palette — almost monochrome in the stone, with the skin carrying " +
+      "the only real colour."
+  },
+
+  desert: {
+    label: "Desert Highway",
+    body:
+      "LOCATION: a vintage American car — a 60s Chevrolet or Cadillac, dust-covered, chrome dulled — " +
+      "on an empty gravel road running dead flat to a distant horizon. Nothing else for miles.\n" +
+      "LIGHT: the last twenty minutes before dark. The sun already below the horizon, so the light is " +
+      "flat, cool and directionless, with a warm sodium glow low along the skyline. Blue hour.\n" +
+      "GRADE: cinematic and cold. Deep desaturated slate-blue sky, warm dusty earth, muted skin. " +
+      "Crushed but not black shadows. A moody, wide, cinematic frame — the emptiness IS the picture."
+  },
+
+  brutalist: {
+    label: "Brutalist Coast",
+    body:
+      "LOCATION: a raw board-formed concrete interior open to the sea. Bare grey columns and beams, " +
+      "floor-to-ceiling glass, a herringbone timber floor, grey-green ocean churning outside.\n" +
+      "LIGHT: flat, cool, overcast daylight coming in from one huge window. Soft directional light " +
+      "with a long, gentle falloff into shadow. No sun, no sparkle, no fill.\n" +
+      "GRADE: cool, quiet and desaturated. Concrete grey, sea-green, bone white. Muted and " +
+      "atmospheric with lifted blacks. Restrained, architectural, still. Nearly monochrome."
+  },
+
+  palmsprings: {
+    label: "Palm Springs Modernist",
+    body:
+      "LOCATION: a mid-century modernist desert house. Warm timber, travertine, huge sliding glass, " +
+      "brushed brass. Outside, raked gravel, agave and aloe, and desert dissolving into haze.\n" +
+      "LIGHT: soft, hazy, diffused early morning light through marine fog or dust. Everything a " +
+      "little veiled, a little low-contrast. Gentle, directional, coming through the glass.\n" +
+      "GRADE: warm neutral and dreamy. Sand, bone, pale timber, dusty sage. Low contrast, lifted " +
+      "blacks, a faint warm bloom in the highlights. Languid, quiet, expensive."
+  },
+
+  sandstone: {
+    label: "Sandstone",
+    body:
+      "LOCATION: enormous wind-eroded sandstone formations — wave-like layered rock, honeycombed and " +
+      "sculptural — rising out of pale sand. A vast, empty, primal landscape.\n" +
+      "LIGHT: hard, clean, high sun in a cloudless sky. Crisp shadows carving the rock. Strong, " +
+      "directional, sculptural — light that models form rather than flattering it.\n" +
+      "GRADE: bold and graphic. A deep saturated blue sky against warm ochre sandstone. High " +
+      "contrast, rich shadows, punchy but never garish. Sculptural, elemental, monumental."
+  }
+};
 //
 //   "restage"   (default) — DON'T regenerate the person. Keep their exact face,
 //                pose, hands, hair and outfit from the photo, and only swap the
@@ -214,8 +308,85 @@ async function photoIsSafe(key, images) {
 // Do not water down the preservation list in "restage". Every line in it is
 // there because leaving it out lets the model drift somewhere.
 // ─────────────────────────────────────────────────────────────────────────────
-function buildPrompt(scene, mode) {
-  const s = String(scene).trim();
+// The preservation block. Every mode that keeps the person uses this, word for
+// word. Each line is here because leaving it out lets the model drift.
+const KEEP_PERSON =
+  "KEEP THE PERSON EXACTLY AS PHOTOGRAPHED. Preserve, faithfully and without alteration:\n" +
+  "  - Their face: every feature, their exact expression, their exact eye direction.\n" +
+  "  - Their exact pose and body position, including the position of their head, arms, hands and legs.\n" +
+  "  - Their hair, exactly as it falls, including flyaways and stray strands.\n" +
+  "  - Their outfit: every garment, its exact cut, fabric, colour, pattern and detail.\n" +
+  "  - Their jewellery, accessories, bag, and anything they are holding.\n" +
+  "  - Their real skin texture, including pores, marks and natural unevenness.\n" +
+  "Do NOT smooth, retouch, airbrush, slim, or beautify them in any way. Do not change their body. " +
+  "Do not restyle their hair or clothes. The person must be identical to the input photograph.\n\n";
+
+const INTEGRATE =
+  "Then integrate them into that environment so it looks real:\n" +
+  "  - Relight the person to match the new scene. Match the direction of the light, its colour " +
+  "temperature, its hardness or softness, and its intensity. If the light in the new scene comes " +
+  "from one side, the light on the person must come from that same side.\n" +
+  "  - Match the colour grade of the person to the environment so they share one palette.\n" +
+  "  - Add correct contact shadows where the person meets the ground or any surface, and cast a " +
+  "believable shadow in the direction the new light dictates.\n" +
+  "  - Match the depth of field, focus falloff and grain of the new scene.\n\n";
+
+function buildPrompt(scene, mode, preset) {
+  const s = String(scene || "").trim();
+
+  // ── HIGH FASHION: drop them into a fully-specified editorial world. ──
+  if (mode === "editorial") {
+    const look = LOOK[preset] || LOOK.capri;
+    return (
+      "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
+      KEEP_PERSON +
+      "PLACE THEM IN THIS WORLD:\n" + look.body + "\n\n" +
+      (s ? "The user also asks for: " + s + "\n\n" : "") +
+      LOOK.base + "\n\n" +
+      INTEGRATE +
+      "The result must look like a real frame from a high-fashion magazine editorial, shot on film, " +
+      "of THIS EXACT PERSON on location. Photographed, not generated."
+    );
+  }
+
+  // ── STYLE MATCH: image 1 is the person, image 2 is the look to copy. ──
+  if (mode === "stylematch") {
+    return (
+      "You are given TWO images.\n" +
+      "  IMAGE 1 is THE PERSON.\n" +
+      "  IMAGE 2 is THE STYLE REFERENCE.\n\n" +
+
+      "Put the person from IMAGE 1 into the world of IMAGE 2.\n\n" +
+
+      "FROM IMAGE 1, keep the person EXACTLY as photographed:\n" +
+      "  - Their face: every feature, their exact expression, their exact eye direction.\n" +
+      "  - Their exact pose and body position, their head, arms, hands and legs.\n" +
+      "  - Their hair, exactly as it falls.\n" +
+      "  - Their outfit: every garment, its cut, fabric, colour, pattern and detail.\n" +
+      "  - Their jewellery, accessories, and anything they are holding.\n" +
+      "  - Their real skin texture. Do not smooth, retouch, slim or beautify them.\n\n" +
+
+      "FROM IMAGE 2, take EVERYTHING ELSE — copy its look precisely:\n" +
+      "  - The location and environment.\n" +
+      "  - The direction, colour temperature, hardness and intensity of its light.\n" +
+      "  - Its exact colour grade: the palette, the saturation, the contrast, how lifted or crushed " +
+      "the blacks are, how blown the highlights are, any colour cast.\n" +
+      "  - Its film grain, lens character, flare and depth of field.\n" +
+      "  - Its framing, camera angle and camera height, and how much negative space it leaves.\n" +
+      "  - Its overall mood and attitude.\n\n" +
+
+      "CRITICAL: do NOT copy, keep, or blend in any PERSON who appears in IMAGE 2. Their face, body " +
+      "and clothing are irrelevant and must not influence the person from IMAGE 1. Take only the " +
+      "world, the light and the grade from IMAGE 2. The only person in the result is the person " +
+      "from IMAGE 1.\n\n" +
+
+      (s ? "The user also asks for: " + s + "\n\n" : "") +
+      INTEGRATE +
+      "The result must look like the person from IMAGE 1 was really photographed on the set of " +
+      "IMAGE 2, by the same photographer, on the same camera, on the same day. Photographed, not " +
+      "generated."
+    );
+  }
 
   if (mode === "reimagine") {
     return (
@@ -239,32 +410,13 @@ function buildPrompt(scene, mode) {
     );
   }
 
-  // ── DEFAULT: strict compositing. The person is NOT regenerated. ──
+  // ── DEFAULT: plain restage. Keep the person, swap the world. ──
   return (
     "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
-
-    "KEEP THE PERSON EXACTLY AS PHOTOGRAPHED. Preserve, faithfully and without alteration:\n" +
-    "  - Their face: every feature, their exact expression, their exact eye direction.\n" +
-    "  - Their exact pose and body position, including the position of their head, arms, hands and legs.\n" +
-    "  - Their hair, exactly as it falls, including flyaways and stray strands.\n" +
-    "  - Their outfit: every garment, its exact cut, fabric, colour, pattern and detail.\n" +
-    "  - Their jewellery, accessories, bag, and anything they are holding.\n" +
-    "  - Their real skin texture, including pores, marks and natural unevenness.\n" +
-    "Do NOT smooth, retouch, airbrush, slim, or beautify them in any way. Do not change their body. " +
-    "Do not restyle their hair or clothes. The person must be identical to the input photograph.\n\n" +
-
+    KEEP_PERSON +
     "CHANGE ONLY THE ENVIRONMENT AROUND THEM. Place them in: " + s + "\n\n" +
-
-    "Then integrate them into that environment so it looks real:\n" +
-    "  - Relight the person to match the new scene. Match the direction of the light, its colour " +
-    "temperature, its hardness or softness, and its intensity. If the light in the new scene comes " +
-    "from one side, the light on the person must come from that same side.\n" +
-    "  - Match the colour grade of the person to the environment so they share the same palette.\n" +
-    "  - Add correct contact shadows where the person meets the ground or any surface, and cast a " +
-    "believable shadow in the direction the new light dictates.\n" +
-    "  - Match the depth of field, focus falloff and grain of the new scene.\n" +
+    INTEGRATE +
     "  - Keep the same camera angle, distance and framing relative to the person.\n\n" +
-
     "The result must look like this exact photograph was originally taken in that place - a real " +
     "photo, not a cut-out pasted onto a backdrop. Photographed, not generated."
   );
@@ -293,7 +445,8 @@ export default async function handler(req, res) {
 
     // Belt-and-braces: if something huge still gets through, say so in plain
     // English instead of letting the platform return an unparseable error.
-    const totalBytes = photos.reduce((n, p) => n + (p.data ? p.data.length : 0), 0);
+    const totalBytes = photos.reduce((n, p) => n + (p.data ? p.data.length : 0), 0)
+                     + (body.stylePhoto && body.stylePhoto.data ? body.stylePhoto.data.length : 0);
     if (totalBytes > 9 * 1024 * 1024) {
       return res.status(413).json({ error: "Those photos are too large. Try one photo, or a smaller one." });
     }
@@ -301,14 +454,30 @@ export default async function handler(req, res) {
     const allowedRatios = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
     const aspectRatio = allowedRatios.includes(body.aspectRatio) ? body.aspectRatio : "4:5";
     const quality = body.quality === "high" ? "high" : "standard";
-    // "restage" = keep the exact person, swap the world (default, far more faithful).
-    // "reimagine" = generate a new photo of them in a new pose/outfit.
-    const mode = body.mode === "reimagine" ? "reimagine" : "restage";
+    // restage    = keep the exact person, swap the world (default)
+    // reimagine  = generate a new photo of them in a new pose/outfit
+    // editorial  = High Fashion tab: drop them into a fully-specified editorial look
+    // stylematch = Style Match tab: image 1 = person, image 2 = look to copy
+    const MODES = ["restage", "reimagine", "editorial", "stylematch"];
+    const mode = MODES.includes(body.mode) ? body.mode : "restage";
+
+    const preset = LOOK[body.preset] ? body.preset : "capri";
+
+    const stylePhoto = (body.stylePhoto && body.stylePhoto.data && body.stylePhoto.mimeType)
+      ? body.stylePhoto : null;
 
     // ── Basic validation ──
-    if (!consent)        return res.status(400).json({ error: "Please confirm these are photos of you before continuing." });
-    if (!photos.length)  return res.status(400).json({ error: "Upload at least one clear photo of your face." });
-    if (!scene)          return res.status(400).json({ error: "Describe the scene — a place, an outfit, a vibe." });
+    if (!consent)       return res.status(400).json({ error: "Please confirm these are photos of you before continuing." });
+    if (!photos.length) return res.status(400).json({ error: "Upload at least one clear photo of your face." });
+
+    // "editorial" picks a look from a grid, so a typed scene is optional.
+    // "stylematch" gets its scene FROM the reference image, so it's optional too.
+    if (!scene && mode !== "editorial" && mode !== "stylematch") {
+      return res.status(400).json({ error: "Describe the scene — a place, an outfit, a vibe." });
+    }
+    if (mode === "stylematch" && !stylePhoto) {
+      return res.status(400).json({ error: "Upload a style reference image — the look you want to copy." });
+    }
 
     // ── Auth ──
     const token  = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
@@ -328,23 +497,40 @@ export default async function handler(req, res) {
     const safe = await photoIsSafe(key, photos);
     if (!safe.ok) return res.status(400).json({ error: safe.reason });
 
+    // The style reference is a user upload too — it gets checked as well.
+    if (stylePhoto) {
+      const safeStyle = await photoIsSafe(key, [stylePhoto]);
+      if (!safeStyle.ok) {
+        return res.status(400).json({
+          error: safeStyle.reason.indexOf("under 18") > -1
+            ? "That style reference appears to show a minor and can't be used."
+            : "That style reference can't be used. Try a different one."
+        });
+      }
+    }
+
     // ── Only now do we take the money ──
     const cost = quality === "high" ? 450 : 150;
-    const paid = await spend(token, cost, "restage:" + mode + ":" + quality);
+    const paid = await spend(token, cost, "restage:" + mode + (mode === "editorial" ? ":" + preset : "") + ":" + quality);
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
     // ── Generate ──
     const model = quality === "high" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
     const imageConfig = quality === "high" ? { aspectRatio, imageSize: "2K" } : { aspectRatio };
 
-    // In "restage" mode we are editing ONE photograph — passing extra references
-    // just confuses a compositing job (which pose is it meant to keep?). In
-    // "reimagine" mode more references genuinely help identity, so pass them all.
-    const usePhotos = mode === "restage" ? photos.slice(0, 1) : photos;
+    // Photo ORDER MATTERS. In stylematch the prompt says "IMAGE 1 is the person,
+    // IMAGE 2 is the style reference" — so the person MUST go first.
+    // In any compositing mode we send exactly ONE photo of the person: extra
+    // references just confuse it (which pose is it meant to keep?). Only
+    // "reimagine" genuinely benefits from multiple references.
+    let sendPhotos;
+    if (mode === "reimagine")        sendPhotos = photos;
+    else if (mode === "stylematch")  sendPhotos = [photos[0], stylePhoto];   // person, then style
+    else                             sendPhotos = photos.slice(0, 1);
 
     const parts = [
-      ...usePhotos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
-      { text: buildPrompt(scene, mode) }
+      ...sendPhotos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
+      { text: buildPrompt(scene, mode, preset) }
     ];
 
     let r, data;

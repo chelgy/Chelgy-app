@@ -2137,6 +2137,340 @@ function shrinkImage(file, maxEdge = 1024, quality = 0.88) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Shared by the High Fashion + Style Match tabs.
+   Shrinks a photo in the browser: Vercel caps a request body at ~4.5MB and
+   base64 inflates a file by ~37%, so a raw phone photo blows the limit before
+   our code even runs. Also re-encodes iPhone HEIC to JPEG, which Gemini needs.
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function cgShrinkPhoto(file, maxDim=1280, quality=0.85){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res,rej)=>{
+      const i = new Image();
+      i.onload = ()=>res(i);
+      i.onerror = ()=>rej(new Error("Could not read that image."));
+      i.src = url;
+    });
+    let w = img.naturalWidth || img.width;
+    let h = img.naturalHeight || img.height;
+    if(!w || !h) throw new Error("Could not read that image.");
+    if(Math.max(w,h) > maxDim){
+      const scale = maxDim / Math.max(w,h);
+      w = Math.round(w*scale); h = Math.round(h*scale);
+    }
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    const dataUrl = c.toDataURL("image/jpeg", quality);
+    const data = dataUrl.split(",")[1];
+    if(!data) throw new Error("Could not read that image.");
+    return { mimeType:"image/jpeg", data, preview:dataUrl };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+// Never call r.json() blindly — an empty body or an HTML error page (413, 504)
+// makes Safari throw the useless "The string did not match the expected pattern."
+async function cgReadJson(r){
+  const raw = await r.text();
+  let d = {};
+  if(raw){ try{ d = JSON.parse(raw); }catch{ d = null; } }
+  if(d === null){
+    if(r.status === 413) throw new Error("Those photos are too large. Try a smaller one.");
+    throw new Error("The server returned an unexpected response ("+r.status+"). Please try again.");
+  }
+  if(!r.ok) throw new Error(d.error || "Could not create that photo.");
+  if(!d.image) throw new Error("No image came back. Please try again.");
+  return d;
+}
+
+const CG_LOOKS = [
+  { id:"capri",       label:"Capri Harbour",         desc:"Varnished Italian motor launch, pastel town on the hillside, low golden sun off the water. Sun-bleached, hazy, creamy highlights." },
+  { id:"dubrovnik",   label:"Dubrovnik Stone",       desc:"Ancient limestone fortress wall on the Adriatic. Hard midday sun, sharp shadows, bleached stone. Hot, dry, high contrast." },
+  { id:"desert",      label:"Desert Highway",        desc:"A dust-covered 60s American car on an empty gravel road. Blue hour, flat cool light, warm glow on the horizon. Cinematic and cold." },
+  { id:"brutalist",   label:"Brutalist Coast",       desc:"Raw board-formed concrete open to a grey-green ocean. Flat overcast light through huge glass. Cool, quiet, nearly monochrome." },
+  { id:"palmsprings", label:"Palm Springs Modernist",desc:"Mid-century desert house, travertine and brass, agave outside. Hazy diffused morning fog. Warm neutral, low contrast, languid." },
+  { id:"sandstone",   label:"Sandstone",             desc:"Wind-eroded wave-like rock rising from pale sand. Hard high sun, deep blue sky, sculptural shadows. Bold and graphic." },
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HIGH FASHION — pick an editorial look, get dropped into it.
+   Runs on /api/fakeit-restage with mode:"editorial".
+   ═══════════════════════════════════════════════════════════════════════════ */
+function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [photo,setPhoto]     = useState(null);
+  const [look,setLook]       = useState("capri");
+  const [extra,setExtra]     = useState("");
+  const [aspect,setAspect]   = useState("4:5");
+  const [quality,setQuality] = useState("high");
+  const [consent,setConsent] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [image,setImage]     = useState(null);
+  const [gallery,setGallery] = useState([]);
+
+  const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
+
+  async function pick(e){
+    const f = (e.target.files||[])[0];
+    e.target.value = "";
+    if(!f) return;
+    setErr(""); setBusy(true);
+    try{ setPhoto(await cgShrinkPhoto(f)); }
+    catch{ setErr("That photo couldn't be read. Try a JPG or PNG."); }
+    setBusy(false);
+  }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!consent){ setErr("Please confirm this is a photo of you."); return; }
+    if(!photo){ setErr("Upload a clear photo of yourself."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/fakeit-restage", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({
+          mode:"editorial", preset:look, consent:true,
+          scene: extra.trim(), aspectRatio:aspect, quality,
+          photos:[{ mimeType:photo.mimeType, data:photo.data }],
+        }),
+      });
+      const d = await cgReadJson(r);
+      setImage(d.image);
+      setGallery(g=>[d.image,...g].slice(0,24));
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"highfashion",look,quality}); onToolUse("highfashion", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>High Fashion</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Editorial locations with the lighting and colour grading to match. Your face, your pose, your outfit — dropped into a magazine shoot.
+      </p>
+
+      <input type="file" accept="image/*" onChange={pick} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {photo && (
+        <div style={{marginBottom:16,position:"relative",display:"inline-block"}}>
+          <img src={photo.preview} alt="" style={{width:90,height:114,objectFit:"cover",border:"1px solid "+B.stone}} />
+          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"16px 0 8px"}}>Pick a look</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:8,marginBottom:16}}>
+        {CG_LOOKS.map(l=>(
+          <button key={l.id} onClick={()=>setLook(l.id)} style={{textAlign:"left",padding:12,border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,cursor:"pointer"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",marginBottom:5}}>{l.label}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,lineHeight:1.5,color:look===l.id?"rgba(255,255,255,0.72)":B.mid}}>{l.desc}</div>
+          </button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
+      <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="leaning on the bonnet, shot from low down"
+        style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:6,boxSizing:"border-box"}} />
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>The location, light and grading come from the look. Don't describe your outfit — that comes from your photo.</p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
+          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is worth it here — editorial lives on texture and grain.</p>
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+          This is a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+        </span>
+      </label>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={generate}>
+        {busy ? "SHOOTING…" : "SHOOT IT · "+COST.toLocaleString()+" CREDITS"}
+      </Btn>
+      {busy && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>Usually 10 to 25 seconds.</p>}
+
+      {image && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <a href={image} download="chelgy-editorial.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+        </div>
+      )}
+      {gallery.length>1 && (
+        <div style={{marginTop:26}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>This session</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {gallery.map((g,i)=>(<img key={i} src={g} alt="" onClick={()=>setImage(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />))}
+          </div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"8px 0 0"}}>Download anything you want to keep — this clears when you refresh.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STYLE MATCH — image 1 is you, image 2 is the look. Copies image 2's location,
+   light, colour grade, grain and framing onto you.
+   Runs on /api/fakeit-restage with mode:"stylematch".
+   ═══════════════════════════════════════════════════════════════════════════ */
+function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [me,setMe]           = useState(null);
+  const [style,setStyle]     = useState(null);
+  const [extra,setExtra]     = useState("");
+  const [aspect,setAspect]   = useState("4:5");
+  const [quality,setQuality] = useState("high");
+  const [consent,setConsent] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [image,setImage]     = useState(null);
+  const [gallery,setGallery] = useState([]);
+
+  const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
+
+  async function pick(e, which){
+    const f = (e.target.files||[])[0];
+    e.target.value = "";
+    if(!f) return;
+    setErr(""); setBusy(true);
+    try{
+      const p = await cgShrinkPhoto(f);
+      if(which==="me") setMe(p); else setStyle(p);
+    }catch{ setErr("That image couldn't be read. Try a JPG or PNG."); }
+    setBusy(false);
+  }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!consent){ setErr("Please confirm image 1 is a photo of you."); return; }
+    if(!me){ setErr("Upload image 1 — a clear photo of you."); return; }
+    if(!style){ setErr("Upload image 2 — the look you want to copy."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/fakeit-restage", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({
+          mode:"stylematch", consent:true,
+          scene: extra.trim(), aspectRatio:aspect, quality,
+          photos:[{ mimeType:me.mimeType, data:me.data }],
+          stylePhoto:{ mimeType:style.mimeType, data:style.data },
+        }),
+      });
+      const d = await cgReadJson(r);
+      setImage(d.image);
+      setGallery(g=>[d.image,...g].slice(0,24));
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"stylematch",quality}); onToolUse("stylematch", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  const Slot = ({ label, hint, photo, onPick, onClear }) => (
+    <div style={{flex:"1 1 240px",border:"1px solid "+B.stone,padding:14}}>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 4px"}}>{label}</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>{hint}</p>
+      {photo ? (
+        <div style={{position:"relative",display:"inline-block"}}>
+          <img src={photo.preview} alt="" style={{width:110,height:140,objectFit:"cover",border:"1px solid "+B.stone}} />
+          <button onClick={onClear} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+        </div>
+      ) : (
+        <input type="file" accept="image/*" onChange={onPick} style={{fontFamily:"sans-serif",fontSize:12,display:"block"}} />
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Style Match</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Found a photo with a look you love? Upload it. We'll put you into its world — same location, same lighting, same colour grading, same grain.
+      </p>
+
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:18}}>
+        <Slot label="Image 1 · You"
+              hint="A clear photo of you. Your face, pose and outfit are kept exactly."
+              photo={me} onPick={e=>pick(e,"me")} onClear={()=>setMe(null)} />
+        <Slot label="Image 2 · The look"
+              hint="The photo whose location, light and colour you want. Anyone in it is ignored."
+              photo={style} onPick={e=>pick(e,"style")} onClear={()=>setStyle(null)} />
+      </div>
+
+      <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
+          <strong style={{color:B.charcoal}}>Only the look is copied.</strong> The person in image 2 is ignored entirely — their face, body and clothes have no effect. We take the place, the light, the colour grading, the grain and the framing, and nothing else. Use images you have the right to use; the result is yours, but the reference isn't.
+        </p>
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
+      <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="pull back a little wider"
+        style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:18,boxSizing:"border-box"}} />
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
+      <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
+          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
+        ))}
+      </div>
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+          Image 1 is a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+        </span>
+      </label>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={generate}>
+        {busy ? "MATCHING…" : "PUT ME IN IMAGE 2 · "+COST.toLocaleString()+" CREDITS"}
+      </Btn>
+      {busy && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>Usually 10 to 25 seconds.</p>}
+
+      {image && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <a href={image} download="chelgy-stylematch.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+        </div>
+      )}
+      {gallery.length>1 && (
+        <div style={{marginTop:26}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>This session</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {gallery.map((g,i)=>(<img key={i} src={g} alt="" onClick={()=>setImage(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Restage — "Fake It", rebuilt on Gemini reference photos.
 
    The old FakeIt (below) trained a model of your face on fal/Flux, then
@@ -4534,6 +4868,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
@@ -5030,7 +5366,7 @@ const CATEGORIES = [
 
      ═══════════════════════════════════════════════════════════════════════ */
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Fake It",tool:"restage"} ] },
+    tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Style Match",tool:"stylematch"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
