@@ -449,7 +449,7 @@ const LOOK = {
 
   b_sunvisor: { label: "White Wall Sun", body:
     "FRAME: a tight beauty portrait against a wall, head and shoulders, chin level, lips parted, " +
-    "stillness like a campaign shot.\n" +
+    "still and composed, gaze level.\n" +
     "LOCATION: a white stucco wall in full sun - its rough texture in crisp focus, a hard shadow of " +
     "the head thrown onto the wall to one side.\n" +
     "LIGHT: brutal direct midday sun straight onto the face. Glossy specular highlights on the " +
@@ -539,7 +539,7 @@ const LOOK = {
     "the skin oiled and glowing, molten highlights pooling on the cheekbone, brow bone, cupid's bow " +
     "and shoulder, deep soft shadow everywhere else.\n" +
     "GRADE: liquid bronze. Deep warm browns, molten gold highlights, soft smoky background. Very " +
-    "low key, very high polish - skin rendered like poured metal." },
+    "low key - real skin under molten light, every pore still visible inside the glow." },
 };
 //
 //   "restage"   (default) — DON'T regenerate the person. Keep their exact face,
@@ -608,9 +608,24 @@ function buildPrompt(scene, mode, preset) {
   // ── HIGH FASHION: drop them into a fully-specified editorial world. ──
   if (mode === "editorial") {
     const look = LOOK[preset] || LOOK.capri;
+    // Beauty looks (b_*) are tight close-ups, so "polished / campaign" wording in
+    // the look can read as a RETOUCHING instruction — the model symmetrises the
+    // face and perfects the skin into an idealised version of the person. This
+    // clause pins the real face back down. Environments don't need it because the
+    // face is small in frame there.
+    const realFace = preset.indexOf("b_") === 0
+      ? "THIS IS A CLOSE-UP OF A REAL FACE, NOT A RETOUCHED BEAUTY CAMPAIGN. Keep her face exactly " +
+        "as asymmetric as it really is - real faces are not symmetrical, and hers must not be " +
+        "symmetrised, balanced or 'corrected'. Keep her real skin: visible pores, fine lines, " +
+        "texture, any small blemishes, marks or unevenness, exactly as in her photo. The glow and " +
+        "highlights described below come from LIGHT hitting real skin - they are not smoothing, not " +
+        "retouching, not a filter. If her face comes out more symmetrical, smoother or more perfect " +
+        "than in her photo, the image is WRONG.\n\n"
+      : "";
     return (
       "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
       KEEP_PERSON +
+      realFace +
       "PLACE THEM IN THIS WORLD:\n" + look.body + "\n\n" +
       (s ? "The user also asks for: " + s + "\n\n" : "") +
       LOOK.base + "\n\n" +
