@@ -2267,7 +2267,7 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
   const [look,setLook]       = useState("b_goldensand");
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
-  const [quality,setQuality] = useState("high");
+  const [quality,setQuality] = useState("standard");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
@@ -2349,7 +2349,6 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
           <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
         ))}
       </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is worth it here — beauty lives on skin texture.</p>
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
@@ -2389,7 +2388,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
   const [look,setLook]       = useState("capri");
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
-  const [quality,setQuality] = useState("high");
+  const [quality,setQuality] = useState("standard");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
@@ -2471,7 +2470,6 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
           <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
         ))}
       </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is worth it here — editorial lives on texture and grain.</p>
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
@@ -2516,7 +2514,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [style,setStyle]     = useState(null);
   const [extra,setExtra]     = useState("");
   const [aspect,setAspect]   = useState("4:5");
-  const [quality,setQuality] = useState("high");
+  const [quality,setQuality] = useState("standard");
   const [consent,setConsent] = useState(false);
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
@@ -2675,39 +2673,35 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
    Server: /api/fakeit-restage.js  (consent + word blocklist + photo NSFW check)
    ═══════════════════════════════════════════════════════════════════════════ */
 // Collapsible look picker shared by Fake It, High Fashion and Beauty.
-// 40+ chips was a wall of buttons, so: categories collapsed by default, tap to
-// reveal, one open at a time. The selected look's name shows in its category
-// header even when collapsed, so you never lose track of what's picked.
+// HORIZONTAL layout: category names are pills that wrap across the row (compact),
+// and tapping one reveals its looks in a panel BELOW the row. One open at a time.
+// The pill for the category holding the current selection shows the look's name.
 function CgLookPicker({ groups, value, onChange }){
   const [open,setOpen] = useState(null);
+  const openGroup = groups.find(g=>g.group===open);
   return (
-    <div style={{border:"1px solid "+B.stone,marginBottom:16}}>
-      {groups.map((g,gi)=>{
-        const isOpen = open===g.group;
-        const sel = g.items.find(l=>l.id===value);
-        return (
-          <div key={g.group} style={{borderTop: gi===0?"none":"1px solid "+B.stone}}>
-            <button onClick={()=>setOpen(isOpen?null:g.group)}
-              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:isOpen?B.offwhite:"#fff",border:"none",cursor:"pointer",textAlign:"left"}}>
-              <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal}}>
-                {g.group}
-                <span style={{fontWeight:400,color:B.mid,marginLeft:8,textTransform:"none",letterSpacing:0}}>{g.items.length}</span>
-              </span>
-              <span style={{display:"flex",alignItems:"center",gap:10}}>
-                {sel && <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>{sel.label}</span>}
-                <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{isOpen?"▴":"▾"}</span>
-              </span>
+    <div style={{marginBottom:16}}>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {groups.map(g=>{
+          const isOpen = open===g.group;
+          const sel = g.items.find(l=>l.id===value);
+          return (
+            <button key={g.group} onClick={()=>setOpen(isOpen?null:g.group)}
+              style={{padding:"8px 13px",border:"1px solid "+(isOpen||sel?B.charcoal:B.stone),background:isOpen?B.charcoal:"#fff",color:isOpen?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:7}}>
+              {g.group}
+              {sel && <span style={{fontWeight:400,color:isOpen?"rgba(255,255,255,0.75)":B.gold,textTransform:"none",letterSpacing:0}}>· {sel.label}</span>}
+              <span style={{color:isOpen?"rgba(255,255,255,0.6)":B.mid,fontWeight:400}}>{isOpen?"▴":"▾"}</span>
             </button>
-            {isOpen && (
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"4px 14px 14px"}}>
-                {g.items.map(l=>(
-                  <button key={l.id} onClick={()=>onChange(l.id)} style={{padding:"8px 14px",border:"1px solid "+(value===l.id?B.charcoal:B.stone),background:value===l.id?B.charcoal:"#fff",color:value===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      {openGroup && (
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"12px 12px 12px",border:"1px solid "+B.stone,borderTop:"none",background:B.offwhite}}>
+          {openGroup.items.map(l=>(
+            <button key={l.id} onClick={()=>onChange(l.id)} style={{padding:"8px 14px",border:"1px solid "+(value===l.id?B.charcoal:B.stone),background:value===l.id?B.charcoal:"#fff",color:value===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2951,7 +2945,6 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
         ))}
       </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is sharper and holds your face better. Standard is plenty for social.</p>
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:14,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
