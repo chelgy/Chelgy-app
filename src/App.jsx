@@ -2683,10 +2683,57 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
 
    Server: /api/fakeit-restage.js  (consent + word blocklist + photo NSFW check)
    ═══════════════════════════════════════════════════════════════════════════ */
+// The full look library for the Fake It tab — environments + beauty looks.
+// Picking one sends its id; the SERVER drops that look's environment text into
+// Fake It's own untouched twin prompt. "Describe my own" = classic free text.
+const CG_ALL_LOOKS = [
+  { group:"Italy & coast", items:[
+    { id:"capri", label:"Capri Harbour" }, { id:"capriroad", label:"Capri Clifftop" },
+    { id:"coastroad", label:"Coast Road" }, { id:"clifftopglass", label:"Clifftop Glass" },
+    { id:"oceandusk", label:"Ocean at Dusk" },
+  ]},
+  { group:"Stone & architecture", items:[
+    { id:"dubrovnik", label:"Dubrovnik Stone" }, { id:"brutalist", label:"Brutalist Coast" },
+    { id:"whiteconcrete", label:"White Concrete" },
+  ]},
+  { group:"Desert", items:[
+    { id:"desert", label:"Desert Highway" }, { id:"desertsunset", label:"Desert Sunset" },
+    { id:"desertsun", label:"Desert Noon" }, { id:"desertgold", label:"Golden Desert" },
+    { id:"sandstone", label:"Sandstone" },
+  ]},
+  { group:"Houses & interiors", items:[
+    { id:"palmsprings", label:"Palm Springs" }, { id:"timberdeck", label:"Timber Deck" },
+    { id:"woodroom", label:"Wood Room" }, { id:"darkstudio", label:"Dark Studio" },
+  ]},
+  { group:"Street", items:[
+    { id:"street", label:"Street Blur" },
+  ]},
+  { group:"Beauty · water", items:[
+    { id:"b_oceanface", label:"Ocean Surface" }, { id:"b_splash", label:"Through Water" },
+    { id:"b_lakeboat", label:"Dark Lake" },
+  ]},
+  { group:"Beauty · sun & sand", items:[
+    { id:"b_goldensand", label:"Gilded Sand" }, { id:"b_whitebeach", label:"White Haze Beach" },
+    { id:"b_bluedusk", label:"Blue Dusk" }, { id:"b_sunvisor", label:"White Wall Sun" },
+  ]},
+  { group:"Beauty · hard light", items:[
+    { id:"b_shadowplay", label:"Shadow Play" }, { id:"b_citypower", label:"City Power" },
+  ]},
+  { group:"Beauty · machines", items:[
+    { id:"b_rivadeck", label:"Riva Deck" }, { id:"b_backseat", label:"Back Seat" },
+    { id:"b_carwindow", label:"Vintage Interior" }, { id:"b_cockpit", label:"Cockpit" },
+    { id:"b_helipad", label:"Helipad" },
+  ]},
+  { group:"Beauty · studio", items:[
+    { id:"b_bronze", label:"Bronze Sculpt" },
+  ]},
+];
+
 function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const MAX_PHOTOS = 3;
   const [photos,setPhotos]   = useState([]);   // [{mimeType,data,preview}]
   const [scene,setScene]     = useState("");
+  const [preset,setPreset]   = useState(null);   // a look id, or null = describe my own
   const [aspect,setAspect]   = useState("4:5");
   const [quality,setQuality] = useState("standard");
   const [mode,setMode]       = useState("restage");   // "restage" = keep pose+outfit, swap background. "reimagine" = new photo of you.
@@ -2755,7 +2802,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
     setErr(""); setImage(null);
     if(!consent){ setErr("Please confirm these are photos of you."); return; }
     if(!photos.length){ setErr("Upload at least one clear photo of your face."); return; }
-    if(!scene.trim()){ setErr("Describe the scene — a place, an outfit, a vibe."); return; }
+    if(!scene.trim() && !(mode==="restage" && preset)){ setErr("Pick a look, or describe the scene — a place, an outfit, a vibe."); return; }
     if(Number(credits) < COST){
       setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+".");
       onBuyCredits(); return;
@@ -2768,6 +2815,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
         body: JSON.stringify({
           scene: scene.trim(),
+          preset: mode==="restage" ? preset : null,
           consent: true,
           aspectRatio: aspect,
           quality,
@@ -2857,7 +2905,24 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           : "Invents a brand new photo of you in a new pose and outfit. More creative, but it won't look as exactly like you."}
       </p>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>{mode==="restage" ? "Put me here" : "Where are you?"}</p>
+      {mode==="restage" && (<>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Pick a look — or describe your own below</p>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+          <button onClick={()=>setPreset(null)} style={{padding:"8px 14px",border:"1px solid "+(preset===null?B.charcoal:B.stone),background:preset===null?B.charcoal:"#fff",color:preset===null?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>Describe my own</button>
+        </div>
+        {CG_ALL_LOOKS.map(g=>(
+          <div key={g.group} style={{marginBottom:10}}>
+            <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {g.items.map(l=>(
+                <button key={l.id} onClick={()=>setPreset(l.id)} style={{padding:"8px 14px",border:"1px solid "+(preset===l.id?B.charcoal:B.stone),background:preset===l.id?B.charcoal:"#fff",color:preset===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </>)}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"14px 0 6px"}}>{mode!=="restage" ? "Where are you?" : (preset ? "Anything to add? (optional)" : "Put me here")}</p>
       <textarea value={scene} onChange={e=>setScene(e.target.value)} rows={3}
         placeholder={mode==="restage" ? "a balcony overlooking the Amalfi Coast at golden hour" : "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress"}
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box"}} />
@@ -2908,7 +2973,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       {image && (
         <div style={{marginTop:26,textAlign:"center"}}>
           <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <a href={image} download="fakeit.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+          <a href={image} download="chelgy.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
         </div>
       )}
 
@@ -3286,7 +3351,7 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
               {vUrl && !vBusy && (
                 <div>
                   <video src={vUrl} controls playsInline style={{maxWidth:"100%",display:"block",background:"#000",border:"1px solid "+B.stone}} />
-                  <a href={vUrl} download="fakeit-video.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD &darr;</a>
+                  <a href={vUrl} download="chelgy-video.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD &darr;</a>
                 </div>
               )}
             </div>
@@ -3335,7 +3400,7 @@ function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()
           {image && (
             <div>
               <img src={image} alt="" style={{width:"100%",display:"block",border:"1px solid "+B.stone}} />
-              <a href={image} download="fakeit.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+              <a href={image} download="chelgy.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
             </div>
           )}
           </div>
