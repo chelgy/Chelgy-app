@@ -380,6 +380,166 @@ const LOOK = {
     "GRADE: warm and gritty. Amber sunlight, deep brown-black shadow, blown highlights. Heavy motion " +
     "blur through the whole background and a smeared, kinetic feel. High contrast, filmic, urgent - " +
     "a stolen paparazzi frame." },
+
+  // ═══ BEAUTY LOOKS — close on the body and face, environment carried by light,
+  //     colour and what sits just behind the skin. Framing is baked into each
+  //     body because this endpoint has no separate framing system. ═══
+
+  // ── WATER ──
+  b_oceanface: { label: "Ocean Surface", body:
+    "FRAME: an extreme close-up, the face half-submerged at the waterline of a calm sea, eyes just " +
+    "above the surface looking into the lens, wet hair strands across the forehead.\n" +
+    "LOCATION: open ocean at golden hour, the water surface filling the lower frame, a soft blurred " +
+    "horizon and pale sky behind.\n" +
+    "LIGHT: low warm sun from one side, catching every water droplet beaded on the skin, wet lashes, " +
+    "and a bright ripple of reflected light bouncing up off the water onto the underside of the face.\n" +
+    "GRADE: warm honey skin against cool blue-green water. Crisp detail on the wet skin - droplets, " +
+    "freckles, sheen - with the sea softly out of focus. Rich, tactile, sun-soaked." },
+
+  b_splash: { label: "Through Water", body:
+    "FRAME: a tight beauty close-up of the face seen through and between rushing, swirling water, " +
+    "wearing tinted sunglasses, lips parted, water streaming over the skin.\n" +
+    "LOCATION: abstract - the water IS the environment, sheets and ribbons of clear water wrapping " +
+    "the face, catching light as it moves.\n" +
+    "LIGHT: bright directional light through the water, throwing caustic ripples of light across the " +
+    "lips and cheeks, glossy wet highlights everywhere.\n" +
+    "GRADE: warm amber through the lenses against neutral wet skin. High detail, high gloss, every " +
+    "droplet sharp. Sensual, kinetic, expensive." },
+
+  b_lakeboat: { label: "Dark Lake", body:
+    "FRAME: shot from above and behind at half-body, leaning forward over the bow of a dark wooden " +
+    "boat, reaching toward the water, face turned enough to catch the profile.\n" +
+    "LOCATION: a still, dark, glassy lake mirroring a pale cloudy sky - deep green-black water with " +
+    "soft cloud reflections, the weathered timber bow cutting through the frame.\n" +
+    "LIGHT: flat, cool, overcast north-light. Soft and even, with a silvery sheen on the water and " +
+    "gentle wraparound shadow on the body.\n" +
+    "GRADE: quiet and painterly. Ivory, walnut brown, deep green-black. Low contrast, muted " +
+    "saturation, still and cinematic." },
+
+  // ── SUN & SAND ──
+  b_goldensand: { label: "Gilded Sand", body:
+    "FRAME: a tight beauty close-up, lying with the cheek resting on the arms in warm sand, face " +
+    "toward camera, wet hair strands falling across the brow, gold jewellery catching light.\n" +
+    "LOCATION: fine golden beach sand filling the frame, tiny grains dusted across the forearms and " +
+    "shoulder, nothing else - the world reduced to sand, skin and gold.\n" +
+    "LIGHT: low warm afternoon sun raking across the face, making the skin glisten with sheen and " +
+    "fine glitter, deep soft shadows in the eye sockets and under the jaw.\n" +
+    "GRADE: monochromatic gold - bronze skin, golden sand, brass jewellery. Warm, rich, glowing, " +
+    "with real pores and sun-sheen. Sultry and tactile." },
+
+  b_whitebeach: { label: "White Haze Beach", body:
+    "FRAME: half-body, reclining propped on one arm in pale sand, sand dusted and clinging across " +
+    "one side of the body, gaze straight down the lens.\n" +
+    "LOCATION: a white-sand beach dissolved in bright haze - the sea and sky merge into one pale, " +
+    "glowing backdrop with almost no horizon.\n" +
+    "LIGHT: strong backlight through haze - the whole background blown to soft white, the body " +
+    "rim-lit, the face gently filled by light bouncing off the sand.\n" +
+    "GRADE: bleached and luminous. Pale bone background, deep tanned skin as the only rich tone in " +
+    "frame. Soft contrast on the world, crisp texture on the skin and the clinging sand." },
+
+  b_bluedusk: { label: "Blue Dusk", body:
+    "FRAME: full-body from behind or three-quarter, standing at the water's edge, arms stretched " +
+    "overhead, the body a sculpted line against sea and sky.\n" +
+    "LOCATION: a dark ocean at dusk under a deep, clean, cloudless blue sky grading darker at the " +
+    "top, a thin far horizon line.\n" +
+    "LIGHT: the last cool light of the day plus a subtle warm kick from one side, giving the skin a " +
+    "polished bronze sheen along every muscle line.\n" +
+    "GRADE: deep navy and bronze. Saturated dusk blue against glowing warm skin, rich shadows, " +
+    "high polish. Sculptural, athletic, monumental." },
+
+  b_sunvisor: { label: "White Wall Sun", body:
+    "FRAME: a tight beauty portrait against a wall, head and shoulders, chin level, lips parted, " +
+    "stillness like a campaign shot.\n" +
+    "LOCATION: a white stucco wall in full sun - its rough texture in crisp focus, a hard shadow of " +
+    "the head thrown onto the wall to one side.\n" +
+    "LIGHT: brutal direct midday sun straight onto the face. Glossy specular highlights on the " +
+    "forehead, nose and lips, freckles vivid, skin glowing with sheen and sweat.\n" +
+    "GRADE: hot and clean. Bleached white wall, deep warm skin, glinting gold accents. High " +
+    "contrast, high detail, unapologetically sunlit." },
+
+  // ── HARD LIGHT ──
+  b_shadowplay: { label: "Shadow Play", body:
+    "FRAME: a beauty close-up, head tilted back, one hand raised flat above the brow to shield the " +
+    "sun, so a hard shadow falls diagonally across the eyes and nose while the mouth and chin blaze " +
+    "in full light.\n" +
+    "LOCATION: a bright white wall or architectural plane behind, cut by bold diagonal shadows from " +
+    "unseen structures - pure graphic geometry.\n" +
+    "LIGHT: one hard, high sun. Razor-edged shadows carving the face into lit and unlit planes, " +
+    "glossy highlights on the lips and the cheekbone in sun.\n" +
+    "GRADE: graphic and warm-neutral. Bright bone whites, deep brown shadows, luminous skin. High " +
+    "contrast, precise, sculptural - light as makeup." },
+
+  b_citypower: { label: "City Power", body:
+    "FRAME: half-to-full body shot from a low angle looking up, stance wide and dominant, chin " +
+    "lifted, towering over the camera.\n" +
+    "LOCATION: dark high-rise towers rising behind against a saturated deep teal sky, the street " +
+    "world far below and out of frame.\n" +
+    "LIGHT: hard direct flash-like key on the body against the darker city - crisp, fashion-flash " +
+    "edges, deep dramatic shadow behind.\n" +
+    "GRADE: bold editorial punch. Inky building blacks, electric teal sky, clean bright skin. High " +
+    "contrast, saturated, fierce - a 2000s fashion-flash statement." },
+
+  // ── MACHINES ──
+  b_rivadeck: { label: "Riva Deck", body:
+    "FRAME: half-body from slightly above, seated back against cream leather at the helm of a " +
+    "classic wooden runabout, one hand resting on the wheel, face turned to the light.\n" +
+    "LOCATION: a varnished mahogany and cream-leather Italian speedboat, teak deck lines, chrome " +
+    "trim, deep blue sea with a soft wake behind.\n" +
+    "LIGHT: full clean afternoon sun, warm and direct, sparkling off the chrome and the water, a " +
+    "soft warm bounce up off the cream leather into the face.\n" +
+    "GRADE: nautical luxury. Deep navy water, honey timber, cream leather, sun-warm skin. Crisp, " +
+    "rich, saturated - a Riviera campaign." },
+
+  b_backseat: { label: "Back Seat", body:
+    "FRAME: half-body lounging across the tan leather back seat of a vintage car, one arm along the " +
+    "seat back, legs crossed, face in profile or turned to the window.\n" +
+    "LOCATION: a 70s sedan interior - caramel leather, chrome window frames - with a deep blue sea " +
+    "and sky filling every window.\n" +
+    "LIGHT: punchy direct sun through the windows plus a crisp flash-like key: sharp highlights on " +
+    "the leather, clean bright skin, hard little shadows.\n" +
+    "GRADE: saturated and graphic. Caramel leather, cobalt sea, bright whites. Bold contrast, " +
+    "glossy, sharp - a sun-drenched campaign frame." },
+
+  b_carwindow: { label: "Vintage Interior", body:
+    "FRAME: half-body seated in a vintage car's passenger seat, framed through the open window or " +
+    "windscreen, one hand in the hair, gaze away down the road.\n" +
+    "LOCATION: an old convertible's cabin - stitched tan leather bench, black dashboard, chrome " +
+    "mirror - the world outside soft and out of focus.\n" +
+    "LIGHT: soft, warm, directional daylight through the glass, gentle falloff into the cabin's " +
+    "shadows, a warm bounce off the leather under the chin.\n" +
+    "GRADE: warm 70s film. Caramel, cream, walnut, soft denim blue outside. Gentle contrast, creamy " +
+    "highlights, nostalgic and intimate." },
+
+  b_cockpit: { label: "Cockpit", body:
+    "FRAME: half-body seated in a vintage light-aircraft cockpit, leaning slightly toward camera, " +
+    "sunglasses on, framed by the windscreen struts and the instrument panel.\n" +
+    "LOCATION: a 1950s propeller plane cabin - black dial instruments, worn brown leather seats, " +
+    "pale overcast sky filling the cockpit glass.\n" +
+    "LIGHT: soft, even, overcast daylight through the canopy - flat and flattering, with gentle " +
+    "reflections in the sunglasses and a soft sheen on the coat.\n" +
+    "GRADE: quiet vintage. Cream, cognac leather, charcoal instruments, milky sky. Muted saturation, " +
+    "soft film contrast, timeless." },
+
+  b_helipad: { label: "Helipad", body:
+    "FRAME: full-body stepping down from a black helicopter, one hand on the door frame, wind in " +
+    "the hair, mid-stride toward camera.\n" +
+    "LOCATION: a wet dark tarmac helipad under a heavy overcast sky, the glossy black machine " +
+    "filling the background, rotor blades cutting the top of frame.\n" +
+    "LIGHT: soft dramatic storm-light - a huge overcast softbox from above, with the wet tarmac " +
+    "bouncing cool light up, and the black fuselage framing the figure in darkness.\n" +
+    "GRADE: steel and skin. Gunmetal greys, wet-asphalt blacks, warm legs and face as the only " +
+    "warmth in frame. Moody contrast, cinematic, powerful." },
+
+  // ── STUDIO ──
+  b_bronze: { label: "Bronze Sculpt", body:
+    "FRAME: an intimate beauty close-up in profile-to-three-quarter, eyes closed, chin lifted, one " +
+    "arm raised behind the head - the face and neck as sculpture.\n" +
+    "LOCATION: a bare, seamless warm-grey studio backdrop, nothing else - all attention on skin.\n" +
+    "LIGHT: one warm directional beauty light raking across the face, plus a soft rim from behind: " +
+    "the skin oiled and glowing, molten highlights pooling on the cheekbone, brow bone, cupid's bow " +
+    "and shoulder, deep soft shadow everywhere else.\n" +
+    "GRADE: liquid bronze. Deep warm browns, molten gold highlights, soft smoky background. Very " +
+    "low key, very high polish - skin rendered like poured metal." },
 };
 //
 //   "restage"   (default) — DON'T regenerate the person. Keep their exact face,

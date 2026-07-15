@@ -2219,6 +2219,171 @@ const CG_LOOKS = [
    HIGH FASHION — pick an editorial look, get dropped into it.
    Runs on /api/fakeit-restage with mode:"editorial".
    ═══════════════════════════════════════════════════════════════════════════ */
+// Grouped, names-only — same pattern as the High Fashion looks.
+const CG_BEAUTY = [
+  { group:"Water", items:[
+    { id:"b_oceanface",  label:"Ocean Surface" },
+    { id:"b_splash",     label:"Through Water" },
+    { id:"b_lakeboat",   label:"Dark Lake" },
+  ]},
+  { group:"Sun & sand", items:[
+    { id:"b_goldensand", label:"Gilded Sand" },
+    { id:"b_whitebeach", label:"White Haze Beach" },
+    { id:"b_bluedusk",   label:"Blue Dusk" },
+    { id:"b_sunvisor",   label:"White Wall Sun" },
+  ]},
+  { group:"Hard light", items:[
+    { id:"b_shadowplay", label:"Shadow Play" },
+    { id:"b_citypower",  label:"City Power" },
+  ]},
+  { group:"Machines", items:[
+    { id:"b_rivadeck",   label:"Riva Deck" },
+    { id:"b_backseat",   label:"Back Seat" },
+    { id:"b_carwindow",  label:"Vintage Interior" },
+    { id:"b_cockpit",    label:"Cockpit" },
+    { id:"b_helipad",    label:"Helipad" },
+  ]},
+  { group:"Studio", items:[
+    { id:"b_bronze",     label:"Bronze Sculpt" },
+  ]},
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BEAUTY — close-up body-and-face looks. Same twin engine and same
+   mode:"editorial" path as High Fashion; only the preset list differs.
+   The framing (close-up vs half vs full body) is baked into each look.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [photo,setPhoto]     = useState(null);
+  const [look,setLook]       = useState("b_goldensand");
+  const [extra,setExtra]     = useState("");
+  const [aspect,setAspect]   = useState("4:5");
+  const [quality,setQuality] = useState("high");
+  const [consent,setConsent] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [image,setImage]     = useState(null);
+  const [gallery,setGallery] = useState([]);
+
+  const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
+
+  async function pick(e){
+    const f = (e.target.files||[])[0];
+    e.target.value = "";
+    if(!f) return;
+    setErr(""); setBusy(true);
+    try{ setPhoto(await cgShrinkPhoto(f)); }
+    catch{ setErr("That photo couldn't be read. Try a JPG or PNG."); }
+    setBusy(false);
+  }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!consent){ setErr("Please confirm this is a photo of you."); return; }
+    if(!photo){ setErr("Upload a clear photo of yourself."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/fakeit-restage", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
+        body: JSON.stringify({
+          mode:"editorial", preset:look, consent:true,
+          scene: extra.trim(), aspectRatio:aspect, quality,
+          photos:[{ mimeType:photo.mimeType, data:photo.data }],
+        }),
+      });
+      const d = await cgReadJson(r);
+      setImage(d.image);
+      setGallery(g=>[d.image,...g].slice(0,24));
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"beauty",look,quality}); onToolUse("beauty", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Beauty</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Close on you — skin, light and one gorgeous setting. From tight beauty portraits to full-body statements, each look carries its own framing, lighting and colour.
+      </p>
+
+      <input type="file" accept="image/*" onChange={pick} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {photo && (
+        <div style={{marginBottom:16,position:"relative",display:"inline-block"}}>
+          <img src={photo.preview} alt="" style={{width:90,height:114,objectFit:"cover",border:"1px solid "+B.stone}} />
+          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"16px 0 8px"}}>Pick a look</p>
+      {CG_BEAUTY.map(g=>(
+        <div key={g.group} style={{marginBottom:12}}>
+          <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {g.items.map(l=>(
+              <button key={l.id} onClick={()=>setLook(l.id)} style={{padding:"8px 14px",border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{height:6}} />
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
+      <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="hair slicked back, gold hoops"
+        style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:6,boxSizing:"border-box"}} />
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>The framing, light and colour come from the look. Your face, outfit and body come from your photo.</p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
+      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
+          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 18px"}}>High detail is worth it here — beauty lives on skin texture.</p>
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+          This is a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.
+        </span>
+      </label>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={generate}>
+        {busy ? "SHOOTING…" : "SHOOT IT · "+COST.toLocaleString()+" CREDITS"}
+      </Btn>
+      {busy && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>Usually 10 to 25 seconds.</p>}
+
+      {image && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <a href={image} download="chelgy-beauty.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+        </div>
+      )}
+      {gallery.length>1 && (
+        <div style={{marginTop:26}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>This session</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {gallery.map((g,i)=>(<img key={i} src={g} alt="" onClick={()=>setImage(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />))}
+          </div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"8px 0 0"}}>Download anything you want to keep — this clears when you refresh.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
   const [photo,setPhoto]     = useState(null);
   const [look,setLook]       = useState("capri");
@@ -4903,6 +5068,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -5402,7 +5568,7 @@ const CATEGORIES = [
 
      ═══════════════════════════════════════════════════════════════════════ */
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Style Match",tool:"stylematch"} ] },
+    tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}, {label:"Style Match",tool:"stylematch"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
