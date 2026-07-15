@@ -214,18 +214,11 @@ const LOOK = {
   // Shared spine. Every preset gets this.
   base:
     "SHOOT IT LIKE A FASHION EDITORIAL, NOT A STOCK PHOTO.\n" +
-    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Never a cheesy grin, " +
-    "never a chirpy 'say cheese' smile, never mugging for the camera. Cool, unbothered, a little " +
-    "unreadable. A faint, knowing half-smile is allowed - a broad happy one is not.\n" +
-    "  - GAZE - VARY IT. Do not default to looking away every time. Pick whatever suits the frame:\n" +
-    "      * straight down the lens: a direct, cool, unblinking, mysterious stare. Often the " +
-    "strongest frame in a set - use it freely.\n" +
-    "      * toward the camera but focused PAST it, at something behind the photographer.\n" +
-    "      * eyes lowered, looking down and away, lost in thought.\n" +
-    "      * in profile, looking off out of frame.\n" +
-    "      * eyes closed, chin lifted, face turned up into the light.\n" +
-    "      * over the shoulder, back half-turned to camera, glancing round.\n" +
-    "    The only thing forbidden is a posed, smiling, camera-pleasing expression.\n" +
+    "  - Framing: wide and environmental. The location is the co-star. Leave generous negative " +
+    "space. Place the person OFF-CENTRE, using roughly a third of the frame. Do NOT centre them. " +
+    "Do not crop tight to the face.\n" +
+    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Not smiling at the camera. " +
+    "Not posing for the camera. They look away, past the lens, or down.\n" +
     "  - Camera: full-frame, 35mm or 50mm lens, at eye level or slightly low. Real depth of field " +
     "with a soft falloff, not a fake blurred cut-out.\n" +
     "  - Grain: real 35mm film grain, visible in the shadows and flat tones.\n" +
@@ -401,85 +394,43 @@ const LOOK = {
 // Do not water down the preservation list in "restage". Every line in it is
 // there because leaving it out lets the model drift somewhere.
 // ─────────────────────────────────────────────────────────────────────────────
-// SHOT SIZE. Pulled out of LOOK.base so it's a dial, not a hardcode. Framing is
-// half of what makes a picture feel editorial, and one crop for everything gets
-// boring fast.
-// ─────────────────────────────────────────────────────────────────────────────
-const SHOT = {
-  beauty: { label: "Beauty", body:
-    "FRAMING - BEAUTY SHOT. Tight and intimate. Head and shoulders, or head to upper chest. The face " +
-    "fills most of the frame. Crop into the top of the head or the shoulders if it makes a stronger " +
-    "picture - editorial crops are bold, not polite. Shoot on an 85mm at a wide aperture: shallow " +
-    "focus, the eyes tack sharp, the environment dissolved into soft colour and shape behind. The " +
-    "LOCATION still reads through the light, the colour and the bokeh, even though little of it is " +
-    "visible. This shot lives on SKIN and EYES: real pores, real texture, catchlights, the fine hairs " +
-    "at the hairline. Do not centre the face perfectly - offset it, let it breathe unevenly." },
-
-  half: { label: "Half Body", body:
-    "FRAMING - HALF BODY. From the top of the head (or cropped just into it) down to roughly mid-thigh. " +
-    "The person and the place share the frame about equally. Shoot on a 50mm at eye level or slightly " +
-    "below. You can see the outfit properly - the cut, the drape, the fabric, the hands. Enough of the " +
-    "location to know exactly where she is. Place her OFF-CENTRE, weight the frame to one side, leave " +
-    "real negative space on the other." },
-
-  full: { label: "Full Frame", body:
-    "FRAMING - FULL FRAME. Wide and environmental. The LOCATION is the co-star, not a backdrop. The " +
-    "whole body in frame with air above and below. Shoot on a 35mm. Place the person OFF-CENTRE, using " +
-    "roughly a third of the frame, and leave generous negative space. Do NOT centre her. Do not crop " +
-    "tight. The scale of the place against the person IS the picture." }
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // The preservation block. Every mode that keeps the person uses this, word for
 // word. Each line is here because leaving it out lets the model drift.
-// Short and blunt ON PURPOSE. The previous version of this was ~400 words and it
-// made things WORSE — image editors follow short, forceful commands and start
-// paraphrasing (i.e. regenerating) when you bury the instruction in an essay.
-// Every word here is load-bearing. Do not pad it back out.
-// SOFT identity guidance, on purpose.
-//
-// We tried hard pixel-lock compositing ("do not re-pose, do not change a thing").
-// It produced WORSE images — fighting the model's nature made it brittle and ugly.
-// So we let it GENERATE, and feed it MANY reference photos of the same person in
-// the SAME OUTFIT instead. It learns her face and her clothes from the whole set
-// and renders them its own way. Better pictures, close-enough likeness. That is a
-// deliberate trade, made with eyes open.
 const KEEP_PERSON =
-  "IDENTITY - the most important thing:\n" +
-  "Every attached photo is the SAME PERSON, wearing the SAME OUTFIT, from different angles. " +
-  "Study them all together to understand her face and her clothes, then render HER.\n" +
-  "  - Face: same bone structure, same eyes, nose and mouth, same skin tone. Immediately " +
-  "recognisable as this person, not a generic model who vaguely resembles her.\n" +
-  "  - Outfit: the same garments she wears in the references - same cut, fabric, colour and " +
-  "detail. Do not invent different clothes.\n" +
-  "  - Hair: the same style, length, texture and colour, with its natural flyaways.\n" +
-  "  - Body: her real proportions. Do not slim or lengthen her.\n\n";
+  "═══ ABSOLUTE, NON-NEGOTIABLE RULE — THIS OVERRIDES EVERYTHING ELSE BELOW ═══\n" +
+  "The person in the attached photograph must appear in the output as THE SAME HUMAN BEING. Not a " +
+  "similar-looking person. Not an idealised version. Not a model who resembles them. The SAME " +
+  "person, recognisable instantly by anyone who knows them.\n\n" +
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SKIN & LIGHT. This is the block that kills the "AI matte face."
-//
-// Left alone, the model renders flat, even, retouched-looking skin — because it
-// was trained on beauty-retouched images where retouchers DELETE exactly the
-// highlights that make skin look real. So we have to (a) explicitly demand the
-// specular highlights back and (b) explicitly forbid the matte look, or it
-// reverts to airbrushed every time. Both halves are load-bearing.
-const SKIN =
-  "SKIN MUST LOOK LIT AND REAL, NOT MATTE AND RETOUCHED:\n" +
-  "  - Give the skin real SPECULAR HIGHLIGHTS - the small bright hotspots where light bounces off " +
-  "the natural oil and moisture of the face: the tops of the cheekbones, the bridge and tip of the " +
-  "nose, the brow bones, the cupid's bow, a wet gleam on the lower lip, the chin, the tops of the " +
-  "shoulders and collarbones. These highlights are what make skin read as real skin.\n" +
-  "  - Put bright, sharp CATCHLIGHTS in the eyes - a real reflection of the light source. Eyes " +
-  "without catchlights look dead and fake.\n" +
-  "  - Let the skin have a natural sheen and a slight dewiness. A little shine is correct. Sweat-" +
-  "sheen in warm light is correct.\n" +
-  "  - Keep real texture underneath: visible pores, fine lines, faint unevenness, the soft peach-" +
-  "fuzz at the hairline and jaw catching the light.\n" +
-  "  - FORBIDDEN: flat matte skin, evenly-lit skin, powdered or airbrushed skin, blurred or " +
-  "smoothed skin, a uniform poreless surface, that plastic or waxy 'AI face' look, beauty-filter " +
-  "skin. If the face looks retouched or matte, it is WRONG.\n" +
-  "  - The light on the face must have clear DIRECTION: one side brighter, the other falling into " +
-  "shadow, with the highlights sitting on the lit side. Never flat, frontal, shadowless light.\n\n";
+  "TREAT THE PERSON AS A FIXED, UNEDITABLE LAYER. You are compositing them into a new background. " +
+  "You are NOT redrawing them. If any instruction later in this prompt would change the person, " +
+  "IGNORE that instruction. The environment must bend around the person, never the reverse.\n\n" +
+
+  "COPY THE PERSON PIXEL-FOR-PIXEL. Preserve, with zero alteration:\n" +
+  "  - FACE: the exact bone structure, jawline, cheekbones, brow, nose shape, lip shape, eye shape " +
+  "and eye spacing. The exact skin tone. The exact expression. The exact eye direction. Any freckles, " +
+  "moles, marks or scars stay exactly where they are.\n" +
+  "  - POSE: the exact position of the head, neck, shoulders, torso, arms, hands, fingers, legs and " +
+  "feet. The exact tilt of the head. The exact angle of the body to camera. Do NOT re-pose, " +
+  "straighten, or 'improve' the pose in any way.\n" +
+  "  - BODY: the exact body shape, proportions and size. Do NOT slim, lengthen, lift, sculpt, or " +
+  "otherwise flatter the body. Their body is correct as photographed.\n" +
+  "  - HAIR: the exact style, length, texture, parting and colour, including every flyaway and stray " +
+  "strand exactly where it falls.\n" +
+  "  - OUTFIT: every garment, its exact cut, drape, fabric, colour, pattern, logo and detail. Every " +
+  "fold and wrinkle. Do NOT restyle, swap, add or remove clothing.\n" +
+  "  - ACCESSORIES: all jewellery, bags, glasses, watches, and anything held, exactly as they are.\n" +
+  "  - SKIN: real texture - pores, fine lines, natural unevenness, blemishes, sheen. Do NOT smooth, " +
+  "retouch, airbrush, blur, even out, or beautify the skin in any way.\n\n" +
+
+  "FORBIDDEN: changing the face. Changing the pose. Changing the body. Changing the outfit. " +
+  "Prettifying. Slimming. Smoothing. Making them look more like a professional model. Substituting a " +
+  "different person. Blending in a second face. If the output shows a different person, the image is " +
+  "a FAILURE, no matter how good the environment looks.\n\n" +
+
+  "The ONLY thing you may change about the person is the LIGHT falling on them and the COLOUR GRADE " +
+  "applied to them, so they sit believably in the new environment.\n" +
+  "═══════════════════════════════════════════════════════════════════════════\n\n";
 
 const INTEGRATE =
   "Then integrate them into that environment so it looks real:\n" +
@@ -494,59 +445,87 @@ const INTEGRATE =
 function buildPrompt(scene, mode, preset) {
   const s = String(scene || "").trim();
 
-  // ── HIGH FASHION ──
+  // ── HIGH FASHION: drop them into a fully-specified editorial world. ──
   if (mode === "editorial") {
     const look = LOOK[preset] || LOOK.capri;
     return (
-      "Create a high-fashion editorial photograph of the person in the attached reference photos.\n\n" +
+      "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
       KEEP_PERSON +
-      "PUT HER HERE:\n" + look.body + "\n\n" +
-      (s ? "Also: " + s + "\n\n" : "") +
+      "PLACE THEM IN THIS WORLD:\n" + look.body + "\n\n" +
+      (s ? "The user also asks for: " + s + "\n\n" : "") +
       LOOK.base + "\n\n" +
-      "The result must look like a real frame from a fashion magazine editorial, shot on film, of " +
-      "THIS person on location. Photographed, not generated."
+      INTEGRATE +
+      "The result must look like a real frame from a high-fashion magazine editorial, shot on film, " +
+      "of THIS EXACT PERSON on location. Photographed, not generated."
     );
   }
 
-  // ── STYLE MATCH ──
+  // ── STYLE MATCH: image 1 is the person, image 2 is the look to copy. ──
   if (mode === "stylematch") {
     return (
-      "The attached images come in two groups.\n" +
-      "  The FIRST images are THE PERSON - the same woman, same outfit, different angles.\n" +
-      "  The LAST image is the STYLE REFERENCE.\n\n" +
+      "You are given TWO images.\n" +
+      "  IMAGE 1 is THE PERSON.\n" +
+      "  IMAGE 2 is THE STYLE REFERENCE.\n\n" +
 
-      "Create a new photograph of THE PERSON in the world of the STYLE REFERENCE.\n\n" +
+      "Put the person from IMAGE 1 into the world of IMAGE 2.\n\n" +
 
       KEEP_PERSON +
 
-      "FROM THE STYLE REFERENCE, copy everything else precisely:\n" +
-      "  - Its location and environment.\n" +
+      "That absolute rule applies to the person in IMAGE 1 ONLY.\n\n" +
+
+      "FROM IMAGE 2, take EVERYTHING ELSE — copy its look precisely:\n" +
+      "  - The location and environment.\n" +
       "  - The direction, colour temperature, hardness and intensity of its light.\n" +
-      "  - Its exact colour grade: palette, saturation, contrast, how lifted or crushed the blacks " +
-      "are, how blown the highlights are, any colour cast.\n" +
+      "  - Its exact colour grade: the palette, the saturation, the contrast, how lifted or crushed " +
+      "the blacks are, how blown the highlights are, any colour cast.\n" +
       "  - Its film grain, lens character, flare and depth of field.\n" +
-      "  - Its framing, camera angle, camera height and use of negative space.\n" +
-      "  - Its pose energy, attitude and overall mood.\n\n" +
+      "  - Its framing, camera angle and camera height, and how much negative space it leaves.\n" +
+      "  - Its overall mood and attitude.\n\n" +
 
-      "CRITICAL: do NOT copy the FACE or BODY of any person in the STYLE REFERENCE, and do not blend " +
-      "them with our person. Their face is irrelevant. Take only the world, the light, the grade and " +
-      "the mood. The only person in the result is OUR person from the first images.\n\n" +
+      "CRITICAL: do NOT copy, keep, or blend in any PERSON who appears in IMAGE 2. Their face, body " +
+      "and clothing are irrelevant and must not influence the person from IMAGE 1. Take only the " +
+      "world, the light and the grade from IMAGE 2. The only person in the result is the person " +
+      "from IMAGE 1.\n\n" +
 
-      (s ? "Also: " + s + "\n\n" : "") +
-      "It must look like our person was really photographed on that set, by that photographer, on " +
-      "that camera, on that day. Photographed, not generated."
+      (s ? "The user also asks for: " + s + "\n\n" : "") +
+      INTEGRATE +
+      "The result must look like the person from IMAGE 1 was really photographed on the set of " +
+      "IMAGE 2, by the same photographer, on the same camera, on the same day. Photographed, not " +
+      "generated."
     );
   }
 
-  // ── FAKE IT (default): generate her into a described scene. ──
-  // NO framing/crop block here on purpose — that was added during the crop
-  // experiment and it's what started pulling likeness off. Back to lean.
+  if (mode === "reimagine") {
+    return (
+      "Using the attached photo(s) as the reference for this person, generate a new photograph " +
+      "of the SAME person, " + s + ".\n\n" +
+
+      "IDENTITY — the most important instruction:\n" +
+      "Preserve this person's face exactly as it appears in the reference. Keep the same facial " +
+      "structure, bone structure, eyes, nose and mouth, the same skin tone, and the same real skin " +
+      "texture including pores, fine lines and natural unevenness. Keep the same hair texture " +
+      "including its natural frizz and flyaways. Do NOT smooth, retouch, airbrush, slim or beautify " +
+      "them. Do NOT alter their features. They must be immediately recognisable as the person in " +
+      "the reference photo.\n\n" +
+
+      "REALISM:\n" +
+      "Light the scene with a single clear directional source so shadows fall believably across one " +
+      "side of the face. Render it as a real candid photograph - natural grain, believable depth of " +
+      "field, natural catchlights in the eyes, slightly imperfect framing. Avoid a glossy, waxy, " +
+      "airbrushed or CGI look. Avoid flat, directionless studio lighting. It should look photographed, " +
+      "not generated."
+    );
+  }
+
+  // ── DEFAULT: plain restage. Keep the person, swap the world. ──
   return (
-    "Create a photograph of the person in the attached reference photos, " + s + ".\n\n" +
+    "You are editing the attached photograph. Do NOT generate a new person, and do NOT re-pose them.\n\n" +
     KEEP_PERSON +
-    "Render it as a real photograph - natural film grain, believable depth of field, a single clear " +
-    "directional light, natural catchlights in the eyes, slightly imperfect framing. Avoid a glossy, " +
-    "waxy, airbrushed or CGI look. It must look photographed, not generated."
+    "CHANGE ONLY THE ENVIRONMENT AROUND THEM. Place them in: " + s + "\n\n" +
+    INTEGRATE +
+    "  - Keep the same camera angle, distance and framing relative to the person.\n\n" +
+    "The result must look like this exact photograph was originally taken in that place - a real " +
+    "photo, not a cut-out pasted onto a backdrop. Photographed, not generated."
   );
 }
 
@@ -557,7 +536,7 @@ function buildPrompt(scene, mode, preset) {
 // The browser now downscales photos to ~1280px before upload (see shrink() in
 // App.jsx), which is the real fix. This raises the ceiling as a safety net.
 export const config = {
-  api: { bodyParser: { sizeLimit: "20mb" } }   // 8 reference photos at 1600px + a style photo need more headroom
+  api: { bodyParser: { sizeLimit: "10mb" } }
 };
 
 export default async function handler(req, res) {
@@ -569,13 +548,13 @@ export default async function handler(req, res) {
     const consent = body.consent === true;
     const photos  = (Array.isArray(body.photos) ? body.photos : [])
       .filter(p => p && p.data && p.mimeType)
-      .slice(0, 8); // as many as we can send. More angles of the same outfit = better likeness.
+      .slice(0, 3); // 3 references is plenty; more just costs money
 
     // Belt-and-braces: if something huge still gets through, say so in plain
     // English instead of letting the platform return an unparseable error.
     const totalBytes = photos.reduce((n, p) => n + (p.data ? p.data.length : 0), 0)
                      + (body.stylePhoto && body.stylePhoto.data ? body.stylePhoto.data.length : 0);
-    if (totalBytes > 19 * 1024 * 1024) {
+    if (totalBytes > 9 * 1024 * 1024) {
       return res.status(413).json({ error: "Those photos are too large. Try one photo, or a smaller one." });
     }
 
@@ -644,24 +623,17 @@ export default async function handler(req, res) {
 
     // ── Generate ──
     const model = quality === "high" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
-
-    // TWIN-STATE BEHAVIOUR (restored): do NOT force an aspect ratio. Forcing a
-    // shape makes the model recompose the frame, and recomposing is what pulled
-    // the likeness off. Let the output inherit the reference photo's natural
-    // shape. Only bump resolution on the high tier.
-    const imageConfig = {};
-    if (quality === "high") imageConfig.imageSize = "2K";
+    const imageConfig = quality === "high" ? { aspectRatio, imageSize: "2K" } : { aspectRatio };
 
     // Photo ORDER MATTERS. In stylematch the prompt says "IMAGE 1 is the person,
     // IMAGE 2 is the style reference" — so the person MUST go first.
     // In any compositing mode we send exactly ONE photo of the person: extra
     // references just confuse it (which pose is it meant to keep?). Only
     // "reimagine" genuinely benefits from multiple references.
-    // Send EVERY reference photo. That IS the strategy now: more angles of the same
-    // person in the same outfit beats any amount of nagging the model. In stylematch
-    // the style reference goes LAST, because the prompt says "the LAST image is the
-    // style reference" — order matters.
-    const sendPhotos = (mode === "stylematch") ? [...photos, stylePhoto] : photos;
+    let sendPhotos;
+    if (mode === "reimagine")        sendPhotos = photos;
+    else if (mode === "stylematch")  sendPhotos = [photos[0], stylePhoto];   // person, then style
+    else                             sendPhotos = photos.slice(0, 1);
 
     const parts = [
       ...sendPhotos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
