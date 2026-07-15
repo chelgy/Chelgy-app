@@ -2367,7 +2367,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [image,setImage]     = useState(null);
   const [gallery,setGallery] = useState([]);
 
-  const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
+  const COST = quality==="high" ? CREDIT_COSTS.smGptHigh : CREDIT_COSTS.smGptStd;
 
   async function pick(e, which){
     const f = (e.target.files||[])[0];
@@ -2389,18 +2389,26 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     setBusy(true);
     try{
-      const tok = await freshToken();
-      const r = await fetch("/api/fakeit-restage", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({
-          mode:"stylematch", consent:true,
-          scene: extra.trim(), aspectRatio:aspect, quality,
-          photos:[{ mimeType:me.mimeType, data:me.data }],
-          stylePhoto:{ mimeType:style.mimeType, data:style.data },
-        }),
-      });
-      const d = await cgReadJson(r);
+      // Style Match runs on GPT Image now, not Gemini. Chelsea found GPT copies a
+      // reference photo's placement, sun direction and colour grade onto her far
+      // better than Gemini did. This is her exact proven prompt wording.
+      // ORDER MATTERS: image 1 = HER, image 2 = the style reference.
+      const prompt =
+        "Take the FIRST photo (this is me) and create an image of ME that looks like the SECOND photo (the style reference).\n\n" +
+        "Match the lighting on me to the second photo - make the sun and light hit my face and body the same way it hits the person in the second photo, from the same direction, with the same hardness and the same shadows.\n" +
+        "Match the colour grading exactly to the second photo - the same palette, contrast, saturation, warmth and film tone.\n" +
+        "Match the location, setting, camera angle, framing and overall mood of the second photo.\n\n" +
+        "CRITICAL: keep my face and hair EXACTLY like mine from the first photo - not merely my likeness, but ME, the exact same person. Do not copy or blend in the face, hair or body of the person in the second photo; their appearance is irrelevant. The only person in the result is me, from the first photo." +
+        (extra.trim() ? "\n\nAlso: " + extra.trim() : "");
+
+      // GPT quality: "2K" standard, "4K" high (openai-image.js maps + prices these).
+      const oaQuality = quality==="high" ? "4K" : "2K";
+      // inputImages ORDER: me first, then the style reference.
+      const inputImages = [
+        { mimeType: me.mimeType, data: me.data },
+        { mimeType: style.mimeType, data: style.data },
+      ];
+      const d = await generateOpenAIImage(prompt, inputImages, aspect, oaQuality);
       setImage(d.image);
       setGallery(g=>[d.image,...g].slice(0,24));
       if(typeof d.balance==="number") onBalance(d.balance);
@@ -2459,7 +2467,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
       <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
-        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
+        {[["standard","Standard",CREDIT_COSTS.smGptStd],["high","High detail",CREDIT_COSTS.smGptHigh]].map(([v,l,c])=>(
           <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
         ))}
       </div>
@@ -5267,6 +5275,8 @@ const CREDIT_COSTS = {
   fakeitImage: 200,    // Fake It — one image of you (~$0.025 to us)  [legacy fal/Flux, hidden]
   restageStd: 150,     // Fake It — restage one photo of you, standard (~$0.04 to us)
   restageHigh: 450,    // Fake It — restage one photo of you, 2K (~$0.15 to us)
+  smGptStd: 420,       // Style Match (GPT Image) — matches openai-image.js "2K" server cost
+  smGptHigh: 750,      // Style Match (GPT Image) — matches openai-image.js "4K" server cost
   podcastPitch: 100,   // Get Featured — one AI-written pitch (search itself is free)
   pressFind: 300,      // Get Featured — live web search for real outlets + bylines
 };
