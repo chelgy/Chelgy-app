@@ -445,28 +445,15 @@ const SHOT = {
 // and renders them its own way. Better pictures, close-enough likeness. That is a
 // deliberate trade, made with eyes open.
 const KEEP_PERSON =
-  "THIS IS A REAL, SPECIFIC PERSON - PRESERVE HER, DO NOT REINVENT HER:\n" +
-  "The attached photos are all the SAME REAL WOMAN, wearing the SAME OUTFIT, from different angles. " +
-  "Treat her as a real person you are photographing again in a new place - NOT as a description to " +
-  "generate a new person from. You are relocating and repositioning THIS EXACT WOMAN. You are not " +
-  "creating someone who resembles her. Carry her real face, body and outfit across into the new " +
-  "image, unchanged. If the result is a different-looking woman, even a prettier one, you have " +
-  "FAILED - the entire goal is that this is unmistakably HER.\n" +
-  "Study all the photos together to build a precise understanding of her exact face, then keep it:\n" +
-  "  - FACE: her EXACT face. Her exact bone structure, the exact shape and spacing of her eyes, her " +
-  "exact nose and nose bridge, her exact mouth and lips, her exact jawline and chin, her exact brows, " +
-  "her exact skin tone, and her exact expression. Do NOT average her features toward a prettier, " +
-  "younger or more generic face. Do not restyle her. Her specific real face is the entire point.\n" +
-  "  - OUTFIT: the same garments she wears in the references - same cut, fabric, colour and detail. " +
-  "Do not invent different clothes.\n" +
-  "  - HAIR: her same hairstyle, length, texture and colour, with its natural flyaways.\n" +
-  "  - BODY: her real body, unchanged. Her exact height, build, proportions, weight and frame - the " +
-  "same shoulders, waist, hips and limb length. Do NOT slim her, lengthen or stretch her, make her " +
-  "taller or more model-like, or idealise her figure.\n" +
-  "  - POSE: you MAY reposition her naturally for the new scene - she can stand, walk, lean or turn " +
-  "differently - but it must read as the SAME real woman being photographed in a new pose, with her " +
-  "face and body completely unchanged. Repositioning her must never become an excuse to redraw her " +
-  "face or reshape her body.\n\n";
+  "IDENTITY - the most important thing:\n" +
+  "Every attached photo is the SAME PERSON, wearing the SAME OUTFIT, from different angles. " +
+  "Study them all together to understand her face and her clothes, then render HER.\n" +
+  "  - Face: same bone structure, same eyes, nose and mouth, same skin tone. Immediately " +
+  "recognisable as this person, not a generic model who vaguely resembles her.\n" +
+  "  - Outfit: the same garments she wears in the references - same cut, fabric, colour and " +
+  "detail. Do not invent different clothes.\n" +
+  "  - Hair: the same style, length, texture and colour, with its natural flyaways.\n" +
+  "  - Body: her real proportions. Do not slim or lengthen her.\n\n";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKIN & LIGHT. This is the block that kills the "AI matte face."
@@ -504,9 +491,8 @@ const INTEGRATE =
   "believable shadow in the direction the new light dictates.\n" +
   "  - Match the depth of field, focus falloff and grain of the new scene.\n\n";
 
-function buildPrompt(scene, mode, preset, shot) {
+function buildPrompt(scene, mode, preset) {
   const s = String(scene || "").trim();
-  const framing = (SHOT[shot] || SHOT.full).body;
 
   // ── HIGH FASHION ──
   if (mode === "editorial") {
@@ -516,9 +502,7 @@ function buildPrompt(scene, mode, preset, shot) {
       KEEP_PERSON +
       "PUT HER HERE:\n" + look.body + "\n\n" +
       (s ? "Also: " + s + "\n\n" : "") +
-      framing + "\n\n" +
       LOOK.base + "\n\n" +
-      SKIN +
       "The result must look like a real frame from a fashion magazine editorial, shot on film, of " +
       "THIS person on location. Photographed, not generated."
     );
@@ -549,20 +533,20 @@ function buildPrompt(scene, mode, preset, shot) {
       "the mood. The only person in the result is OUR person from the first images.\n\n" +
 
       (s ? "Also: " + s + "\n\n" : "") +
-      SKIN +
       "It must look like our person was really photographed on that set, by that photographer, on " +
       "that camera, on that day. Photographed, not generated."
     );
   }
 
   // ── FAKE IT (default): generate her into a described scene. ──
+  // NO framing/crop block here on purpose — that was added during the crop
+  // experiment and it's what started pulling likeness off. Back to lean.
   return (
     "Create a photograph of the person in the attached reference photos, " + s + ".\n\n" +
     KEEP_PERSON +
-    framing + "\n\n" +
-    SKIN +
-    "Render it as a real photograph - natural film grain, believable depth of field, slightly " +
-    "imperfect framing. It must look photographed, not generated."
+    "Render it as a real photograph - natural film grain, believable depth of field, a single clear " +
+    "directional light, natural catchlights in the eyes, slightly imperfect framing. Avoid a glossy, " +
+    "waxy, airbrushed or CGI look. It must look photographed, not generated."
   );
 }
 
@@ -606,7 +590,6 @@ export default async function handler(req, res) {
     const mode = MODES.includes(body.mode) ? body.mode : "restage";
 
     const preset = LOOK[body.preset] ? body.preset : "capri";
-    const shot   = SHOT[body.shot] ? body.shot : "full";   // beauty | half | full
 
     const stylePhoto = (body.stylePhoto && body.stylePhoto.data && body.stylePhoto.mimeType)
       ? body.stylePhoto : null;
@@ -656,25 +639,17 @@ export default async function handler(req, res) {
 
     // ── Only now do we take the money ──
     const cost = quality === "high" ? 450 : 150;
-    const paid = await spend(token, cost, "restage:" + mode + (mode === "editorial" ? ":" + preset : "") + ":" + shot + ":" + quality);
+    const paid = await spend(token, cost, "restage:" + mode + (mode === "editorial" ? ":" + preset : "") + ":" + quality);
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
     // ── Generate ──
     const model = quality === "high" ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
 
-    // ⚠️ THE BIG ONE. Sending an aspectRatio on an EDIT is self-defeating.
-    // If the source photo is 3:4 and we demand 4:5, the model physically CANNOT
-    // preserve the person's pixels — the canvas is a different shape, so it must
-    // recompose, and once it recomposes it REDRAWS the person. That is exactly
-    // why the pose and face kept drifting: we were saying "don't change them" and
-    // "change the shape of the picture" in the same breath, and the second one wins.
-    //
-    // So: only "reimagine" (which genuinely generates a new photo) gets an aspect
-    // ratio. Every compositing mode inherits the source photo's shape and says
-    // nothing about framing.
-    // Everything generates now, so the aspect ratio is honest again — we're no
-    // longer promising to preserve a crop we were about to change anyway.
-    const imageConfig = { aspectRatio };
+    // TWIN-STATE BEHAVIOUR (restored): do NOT force an aspect ratio. Forcing a
+    // shape makes the model recompose the frame, and recomposing is what pulled
+    // the likeness off. Let the output inherit the reference photo's natural
+    // shape. Only bump resolution on the high tier.
+    const imageConfig = {};
     if (quality === "high") imageConfig.imageSize = "2K";
 
     // Photo ORDER MATTERS. In stylematch the prompt says "IMAGE 1 is the person,
@@ -690,7 +665,7 @@ export default async function handler(req, res) {
 
     const parts = [
       ...sendPhotos.map(p => ({ inlineData: { mimeType: p.mimeType, data: p.data } })),
-      { text: buildPrompt(scene, mode, preset, shot) }
+      { text: buildPrompt(scene, mode, preset) }
     ];
 
     let r, data;
