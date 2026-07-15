@@ -445,25 +445,28 @@ const SHOT = {
 // and renders them its own way. Better pictures, close-enough likeness. That is a
 // deliberate trade, made with eyes open.
 const KEEP_PERSON =
-  "IDENTITY - the most important thing, above all else:\n" +
-  "Every attached photo is the SAME PERSON, wearing the SAME OUTFIT, from different angles. " +
-  "Study them ALL together to build a complete, precise understanding of her exact face, then " +
-  "render THAT EXACT FACE. Strictly maintain her exact facial likeness and identity. The output " +
-  "must look unmistakably like HER - the same specific woman, not a lookalike, not a relative, not " +
-  "a model who resembles her. If someone who knows her saw the result, they must recognise her " +
-  "instantly.\n" +
-  "  - Face: replicate her EXACT bone structure, the exact shape and spacing of her eyes, her exact " +
-  "nose shape and nose bridge, her exact mouth and lips, her exact jawline and chin, her exact " +
-  "brows, and her exact skin tone. Do not average her features toward a prettier or more generic " +
-  "face. Her specific face is the whole point.\n" +
-  "  - Outfit: the same garments she wears in the references - same cut, fabric, colour and " +
-  "detail. Do not invent different clothes.\n" +
-  "  - Hair: the same style, length, texture and colour, with its natural flyaways.\n" +
-  "  - BODY: her real body. Keep her exact height, her exact build, her exact proportions, her " +
-  "exact weight and frame - the same shoulders, waist, hips and limb length as in the references. " +
-  "Do NOT slim her, do NOT lengthen or stretch her, do NOT make her taller or more model-like, do " +
-  "NOT idealise or 'improve' her figure. Her body is correct exactly as photographed. (She may be " +
-  "in any pose - the pose can change, but her actual body shape and height must not.)\n\n";
+  "THIS IS A REAL, SPECIFIC PERSON - PRESERVE HER, DO NOT REINVENT HER:\n" +
+  "The attached photos are all the SAME REAL WOMAN, wearing the SAME OUTFIT, from different angles. " +
+  "Treat her as a real person you are photographing again in a new place - NOT as a description to " +
+  "generate a new person from. You are relocating and repositioning THIS EXACT WOMAN. You are not " +
+  "creating someone who resembles her. Carry her real face, body and outfit across into the new " +
+  "image, unchanged. If the result is a different-looking woman, even a prettier one, you have " +
+  "FAILED - the entire goal is that this is unmistakably HER.\n" +
+  "Study all the photos together to build a precise understanding of her exact face, then keep it:\n" +
+  "  - FACE: her EXACT face. Her exact bone structure, the exact shape and spacing of her eyes, her " +
+  "exact nose and nose bridge, her exact mouth and lips, her exact jawline and chin, her exact brows, " +
+  "her exact skin tone, and her exact expression. Do NOT average her features toward a prettier, " +
+  "younger or more generic face. Do not restyle her. Her specific real face is the entire point.\n" +
+  "  - OUTFIT: the same garments she wears in the references - same cut, fabric, colour and detail. " +
+  "Do not invent different clothes.\n" +
+  "  - HAIR: her same hairstyle, length, texture and colour, with its natural flyaways.\n" +
+  "  - BODY: her real body, unchanged. Her exact height, build, proportions, weight and frame - the " +
+  "same shoulders, waist, hips and limb length. Do NOT slim her, lengthen or stretch her, make her " +
+  "taller or more model-like, or idealise her figure.\n" +
+  "  - POSE: you MAY reposition her naturally for the new scene - she can stand, walk, lean or turn " +
+  "differently - but it must read as the SAME real woman being photographed in a new pose, with her " +
+  "face and body completely unchanged. Repositioning her must never become an excuse to redraw her " +
+  "face or reshape her body.\n\n";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKIN & LIGHT. This is the block that kills the "AI matte face."
