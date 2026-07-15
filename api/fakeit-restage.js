@@ -430,6 +430,72 @@ const LOOK = {
     "GRADE: warm and gritty. Amber sunlight, deep brown-black shadow, blown highlights, heavy " +
     "directional motion blur - kinetic, urgent, filmic." },
 
+  // ── CITY & MACHINES ── (from the second reference batch)
+  marblestreet: { label: "Marble Street", body:
+    "FRAME: caught mid-stride walking past a grand storefront, full body, coat swinging with the " +
+    "step, one leg extended - a real street moment, not a pose.\n" +
+    "LOCATION: the base of a luxury flagship building - towering black marble columns veined in " +
+    "white, fluted pilaster detail, a white marble corner, a warm-lit shop window with a mannequin, " +
+    "pale stone pavement.\n" +
+    "LIGHT: low golden late-afternoon city sun raking down the street - a warm glow on the face and " +
+    "legs, the black marble holding deep reflections, long soft shadows on the pavement.\n" +
+    "GRADE: rich and urban. Ink-black marble, warm gold light, deep shadow. Elegant contrast, " +
+    "saturated warmth on skin against the dark stone - old-money city luxury." },
+
+  mirrormaze: { label: "Mirror Maze", body:
+    "FRAME: seated on a white floor leaning back on one hand, legs extended and crossed, " +
+    "surrounded by her own reflections repeating to infinity on every side.\n" +
+    "LOCATION: a mirrored installation room - full-height mirror panels at angles on a seamless " +
+    "white floor, thin suspension wires catching light, every panel carrying another copy of her " +
+    "receding into darkness above.\n" +
+    "LIGHT: clean, even, bright studio light from above - crisp and shadow-soft on the white floor, " +
+    "the mirror world above falling away into black.\n" +
+    "GRADE: graphic and glamorous. Pure white floor, black mirror depths, one rich metallic accent. " +
+    "Clean contrast, polished, endlessly repeating - a hall-of-mirrors campaign." },
+
+  gildedbath: { label: "Gilded Bath", body:
+    "FRAME: lying back fully clothed in an empty white bathtub, legs up over the rim, head resting " +
+    "on a folded towel, holding the brass shower handset like a telephone - playful, decadent, " +
+    "shot from above the tub's corner.\n" +
+    "LOCATION: a grand old-hotel bathroom - black marble walls veined in gold, brass-framed " +
+    "mirrors, warm sconce light, a deep white enamel tub with polished brass fittings, white " +
+    "towels on a brass rail.\n" +
+    "LIGHT: warm tungsten interior light - soft pools from the sconces, glows in the brass, deep " +
+    "shadow in the marble, a gentle sheen down the tub's enamel.\n" +
+    "GRADE: opulent and warm. Black-and-gold marble, cream enamel, brass glow, denim blue as the " +
+    "cool accent. Rich contrast, honeyed highlights - Vogue-in-a-palace-hotel decadence." },
+
+  slotcanyon: { label: "Slot Canyon", body:
+    "FRAME: standing square to camera in a narrow canyon passage, hands in pockets, shot from " +
+    "slightly below so the rock walls tower and curve overhead, a strip of pale sky above.\n" +
+    "LOCATION: a slot canyon of dark wind-polished stone - smooth, layered, flowing rock walls in " +
+    "deep umber and charcoal pressing in on both sides, fine pale gravel underfoot.\n" +
+    "LIGHT: soft top-light falling down through the canyon opening - a gentle column of daylight " +
+    "on the face and shoulders, the rock walls falling away into deep shadow around her.\n" +
+    "GRADE: sculptural and quiet. Deep chocolate and slate rock, one bright pale figure glowing at " +
+    "the centre, soft sky above. Moody contrast, rich shadow - cathedral light in stone." },
+
+  privatejet: { label: "Private Jet", body:
+    "FRAME: descending the fold-down stairs of a private jet mid-step, wind lifting the hair, " +
+    "shot from just below eye level, three-quarter to full body against the fuselage.\n" +
+    "LOCATION: a cream-and-gold private jet on wet tarmac - the open oval cabin door, polished " +
+    "airstair with carpeted treads, engine nacelle behind, a flat grey horizon of airfield and " +
+    "stormy sky.\n" +
+    "LIGHT: soft dramatic overcast - one huge grey softbox of sky, a crisp fashion-flash kick on " +
+    "the face and furs, the wet tarmac bouncing cool light up, everything slightly wind-blown.\n" +
+    "GRADE: moneyed and moody. Champagne fuselage, storm-grey sky, deep blacks in the furs, warm " +
+    "skin. Punchy editorial contrast - a first-class campaign frame." },
+
+  whitesandstone: { label: "White Sandstone", body:
+    "FRAME: shot from low looking up, chin lifted to the sun with the throat and jaw catching " +
+    "light, one hand on the hip, fabric blowing - monumental against pale rock and a deep sky.\n" +
+    "LOCATION: smooth wind-carved white-and-cream sandstone rising in soft layered waves behind, " +
+    "a dark weathered crest of rock along its top edge, deep blue sky in the gap.\n" +
+    "LIGHT: hard, clean, high sun - crisp shadows sliding down the rock's curves, brilliant light " +
+    "on the fabric, glowing bounce up off the pale stone into the shadows of the face.\n" +
+    "GRADE: luminous and elemental. Bone-white and cream stone, deep saturated blue sky, warm skin. " +
+    "High-key brightness with rich shadow accents - marble goddess in the desert." },
+
   // ═══ BEAUTY LOOKS — close on the body and face, environment carried by light,
   //     colour and what sits just behind the skin. Framing is baked into each
   //     body because this endpoint has no separate framing system. ═══
@@ -589,6 +655,19 @@ const LOOK = {
     "and shoulder, deep soft shadow everywhere else.\n" +
     "GRADE: liquid bronze. Deep warm browns, molten gold highlights, soft smoky background. Very " +
     "low key, very high polish - skin rendered like poured metal." },
+
+  b_creamcabin: { label: "Cream Cabin", body:
+    "FRAME: lounging deep in the tan leather back seat of a vintage car, one arm raised gripping " +
+    "the roof handle, legs drawn up across the seat, head tilted with a level unbothered gaze - " +
+    "half-body, intimate, shot from the opposite seat.\n" +
+    "LOCATION: a classic car's rear cabin - caramel perforated leather bench and door cards, a " +
+    "cream ribbed headliner, chrome window frames, soft pale daylight through every window.\n" +
+    "LIGHT: soft, even, wrapping daylight through the glass all around - a bright creamy key from " +
+    "the windows, gentle bounce off the pale headliner, glittering pinpoints wherever fabric or " +
+    "jewellery catches it.\n" +
+    "GRADE: warm and creamy with sparkle. Caramel leather, ivory headliner, soft daylight skin, " +
+    "deep glinting darks in the clothing. Gentle contrast, luxurious calm - a quiet superstar " +
+    "moment between takes." },
 };
 //
 //   "restage"   (default) — DON'T regenerate the person. Keep their exact face,

@@ -2196,6 +2196,7 @@ const CG_LOOKS = [
     { id:"dubrovnik",     label:"Dubrovnik Stone" },
     { id:"brutalist",     label:"Brutalist Coast" },
     { id:"whiteconcrete", label:"White Concrete" },
+    { id:"slotcanyon",    label:"Slot Canyon" },
   ]},
   { group:"Desert", items:[
     { id:"desert",        label:"Desert Highway" },
@@ -2203,15 +2204,22 @@ const CG_LOOKS = [
     { id:"desertsun",     label:"Desert Noon" },
     { id:"desertgold",    label:"Golden Desert" },
     { id:"sandstone",     label:"Sandstone" },
+    { id:"whitesandstone",label:"White Sandstone" },
   ]},
   { group:"Houses & interiors", items:[
     { id:"palmsprings",   label:"Palm Springs" },
     { id:"timberdeck",    label:"Timber Deck" },
     { id:"woodroom",      label:"Wood Room" },
     { id:"darkstudio",    label:"Dark Studio" },
+    { id:"mirrormaze",    label:"Mirror Maze" },
+    { id:"gildedbath",    label:"Gilded Bath" },
   ]},
   { group:"Street", items:[
     { id:"street",        label:"Street Blur" },
+    { id:"marblestreet",  label:"Marble Street" },
+  ]},
+  { group:"City & machines", items:[
+    { id:"privatejet",    label:"Private Jet" },
   ]},
 ];
 
@@ -2242,6 +2250,7 @@ const CG_BEAUTY = [
     { id:"b_carwindow",  label:"Vintage Interior" },
     { id:"b_cockpit",    label:"Cockpit" },
     { id:"b_helipad",    label:"Helipad" },
+    { id:"b_creamcabin", label:"Cream Cabin" },
   ]},
   { group:"Studio", items:[
     { id:"b_bronze",     label:"Bronze Sculpt" },
@@ -2694,19 +2703,23 @@ const CG_ALL_LOOKS = [
   ]},
   { group:"Stone & architecture", items:[
     { id:"dubrovnik", label:"Dubrovnik Stone" }, { id:"brutalist", label:"Brutalist Coast" },
-    { id:"whiteconcrete", label:"White Concrete" },
+    { id:"whiteconcrete", label:"White Concrete" }, { id:"slotcanyon", label:"Slot Canyon" },
   ]},
   { group:"Desert", items:[
     { id:"desert", label:"Desert Highway" }, { id:"desertsunset", label:"Desert Sunset" },
     { id:"desertsun", label:"Desert Noon" }, { id:"desertgold", label:"Golden Desert" },
-    { id:"sandstone", label:"Sandstone" },
+    { id:"sandstone", label:"Sandstone" }, { id:"whitesandstone", label:"White Sandstone" },
   ]},
   { group:"Houses & interiors", items:[
     { id:"palmsprings", label:"Palm Springs" }, { id:"timberdeck", label:"Timber Deck" },
     { id:"woodroom", label:"Wood Room" }, { id:"darkstudio", label:"Dark Studio" },
+    { id:"mirrormaze", label:"Mirror Maze" }, { id:"gildedbath", label:"Gilded Bath" },
   ]},
   { group:"Street", items:[
-    { id:"street", label:"Street Blur" },
+    { id:"street", label:"Street Blur" }, { id:"marblestreet", label:"Marble Street" },
+  ]},
+  { group:"City & machines", items:[
+    { id:"privatejet", label:"Private Jet" },
   ]},
   { group:"Beauty · water", items:[
     { id:"b_oceanface", label:"Ocean Surface" }, { id:"b_splash", label:"Through Water" },
@@ -2722,7 +2735,7 @@ const CG_ALL_LOOKS = [
   { group:"Beauty · machines", items:[
     { id:"b_rivadeck", label:"Riva Deck" }, { id:"b_backseat", label:"Back Seat" },
     { id:"b_carwindow", label:"Vintage Interior" }, { id:"b_cockpit", label:"Cockpit" },
-    { id:"b_helipad", label:"Helipad" },
+    { id:"b_helipad", label:"Helipad" }, { id:"b_creamcabin", label:"Cream Cabin" },
   ]},
   { group:"Beauty · studio", items:[
     { id:"b_bronze", label:"Bronze Sculpt" },
