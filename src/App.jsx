@@ -2260,8 +2260,26 @@ function buildHF2Prompt(lookId, shotId, extra){
   const look = HF2_LOOKS[lookId] || HF2_LOOKS.capri;
   const framing = HF2_FRAMING[shotId] || HF2_FRAMING.full;
   return (
-"Create a high-fashion editorial photograph of the SAME PERSON shown in the attached reference photos. " +
-"The attached photos are the same woman in the same outfit from different angles.\n\n" +
+// GPT Image weights the FRONT of a prompt most heavily and resists "make it worse
+// than clean". So we lead with the medium as a hard technical spec, name real film
+// stocks + a real camera (the single most effective way to force a photographic
+// look), and frame grain/contrast as REQUIRED FILM PROPERTIES, not stylistic asks.
+"MEDIUM (most important): this is a photograph shot on real 35mm ANALOG FILM with a Contax G2 " +
+"camera and a 35mm lens. It is a scanned film photograph, NOT a digital render and NOT a clean AI " +
+"image. It MUST carry the physical characteristics of film: pronounced, real, organic FILM GRAIN " +
+"visible across the whole frame including the skin and the sky; slightly soft, non-clinical focus; " +
+"true analog colour rendition (shoot it as if on Kodak Portra 400 or Cinestill 800T); gentle " +
+"highlight roll-off; and a subtle, filmic imperfection. If this looks sharp, clean, glossy or " +
+"digital, it has FAILED.\n\n" +
+
+"COLOUR GRADE (obey exactly, do not neutralise): render the specific film colour grade described " +
+"in the location below - its exact palette, its exact contrast, its exact saturation, its lifted or " +
+"crushed blacks. Do NOT apply your own grade. Specifically FORBIDDEN: HDR, a bright even exposure, a " +
+"warm cheerful cast, boosted saturation, a clean commercial 'stock photo' look, over-sharpening, and " +
+"a smooth glossy finish. Those are exactly what this image must NOT have.\n\n" +
+
+"Create a high-fashion editorial photograph, on the film described above, of the SAME PERSON shown in " +
+"the attached reference photos - the same woman in the same outfit from different angles.\n\n" +
 
 "IDENTITY - strictly maintain her exact facial likeness and identity. The result must look unmistakably " +
 "like HER - the same specific woman, not a lookalike, not a relative, not a model who resembles her. " +
@@ -2270,25 +2288,21 @@ function buildHF2Prompt(lookId, shotId, extra){
 "or more generic face. Keep her exact outfit, her exact hair, and her real body - her true height, build " +
 "and proportions. Do not slim, lengthen or idealise her.\n\n" +
 
-"PUT HER HERE: " + look + "\n\n" +
+"LOCATION - " + look + "\n\n" +
 
 (extra ? "Also: " + extra + "\n\n" : "") +
 
 framing + "\n\n" +
 
-"SHOOT IT LIKE A REAL FILM FASHION EDITORIAL, NOT A CLEAN AI IMAGE:\n" +
-"  - This must look shot on 35mm FILM. Real visible film grain throughout. A real photographic colour " +
-"grade as described above - honour that exact palette and contrast.\n" +
-"  - Skin must look lit and real: specular highlights on the cheekbones, nose and lips, sharp catchlights " +
-"in the eyes, a natural sheen, visible pores and texture. Directional light - one side brighter, the " +
-"other in shadow.\n" +
-"  - The gaze can vary: a cool direct stare down the lens, or looking past the camera, or away. Never a " +
-"posed cheesy smile.\n\n" +
+"SKIN on film: real texture, visible pores, specular highlights on the cheekbones, nose bridge and " +
+"lips, sharp catchlights in the eyes, a natural sheen, and directional light with one side brighter " +
+"and the other falling into real shadow. Never airbrushed, never matte, never evenly lit.\n" +
+"GAZE: vary it - a cool direct stare down the lens, or looking past the camera, or away. Never a posed " +
+"cheesy smile.\n\n" +
 
-"DO NOT use your default look. FORBIDDEN: a clean, glossy, over-sharp, hyper-HD digital render; smooth " +
-"airbrushed matte skin; bright even flat lighting; a warm cheerful over-saturated 'stock photo' grade; " +
-"a plastic or CGI finish. If it looks like a polished clean AI image instead of a grainy film magazine " +
-"editorial, it is WRONG. Match the film grain and the colour grade above, exactly."
+"Final check before you render: does it look like a grainy, film-shot magazine editorial with the exact " +
+"colour grade described - or does it look like a clean bright HDR digital photo? It MUST be the first. " +
+"Grain visible. Contrast and palette matched to the location. Not clean, not glossy, not HDR."
   );
 }
 
