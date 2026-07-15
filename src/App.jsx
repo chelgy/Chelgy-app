@@ -2846,22 +2846,6 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
 
   // In restage mode the outfit is KEPT from your photo, so the ideas are PLACES only.
   // In reimagine mode the outfit is invented, so the ideas can include one.
-  const IDEAS = mode === "restage" ? [
-    "a balcony overlooking the Amalfi Coast at golden hour",
-    "a Paris cafe on a rainy afternoon",
-    "a Tokyo rooftop at night, neon city lights behind",
-    "a sunlit New York street in autumn",
-    "a white sand beach at sunrise",
-    "a minimal studio with soft window light",
-  ] : [
-    "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress",
-    "in a Paris cafe in a tailored trench coat, film photography look",
-    "on a Tokyo rooftop at night, city lights behind me",
-    "walking a sunlit New York street in autumn, camel coat",
-    "on a white sand beach at sunrise, linen shirt, barefoot",
-    "in a modern studio with soft window light, cream knit sweater",
-  ];
-
   return (
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Put yourself anywhere</h3>
@@ -2928,11 +2912,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box"}} />
       {mode==="restage" && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Just describe the place. Your outfit and pose come from your photo — don't describe them here.</p>}
 
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",margin:"8px 0 16px"}}>
-        {IDEAS.map(idea=>(
-          <button key={idea} onClick={()=>setScene(idea)} style={{padding:"6px 11px",border:"1px solid "+B.stone,background:"#fff",fontFamily:"sans-serif",fontSize:11,color:B.mid,cursor:"pointer",textAlign:"left"}}>{idea.length>44?idea.slice(0,44)+"…":idea}</button>
-        ))}
-      </div>
+      <div style={{height:14}} />
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
