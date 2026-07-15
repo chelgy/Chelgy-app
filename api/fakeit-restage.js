@@ -217,8 +217,13 @@ const LOOK = {
     "  - Framing: wide and environmental. The location is the co-star. Leave generous negative " +
     "space. Place the person OFF-CENTRE, using roughly a third of the frame. Do NOT centre them. " +
     "Do not crop tight to the face.\n" +
-    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Not smiling at the camera. " +
-    "Not posing for the camera. They look away, past the lens, or down.\n" +
+    "  - Attitude: distant, composed, self-possessed, caught mid-thought. Not posing or smiling " +
+    "for the camera - cool, unbothered, a little unreadable.\n" +
+    "  - Gaze: VARY IT, do not always look away. Any of these, whichever suits the frame: a cool " +
+    "direct stare straight down the lens (often the strongest frame - use it freely); toward the " +
+    "camera but focused just past it; eyes lowered and away, lost in thought; in profile out of " +
+    "frame; or eyes closed, chin lifted into the light. The only thing forbidden is a posed, " +
+    "camera-pleasing smile.\n" +
     "  - Camera: full-frame, 35mm or 50mm lens, at eye level or slightly low. Real depth of field " +
     "with a soft falloff, not a fake blurred cut-out.\n" +
     "  - Grain: real 35mm film grain, visible in the shadows and flat tones.\n" +
