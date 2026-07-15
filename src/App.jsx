@@ -2328,16 +2328,7 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
       )}
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"16px 0 8px"}}>Pick a look</p>
-      {CG_BEAUTY.map(g=>(
-        <div key={g.group} style={{marginBottom:12}}>
-          <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {g.items.map(l=>(
-              <button key={l.id} onClick={()=>setLook(l.id)} style={{padding:"8px 14px",border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
-            ))}
-          </div>
-        </div>
-      ))}
+      <CgLookPicker groups={CG_BEAUTY} value={look} onChange={setLook} />
       <div style={{height:6}} />
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
@@ -2459,16 +2450,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       )}
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"16px 0 8px"}}>Pick a look</p>
-      {CG_LOOKS.map(g=>(
-        <div key={g.group} style={{marginBottom:12}}>
-          <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {g.items.map(l=>(
-              <button key={l.id} onClick={()=>setLook(l.id)} style={{padding:"8px 14px",border:"1px solid "+(look===l.id?B.charcoal:B.stone),background:look===l.id?B.charcoal:"#fff",color:look===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
-            ))}
-          </div>
-        </div>
-      ))}
+      <CgLookPicker groups={CG_LOOKS} value={look} onChange={setLook} />
       <div style={{height:6}} />
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
@@ -2692,6 +2674,44 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
 
    Server: /api/fakeit-restage.js  (consent + word blocklist + photo NSFW check)
    ═══════════════════════════════════════════════════════════════════════════ */
+// Collapsible look picker shared by Fake It, High Fashion and Beauty.
+// 40+ chips was a wall of buttons, so: categories collapsed by default, tap to
+// reveal, one open at a time. The selected look's name shows in its category
+// header even when collapsed, so you never lose track of what's picked.
+function CgLookPicker({ groups, value, onChange }){
+  const [open,setOpen] = useState(null);
+  return (
+    <div style={{border:"1px solid "+B.stone,marginBottom:16}}>
+      {groups.map((g,gi)=>{
+        const isOpen = open===g.group;
+        const sel = g.items.find(l=>l.id===value);
+        return (
+          <div key={g.group} style={{borderTop: gi===0?"none":"1px solid "+B.stone}}>
+            <button onClick={()=>setOpen(isOpen?null:g.group)}
+              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:isOpen?B.offwhite:"#fff",border:"none",cursor:"pointer",textAlign:"left"}}>
+              <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal}}>
+                {g.group}
+                <span style={{fontWeight:400,color:B.mid,marginLeft:8,textTransform:"none",letterSpacing:0}}>{g.items.length}</span>
+              </span>
+              <span style={{display:"flex",alignItems:"center",gap:10}}>
+                {sel && <span style={{fontFamily:"sans-serif",fontSize:11,color:B.gold,fontWeight:700}}>{sel.label}</span>}
+                <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{isOpen?"▴":"▾"}</span>
+              </span>
+            </button>
+            {isOpen && (
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"4px 14px 14px"}}>
+                {g.items.map(l=>(
+                  <button key={l.id} onClick={()=>onChange(l.id)} style={{padding:"8px 14px",border:"1px solid "+(value===l.id?B.charcoal:B.stone),background:value===l.id?B.charcoal:"#fff",color:value===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // The full look library for the Fake It tab — environments + beauty looks.
 // Picking one sends its id; the SERVER drops that look's environment text into
 // Fake It's own untouched twin prompt. "Describe my own" = classic free text.
@@ -2907,16 +2927,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
           <button onClick={()=>setPreset(null)} style={{padding:"8px 14px",border:"1px solid "+(preset===null?B.charcoal:B.stone),background:preset===null?B.charcoal:"#fff",color:preset===null?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>Describe my own</button>
         </div>
-        {CG_ALL_LOOKS.map(g=>(
-          <div key={g.group} style={{marginBottom:10}}>
-            <p style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>{g.group}</p>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {g.items.map(l=>(
-                <button key={l.id} onClick={()=>setPreset(l.id)} style={{padding:"8px 14px",border:"1px solid "+(preset===l.id?B.charcoal:B.stone),background:preset===l.id?B.charcoal:"#fff",color:preset===l.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>{l.label}</button>
-              ))}
-            </div>
-          </div>
-        ))}
+        <CgLookPicker groups={CG_ALL_LOOKS} value={preset} onChange={setPreset} />
       </>)}
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"14px 0 6px"}}>{mode!=="restage" ? "Where are you?" : (preset ? "Anything to add? (optional)" : "Put me here")}</p>
