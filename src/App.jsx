@@ -2756,6 +2756,20 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   const [image,setImage]     = useState(null);
   const [gallery,setGallery] = useState([]);
 
+  // ── "Bring it to life" video state ──────────────────────────────────────────
+  const [contentType,setContentType] = useState("photo");  // "photo" | "video"
+  const [vSource,setVSource] = useState("result");          // "result" = animate the restaged photo · "upload" = animate one of my photos
+  const [vPhotoIdx,setVPhotoIdx] = useState(0);
+  const [vScene,setVScene]   = useState("");
+  const [vTier,setVTier]     = useState("veolite");
+  const [vDur,setVDur]       = useState("5");
+  const [vOrient,setVOrient] = useState("portrait");
+  const [vAudio,setVAudio]   = useState(true);
+  const [vBusy,setVBusy]     = useState(false);
+  const [vStatus,setVStatus] = useState("");
+  const [vErr,setVErr]       = useState("");
+  const [vUrl,setVUrl]       = useState("");
+
   const COST = quality==="high" ? CREDIT_COSTS.restageHigh : CREDIT_COSTS.restageStd;
 
   // Shrink the photo IN THE BROWSER before it's uploaded.
@@ -2857,6 +2871,55 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
     setBusy(false);
   }
 
+  // ── "Bring it to life": animate a still into a short vertical clip ───────────
+  // Uses the shared /api/video engine (Veo 3.1 + Seedance 2.0), same as the
+  // Video tool and UGC Studio. The server charges and returns the new balance;
+  // we reflect it via onBalance and refund locally if the render doesn't finish.
+  const V_TIERS = [
+    { id:"veolite",    label:"Veo 3.1 Lite",      note:"Fast and affordable — great for most clips." },
+    { id:"veofast",    label:"Veo 3.1 Fast",      note:"Sharper motion and detail." },
+    { id:"veo",        label:"Veo 3.1 Cinematic", note:"Top-tier realism — and it can talk. Save it for your hero clip." },
+    { id:"seedance4k", label:"Seedance 2.0 · 4K", note:"Highest fidelity, true 4K. Slowest and priciest." },
+  ];
+  function vPerSec(){
+    if(vTier==="veo") return vAudio ? CREDIT_COSTS.veoSec : CREDIT_COSTS.veoSecSilent;
+    if(vTier==="seedance4k") return CREDIT_COSTS.seedanceSec;
+    if(vTier==="veofast") return CREDIT_COSTS.veoFastSec;
+    return CREDIT_COSTS.veoLiteSec;
+  }
+  function vDurOptions(){ if(vTier==="veo") return [4,6,8]; if(vTier==="seedance4k") return [5,10,15]; return [5,10]; }
+  function vCost(){ return vPerSec()*Number(vDur); }
+  function vRef(){ return vSource==="result" ? image : ((photos[vPhotoIdx] && photos[vPhotoIdx].preview) || null); }
+  function pickTier(id){
+    setVTier(id);
+    const opts = id==="veo" ? [4,6,8] : id==="seedance4k" ? [5,10,15] : [5,10];
+    if(!opts.includes(Number(vDur))) setVDur(String(opts[0]));
+    if(id==="veo" && vOrient==="square") setVOrient("portrait");
+  }
+
+  async function makeVideo(){
+    setVErr(""); setVUrl("");
+    if(!consent){ setVErr("Please confirm these are photos of you."); return; }
+    const ref = vRef();
+    if(!ref){ setVErr(vSource==="result" ? "Make a photo above first, then bring it to life." : "Upload a photo of yourself to animate."); return; }
+    if(!vScene.trim()){ setVErr("Describe the clip — the motion, the action, the mood."); return; }
+    const cost = vCost();
+    if(Number(credits) < cost){ setVErr("This clip costs "+cost.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setVBusy(true); setVStatus("Starting the video…");
+    try{
+      const audio = vTier==="seedance4k" ? false : (vTier==="veo" ? vAudio : true);
+      const started = await generateVideo(vScene.trim(), ref, { orientation:vOrient, quality:vTier, duration:Number(vDur), audio });
+      if(!started || !started.id){ setVErr((started&&started.error)||"Sorry — we couldn't start that video right now. Please try again shortly."); setVBusy(false); setVStatus(""); return; }
+      if(typeof started.balance==="number") onBalance(started.balance);
+      setVStatus("Creating your video — usually 1–3 minutes, but 4K can take up to 10. Keep this tab open.");
+      const url = await pollVideo(started.id);
+      if(!url){ setVErr("The video didn't finish in time. Your credits were refunded."); if(typeof started.balance==="number") onBalance(started.balance+cost); setVBusy(false); setVStatus(""); return; }
+      setVUrl(url);
+      track("tool_used",{tool:"restage_video",tier:vTier,source:vSource}); onToolUse("restage_video", cost);
+    }catch(e){ setVErr((e&&e.message)||"Something went wrong while generating the video."); }
+    setVBusy(false); setVStatus("");
+  }
+
   // In restage mode the outfit is KEPT from your photo, so the ideas are PLACES only.
   // In reimagine mode the outfit is invented, so the ideas can include one.
   return (
@@ -2875,6 +2938,12 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         </ul>
       </div>
 
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {[["photo","Photo"],["video","Video"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{ setContentType(v); setErr(""); setVErr(""); }} style={{padding:"9px 22px",border:"1px solid "+(contentType===v?B.charcoal:B.stone),background:contentType===v?B.charcoal:"#fff",color:contentType===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.04em"}}>{l}</button>
+        ))}
+      </div>
+
       <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
       {photos.length>0 && (
         <div style={{marginBottom:14}}>
@@ -2890,6 +2959,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         </div>
       )}
 
+      {contentType==="photo" && (<>
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>What should we do?</p>
       <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
         {[["restage","Same photo, new place"],["reimagine","A whole new photo of me"]].map(([v,l])=>(
@@ -2964,428 +3034,99 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"8px 0 0"}}>Download anything you want to keep — this clears when you refresh.</p>
         </div>
       )}
-    </div>
-  );
-}
+      </>)}
 
-function FakeIt({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
-  const [model, setModel] = useState(null);       // the user's trained model (if any)
-  const [loading, setLoading] = useState(true);
-  const [files, setFiles] = useState([]);         // photos chosen for training
-  const [consent, setConsent] = useState(false);
-  const [subject, setSubject] = useState("woman");   // binds the trigger phrase
-  const [training, setTraining] = useState(false);
-  const [trainMsg, setTrainMsg] = useState("");
-  const [err, setErr] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [aspect, setAspect] = useState("4:5");
-  const [strength, setStrength] = useState(1.25);   // how hard to push YOUR face
-  const [busy, setBusy] = useState(false);
-  const [image, setImage] = useState(null);
-  const [gallery, setGallery] = useState([]);      // every image made this session
-  const [mode, setMode] = useState("photo");       // photo | video
+      {contentType==="video" && (<>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>Bring it to life</p>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Turn a still into a short vertical clip for Reels, TikTok or Stories. On the Cinematic tier, Veo can even lip-sync a line you give it.</p>
 
-  // ── Video state ────────────────────────────────────────────────────────
-  const [picked, setPicked] = useState([]);        // up to 3 images to feed Veo
-  const [vPrompt, setVPrompt] = useState("");
-  const [vSay, setVSay] = useState("");
-  const [vTier, setVTier] = useState("veolite");
-  const [vDur, setVDur] = useState("8");
-  const [vOrient, setVOrient] = useState("portrait");
-  const [vBusy, setVBusy] = useState(false);
-  const [vStatus, setVStatus] = useState("");
-  const [vUrl, setVUrl] = useState("");
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>What are we animating?</p>
+        <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+          {[["result","My restaged photo"],["upload","One of my photos"]].map(([v,l])=>(
+            <button key={v} onClick={()=>{ setVSource(v); setVErr(""); }} style={{padding:"9px 18px",border:"1px solid "+(vSource===v?B.charcoal:B.stone),background:vSource===v?B.charcoal:"#fff",color:vSource===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
 
-  const V_TIERS = [
-    { id:"veolite", label:"Veo 3.1 Lite", per:CREDIT_COSTS.veoLiteSec, note:"Fast and affordable. Great for most clips." },
-    { id:"veofast", label:"Veo 3.1 Fast", per:CREDIT_COSTS.veoFastSec, note:"Sharper motion and detail." },
-    { id:"veo",     label:"Veo 3.1 Cinematic", per:CREDIT_COSTS.veoSec, note:"Top-tier realism. Save it for your hero shot." },
-  ];
-  function vTierObj(){ return V_TIERS.find(t=>t.id===vTier) || V_TIERS[0]; }
-  function vCost(){ return vTierObj().per * Number(vDur); }
+        {vSource==="result" && (
+          image
+            ? <div style={{marginBottom:16}}><img src={image} alt="" style={{width:96,height:120,objectFit:"cover",border:"1px solid "+B.stone}} /></div>
+            : <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Make a photo in the <strong>Photo</strong> tab first, then come back here to animate it.</p>
+        )}
+        {vSource==="upload" && (
+          photos.length
+            ? (<div style={{marginBottom:16}}>
+                <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 8px"}}>Tap the photo you want to animate.</p>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {photos.map((p,i)=>(
+                    <img key={i} src={p.preview} alt="" onClick={()=>setVPhotoIdx(i)} style={{width:76,height:96,objectFit:"cover",border:"2px solid "+(vPhotoIdx===i?B.charcoal:B.stone),cursor:"pointer"}} />
+                  ))}
+                </div>
+              </div>)
+            : <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Upload a photo of yourself up top first.</p>
+        )}
 
-  function togglePick(url){
-    setPicked(p=>{
-      if(p.includes(url)) return p.filter(x=>x!==url);
-      if(p.length>=3) return p;            // Veo takes 3 reference images max
-      return [...p, url];
-    });
-  }
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Describe the clip</p>
+        <textarea value={vScene} onChange={e=>setVScene(e.target.value)} rows={3}
+          placeholder="slowly turning to camera with a soft smile, hair moving in the breeze — say: welcome to my world"
+          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:16}} />
 
-  async function makeVideo(){
-    setErr(""); setVUrl("");
-    if(!picked.length){ setErr("Pick at least one photo of yourself (up to 3 — more angles = better likeness)."); return; }
-    if(!vPrompt.trim()){ setErr("Describe what's happening — the place, the action, the mood."); return; }
-    if(Number(credits) < vCost()){ setErr("This clip costs "+vCost().toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
-    if(!useCredits(vCost())) return;
-    setVBusy(true); setVStatus("Starting the video…");
-    try{
-      const tok = await freshToken();
-      const r = await fetch("/api/fakeit-video", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({ images:picked, prompt:vPrompt.trim(), say:vSay.trim(), tier:vTier, duration:Number(vDur), orientation:vOrient }),
-      });
-      const d = await r.json();
-      if(!r.ok) throw new Error(d.error||"Could not start that video.");
-      if(typeof d.balance === "number") onBalance(d.balance);
-      setVStatus("Creating your video — this takes a few minutes. Keep this tab open.");
-      const out = await pollVideo(d.id);
-      if(!out){ setErr("The video didn't finish in time. Your credits were refunded."); setVBusy(false); setVStatus(""); return; }
-      setVUrl(out);
-      track("tool_used",{tool:"fakeit_video",tier:vTier}); onToolUse("fakeit_video", vCost());
-    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
-    setVBusy(false); setVStatus("");
-  }
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Model</p>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+          {V_TIERS.map(t=>(
+            <button key={t.id} onClick={()=>pickTier(t.id)} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(vTier===t.id?B.charcoal:B.stone),background:vTier===t.id?B.charcoal:"#fff",color:vTier===t.id?"#fff":B.charcoal,fontFamily:"sans-serif",cursor:"pointer"}}>
+              <span style={{fontSize:12,fontWeight:700}}>{t.label}</span>
+              <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{t.note}</span>
+            </button>
+          ))}
+        </div>
 
-  const TRAIN_COST = CREDIT_COSTS.fakeitTrain;
-  const IMAGE_COST = CREDIT_COSTS.fakeitImage;
-  const MIN_PHOTOS = 8, MAX_PHOTOS = 25;
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Length</p>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {vDurOptions().map(d=>(
+            <button key={d} onClick={()=>setVDur(String(d))} style={{padding:"9px 18px",border:"1px solid "+(Number(vDur)===d?B.charcoal:B.stone),background:Number(vDur)===d?B.charcoal:"#fff",color:Number(vDur)===d?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{d}s</button>
+          ))}
+        </div>
 
-  // Load the user's model + poll while it's training.
-  useEffect(()=>{
-    let alive = true, timer = null;
-    async function load(){
-      try{
-        const tok = await freshToken();
-        if(!tok || !user || !user.id){ if(alive) setLoading(false); return; }
-        const r = await fetch(SUPABASE_URL+"/rest/v1/user_models?user_id=eq."+user.id+"&select=*&order=created_at.desc&limit=1",
-          { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
-        const rows = r.ok ? await r.json() : [];
-        const m = Array.isArray(rows) ? rows[0] : null;
-        if(!alive) return;
-        setModel(m||null);
-        setLoading(false);
-        if(m && m.status==="training"){ timer = setTimeout(load, 20000); } // check again in 20s
-      }catch(e){ if(alive) setLoading(false); }
-    }
-    load();
-    return ()=>{ alive=false; if(timer) clearTimeout(timer); };
-  },[user]);
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {[["portrait","Portrait (9:16)"],["landscape","Landscape (16:9)"],["square","Square (1:1)"]].filter(([v])=>!(vTier==="veo"&&v==="square")).map(([v,l])=>(
+            <button key={v} onClick={()=>setVOrient(v)} style={{padding:"9px 18px",border:"1px solid "+(vOrient===v?B.charcoal:B.stone),background:vOrient===v?B.charcoal:"#fff",color:vOrient===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
 
-  function pickFiles(e){
-    const list = Array.from((e.target && e.target.files) || []);
-    setErr("");
-    const imgs = list.filter(f=>/^image\//.test(f.type));
-    // ADD to what's already picked (don't wipe it) — people upload in batches.
-    setFiles(prev=>{
-      const merged = [...prev];
-      imgs.forEach(f=>{
-        const dupe = merged.some(x=>x.name===f.name && x.size===f.size);
-        if(!dupe && merged.length < MAX_PHOTOS) merged.push(f);
-      });
-      if(prev.length + imgs.length > MAX_PHOTOS) setErr("Max "+MAX_PHOTOS+" photos — we kept the first "+MAX_PHOTOS+".");
-      return merged;
-    });
-    // Let the same file be re-picked later if they remove it.
-    try{ e.target.value = ""; }catch(err){}
-  }
-  function removeFile(i){ setFiles(prev=>prev.filter((_,x)=>x!==i)); setErr(""); }
-
-  async function startTraining(){
-    setErr("");
-    if(files.length < MIN_PHOTOS){ setErr("Pick at least "+MIN_PHOTOS+" photos of yourself (more angles = better results)."); return; }
-    if(!consent){ setErr("Please confirm these are photos of you."); return; }
-    if(Number(credits) < TRAIN_COST){ setErr("Training costs "+TRAIN_COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
-    if(!useCredits(TRAIN_COST)) return; // deducts up front
-
-    setTraining(true);
-    try{
-      const tok = await freshToken();
-      if(!tok) throw new Error("Please sign in again.");
-      // Upload each photo into THIS user's private folder — shrunk first, so a
-      // batch of 20+ phone photos doesn't blow past the upload size limit.
-      const paths = [];
-      for(let i=0;i<files.length;i++){
-        setTrainMsg("Preparing photo "+(i+1)+" of "+files.length+"\u2026");
-        const small = await shrinkImage(files[i]);
-        const path = user.id+"/"+Date.now()+"-"+i+".jpg";
-        const up = await fetch(SUPABASE_URL+"/storage/v1/object/ai-twin-training/"+path, {
-          method:"POST",
-          headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"image/jpeg" },
-          body: small,
-        });
-        if(!up.ok){
-          let why = "";
-          try{ const j = await up.json(); why = (j && (j.message || j.error)) || ""; }catch(e2){}
-          throw new Error("Photo upload failed (" + up.status + ")" + (why ? ": " + why : ". Try again."));
-        }
-        paths.push(path);
-      }
-      const r = await fetch("/api/fakeit-train", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({ paths, consent:true, subject, name:"My Fake It Model" }),
-      });
-      const d = await r.json();
-      if(!r.ok) throw new Error(d.error||"Could not start training.");
-      setModel(d.model||null);
-      setFiles([]);
-      setTrainMsg("");
-      track("tool_used",{tool:"fakeit_train"}); onToolUse("fakeit_train", TRAIN_COST);
-    }catch(e){
-      setErr((e&&e.message)||"Training could not start.");
-    }
-    setTrainMsg("");
-    setTraining(false);
-  }
-
-  async function generate(){
-    setErr(""); setImage(null);
-    if(!prompt.trim()){ setErr("Describe the scene — a place, an outfit, a vibe."); return; }
-    if(Number(credits) < IMAGE_COST){ setErr("Each image costs "+IMAGE_COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
-    if(!useCredits(IMAGE_COST)) return;
-    setBusy(true);
-    try{
-      const tok = await freshToken();
-      const r = await fetch("/api/fakeit-generate", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok },
-        body: JSON.stringify({ prompt: prompt.trim(), modelId: model && model.id, aspect, strength }),
-      });
-      const d = await r.json();
-      if(!r.ok) throw new Error(d.error||"Could not create that image.");
-      setImage(d.image);
-      setGallery(g=>[d.image, ...g].slice(0,24));
-      track("tool_used",{tool:"fakeit_image"}); onToolUse("fakeit_image", IMAGE_COST);
-    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
-    setBusy(false);
-  }
-
-  const IDEAS = [
-    "on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress",
-    "in a Paris cafe in a tailored trench coat, film photography look",
-    "on a rooftop in Tokyo at night, neon lights, streetwear",
-    "walking a marble hotel lobby in a cream suit, editorial magazine shot",
-    "on a yacht in Greece, white linen, sun-drenched",
-  ];
-
-  if(loading) return <div style={{padding:40,textAlign:"center",fontFamily:"sans-serif",color:B.mid,fontSize:12}}>Loading…</div>;
-
-  return (
-    <div style={{maxWidth:760,margin:"0 auto"}}>
-      {/* ---------- No model yet: TRAIN ---------- */}
-      {(!model || model.status==="failed") && (
-        <div>
-          <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Train your model</h3>
-          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-            Upload {MIN_PHOTOS}–{MAX_PHOTOS} photos of <strong>yourself</strong>. We'll train a private AI model of you — then you can put yourself anywhere. Takes about 30–60 minutes, one time only.
-          </p>
-
-          <div style={{background:B.white,border:"1px solid "+B.stone,padding:16,marginBottom:16}}>
-            <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>For the best likeness</p>
-            <ul style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.8,margin:0,paddingLeft:18}}>
-              <li>Clear photos of your face — different angles, expressions, lighting</li>
-              <li>Mix close-ups and full-body shots</li>
-              <li>Just you in frame — no group photos, no sunglasses, no heavy filters</li>
-            </ul>
-          </div>
-
-          {model && model.status==="failed" && (
-            <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>Last training didn't work{model.error?(": "+model.error):"."} You can try again.</p>
-          )}
-
-          <input type="file" accept="image/*" multiple onChange={pickFiles} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
-          {files.length>0 && (
-            <div style={{marginBottom:14}}>
-              <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,margin:"0 0 8px"}}>{files.length} photo{files.length===1?"":"s"} selected {files.length<MIN_PHOTOS?("— add "+(MIN_PHOTOS-files.length)+" more"):"✓"} · you can add more in batches</p>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {files.map((f,i)=>(
-                  <div key={i} style={{position:"relative",width:60,height:74,border:"1px solid "+B.stone,background:"#fff"}}>
-                    <img src={URL.createObjectURL(f)} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
-                    <button onClick={()=>removeFile(i)} title="Remove" style={{position:"absolute",top:-6,right:-6,width:18,height:18,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:"18px",padding:0,cursor:"pointer",fontFamily:"sans-serif"}}>×</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div style={{marginBottom:14}}>
-            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>You are a…</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["woman","Woman"],["man","Man"],["person","Prefer not to say"]].map(([id,label])=>(
-                <button key={id} onClick={()=>setSubject(id)} style={{background:subject===id?B.charcoal:"#fff",color:subject===id?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",fontSize:11,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{label}</button>
-              ))}
-            </div>
-            <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 0"}}>This helps the model lock onto your face properly. It's the single biggest factor in whether the result actually looks like you.</p>
-          </div>
-
-          <label style={{display:"flex",gap:10,alignItems:"flex-start",fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
-            <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
-            <span>These are photos of <strong>me</strong>, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.</span>
+        {vTier==="veo" && (
+          <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
+            <input type="checkbox" checked={vAudio} onChange={e=>setVAudio(e.target.checked)} style={{marginTop:3}} />
+            <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Generate synchronized audio — dialogue, music and sound effects (Veo's signature). Turn off to halve the cost for a silent clip.</span>
           </label>
+        )}
 
-          {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+        <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
+          <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+          <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+            This is a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated video of my likeness. I won't upload anyone else.
+          </span>
+        </label>
 
-          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-            <button onClick={startTraining} disabled={training} style={{background:B.charcoal,color:"#fff",border:"none",padding:"14px 28px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:training?"not-allowed":"pointer",opacity:training?0.6:1}}>
-              {training?"STARTING…":"TRAIN MY MODEL"}
-            </button>
-            {training&&trainMsg&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{trainMsg}</span>}
-            <CreditTag n={TRAIN_COST} />
-            <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>one-time · you have {Number(credits).toLocaleString()}</span>
+        {vErr && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{vErr}</p>}
+
+        <Btn dark full disabled={vBusy} onClick={makeVideo}>
+          {vBusy ? "MAKING YOUR VIDEO…" : "BRING IT TO LIFE · "+vCost().toLocaleString()+" CREDITS"}
+        </Btn>
+
+        {vBusy && vStatus && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{vStatus}</p>}
+
+        {vUrl && (
+          <div style={{marginTop:26,textAlign:"center"}}>
+            <video src={vUrl} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+            <a href={vUrl} download="chelgy.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
           </div>
-        </div>
-      )}
-
-      {/* ---------- Training in progress ---------- */}
-      {model && model.status==="training" && (
-        <div style={{textAlign:"center",padding:"48px 20px"}}>
-          <div style={{fontSize:40,marginBottom:16}}>✨</div>
-          <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 8px"}}>Training your model…</h3>
-          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,maxWidth:420,margin:"0 auto"}}>
-            This takes about 30–60 minutes. You can close the app — we'll keep going. Come back and your model will be waiting.
-          </p>
-        </div>
-      )}
-
-      {/* ---------- Model ready: GENERATE ---------- */}
-      {model && model.status==="ready" && (
-        <div>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#0a7",background:"#eafaf3",border:"1px solid #bfe8d8",padding:"4px 10px",borderRadius:20}}>● Your model is ready</span>
-            <button onClick={()=>{ if(window.confirm("Train a new model? This costs "+TRAIN_COST.toLocaleString()+" credits and replaces the current one.")){ setModel(null); setFiles([]); setConsent(false); setImage(null); setErr(""); } }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,padding:"5px 10px",cursor:"pointer",textTransform:"uppercase"}}>Retrain</button>
-          </div>
-
-          <div style={{display:"flex",gap:0,borderBottom:"1px solid "+B.stone,marginBottom:18}}>
-            {[["photo","Photo"],["video","Video"]].map(([id,label])=>(
-              <button key={id} onClick={()=>{setMode(id); setErr("");}} style={{background:"none",border:"none",borderBottom:"2px solid "+(mode===id?B.charcoal:"transparent"),color:mode===id?B.charcoal:B.mid,padding:"10px 18px",fontFamily:"sans-serif",fontSize:12,fontWeight:mode===id?700:500,cursor:"pointer",marginBottom:-1}}>{label}</button>
-            ))}
-          </div>
-
-          {mode==="video" ? (
-            <div>
-              <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Put yourself in motion</h3>
-              <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>
-                Pick up to 3 of your photos, describe the scene, and Veo brings you to life &mdash; with sound. Say something and it&rsquo;ll lip-sync it.
-              </p>
-              <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 18px",background:B.white,border:"1px solid "+B.stone,padding:10}}>
-                Make a few photos in the <strong>Photo</strong> tab first &mdash; the more angles you give it, the more it looks like you.
-              </p>
-
-              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Your photos &middot; pick up to 3 ({picked.length}/3)</div>
-              {gallery.length===0 ? (
-                <p style={{fontFamily:"sans-serif",fontSize:12.5,color:B.mid,background:B.white,border:"1px dashed "+B.stone,padding:16,marginBottom:16}}>
-                  No photos yet. Head to the <strong>Photo</strong> tab and make one or two of yourself first.
-                </p>
-              ) : (
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
-                  {gallery.map((u,i)=>{
-                    const on = picked.includes(u);
-                    return (
-                      <div key={i} onClick={()=>togglePick(u)} style={{position:"relative",cursor:"pointer",border:"2px solid "+(on?B.charcoal:B.stone),padding:2,background:"#fff"}}>
-                        <img src={u} alt="" style={{width:78,height:98,objectFit:"cover",display:"block",opacity:on?1:0.75}} />
-                        {on && <div style={{position:"absolute",top:4,right:4,background:B.charcoal,color:"#fff",width:18,height:18,borderRadius:"50%",fontSize:10,lineHeight:"18px",textAlign:"center",fontFamily:"sans-serif",fontWeight:700}}>{picked.indexOf(u)+1}</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>What&rsquo;s happening</div>
-              <textarea value={vPrompt} onChange={e=>setVPrompt(e.target.value)} rows={3} placeholder="Walking along a sunlit street in Rome, turning to smile at the camera, hair moving in the breeze. Handheld, cinematic."
-                style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",marginBottom:12}} />
-
-              <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Say something &middot; optional &mdash; it will lip-sync</div>
-              <input value={vSay} onChange={e=>setVSay(e.target.value)} placeholder="Okay, so nobody told me Rome was this hot."
-                style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:14}} />
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:6}}>
-                <div>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Engine</div>
-                  <select value={vTier} onChange={e=>setVTier(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13}}>
-                    {V_TIERS.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Length</div>
-                  <select value={vDur} onChange={e=>setVDur(e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13}}>
-                    {[4,6,8].map(n=><option key={n} value={String(n)}>{n} seconds</option>)}
-                  </select>
-                </div>
-              </div>
-              <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"6px 0 14px"}}>{vTierObj().note} <strong>{vTierObj().per.toLocaleString()} credits per second</strong> &middot; this clip: <strong>{vCost().toLocaleString()} credits</strong>.</p>
-
-              <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                {[["portrait","Portrait (9:16)"],["landscape","Landscape (16:9)"]].map(([id,label])=>(
-                  <button key={id} onClick={()=>setVOrient(id)} style={{background:vOrient===id?B.charcoal:"#fff",color:vOrient===id?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 14px",fontSize:11,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{label}</button>
-                ))}
-              </div>
-
-              {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
-
-              <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
-                <button onClick={makeVideo} disabled={vBusy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"14px 28px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:vBusy?"not-allowed":"pointer",opacity:vBusy?0.6:1}}>
-                  {vBusy?"CREATING…":"CREATE VIDEO"}
-                </button>
-                <CreditTag n={vCost()} />
-                <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>you have {Number(credits).toLocaleString()}</span>
-              </div>
-
-              {vBusy && <div style={{background:B.white,border:"1px solid "+B.stone,padding:22,textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6}}>{vStatus||"Working…"}</div>}
-
-              {vUrl && !vBusy && (
-                <div>
-                  <video src={vUrl} controls playsInline style={{maxWidth:"100%",display:"block",background:"#000",border:"1px solid "+B.stone}} />
-                  <a href={vUrl} download="chelgy-video.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD &darr;</a>
-                </div>
-              )}
-            </div>
-          ) : (
-          <div>
-          <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Put yourself anywhere</h3>
-          <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
-            Describe the place, the outfit, the vibe. You don't need to say "me" — the model already knows.
-          </p>
-
-          <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="on a balcony overlooking the Amalfi Coast at golden hour, wearing a red silk dress…" rows={3}
-            style={{width:"100%",boxSizing:"border-box",padding:12,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,marginBottom:10,resize:"vertical"}} />
-
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-            {IDEAS.map((idea,i)=>(
-              <button key={i} onClick={()=>setPrompt(idea)} style={{background:"#F7F5F0",border:"1px solid "+B.stone,color:B.mid,fontFamily:"sans-serif",fontSize:11,padding:"6px 10px",cursor:"pointer",textAlign:"left"}}>{idea.slice(0,42)}…</button>
-            ))}
-          </div>
-
-          <div style={{background:B.white,border:"1px solid "+B.stone,padding:12,marginBottom:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,textTransform:"uppercase"}}>How much like you</span>
-              <span style={{fontFamily:"sans-serif",fontSize:11,color:B.charcoal,fontWeight:700}}>{Number(strength).toFixed(2)}</span>
-            </div>
-            <input type="range" min="0.8" max="1.6" step="0.05" value={strength} onChange={e=>setStrength(Number(e.target.value))} style={{width:"100%",display:"block"}} />
-            <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 0"}}>
-              Doesn't look like you? Push it <strong>up</strong>. Looks like you but stiff and same-y every time? Pull it <strong>down</strong>. 1.25 is a good starting point.
-            </p>
-          </div>
-          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-            {["4:5","1:1","9:16","16:9"].map(a=>(
-              <button key={a} onClick={()=>setAspect(a)} style={{background:aspect===a?B.charcoal:"#fff",color:aspect===a?"#fff":B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:11,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{a}</button>
-            ))}
-          </div>
-
-          {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
-
-          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
-            <button onClick={generate} disabled={busy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"14px 28px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
-              {busy?"CREATING…":"CREATE"}
-            </button>
-            <CreditTag n={IMAGE_COST} />
-            <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>per image · you have {Number(credits).toLocaleString()}</span>
-          </div>
-
-          {image && (
-            <div>
-              <img src={image} alt="" style={{width:"100%",display:"block",border:"1px solid "+B.stone}} />
-              <a href={image} download="chelgy.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
-            </div>
-          )}
-          </div>
-          )}
-        </div>
-      )}
+        )}
+      </>)}
     </div>
   );
 }
+
 // ============================================================================
 // GET FEATURED — find podcasts in your niche, and pitch them properly.
 // ============================================================================
@@ -5106,7 +4847,6 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="leadfinder"&&<LeadFinder useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} bizCtx={bizCtx} />}
 
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
-      {tool==="fakeit"&&<FakeIt useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -5591,24 +5331,7 @@ const CATEGORIES = [
     tabs:[ {label:"Cinematic Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
-  /* ═══════════════════════════════════════════════════════════════════════
-     HIDDEN: Fake It (old fal / Flux version)  —  uncomment to bring it back.
-     ───────────────────────────────────────────────────────────────────────
-     Why it's hidden: the Flux LoRA route renders a plastic, cartoony face. The
-     trigger-word bug IS fixed (it returns the right race + hair now), but Flux's
-     base model has a waxy "AI portrait" look we can't prompt our way out of, and
-     Flux 2's better skin lives in [pro], which cannot be LoRA-trained.
-     REPLACED BY the Restage flow below: a real photo of you goes to Gemini as a
-     reference, so your real skin survives. Same trick Retake AI uses.
-     NOTHING is deleted: the FakeIt component, the tool==="fakeit" route, the api
-     files (fakeit-train.js, fal-webhook.js, fakeit-generate.js, fakeit-video.js),
-     the trained models and every generated image in Supabase are all untouched.
-
-  { id:"cat_fakeit_old", title:"Fake It", icon:"Sparkles", blurb:"Train an AI model of your own face — once — then put yourself anywhere.",
-    tabs:[ {label:"Fake It",tool:"fakeit"} ] },
-
-     ═══════════════════════════════════════════════════════════════════════ */
-  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
+  { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
     tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}, {label:"Style Match",tool:"stylematch"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
