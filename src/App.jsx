@@ -842,6 +842,22 @@ async function downloadPic(src, filename){
 // file — not a burst of separate saves the browser throttles into "one by one."
 // Loads JSZip from a CDN at runtime (no build/install dependency); if that fails,
 // falls back to staggered individual downloads so nothing is lost.
+// Save a video result. The file lives on the provider's server (cross-origin), so
+// a plain <a download> is ignored by the browser and just opens a tab. Fetching it
+// as a blob first lets us force a real download; if CORS blocks the fetch we fall
+// back to opening it so the person can still save it manually.
+async function downloadVideo(src, filename){
+  const name = /\.(mp4|webm|mov|m4v)$/i.test(filename||"") ? filename : ((filename||"chelgy").replace(/\.[^./]+$/,"") + ".mp4");
+  try{
+    const res = await fetch(src, { mode: "cors" });
+    if(!res.ok) throw new Error("bad status");
+    const blob = await res.blob();
+    saveBlobUrl(URL.createObjectURL(blob), name, true);
+  }catch(_){
+    window.open(src, "_blank", "noopener");
+  }
+}
+
 async function ensureJSZip(){
   if (typeof window !== "undefined" && window.JSZip) return window.JSZip;
   await new Promise((resolve, reject)=>{
@@ -3233,7 +3249,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         {vUrl && (
           <div style={{marginTop:26,textAlign:"center"}}>
             <video src={vUrl} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-            <a href={vUrl} download="chelgy.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+            <button onClick={()=>downloadVideo(vUrl,"chelgy.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
           </div>
         )}
       </>)}
@@ -3390,7 +3406,7 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
       {url && (
         <div style={{marginTop:26,textAlign:"center"}}>
           <video src={url} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <a href={url} download="chelgy-edit.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+          <button onClick={()=>downloadVideo(url,"chelgy-edit.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
     </div>
@@ -4531,15 +4547,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   }
   async function dlVideo(){
     if(!vVidUrl)return;
-    try{
-      const r=await fetch(vVidUrl);
-      const b=await r.blob();
-      const u=URL.createObjectURL(b);
-      const a=document.createElement("a");
-      a.href=u;a.download="chelgy-video.mp4";
-      document.body.appendChild(a);a.click();document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(u),1500);
-    }catch(e){ window.open(vVidUrl,"_blank"); }
+    downloadVideo(vVidUrl,"chelgy-video.mp4");
   }
   async function askB(){if(!bQ.trim())return;setBLoad(true);setBA("");setBA(await callClaude(ctxPre+"You are an experienced business coach inside Chelgy, an all-in-one AI marketing platform. Give specific actionable advice. When you suggest a tool or a next step, point them to Chelgy's own tools first (Website Builder + in-app domain buying, Image Creator, Product Studio, UGC & Video Studio, Viral Video, Ad Campaign Builder, Content Writer, Voiceover, Backlink & Authority Builder, Business Audit, Grant Finder, and Business Manager for clients & invoices) for anything Chelgy can do; only point them elsewhere for things Chelgy does not offer. Context: "+(bName?"Business: "+bName+".":" ")+(bNiche?"Niche: "+bNiche+".":" ")+" Question: "+bQ));setBLoad(false);}
   async function genViral(){
@@ -11632,7 +11640,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
                     {v.url && !v.loading && (
                       <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "16px", marginTop: 12 }}>
                         <video src={v.url} controls playsInline style={{ maxWidth: "100%", display: "block", marginBottom: 12, background: "#000" }} />
-                        <a href={v.url} download="chelgy-product-video.mp4"><Btn dark small>DOWNLOAD VIDEO</Btn></a>
+                        <Btn dark small onClick={()=>downloadVideo(v.url,"chelgy-product-video.mp4")}>DOWNLOAD VIDEO</Btn>
                         <button onClick={() => saveVideo(shot, v.url)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
                         {v.saveMsg && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(v.saveMsg).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{v.saveMsg}</div>}
                         <div style={{ marginTop: 14 }}><ShareBar url={v.url} file={v.url} filename="chelgy-product-video.mp4" title="Made with Chelgy" text="" /></div>
@@ -11934,7 +11942,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     setBusy(false);
   }
   async function save(){ if(!url) return; setSaveMsg("Saving…"); const r=await saveToLibrary(user,"video","UGC Video",url); setSaveMsg(r.ok?"✓ Saved to your Library":("Couldn't save: "+(r.error||"error"))); setTimeout(()=>setSaveMsg(""),4000); }
-  function dl(){ const a=document.createElement("a"); a.href=url; a.download="ugc-video.mp4"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+  function dl(){ downloadVideo(url,"ugc-video.mp4"); }
   function grabFrame(src){
     return new Promise((resolve,reject)=>{
       const v=document.createElement("video");
