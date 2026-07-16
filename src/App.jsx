@@ -703,6 +703,18 @@ const ELEVENLABS_KEY = ""; // moved server-side to /api/voice (Vercel env: ELEVE
 async function generateVideo(prompt, image, opts) {
   try {
     const token = await freshToken();
+    const quality = (opts&&opts.quality)||"480p";
+    if (quality === "omni") {
+      // Gemini Omni Flash — straight to Google via /api/omni. Tag the id so pollVideo routes it.
+      const or = await fetch("/api/omni", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+        body: JSON.stringify({ prompt, image: image||undefined, orientation: (opts&&opts.orientation)||"landscape", tool: (opts&&opts.tool)||"video" })
+      });
+      const od = await or.json();
+      if (od && od.id) od.id = "omni:" + od.id;
+      return od; // { id:"omni:...", balance } or { error }
+    }
     const res = await fetch("/api/video", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
@@ -713,10 +725,11 @@ async function generateVideo(prompt, image, opts) {
 }
 
 async function pollVideo(taskId) {
+  const endpoint = String(taskId||"").indexOf("omni:")===0 ? "/api/omni-result" : "/api/video-result";
   for (let i = 0; i < 240; i++) {            // up to ~12 min — 4K Max multi-shot can be slow
     await new Promise(r => setTimeout(r, 3000));
     try {
-      const res = await fetch("/api/video-result", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: taskId })
@@ -3015,8 +3028,8 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   // Video tool and UGC Studio. The server charges and returns the new balance;
   // we reflect it via onBalance and refund locally if the render doesn't finish.
   const V_TIERS = [
+    { id:"omni",       label:"Omni Flash",        note:"Google's newest — near-Seedance quality for a fraction of the price. Up to 10s, 720p." },
     { id:"veolite",    label:"Veo 3.1 Lite",      note:"Fast and affordable, with sound — great for most clips." },
-    { id:"veofast",    label:"Veo 3.1 Fast",      note:"Sharper motion and detail, with sound." },
     { id:"veo",        label:"Veo 3.1 Cinematic", note:"Top-tier realism and the richest audio. Save it for your hero clip." },
     { id:"seedance480",  label:"Seedance 2.0 · 480p",  note:"Fastest and cheapest Seedance, with native sound." },
     { id:"seedance720",  label:"Seedance 2.0 · 720p",  note:"HD Seedance with native sound." },
@@ -3029,12 +3042,12 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
     if(vTier==="veofast") return CREDIT_COSTS.veoFastSec;
     return CREDIT_COSTS.veoLiteSec;
   }
-  function vDurOptions(){ if(vTier==="veo") return [4,6,8]; if(vTier.indexOf("seedance")===0) return [5,10,15]; return [5,10]; }
-  function vCost(){ return vPerSec()*Number(vDur); }
+  function vDurOptions(){ if(vTier==="omni") return [10]; if(vTier==="veo") return [4,6,8]; if(vTier.indexOf("seedance")===0) return [5,10,15]; return [5,10]; }
+  function vCost(){ if(vTier==="omni") return CREDIT_COSTS.omniClip; return vPerSec()*Number(vDur); }
   function vRef(){ return vSource==="result" ? image : ((photos[vPhotoIdx] && photos[vPhotoIdx].preview) || null); }
   function pickTier(id){
     setVTier(id);
-    const opts = id==="veo" ? [4,6,8] : id.indexOf("seedance")===0 ? [5,10,15] : [5,10];
+    const opts = id==="omni" ? [10] : id==="veo" ? [4,6,8] : id.indexOf("seedance")===0 ? [5,10,15] : [5,10];
     if(!opts.includes(Number(vDur))) setVDur(String(opts[0]));
     if(id==="veo" && vOrient==="square") setVOrient("portrait");
   }
@@ -4531,8 +4544,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       vid.onerror=cleanup;
     }catch(err){setVRefVidLoad(false);}
   }
-  function durOptionsFor(q){if(q==="veo")return [4,6,8];if(q==="kling4k"||q.indexOf("seedance")===0||q==="1080p")return [5,10,15];return [5,10];}
-  function vidCost(){const d=Number(vDuration);if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality.indexOf("seedance")===0)return seedanceRate(vQuality)*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
+  function durOptionsFor(q){if(q==="omni")return [10];if(q==="veo")return [4,6,8];if(q==="kling4k"||q.indexOf("seedance")===0||q==="1080p")return [5,10,15];return [5,10];}
+  function vidCost(){const d=Number(vDuration);if(vQuality==="omni")return CREDIT_COSTS.omniClip;if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality.indexOf("seedance")===0)return seedanceRate(vQuality)*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
   async function genVoice(){
     if(!voText.trim())return;
     track("tool_used",{tool:"voiceover"});onToolUse("voiceover",CREDIT_COSTS.voiceover);
@@ -5108,7 +5121,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           </div>}
           {vType==="generate"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:14}}>
             <Fl label="Orientation"><Ss value={vOrient} onChange={e=>setVOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option>{vQuality!=="veo"&&<option value="square">Square (1:1)</option>}</Ss></Fl>
-            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance480">Seedance 2.0 · 480p — fast &amp; economical</option><option value="seedance720">Seedance 2.0 · 720p — HD</option><option value="seedance1080">Seedance 2.0 · 1080p — Full HD</option><option value="seedance4k">Seedance 2.0 · 4K — max detail, multi-shot</option></Ss></Fl>
+            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="omni">Omni Flash · Google — near-Seedance, way cheaper (up to 10s)</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance480">Seedance 2.0 · 480p — fast &amp; economical</option><option value="seedance720">Seedance 2.0 · 720p — HD</option><option value="seedance1080">Seedance 2.0 · 1080p — Full HD</option><option value="seedance4k">Seedance 2.0 · 4K — max detail, multi-shot</option></Ss></Fl>
             <Fl label="Length"><Ss value={vDuration} onChange={e=>setVDuration(e.target.value)}>{durOptionsFor(vQuality).map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
           </div>}
           {/* Audio is always native on the Gemini API — no toggle; Cinematic clips always include sound and are charged the audio rate. */}
@@ -5501,6 +5514,7 @@ const CREDIT_COSTS = {
   seedance1080Sec: 900, // Seedance 2.0 1080p — real ~$0.36/s, ~2x markup
   seedance720Sec: 600,  // Seedance 2.0 720p — real ~$0.24/s, ~2x markup
   seedance480Sec: 300,  // Seedance 2.0 480p — real ~$0.12/s, ~2x markup
+  omniClip: 2500,       // Gemini Omni Flash — flat, up to 10s (real ~$1.00 for 10s, ~2x)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
@@ -11912,8 +11926,8 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   useEffect(()=>{ if(startImg) setPhoto(startImg); }, [startImg]);
   const [vmodel, setVmodel] = useState("veolite");   // default to the affordable tier
   const UGC_MODELS = [
+    { id:"omni",       label:"Omni Flash \u2014 near-Seedance, way cheaper", flat:CREDIT_COSTS.omniClip,   note:"Google's newest. Up to 10s, 720p." },
     { id:"veolite",    label:"Veo 3.1 Lite \u2014 fast & affordable",      per:CREDIT_COSTS.veoLiteSec,  note:"Great for volume. Most UGC looks great here." },
-    { id:"veofast",    label:"Veo 3.1 Fast \u2014 sharper motion",         per:CREDIT_COSTS.veoFastSec,  note:"Crisper movement and detail." },
     { id:"seedance480",  label:"Seedance 2.0 \u2014 480p, fast & cheap",   per:CREDIT_COSTS.seedance480Sec,  note:"Cheapest Seedance. Great for volume." },
     { id:"seedance720",  label:"Seedance 2.0 \u2014 720p HD",             per:CREDIT_COSTS.seedance720Sec,  note:"HD detail at a lower cost." },
     { id:"seedance1080", label:"Seedance 2.0 \u2014 1080p Full HD",       per:CREDIT_COSTS.seedance1080Sec, note:"Full-HD product detail." },
@@ -11922,7 +11936,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   ];
   function curModel(){ return UGC_MODELS.find(m=>m.id===vmodel) || UGC_MODELS[0]; }
   const DUR = [5, 10, 15];
-  function cost(){ return curModel().per * Number(dur); }
+  function cost(){ const m=curModel(); return m.flat ? m.flat : m.per * Number(dur); }
   function onUpload(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPhoto(r.result); r.readAsDataURL(f); e.target.value=""; }
   async function gen(){
     if(!prompt.trim() && !photo){ setErr("Add a creator photo or describe the video."); return; }
@@ -12041,7 +12055,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
         <div style={{marginTop:12}}>
           <Fl label="Video engine"><Ss value={vmodel} onChange={e=>setVmodel(e.target.value)}>{UGC_MODELS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}</Ss></Fl>
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 14px"}}>{curModel().note} <strong>{curModel().per.toLocaleString()} credits per second</strong> — this clip: <strong>{cost().toLocaleString()} credits</strong>.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,margin:"6px 0 14px"}}>{curModel().note} <strong>{curModel().flat ? curModel().flat.toLocaleString()+" credits (up to 10s)" : curModel().per.toLocaleString()+" credits per second"}</strong> — this clip: <strong>{cost().toLocaleString()} credits</strong>.</p>
         <Btn dark disabled={busy||(!prompt.trim()&&!photo)} onClick={gen}>{busy?"GENERATING VIDEO...":("GENERATE VIDEO ("+cost().toLocaleString()+" credits)")}</Btn>
       </Card>
       {busy&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6}}>{status||"Working..."}</div></div>}
