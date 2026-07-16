@@ -73,7 +73,7 @@ function videoCost(quality, duration, wantAudio) {
   //   Lite $0.05  -> 150 credits/s   |  Fast $0.10 -> 300  |  Standard $0.40 -> 1250
   if (quality === "veolite") return 150 * d;
   if (quality === "veofast") return 300 * d;
-  if (quality === "veo") return (wantAudio ? 1250 : 625) * d;
+  if (quality === "veo") return 1250 * d; // Gemini-API Veo audio is always native — always charge the audio rate
   if (quality === "kling4k") return 1300 * d;
   if (quality === "seedance4k") return 4600 * d;
   const base = quality === "1080p" ? 2500 : quality === "720p" ? 1000 : 500;
@@ -97,10 +97,10 @@ export default async function handler(req, res) {
 
     const orientation = ["landscape", "portrait", "square"].includes(body.orientation) ? body.orientation : "landscape";
     const quality = ["480p", "720p", "1080p", "veolite", "veofast", "veo", "kling4k", "seedance4k"].includes(body.quality) ? body.quality : "480p";
-    // Kept for pricing only. On the Gemini API, Veo audio is always native — you
-    // cannot turn it off — so this no longer changes what Google generates, only
-    // what the "veo" (Cinematic) tier is charged (1250 with audio / 625 without).
-    const wantAudio = body.audio !== false; // default true (Veo pricing only)
+    // Vestigial: Gemini-API Veo audio is always native and can't be disabled, and
+    // the "veo" tier is always charged the audio rate above. Kept only so an older
+    // client sending {audio:false} doesn't break; it no longer changes anything.
+    const wantAudio = body.audio !== false;
 
     const DUR = {
       "480p": [5, 10], "720p": [5, 10], "1080p": [5, 10, 15],
