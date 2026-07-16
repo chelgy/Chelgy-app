@@ -801,6 +801,40 @@ async function downloadPic(src, filename){
   }
 }
 
+// Bundle a set of generated images into ONE .zip so "Download all" is a single
+// file — not a burst of separate saves the browser throttles into "one by one."
+// Loads JSZip from a CDN at runtime (no build/install dependency); if that fails,
+// falls back to staggered individual downloads so nothing is lost.
+async function ensureJSZip(){
+  if (typeof window !== "undefined" && window.JSZip) return window.JSZip;
+  await new Promise((resolve, reject)=>{
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload = resolve; s.onerror = ()=>reject(new Error("zip library failed to load"));
+    document.head.appendChild(s);
+  });
+  return window.JSZip;
+}
+async function downloadAllImages(urls, baseName, zipName){
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return;
+  try {
+    const JSZip = await ensureJSZip();
+    const zip = new JSZip();
+    for (let i = 0; i < list.length; i++) {
+      try {
+        const blob = await (await fetch(list[i])).blob();
+        const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+        zip.file((baseName || "image") + "-" + (i + 1) + "." + ext, blob);
+      } catch (_) { /* skip one we couldn't fetch, keep the rest */ }
+    }
+    const out = await zip.generateAsync({ type: "blob" });
+    saveBlobUrl(URL.createObjectURL(out), (zipName || "chelgy-photos") + ".zip", true);
+  } catch (_) {
+    list.forEach((u, i) => setTimeout(()=>saveBlobUrl(u, (baseName || "image") + "-" + (i + 1) + ".jpg", false), i * 400));
+  }
+}
+
 // ─── ANALYTICS ───────────────────────────────────────────────────────────────
 // Replace these with your real IDs after setting up Google Analytics and Mixpanel
 const GA_ID = "G-TGPP84RZXM"; // Your Google Analytics Measurement ID
@@ -3147,12 +3181,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           ))}
         </div>
 
-        {vTier==="veo" && (
-          <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
-            <input type="checkbox" checked={vAudio} onChange={e=>setVAudio(e.target.checked)} style={{marginTop:3}} />
-            <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Generate synchronized audio — dialogue, music and sound effects (Veo's signature). Turn off to halve the cost for a silent clip.</span>
-          </label>
-        )}
+        {/* Audio is always native on the Gemini API (can't be turned off), so there's no toggle — every clip includes sound. */}
 
         <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
           <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
@@ -4159,7 +4188,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   const [cRes,setCRes]=useState("");const [cLoad,setCLoad]=useState(false);
   const [cSeoType,setCSeoType]=useState("Blog Post");const [cKeyword,setCKeyword]=useState("");
   const [iType,setIType]=useState(startType||"ad");const [iBiz,setIBiz]=useState("");const [iStyle,setIStyle]=useState("editorial-porcelain");const [iTransparent,setITransparent]=useState(false);
-  const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);
+  const [iColors,setIColors]=useState("");const [iExtra,setIExtra]=useState("");const [iRes,setIRes]=useState(null);const [iGallery,setIGallery]=useState([]);
   const [iLoad,setILoad]=useState(false);const [iErr,setIErr]=useState("");
   const [ipwIdea,setIpwIdea]=useState("");const [ipwLoad,setIpwLoad]=useState(false);const [ipwErr,setIpwErr]=useState("");
   const [iUploads,setIUploads]=useState([]);
@@ -4245,7 +4274,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       const r = useOpenAI
         ? await generateOpenAIImage(p,inputImages,iAspect,iQuality,(iType==="logo"||iTransparent)?"transparent":undefined)
         : await generateGeminiImage(p,inputImages,iAspect,iQuality);
-      setIRes(r.image); if(iType==="logo")onBrandProgress("logo");
+      setIRes(r.image); setIGallery(g=>[r.image,...g].slice(0,24)); if(iType==="logo")onBrandProgress("logo");
       if(typeof r.balance==="number") onBalance(r.balance);
     }catch(e){setIErr("Sorry — we couldn't create that image right now. Please try again in a little while.");}
     setILoad(false);
@@ -4824,6 +4853,13 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
         {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><Btn dark small onClick={()=>downloadPic(iRes,"chelgy-image.jpg")}>DOWNLOAD IMAGE</Btn> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}<div style={{marginTop:14}}><ShareBar file={iRes} filename="chelgy-image.png" title="Made with Chelgy" text="" /></div></div>}
+        {iGallery.length>1&&!iLoad&&<div style={{marginTop:18}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>This session</p>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {iGallery.map((g,i)=>(<img key={i} src={g} alt="" onClick={()=>setIRes(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />))}
+          </div>
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"8px 0 0"}}>Tap any image to bring it back up. Download what you want to keep — this clears when you refresh.</p>
+        </div>}
         </>)}
       </div>}
 
@@ -4879,7 +4915,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance4k">4K Max · Seedance 2.0 — 4K multi-shot</option></Ss></Fl>
             <Fl label="Length"><Ss value={vDuration} onChange={e=>setVDuration(e.target.value)}>{durOptionsFor(vQuality).map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
           </div>}
-          {vType==="generate"&&vQuality==="veo"&&<label style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:14,fontFamily:"sans-serif",fontSize:11,color:B.mid,cursor:"pointer",lineHeight:1.5}}><input type="checkbox" checked={vAudio} onChange={e=>setVAudio(e.target.checked)} style={{width:16,height:16,marginTop:1,accentColor:B.gold,flexShrink:0}} /><span>Generate synchronized audio — dialogue, music & sound effects (Veo's signature feature). Turn off to halve the credit cost for a silent clip.</span></label>}
+          {/* Audio is always native on the Gemini API — no toggle; Cinematic clips always include sound and are charged the audio rate. */}
           {vType==="generate"
             ? <Btn dark disabled={vVidLoad||!vTopic.trim()} onClick={act(()=>{if(useCredits(vidCost()))genVid();})}>{vVidLoad?"GENERATING VIDEO...":("GENERATE VIDEO ("+vidCost().toLocaleString()+" credits)")}</Btn>
             : <Btn dark disabled={vLoad||(!vTopic.trim()&&!vVidPhotos.length)} onClick={act(genV)}>{vLoad?"GENERATING...":"GENERATE"}</Btn>}
@@ -10496,7 +10532,7 @@ function PhotoCatalog({ onBalance }) {
   }
 
   function downloadAll() {
-    imgs.forEach((u, i) => { setTimeout(() => { const a = document.createElement("a"); a.href = u; a.download = "catalog-" + (i + 1) + ".png"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }, i * 400); });
+    downloadAllImages(imgs, "catalog", "chelgy-photo-set");
   }
 
   const n = Math.max(1, Math.min(20, parseInt(count, 10) || 1));
@@ -10605,7 +10641,7 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
     setProg(""); setBusy(false);
   }
 
-  function downloadAll(){ imgs.forEach((u,i)=>{ const a=document.createElement("a"); a.href=u; a.download="ugc-creator-"+(i+1)+".png"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }); }
+  function downloadAll(){ downloadAllImages(imgs, "ugc-creator", "chelgy-ugc-creators"); }
 
   const n = Math.max(1, Math.min(12, parseInt(count,10)||1));
   const inpS = { width:"100%", boxSizing:"border-box", padding:"10px 12px", border:"1px solid "+B.stone, fontFamily:"sans-serif", fontSize:12.5, color:B.charcoal, background:"#fff" };
