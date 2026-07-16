@@ -2928,10 +2928,10 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   // Video tool and UGC Studio. The server charges and returns the new balance;
   // we reflect it via onBalance and refund locally if the render doesn't finish.
   const V_TIERS = [
-    { id:"veolite",    label:"Veo 3.1 Lite",      note:"Fast and affordable — great for most clips." },
-    { id:"veofast",    label:"Veo 3.1 Fast",      note:"Sharper motion and detail." },
-    { id:"veo",        label:"Veo 3.1 Cinematic", note:"Top-tier realism — and it can talk. Save it for your hero clip." },
-    { id:"seedance4k", label:"Seedance 2.0 · 4K", note:"Highest fidelity, true 4K. Slowest and priciest." },
+    { id:"veolite",    label:"Veo 3.1 Lite",      note:"Fast and affordable, with sound — great for most clips." },
+    { id:"veofast",    label:"Veo 3.1 Fast",      note:"Sharper motion and detail, with sound." },
+    { id:"veo",        label:"Veo 3.1 Cinematic", note:"Top-tier realism and the richest audio. Save it for your hero clip." },
+    { id:"seedance4k", label:"Seedance 2.0 · 4K", note:"Highest fidelity, true 4K with native sound. Slowest and priciest." },
   ];
   function vPerSec(){
     if(vTier==="veo") return vAudio ? CREDIT_COSTS.veoSec : CREDIT_COSTS.veoSecSilent;
@@ -3120,7 +3120,8 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
         <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Describe the clip</p>
         <textarea value={vScene} onChange={e=>setVScene(e.target.value)} rows={3}
           placeholder="slowly turning to camera with a soft smile, hair moving in the breeze — say: welcome to my world"
-          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:16}} />
+          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:6}} />
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Every clip comes with synchronized sound. Want them to speak? Write the exact line in your description — e.g. <em>say: welcome to my world</em>. Without a spoken line you'll just get natural ambient audio.</p>
 
         <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Model</p>
         <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
@@ -11677,7 +11678,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     setBusy(true); setUrl(""); setErr(""); setStatus("Starting the video engine…");
     try{
       const p = prompt.trim() || "Bring this UGC creator photo to life with subtle, natural movement — as if they are filming themselves talking to the camera. Realistic, handheld, authentic user-generated-content feel.";
-      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:vmodel, duration:Number(dur), audio:false});
+      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:vmodel, duration:Number(dur), audio:true});
       if(!started||!started.id){ setErr("Sorry — we couldn't start that video right now. Please try again in a little while."); setBusy(false); setStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
       setStatus("Creating your video with "+curModel().label.split(" \u2014 ")[0]+" — this can take a few minutes. Keep this tab open.");
