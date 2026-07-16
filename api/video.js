@@ -166,7 +166,7 @@ export default async function handler(req, res) {
             parameters: {
               aspectRatio: VEO_ASPECT,
               resolution: resolution,
-              durationSeconds: String(duration),
+              durationSeconds: duration, // MUST be a number here (the API rejects a string)
             },
           }),
         }
