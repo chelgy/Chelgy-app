@@ -74,7 +74,7 @@ async function recordVideoJob(id, userId, cost) {
 function realUsd(quality, duration) {
   const d = Number(duration) || 0;
   const perSec = {
-    veolite: 0.05, veofast: 0.10, veo: 0.40,   // Google Veo 3.1 direct
+    veolite: 0.05, veo: 0.40,   // Google Veo 3.1 direct
     kling4k: 0.42,                              // Kling 3.0 4K
     seedance480: 0.12, seedance720: 0.24, seedance1080: 0.36, seedance4k: 0.60 // Seedance 2.0 (4K = estimate)
   }[quality];
@@ -96,7 +96,6 @@ function videoCost(quality, duration, wantAudio) {
   // Google direct pricing (per second, 720p with audio):
   //   Lite $0.05  -> 150 credits/s   |  Fast $0.10 -> 300  |  Standard $0.40 -> 1250
   if (quality === "veolite") return 150 * d;
-  if (quality === "veofast") return 300 * d;
   if (quality === "veo") return 1250 * d; // Gemini-API Veo audio is always native — always charge the audio rate
   if (quality === "kling4k") return 1300 * d;
   if (quality === "seedance480") return 300 * d;
@@ -118,12 +117,12 @@ export default async function handler(req, res) {
 
     const key = (process.env.WAVESPEED_API_KEY || "").trim();
     const GKEY = (process.env.GEMINI_API_KEY || "").trim();
-    const isVeo = ["veolite", "veofast", "veo"].includes(body.quality);
+    const isVeo = ["veolite", "veo"].includes(body.quality);
     if (isVeo && !GKEY) return res.status(500).json({ error: "Video service is not configured." });
     if (!isVeo && !key) return res.status(500).json({ error: "Video service is not configured." });
 
     const orientation = ["landscape", "portrait", "square"].includes(body.orientation) ? body.orientation : "landscape";
-    const quality = ["480p", "720p", "1080p", "veolite", "veofast", "veo", "kling4k", "seedance480", "seedance720", "seedance1080", "seedance4k"].includes(body.quality) ? body.quality : "480p";
+    const quality = ["480p", "720p", "1080p", "veolite", "veo", "kling4k", "seedance480", "seedance720", "seedance1080", "seedance4k"].includes(body.quality) ? body.quality : "480p";
     const tool = typeof body.tool === "string" ? body.tool.slice(0, 40) : "video";
     // Vestigial: Gemini-API Veo audio is always native and can't be disabled, and
     // the "veo" tier is always charged the audio rate above. Kept only so an older
@@ -132,7 +131,7 @@ export default async function handler(req, res) {
 
     const DUR = {
       "480p": [5, 10], "720p": [5, 10], "1080p": [5, 10, 15],
-      "veolite": [4, 6, 8], "veofast": [4, 6, 8], "veo": [4, 6, 8],
+      "veolite": [4, 6, 8], "veo": [4, 6, 8],
       "kling4k": [5, 10, 15],
       "seedance480": [5, 10, 15], "seedance720": [5, 10, 15], "seedance1080": [5, 10, 15], "seedance4k": [5, 10, 15]
     };
@@ -159,7 +158,6 @@ export default async function handler(req, res) {
     if (isVeo) {
       const GOOGLE_MODEL = {
         veolite: "veo-3.1-lite-generate-preview",
-        veofast: "veo-3.1-fast-generate-preview",
         veo:     "veo-3.1-generate-preview",
       }[quality];
       const resolution = quality === "veo" ? "1080p" : "720p";
