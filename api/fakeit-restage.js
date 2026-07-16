@@ -348,8 +348,9 @@ const LOOK = {
   desertsun: { label: "Desert Noon", body:
     "FRAME: standing over the camera from a low angle, arms raised behind the head, eyes closed, " +
     "chin lifted into the sun - monumental against a huge sky.\n" +
-    "LOCATION: a stark bright desert plain strewn with broken pale rock and the low wrecks of " +
-    "abandoned cars, hard dry mountains far behind, nothing alive anywhere.\n" +
+    "LOCATION: a stark bright desert plain strewn with broken pale rock, hard dry mountains far " +
+    "behind, nothing alive anywhere. No cars, no vehicles, no wrecks, no metal debris anywhere in " +
+    "the scene - just rock, sand and mountains.\n" +
     "LIGHT: savage overhead noon sun in a deep cloudless sky - tiny hard shadows straight down, " +
     "glaring specular highlights, sweat-sheen on the skin, metallic fabric flaring white where it " +
     "catches the sun.\n" +
@@ -631,10 +632,14 @@ const LOOK = {
     "highlights, nostalgic and intimate." },
 
   b_cockpit: { label: "Cockpit", body:
-    "FRAME: half-body seated in a vintage light-aircraft cockpit, leaning slightly toward camera, " +
-    "sunglasses on, framed by the windscreen struts and the instrument panel.\n" +
-    "LOCATION: a 1950s propeller plane cabin - black dial instruments, worn brown leather seats, " +
-    "pale overcast sky filling the cockpit glass.\n" +
+    "FRAME: half-body seated in the cockpit of a vintage light AIRCRAFT, leaning slightly toward " +
+    "camera, sunglasses on, framed by the windscreen struts and a dense aircraft instrument panel.\n" +
+    "LOCATION: unmistakably the flight deck of a 1950s propeller AEROPLANE - a full instrument " +
+    "panel packed with many round aviation gauges and dials, an aircraft control yoke, throttle " +
+    "levers, the metal-framed canopy and windscreen struts overhead, a propeller and wing just " +
+    "visible through the glass, worn brown leather flight seats, pale overcast sky beyond the " +
+    "canopy. This is an AIRCRAFT COCKPIT, NOT a car: no steering wheel, no car dashboard, no " +
+    "convertible, no road or street outside.\n" +
     "LIGHT: soft, even, overcast daylight through the canopy - flat and flattering, with gentle " +
     "reflections in the sunglasses and a soft sheen on the coat.\n" +
     "GRADE: quiet vintage. Cream, cognac leather, charcoal instruments, milky sky. Muted saturation, " +
@@ -643,12 +648,15 @@ const LOOK = {
   b_helipad: { label: "Helipad", body:
     "FRAME: full-body stepping down from a black helicopter, one hand on the door frame, wind in " +
     "the hair, mid-stride toward camera.\n" +
-    "LOCATION: a wet dark tarmac helipad under a heavy overcast sky, the glossy black machine " +
-    "filling the background, rotor blades cutting the top of frame.\n" +
-    "LIGHT: soft dramatic storm-light - a huge overcast softbox from above, with the wet tarmac " +
-    "bouncing cool light up, and the black fuselage framing the figure in darkness.\n" +
-    "GRADE: steel and skin. Gunmetal greys, wet-asphalt blacks, warm legs and face as the only " +
-    "warmth in frame. Moody contrast, cinematic, powerful." },
+    "LOCATION: a wet dark tarmac helipad under a bright, luminous pale-grey overcast sky - bright " +
+    "daytime, NOT dark, NOT stormy, NOT night. The glossy black machine fills the background, " +
+    "rotor blades cutting the top of frame.\n" +
+    "LIGHT: soft, bright overcast daylight - a huge luminous pale-grey softbox of sky from above, " +
+    "with the wet tarmac bouncing cool light up, and the black fuselage framing the figure.\n" +
+    "GRADE: steel and skin. The sky stays bright and pale and is never crushed to black; gunmetal " +
+    "greys and wet-asphalt blacks live only in the tarmac and the machine; warm legs and face are " +
+    "the warmth in frame. Cinematic and premium, but bright overall - a grey-daylight scene, not a " +
+    "night one." },
 
   // ── STUDIO ──
   b_bronze: { label: "Bronze Sculpt", body:

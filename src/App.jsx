@@ -2343,13 +2343,6 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
         ))}
       </div>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
-      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
-          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
-        ))}
-      </div>
-
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:18,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
         <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
@@ -2461,13 +2454,6 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
         {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
-      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
-          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
         ))}
       </div>
 
@@ -2936,13 +2922,6 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
         {[["4:5","Portrait"],["1:1","Square"],["9:16","Story"],["16:9","Wide"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAspect(v)} style={{padding:"9px 18px",border:"1px solid "+(aspect===v?B.charcoal:B.stone),background:aspect===v?B.charcoal:"#fff",color:aspect===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Quality</p>
-      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-        {[["standard","Standard",CREDIT_COSTS.restageStd],["high","High detail (2K)",CREDIT_COSTS.restageHigh]].map(([v,l,c])=>(
-          <button key={v} onClick={()=>setQuality(v)} style={{padding:"9px 18px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.charcoal:"#fff",color:quality===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
         ))}
       </div>
 
