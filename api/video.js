@@ -67,6 +67,30 @@ async function recordVideoJob(id, userId, cost) {
     });
   } catch {}
 }
+// ── COST LOG ────────────────────────────────────────────────────────────────
+// Records the REAL (calibrated) provider cost next to the credits we charged, so
+// margins are visible per tool/model. These per-second USD figures are the best
+// current estimate — recalibrate them against your WaveSpeed/Google dashboard.
+function realUsd(quality, duration) {
+  const d = Number(duration) || 0;
+  const perSec = {
+    veolite: 0.05, veofast: 0.10, veo: 0.40,   // Google Veo 3.1 direct
+    kling4k: 0.42,                              // Kling 3.0 4K
+    seedance480: 0.12, seedance720: 0.24, seedance1080: 0.36, seedance4k: 0.60 // Seedance 2.0 (4K = estimate)
+  }[quality];
+  if (perSec != null) return Math.round(perSec * d * 10000) / 10000;
+  const base5 = quality === "1080p" ? 0.75 : quality === "720p" ? 0.30 : 0.15; // WAN 2.x per 5s
+  return Math.round((base5 * d / 5) * 10000) / 10000;
+}
+async function logCost(id, userId, tool, model, duration, credits, estUsd) {
+  try {
+    await fetch(SB_URL + "/rest/v1/cost_log", {
+      method: "POST",
+      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ id: String(id), user_id: userId, tool: tool || "video", model, duration: Number(duration) || null, credits_charged: credits, est_usd: estUsd })
+    });
+  } catch {}
+}
 function videoCost(quality, duration, wantAudio) {
   const d = Number(duration);
   // Google direct pricing (per second, 720p with audio):
@@ -75,7 +99,10 @@ function videoCost(quality, duration, wantAudio) {
   if (quality === "veofast") return 300 * d;
   if (quality === "veo") return 1250 * d; // Gemini-API Veo audio is always native — always charge the audio rate
   if (quality === "kling4k") return 1300 * d;
-  if (quality === "seedance4k") return 4600 * d;
+  if (quality === "seedance480") return 300 * d;
+  if (quality === "seedance720") return 600 * d;
+  if (quality === "seedance1080") return 900 * d;
+  if (quality === "seedance4k") return 1800 * d;
   const base = quality === "1080p" ? 2500 : quality === "720p" ? 1000 : 500;
   return Math.round(base * d / 5);
 }
@@ -96,7 +123,8 @@ export default async function handler(req, res) {
     if (!isVeo && !key) return res.status(500).json({ error: "Video service is not configured." });
 
     const orientation = ["landscape", "portrait", "square"].includes(body.orientation) ? body.orientation : "landscape";
-    const quality = ["480p", "720p", "1080p", "veolite", "veofast", "veo", "kling4k", "seedance4k"].includes(body.quality) ? body.quality : "480p";
+    const quality = ["480p", "720p", "1080p", "veolite", "veofast", "veo", "kling4k", "seedance480", "seedance720", "seedance1080", "seedance4k"].includes(body.quality) ? body.quality : "480p";
+    const tool = typeof body.tool === "string" ? body.tool.slice(0, 40) : "video";
     // Vestigial: Gemini-API Veo audio is always native and can't be disabled, and
     // the "veo" tier is always charged the audio rate above. Kept only so an older
     // client sending {audio:false} doesn't break; it no longer changes anything.
@@ -105,7 +133,8 @@ export default async function handler(req, res) {
     const DUR = {
       "480p": [5, 10], "720p": [5, 10], "1080p": [5, 10, 15],
       "veolite": [4, 6, 8], "veofast": [4, 6, 8], "veo": [4, 6, 8],
-      "kling4k": [5, 10, 15], "seedance4k": [5, 10, 15]
+      "kling4k": [5, 10, 15],
+      "seedance480": [5, 10, 15], "seedance720": [5, 10, 15], "seedance1080": [5, 10, 15], "seedance4k": [5, 10, 15]
     };
     const allowed = DUR[quality];
     let duration = allowed.includes(Number(body.duration)) ? Number(body.duration) : allowed[0];
@@ -184,6 +213,7 @@ export default async function handler(req, res) {
       }
       const gid = "g:" + opName;            // "g:" tells video-result.js to poll Google
       await recordVideoJob(gid, userId, cost);
+      await logCost(gid, userId, tool, quality, duration, cost, realUsd(quality, duration));
       return res.status(200).json({ id: gid, balance: paidG.balance });
     }
     // ── everything below here is WaveSpeed ────────────────────────────────
@@ -213,14 +243,16 @@ export default async function handler(req, res) {
     }
 
     let modelPath, input;
-    if (quality === "seedance4k") {
-      // 4K Max — Seedance 2.0 (native audio included; duration is a string)
+    if (quality.indexOf("seedance") === 0) {
+      // Seedance 2.0 (native audio included; duration is a string). Resolution is
+      // chosen by the tier: seedance480 → 480p, 720 → 720p, 1080 → 1080p, else 4k.
+      const seedRes = quality === "seedance480" ? "480p" : quality === "seedance720" ? "720p" : quality === "seedance1080" ? "1080p" : "4k";
       if (imageUrl) {
         modelPath = "bytedance/seedance-2.0/image-to-video";
-        input = { prompt, image: imageUrl, resolution: "4k", aspect_ratio: ASPECTS[orientation], duration: String(duration) };
+        input = { prompt, image: imageUrl, resolution: seedRes, aspect_ratio: ASPECTS[orientation], duration: String(duration) };
       } else {
         modelPath = "bytedance/seedance-2.0/text-to-video";
-        input = { prompt, resolution: "4k", aspect_ratio: ASPECTS[orientation], duration: String(duration) };
+        input = { prompt, resolution: seedRes, aspect_ratio: ASPECTS[orientation], duration: String(duration) };
       }
     } else if (quality === "kling4k") {
       // 4K Ultra — Kling 3.0 4K (sound included, doesn't change price)
@@ -275,6 +307,7 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: "No prediction id returned. Your credits were refunded." });
     }
     await recordVideoJob(id, userId, cost); // so a later failure can be refunded
+    await logCost(id, userId, tool, quality, duration, cost, realUsd(quality, duration));
     return res.status(200).json({ id, balance: paid.balance });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });

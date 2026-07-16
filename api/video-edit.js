@@ -57,11 +57,29 @@ async function recordVideoJob(id, userId, cost) {
     });
   } catch {}
 }
-// Video Edit bills input + output seconds → resolution rate × duration × 2.
+// Real (calibrated) video-to-video cost. Anchored to WaveSpeed's dashboard:
+// ~$10 for a 15s 1080p edit → ~$0.667/s at 1080p. Recalibrate as you see receipts.
+function realUsdEdit(resolution, duration) {
+  const d = Number(duration) || 0;
+  const perSec = resolution === "1080p" ? 0.667 : resolution === "720p" ? 0.444 : 0.222; // 480p default
+  return Math.round(perSec * d * 10000) / 10000;
+}
+async function logCost(id, userId, tool, model, duration, credits, estUsd) {
+  try {
+    await fetch(SB_URL + "/rest/v1/cost_log", {
+      method: "POST",
+      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ id: String(id), user_id: userId, tool: tool || "video-edit", model, duration: Number(duration) || null, credits_charged: credits, est_usd: estUsd })
+    });
+  } catch {}
+}
+// Video Edit bills input + output seconds. We use the same 2x-markup Seedance
+// per-second rate, then multiply by 1.85 — real video-to-video runs ~1.85x a
+// plain generation (confirmed against WaveSpeed's dashboard: ~$10 for 15s 1080p).
 function editCost(resolution, duration) {
   const d = Number(duration);
-  const rate = resolution === "1080p" ? 2500 : resolution === "720p" ? 1500 : 750; // 480p default
-  return rate * d * 2;
+  const rate = resolution === "1080p" ? 900 : resolution === "720p" ? 600 : 300; // 480p default
+  return Math.round(rate * d * 1.85);
 }
 
 export default async function handler(req, res) {
@@ -134,6 +152,7 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: "No prediction id returned. Your credits were refunded." });
     }
     await recordVideoJob(id, userId, cost); // so a later failure can be refunded
+    await logCost(id, userId, "video-edit", "seedance-edit-" + resolution, duration, cost, realUsdEdit(resolution, duration));
     return res.status(200).json({ id, balance: paid.balance });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });

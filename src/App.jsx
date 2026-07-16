@@ -706,7 +706,7 @@ async function generateVideo(prompt, image, opts) {
     const res = await fetch("/api/video", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p", duration: (opts&&opts.duration)||5, audio: opts&&opts.audio!==false })
+      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p", duration: (opts&&opts.duration)||5, audio: opts&&opts.audio!==false, tool: (opts&&opts.tool)||"video" })
     });
     return await res.json(); // { id, balance } or { error }
   } catch { return { error: "Couldn't reach the video service." }; }
@@ -3034,7 +3034,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
     setVBusy(true); setVStatus("Starting the video…");
     try{
       const audio = vTier.indexOf("seedance")===0 ? false : (vTier==="veo" ? vAudio : true);
-      const started = await generateVideo(vScene.trim(), ref, { orientation:vOrient, quality:vTier, duration:Number(vDur), audio });
+      const started = await generateVideo(vScene.trim(), ref, { orientation:vOrient, quality:vTier, duration:Number(vDur), audio, tool:"fakeit_video" });
       if(!started || !started.id){ setVErr((started&&started.error)||"Sorry — we couldn't start that video right now. Please try again shortly."); setVBusy(false); setVStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
       setVStatus("Creating your video — usually 1–3 minutes, but 4K can take up to 10. Keep this tab open.");
@@ -3086,16 +3086,8 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       )}
 
       {contentType==="photo" && (<>
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>What should we do?</p>
-      <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-        {[["restage","Same photo, new place"],["reimagine","A whole new photo of me"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{ setMode(v); setScene(""); }} style={{padding:"9px 18px",border:"1px solid "+(mode===v?B.charcoal:B.stone),background:mode===v?B.charcoal:"#fff",color:mode===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        {mode==="restage"
-          ? "Keeps you exactly as you are in the photo — same face, same pose, same outfit, same hair — and only swaps the background, relighting you to match. This is the most accurate option."
-          : "Invents a brand new photo of you in a new pose and outfit. More creative, but it won't look as exactly like you."}
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"18px 0 18px"}}>
+        Keeps you exactly as you are in the photo — same face, same pose, same outfit, same hair — and only swaps the background, relighting you to match.
       </p>
 
       {mode==="restage" && (<>
@@ -3269,8 +3261,8 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
   const [url,setUrl]               = useState("");
 
   const RES = [["480p","480p · fast & economical"],["720p","720p · HD"],["1080p","1080p · Full HD"]];
-  function rate(){ return resolution==="1080p"?2500:resolution==="720p"?1500:750; }
-  function cost(){ return rate()*Number(videoDur)*2; } // billed input + output seconds
+  function rate(){ return resolution==="1080p"?900:resolution==="720p"?600:300; }
+  function cost(){ return Math.round(rate()*Number(videoDur)*1.85); } // input+output — real video-to-video runs ~1.85x a plain generation
 
   async function shrink(file, maxDim=1280, q=0.85){
     const u = URL.createObjectURL(file);
@@ -4483,7 +4475,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     try{
       const styleSuffix=(VIDEO_STYLES.find(s=>s.id===vStyle)||{}).suffix||"";
       const styledPrompt=vTopic.trim()+(styleSuffix?(", "+styleSuffix):"");
-      const started=await generateVideo(styledPrompt,vVidPhotos[0]||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio});
+      const started=await generateVideo(styledPrompt,vVidPhotos[0]||undefined,{orientation:vOrient,quality:vQuality,duration:Number(vDuration),audio:vAudio,tool:"video_studio"});
       if(!started||!started.id){setVVidErr("Sorry — we couldn't start that video right now. Please try again in a little while.");setVVidLoad(false);setVVidStatus("");return;}
       if(typeof started.balance==="number") onBalance(started.balance);
       setVVidStatus("Creating your video — usually 1 to 3 minutes, but the 4K models can take up to 10. Keep this tab open.");
@@ -5497,10 +5489,10 @@ const CREDIT_COSTS = {
   veoLiteSec: 150,   // Veo 3.1 Lite per second, 720p w/ audio ($0.05/s, ~3x markup) — the cheap tier
   veoFastSec: 300,   // Veo 3.1 Fast per second, 720p w/ audio ($0.10/s, ~3x markup)
   klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
-  seedanceSec: 4600, // 4K Max per second — Seedance 2.0 4K (~$1.50/s, the absolute ceiling)
-  seedance1080Sec: 2500, // Seedance 2.0 1080p per second
-  seedance720Sec: 1500,  // Seedance 2.0 720p per second
-  seedance480Sec: 750,   // Seedance 2.0 480p per second — the cheapest Seedance
+  seedanceSec: 1800, // 4K — Seedance 2.0 4K, ~2x markup (4K true cost is an estimate — verify)
+  seedance1080Sec: 900, // Seedance 2.0 1080p — real ~$0.36/s, ~2x markup
+  seedance720Sec: 600,  // Seedance 2.0 720p — real ~$0.24/s, ~2x markup
+  seedance480Sec: 300,  // Seedance 2.0 480p — real ~$0.12/s, ~2x markup
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
@@ -5632,7 +5624,7 @@ const CATEGORIES = [
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}, {label:"Style Match",tool:"stylematch"} ] },
+    tabs:[ {label:"Fake It",tool:"restage"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
@@ -11459,7 +11451,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
     setVid(shot.id, { loading: true, err: "", url: "", status: "Starting the video engine..." });
     try {
       const prompt = (v.prompt && v.prompt.trim()) || DEFAULT_MOTION;
-      const started = await generateVideo(prompt, shot.url, { orientation: orient, quality: q, duration: dur, audio: false });
+      const started = await generateVideo(prompt, shot.url, { orientation: orient, quality: q, duration: dur, audio: false, tool:"product_studio" });
       if (!started || !started.id) {
         setVid(shot.id, { loading: false, status: "", err: "Sorry — we couldn't start that video right now. Please try again in a little while." });
         return;
@@ -11931,7 +11923,7 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     setBusy(true); setUrl(""); setErr(""); setStatus("Starting the video engine…");
     try{
       const p = prompt.trim() || "Bring this UGC creator photo to life with subtle, natural movement — as if they are filming themselves talking to the camera. Realistic, handheld, authentic user-generated-content feel.";
-      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:vmodel, duration:Number(dur), audio:true});
+      const started = await generateVideo(p, photo||undefined, {orientation:orient, quality:vmodel, duration:Number(dur), audio:true, tool:"ugc"});
       if(!started||!started.id){ setErr("Sorry — we couldn't start that video right now. Please try again in a little while."); setBusy(false); setStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
       setStatus("Creating your video with "+curModel().label.split(" \u2014 ")[0]+" — this can take a few minutes. Keep this tab open.");
