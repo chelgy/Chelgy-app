@@ -730,6 +730,43 @@ async function pollVideo(taskId) {
   return null;
 }
 
+// ─── VIDEO EDIT (Fake It) helpers ────────────────────────────────────────────
+// Upload a source clip straight from the browser to Supabase Storage (NOT through
+// /api — that would hit Vercel's ~4.5MB body cap). Returns a public URL + the
+// storage path, so we can delete the input the moment the edit finishes.
+async function uploadVideoInput(file, path){
+  try{
+    const token = await freshToken();
+    if(!token) return null;
+    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "x-upsert": "true", "Content-Type": file.type || "video/mp4" },
+      body: file
+    });
+    if(!res.ok) return null;
+    return { url: SUPABASE_URL + "/storage/v1/object/public/sites/" + path, path };
+  }catch(e){ return null; }
+}
+// Auto-cleanup: delete a transient input so storage never accumulates.
+async function deleteSiteObject(path){
+  try{
+    const token = await freshToken();
+    if(!token || !path) return;
+    await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, { method: "DELETE", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token } });
+  }catch(e){}
+}
+async function generateVideoEdit(prompt, videoUrl, referenceImages, resolution, duration){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/video-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ prompt, video: videoUrl, reference_images: referenceImages || [], resolution: resolution || "720p", duration: duration || 5 })
+    });
+    return await res.json(); // { id, balance } or { error }
+  } catch { return { error: "Couldn't reach the video-edit service." }; }
+}
+
 // ElevenLabs voiceover generation
 async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
   const token = await freshToken();
@@ -2965,20 +3002,23 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
     { id:"veolite",    label:"Veo 3.1 Lite",      note:"Fast and affordable, with sound — great for most clips." },
     { id:"veofast",    label:"Veo 3.1 Fast",      note:"Sharper motion and detail, with sound." },
     { id:"veo",        label:"Veo 3.1 Cinematic", note:"Top-tier realism and the richest audio. Save it for your hero clip." },
-    { id:"seedance4k", label:"Seedance 2.0 · 4K", note:"Highest fidelity, true 4K with native sound. Slowest and priciest." },
+    { id:"seedance480",  label:"Seedance 2.0 · 480p",  note:"Fastest and cheapest Seedance, with native sound." },
+    { id:"seedance720",  label:"Seedance 2.0 · 720p",  note:"HD Seedance with native sound." },
+    { id:"seedance1080", label:"Seedance 2.0 · 1080p", note:"Full-HD Seedance with native sound." },
+    { id:"seedance4k",   label:"Seedance 2.0 · 4K",    note:"Highest fidelity, true 4K with native sound. Slowest and priciest." },
   ];
   function vPerSec(){
     if(vTier==="veo") return vAudio ? CREDIT_COSTS.veoSec : CREDIT_COSTS.veoSecSilent;
-    if(vTier==="seedance4k") return CREDIT_COSTS.seedanceSec;
+    if(vTier.indexOf("seedance")===0) return seedanceRate(vTier);
     if(vTier==="veofast") return CREDIT_COSTS.veoFastSec;
     return CREDIT_COSTS.veoLiteSec;
   }
-  function vDurOptions(){ if(vTier==="veo") return [4,6,8]; if(vTier==="seedance4k") return [5,10,15]; return [5,10]; }
+  function vDurOptions(){ if(vTier==="veo") return [4,6,8]; if(vTier.indexOf("seedance")===0) return [5,10,15]; return [5,10]; }
   function vCost(){ return vPerSec()*Number(vDur); }
   function vRef(){ return vSource==="result" ? image : ((photos[vPhotoIdx] && photos[vPhotoIdx].preview) || null); }
   function pickTier(id){
     setVTier(id);
-    const opts = id==="veo" ? [4,6,8] : id==="seedance4k" ? [5,10,15] : [5,10];
+    const opts = id==="veo" ? [4,6,8] : id.indexOf("seedance")===0 ? [5,10,15] : [5,10];
     if(!opts.includes(Number(vDur))) setVDur(String(opts[0]));
     if(id==="veo" && vOrient==="square") setVOrient("portrait");
   }
@@ -2993,7 +3033,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
     if(Number(credits) < cost){ setVErr("This clip costs "+cost.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     setVBusy(true); setVStatus("Starting the video…");
     try{
-      const audio = vTier==="seedance4k" ? false : (vTier==="veo" ? vAudio : true);
+      const audio = vTier.indexOf("seedance")===0 ? false : (vTier==="veo" ? vAudio : true);
       const started = await generateVideo(vScene.trim(), ref, { orientation:vOrient, quality:vTier, duration:Number(vDur), audio });
       if(!started || !started.id){ setVErr((started&&started.error)||"Sorry — we couldn't start that video right now. Please try again shortly."); setVBusy(false); setVStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
@@ -3205,6 +3245,162 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
           </div>
         )}
       </>)}
+    </div>
+  );
+}
+
+// ============================================================================
+// VIDEO EDIT (Fake It) — keep the person + motion from a clip, change the world.
+// Seedance 2.0 Video Edit via /api/video-edit. Source video is uploaded to
+// Supabase, edited, then the input is auto-deleted so storage never piles up.
+// ============================================================================
+function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+  const MAX_REFS = 4;
+  const [videoFile,setVideoFile]   = useState(null);
+  const [videoPreview,setVideoPreview] = useState("");
+  const [videoDur,setVideoDur]     = useState(5);   // measured, clamped 4–15s
+  const [refs,setRefs]             = useState([]);  // shrunk reference-image data URLs
+  const [prompt,setPrompt]         = useState("");
+  const [resolution,setResolution] = useState("720p");
+  const [consent,setConsent]       = useState(false);
+  const [busy,setBusy]             = useState(false);
+  const [status,setStatus]         = useState("");
+  const [err,setErr]               = useState("");
+  const [url,setUrl]               = useState("");
+
+  const RES = [["480p","480p · fast & economical"],["720p","720p · HD"],["1080p","1080p · Full HD"]];
+  function rate(){ return resolution==="1080p"?2500:resolution==="720p"?1500:750; }
+  function cost(){ return rate()*Number(videoDur)*2; } // billed input + output seconds
+
+  async function shrink(file, maxDim=1280, q=0.85){
+    const u = URL.createObjectURL(file);
+    try{
+      const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("bad")); i.src=u; });
+      let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+      if(Math.max(w,h)>maxDim){ const s=maxDim/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      return c.toDataURL("image/jpeg", q);
+    } finally { URL.revokeObjectURL(u); }
+  }
+  function pickVideo(e){
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    if(!/^video\//.test(f.type||"")){ setErr("Please choose a video file (MP4 or MOV)."); e.target.value=""; return; }
+    setErr(""); setUrl("");
+    const u = URL.createObjectURL(f);
+    const v = document.createElement("video"); v.preload="metadata";
+    v.onloadedmetadata = ()=>{ let d=Math.round(v.duration||5); d=Math.max(4,Math.min(15,d)); setVideoDur(d); };
+    v.src = u;
+    setVideoFile(f); setVideoPreview(u); e.target.value="";
+  }
+  async function pickRefs(e){
+    const files = Array.from(e.target.files||[]);
+    if(!files.length) return;
+    const room = MAX_REFS - refs.length;
+    if(room<=0){ setErr("Up to "+MAX_REFS+" reference images."); e.target.value=""; return; }
+    setErr("");
+    const next=[];
+    for(const f of files.slice(0,room)){ try{ next.push(await shrink(f)); }catch{} }
+    setRefs(r=>[...r,...next]); e.target.value="";
+  }
+  function removeRef(i){ setRefs(r=>r.filter((_,n)=>n!==i)); }
+
+  async function run(){
+    setErr(""); setUrl("");
+    if(!consent){ setErr("Please confirm this is a video of you."); return; }
+    if(!videoFile){ setErr("Upload the video you want to edit."); return; }
+    if(!prompt.trim()){ setErr("Describe the change — e.g. keep me exactly the same, just put me on a rooftop at sunset."); return; }
+    const c = cost();
+    if(Number(credits) < c){ setErr("This edit costs "+c.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true); setStatus("Uploading your clip…");
+    let up=null;
+    try{
+      const ext = ((videoFile.type&&videoFile.type.split("/")[1])||"mp4").split(";")[0];
+      const path = ((user&&user.id)||"anon") + "/edit-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
+      up = await uploadVideoInput(videoFile, path);
+      if(!up || !up.url){ setErr("Couldn't upload that video. Try a shorter clip (roughly under 50MB)."); setBusy(false); setStatus(""); return; }
+      setStatus("Starting the edit…");
+      const started = await generateVideoEdit(prompt.trim(), up.url, refs, resolution, videoDur);
+      if(!started || !started.id){ setErr((started&&started.error)||"Sorry — we couldn't start that edit right now. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStatus(""); return; }
+      if(typeof started.balance==="number") onBalance(started.balance);
+      setStatus("Editing your video — usually a few minutes. Keep this tab open.");
+      const out = await pollVideo(started.id);
+      await deleteSiteObject(up.path); // auto-cleanup — the input is done its job
+      if(!out){ setErr("The edit didn't finish in time. Your credits were refunded."); if(typeof started.balance==="number") onBalance(started.balance + c); setBusy(false); setStatus(""); return; }
+      setUrl(out);
+      track("tool_used",{tool:"video_edit",resolution}); onToolUse("video_edit", c);
+    }catch(e){ if(up&&up.path) await deleteSiteObject(up.path); setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false); setStatus("");
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Video Edit</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Upload a video of yourself, drop in a photo of a place, and keep <strong>you</strong> — your face, hair, outfit and movements — while everything around you changes. Same performance, brand-new world.
+      </p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>1 · Your video</p>
+      <input type="file" accept="video/*" onChange={pickVideo} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {videoPreview && (
+        <div style={{marginBottom:8}}>
+          <video src={videoPreview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Editing about {videoDur}s of this clip (Seedance works on 4–15 seconds).</p>
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 8px"}}>2 · Reference images <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— the new setting (up to {MAX_REFS}, optional)</span></p>
+      <input type="file" accept="image/*" multiple onChange={pickRefs} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {refs.length>0 && (
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {refs.map((r,i)=>(
+            <div key={i} style={{position:"relative"}}>
+              <img src={r} alt="" style={{width:84,height:84,objectFit:"cover",border:"1px solid "+B.stone}} />
+              <button onClick={()=>removeRef(i)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"18px 0 6px"}}>3 · What should change?</p>
+      <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={3}
+        placeholder="Keep me, my hair, outfit and movements exactly the same — just change the environment around me to the reference setting."
+        style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:16}} />
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Resolution</p>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {RES.map(([v,l])=>(
+          <button key={v} onClick={()=>setResolution(v)} style={{padding:"9px 16px",border:"1px solid "+(resolution===v?B.charcoal:B.stone),background:resolution===v?B.charcoal:"#fff",color:resolution===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>
+          This is a video of <strong>me</strong>, I'm over 18, and I consent to AI-generated video of my likeness. I won't upload anyone else.
+        </span>
+      </label>
+
+      <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
+          <strong style={{color:B.charcoal}}>How your video is handled.</strong> Your clip is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done — it isn't stored, shared, or used to train anything. Adults-only, and for videos of yourself.
+        </p>
+      </div>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={run}>
+        {busy ? "EDITING YOUR VIDEO…" : "EDIT MY VIDEO · "+cost().toLocaleString()+" CREDITS"}
+      </Btn>
+      {busy && status && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{status}</p>}
+
+      {url && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          <video src={url} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <a href={url} download="chelgy-edit.mp4" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+        </div>
+      )}
     </div>
   );
 }
@@ -4327,8 +4523,8 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       vid.onerror=cleanup;
     }catch(err){setVRefVidLoad(false);}
   }
-  function durOptionsFor(q){if(q==="veo")return [4,6,8];if(q==="kling4k"||q==="seedance4k"||q==="1080p")return [5,10,15];return [5,10];}
-  function vidCost(){const d=Number(vDuration);if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality==="seedance4k")return CREDIT_COSTS.seedanceSec*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
+  function durOptionsFor(q){if(q==="veo")return [4,6,8];if(q==="kling4k"||q.indexOf("seedance")===0||q==="1080p")return [5,10,15];return [5,10];}
+  function vidCost(){const d=Number(vDuration);if(vQuality==="veo")return (vAudio?CREDIT_COSTS.veoSec:CREDIT_COSTS.veoSecSilent)*d;if(vQuality==="kling4k")return CREDIT_COSTS.klingSec*d;if(vQuality.indexOf("seedance")===0)return seedanceRate(vQuality)*d;const base=vQuality==="1080p"?CREDIT_COSTS.video1080:vQuality==="720p"?CREDIT_COSTS.videoHD:CREDIT_COSTS.video;return Math.round(base*d/5);}
   async function genVoice(){
     if(!voText.trim())return;
     track("tool_used",{tool:"voiceover"});onToolUse("voiceover",CREDIT_COSTS.voiceover);
@@ -4912,7 +5108,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           </div>}
           {vType==="generate"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:14}}>
             <Fl label="Orientation"><Ss value={vOrient} onChange={e=>setVOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option>{vQuality!=="veo"&&<option value="square">Square (1:1)</option>}</Ss></Fl>
-            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance4k">4K Max · Seedance 2.0 — 4K multi-shot</option></Ss></Fl>
+            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance480">Seedance 2.0 · 480p — fast &amp; economical</option><option value="seedance720">Seedance 2.0 · 720p — HD</option><option value="seedance1080">Seedance 2.0 · 1080p — Full HD</option><option value="seedance4k">Seedance 2.0 · 4K — max detail, multi-shot</option></Ss></Fl>
             <Fl label="Length"><Ss value={vDuration} onChange={e=>setVDuration(e.target.value)}>{durOptionsFor(vQuality).map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
           </div>}
           {/* Audio is always native on the Gemini API — no toggle; Cinematic clips always include sound and are charged the audio rate. */}
@@ -4937,6 +5133,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -5301,6 +5498,9 @@ const CREDIT_COSTS = {
   veoFastSec: 300,   // Veo 3.1 Fast per second, 720p w/ audio ($0.10/s, ~3x markup)
   klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
   seedanceSec: 4600, // 4K Max per second — Seedance 2.0 4K (~$1.50/s, the absolute ceiling)
+  seedance1080Sec: 2500, // Seedance 2.0 1080p per second
+  seedance720Sec: 1500,  // Seedance 2.0 720p per second
+  seedance480Sec: 750,   // Seedance 2.0 480p per second — the cheapest Seedance
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
@@ -5322,6 +5522,17 @@ const FREE_CREDITS = {
   videos: 5,    // 2500 credits worth
   voiceovers: 5 // 750 credits worth
 };
+
+// Seedance 2.0 comes in four resolutions. One shared helper keeps the per-second
+// credit rate consistent across every video tool. Adjust the numbers in the
+// CREDIT_COSTS table above (seedance480Sec / 720Sec / 1080Sec / seedanceSec=4K).
+function seedanceRate(q){
+  return q==="seedance480" ? CREDIT_COSTS.seedance480Sec
+       : q==="seedance720" ? CREDIT_COSTS.seedance720Sec
+       : q==="seedance1080" ? CREDIT_COSTS.seedance1080Sec
+       : CREDIT_COSTS.seedanceSec; // seedance4k
+}
+const SEEDANCE_TIERS = [["seedance480","480p"],["seedance720","720p"],["seedance1080","1080p"],["seedance4k","4K"]];
 
 const CREDIT_PACKS = [
   { id:"starter", name:"Starter Pack", credits:33000,  price:30,  description:"~275 images or 66 standard videos. Premium 4K & cinematic clips use more.", popular:false },
@@ -5421,7 +5632,7 @@ const CATEGORIES = [
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Fake It",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}, {label:"Style Match",tool:"stylematch"} ] },
+    tabs:[ {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}, {label:"Style Match",tool:"stylematch"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
@@ -11076,7 +11287,10 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
     { id:"720p",       label:"HD 720p — sharper" },
     { id:"1080p",      label:"Premium 1080p — cinematic" },
     { id:"kling4k",    label:"4K Ultra · Kling 3.0" },
-    { id:"seedance4k", label:"4K Max · Seedance 2.0 — best product fidelity" },
+    { id:"seedance480",  label:"Seedance 2.0 · 480p — fast & economical" },
+    { id:"seedance720",  label:"Seedance 2.0 · 720p — HD" },
+    { id:"seedance1080", label:"Seedance 2.0 · 1080p — Full HD" },
+    { id:"seedance4k",   label:"Seedance 2.0 · 4K — best product fidelity" },
   ];
   const DEFAULT_MOTION = "Bring this product photo to life with a smooth, subtle cinematic camera move — a slow push-in or gentle rotation — soft studio lighting and a premium commercial feel. Keep the product perfectly accurate and in sharp focus. No text or captions.";
 
@@ -11102,7 +11316,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   function vidCostFor(q, d){
     d = Number(d) || 5;
     if (q === "kling4k") return CREDIT_COSTS.klingSec * d;
-    if (q === "seedance4k") return CREDIT_COSTS.seedanceSec * d;
+    if (q.indexOf("seedance")===0) return seedanceRate(q) * d;
     const base = q === "1080p" ? CREDIT_COSTS.video1080 : q === "720p" ? CREDIT_COSTS.videoHD : CREDIT_COSTS.video;
     return Math.round(base * d / 5);
   }
@@ -11700,7 +11914,10 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   const UGC_MODELS = [
     { id:"veolite",    label:"Veo 3.1 Lite \u2014 fast & affordable",      per:CREDIT_COSTS.veoLiteSec,  note:"Great for volume. Most UGC looks great here." },
     { id:"veofast",    label:"Veo 3.1 Fast \u2014 sharper motion",         per:CREDIT_COSTS.veoFastSec,  note:"Crisper movement and detail." },
-    { id:"seedance4k", label:"Seedance 2.0 \u2014 4K, best product detail", per:CREDIT_COSTS.seedanceSec, note:"Highest fidelity for product shots. Slowest & priciest." },
+    { id:"seedance480",  label:"Seedance 2.0 \u2014 480p, fast & cheap",   per:CREDIT_COSTS.seedance480Sec,  note:"Cheapest Seedance. Great for volume." },
+    { id:"seedance720",  label:"Seedance 2.0 \u2014 720p HD",             per:CREDIT_COSTS.seedance720Sec,  note:"HD detail at a lower cost." },
+    { id:"seedance1080", label:"Seedance 2.0 \u2014 1080p Full HD",       per:CREDIT_COSTS.seedance1080Sec, note:"Full-HD product detail." },
+    { id:"seedance4k",   label:"Seedance 2.0 \u2014 4K, best product detail", per:CREDIT_COSTS.seedanceSec, note:"Highest fidelity for product shots. Slowest & priciest." },
     { id:"veo",        label:"Veo 3.1 Cinematic \u2014 hero shots",         per:CREDIT_COSTS.veoSec,      note:"Top-tier realism. Use for your best clip." },
   ];
   function curModel(){ return UGC_MODELS.find(m=>m.id===vmodel) || UGC_MODELS[0]; }
@@ -13263,6 +13480,15 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(res.cancelled){ setProcessing(false); return; }
       if(!res.success){ pushNotif("That purchase didn't go through. Please try again."); setProcessing(false); return; }
       pushNotif("Payment received — activating your membership…");
+      // Unlock RIGHT NOW from Apple's own verified receipt — do not wait on the
+      // RevenueCat webhook → Supabase → poll round-trip. That lag is why App Review
+      // saw premium stay locked after a successful purchase. The Supabase poll below
+      // still runs to sync the monthly credit allowance once the webhook lands.
+      try {
+        const info = await IAP.restore();
+        const active = info && info.entitlements && info.entitlements.active && info.entitlements.active[IAP.MEMBERSHIP_ENTITLEMENT];
+        if(active){ setIsPaid(true); setIsTrial(false); try{ localStorage.setItem("chelgy_member","1"); }catch(e){} }
+      } catch(e){}
       const refreshMem = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} freshToken().then(t=>t?claimMonthlyCredits(t):null).then(tot=>{ if(typeof tot==="number"){ setCredits(tot); lsSet("chelgy_credits", tot); } }); } }); };
       setTimeout(refreshMem, 2500); setTimeout(refreshMem, 6000); setTimeout(refreshMem, 11000);
       setProcessing(false);
@@ -13276,6 +13502,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       const active = info && info.entitlements && info.entitlements.active && info.entitlements.active[IAP.MEMBERSHIP_ENTITLEMENT];
       if(active){
         pushNotif("Purchases restored — reactivating your membership…");
+        setIsPaid(true); setIsTrial(false); try{ localStorage.setItem("chelgy_member","1"); }catch(e){}
         const refreshMem = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} } }); };
         setTimeout(refreshMem, 2000); setTimeout(refreshMem, 6000);
       } else {
