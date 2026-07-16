@@ -9,6 +9,15 @@
 //
 // NOTE: All Veo tiers now call Google's Gemini API DIRECTLY (no WaveSpeed markup).
 // Google job ids are stored with a "g:" prefix so video-result.js knows to poll Google.
+//
+// AUDIO: On the Gemini API (generativelanguage.googleapis.com), Veo 3.1 generates
+// native audio AUTOMATICALLY — driven by the prompt. There is NO "generateAudio"
+// parameter here; that flag only exists on Vertex AI, and sending it to the Gemini
+// API returns: "generateAudio isn't supported by this model." Likewise the Gemini
+// API doesn't take "sampleCount" (it returns a single video). So we send only the
+// parameters this endpoint accepts: aspectRatio, resolution, durationSeconds.
+// To get spoken dialogue, put the line in the prompt (e.g. she says: "welcome").
+//
 //   kling4k      -> Kling 3.0 4K (true 4K cinematic)         | 5/10/15 | "duration" + "aspect_ratio" + "sound"
 //   seedance4k   -> Seedance 2.0 (4K multi-shot, native A/V) | 5/10/15 | "resolution":"4K" + "aspect_ratio"
 //
@@ -88,7 +97,10 @@ export default async function handler(req, res) {
 
     const orientation = ["landscape", "portrait", "square"].includes(body.orientation) ? body.orientation : "landscape";
     const quality = ["480p", "720p", "1080p", "veolite", "veofast", "veo", "kling4k", "seedance4k"].includes(body.quality) ? body.quality : "480p";
-    const wantAudio = body.audio !== false; // default true (Veo only)
+    // Kept for pricing only. On the Gemini API, Veo audio is always native — you
+    // cannot turn it off — so this no longer changes what Google generates, only
+    // what the "veo" (Cinematic) tier is charged (1250 with audio / 625 without).
+    const wantAudio = body.audio !== false; // default true (Veo pricing only)
 
     const DUR = {
       "480p": [5, 10], "720p": [5, 10], "1080p": [5, 10, 15],
@@ -148,12 +160,13 @@ export default async function handler(req, res) {
           headers: { "x-goog-api-key": GKEY, "Content-Type": "application/json" },
           body: JSON.stringify({
             instances: [instance],
+            // Gemini API accepts ONLY these Veo parameters. Audio is native/automatic
+            // here (no generateAudio flag), and it returns a single video (no
+            // sampleCount). Sending either of those makes Google reject the request.
             parameters: {
               aspectRatio: VEO_ASPECT,
               resolution: resolution,
-              durationSeconds: duration,
-              generateAudio: wantAudio,
-              sampleCount: 1,
+              durationSeconds: String(duration),
             },
           }),
         }
