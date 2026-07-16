@@ -779,6 +779,20 @@ async function generateVideoEdit(prompt, videoUrl, referenceImages, resolution, 
     return await res.json(); // { id, balance } or { error }
   } catch { return { error: "Couldn't reach the video-edit service." }; }
 }
+// Budget edit tier — Gemini Omni Flash, straight to Google. Tags the id so pollVideo routes it.
+async function generateOmniEdit(prompt, videoUrl, referenceImages){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/omni-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ prompt, video: videoUrl, reference_images: referenceImages || [] })
+    });
+    const d = await res.json();
+    if (d && d.id) d.id = "omni:" + d.id;
+    return d;
+  } catch { return { error: "Couldn't reach the video-edit service." }; }
+}
 
 // ElevenLabs voiceover generation
 async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
@@ -3283,6 +3297,7 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
   const [refs,setRefs]             = useState([]);  // shrunk reference-image data URLs
   const [prompt,setPrompt]         = useState("");
   const [resolution,setResolution] = useState("720p");
+  const [engine,setEngine]         = useState("seedance"); // "seedance" (premium 1080p) | "omni" (budget 720p, cheaper)
   const [consent,setConsent]       = useState(false);
   const [busy,setBusy]             = useState(false);
   const [status,setStatus]         = useState("");
@@ -3291,7 +3306,7 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
 
   const RES = [["480p","480p · fast & economical"],["720p","720p · HD"],["1080p","1080p · Full HD"]];
   function rate(){ return resolution==="1080p"?900:resolution==="720p"?600:300; }
-  function cost(){ return Math.round(rate()*Number(videoDur)*1.85); } // input+output — real video-to-video runs ~1.85x a plain generation
+  function cost(){ if(engine==="omni") return CREDIT_COSTS.omniEditClip; return Math.round(rate()*Number(videoDur)*1.85); } // input+output — real video-to-video runs ~1.85x a plain generation
 
   async function shrink(file, maxDim=1280, q=0.85){
     const u = URL.createObjectURL(file);
@@ -3342,7 +3357,9 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
       up = await uploadVideoInput(videoFile, path);
       if(!up || !up.url){ setErr("Couldn't upload that video. Try a shorter clip (roughly under 50MB)."); setBusy(false); setStatus(""); return; }
       setStatus("Starting the edit…");
-      const started = await generateVideoEdit(prompt.trim(), up.url, refs, resolution, videoDur);
+      const started = engine==="omni"
+        ? await generateOmniEdit(prompt.trim(), up.url, refs)
+        : await generateVideoEdit(prompt.trim(), up.url, refs, resolution, videoDur);
       if(!started || !started.id){ setErr((started&&started.error)||"Sorry — we couldn't start that edit right now. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStatus(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
       setStatus("Editing your video — usually a few minutes. Keep this tab open.");
@@ -3389,12 +3406,26 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
         placeholder="Keep me, my hair, outfit and movements exactly the same — just change the environment around me to the reference setting."
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:16}} />
 
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Engine</p>
+      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+        {[["seedance","Seedance · premium"],["omni","Omni Flash · budget"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{ setEngine(v); setErr(""); }} style={{padding:"9px 16px",border:"1px solid "+(engine===v?B.charcoal:B.stone),background:engine===v?B.charcoal:"#fff",color:engine===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
+        {engine==="omni"
+          ? "Google's Omni Flash — near-Seedance quality for about half the price. 720p, up to 10 seconds. Great value for most edits."
+          : "Seedance 2.0 — top quality, up to 1080p and 15 seconds. The premium option."}
+      </p>
+
+      {engine==="seedance" && (<>
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Resolution</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {RES.map(([v,l])=>(
           <button key={v} onClick={()=>setResolution(v)} style={{padding:"9px 16px",border:"1px solid "+(resolution===v?B.charcoal:B.stone),background:resolution===v?B.charcoal:"#fff",color:resolution===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
         ))}
       </div>
+      </>)}
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
         <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
@@ -5515,6 +5546,7 @@ const CREDIT_COSTS = {
   seedance720Sec: 600,  // Seedance 2.0 720p — real ~$0.24/s, ~2x markup
   seedance480Sec: 300,  // Seedance 2.0 480p — real ~$0.12/s, ~2x markup
   omniClip: 2500,       // Gemini Omni Flash — flat, up to 10s (real ~$1.00 for 10s, ~2x)
+  omniEditClip: 3000,   // Gemini Omni Flash video edit — flat, up to 10s (real ~$1.30, ~2x)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
