@@ -749,6 +749,58 @@ async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
   return { url: URL.createObjectURL(blob), balance };
 }
 
+// ─── DOWNLOAD A GENERATED IMAGE AS A REAL JPEG ───────────────────────────────
+// The models hand back image bytes inside a base64 data: URL — frequently PNG or
+// WebP. Saving those straight to "name.jpg" produces a file whose extension lies
+// about its contents: macOS can't build a Finder thumbnail, AirDrop ships a
+// degraded preview to the phone, and right-clicking a data: URL to "Save Image
+// As" silently fails (only a real <a download> works). Re-drawing the image to a
+// canvas and exporting image/jpeg gives genuine JPEG bytes with a matching
+// extension — so the file, its thumbnail and AirDrop all behave. Falls back to
+// the original bytes (with an honest extension) if the canvas can't be used.
+function saveBlobUrl(url, filename, revoke){
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  if (revoke) setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(_){} }, 8000);
+}
+async function downloadPic(src, filename){
+  const base = (filename||"chelgy").replace(/\.[^./]+$/,"");
+  try{
+    const img = await new Promise((res,rej)=>{
+      const i = new Image();
+      i.crossOrigin = "anonymous";
+      i.onload = ()=>res(i);
+      i.onerror = ()=>rej(new Error("load"));
+      i.src = src;
+    });
+    const c = document.createElement("canvas");
+    c.width  = img.naturalWidth  || img.width;
+    c.height = img.naturalHeight || img.height;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height); // JPEG has no alpha — flatten to white
+    ctx.drawImage(img, 0, 0);
+    const blob = await new Promise(r=>c.toBlob(r, "image/jpeg", 0.95));
+    if(!blob) throw new Error("encode");
+    saveBlobUrl(URL.createObjectURL(blob), base+".jpg", true);
+    return true;
+  }catch(_){
+    const m = (src||"").match(/^data:([^;]+);base64,(.*)$/);
+    if(m){
+      try{
+        const mime = m[1];
+        const ext = mime==="image/png" ? "png" : mime==="image/webp" ? "webp" : "jpg";
+        const bin = atob(m[2]); const arr = new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+        saveBlobUrl(URL.createObjectURL(new Blob([arr],{type:mime})), base+"."+ext, true);
+        return true;
+      }catch(__){}
+    }
+    saveBlobUrl(src, base+".jpg", false); // last resort (e.g. a cross-origin URL)
+    return false;
+  }
+}
+
 // ─── ANALYTICS ───────────────────────────────────────────────────────────────
 // Replace these with your real IDs after setting up Google Analytics and Mixpanel
 const GA_ID = "G-TGPP84RZXM"; // Your Google Analytics Measurement ID
@@ -2360,7 +2412,7 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
       {image && (
         <div style={{marginTop:26,textAlign:"center"}}>
           <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <a href={image} download="chelgy-beauty.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+          <button onClick={()=>downloadPic(image,"chelgy-beauty.jpg")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
       {gallery.length>1 && (
@@ -2474,7 +2526,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       {image && (
         <div style={{marginTop:26,textAlign:"center"}}>
           <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <a href={image} download="chelgy-editorial.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+          <button onClick={()=>downloadPic(image,"chelgy-editorial.jpg")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
       {gallery.length>1 && (
@@ -2629,7 +2681,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       {image && (
         <div style={{marginTop:26,textAlign:"center"}}>
           <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <a href={image} download="chelgy-stylematch.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+          <button onClick={()=>downloadPic(image,"chelgy-stylematch.jpg")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
       {gallery.length>1 && (
@@ -3019,7 +3071,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
       {image && (
         <div style={{marginTop:26,textAlign:"center"}}>
           <img src={image} alt="" style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <a href={image} download="chelgy.jpg" target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal}}>DOWNLOAD ↓</a>
+          <button onClick={()=>downloadPic(image,"chelgy.jpg")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
 
@@ -4770,7 +4822,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         </Card>
         {iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"36px",textAlign:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,letterSpacing:"0.04em"}}>Creating your image... (4-8 seconds)</div>}
         {iErr&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"12px 16px",fontFamily:"sans-serif",fontSize:12,color:B.red}}>{iErr}</div>}
-        {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><a href={iRes} download="chelgy-image.png"><Btn dark small>DOWNLOAD IMAGE</Btn></a> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}<div style={{marginTop:14}}><ShareBar file={iRes} filename="chelgy-image.png" title="Made with Chelgy" text="" /></div></div>}
+        {iRes&&!iLoad&&<div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"20px"}}><img src={iRes} alt="AI Generated" style={{maxWidth:"100%",display:"block",marginBottom:12}} /><Btn dark small onClick={()=>downloadPic(iRes,"chelgy-image.jpg")}>DOWNLOAD IMAGE</Btn> <button onClick={()=>doSaveMedia(iType||"image",(iType?iType.charAt(0).toUpperCase()+iType.slice(1):"Image"),iRes)} style={{marginLeft:8,background:"#fff",border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>♥ Save to Library</button>{libSaveMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:libSaveMsg.charAt(0)==="✓"?"#2E7D32":B.mid,marginTop:10}}>{libSaveMsg}</div>}<div style={{marginTop:14}}><ShareBar file={iRes} filename="chelgy-image.png" title="Made with Chelgy" text="" /></div></div>}
         </>)}
       </div>}
 
@@ -11302,7 +11354,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
               <div key={shot.id} style={{ background: B.offwhite, border: "1px solid " + B.stone, padding: "20px" }}>
                 <div style={{ fontFamily: "sans-serif", fontSize: 10, color: B.mid, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{shot.label}</div>
                 <img src={shot.url} alt={shot.label} style={{ maxWidth: "100%", display: "block", marginBottom: 12 }} />
-                <a href={shot.url} download="chelgy-product.png"><Btn dark small>DOWNLOAD</Btn></a>
+                <Btn dark small onClick={()=>downloadPic(shot.url,"chelgy-product.jpg")}>DOWNLOAD</Btn>
                 <button onClick={() => saveShot(shot)} style={{ marginLeft: 8, background: "#fff", border: "1px solid " + B.stone, color: B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>♥ Save to Library</button>
                 <button onClick={() => setVid(shot.id, { open: !v.open })} style={{ marginLeft: 8, background: v.open ? B.charcoal : "#fff", border: "1px solid " + (v.open ? B.charcoal : B.stone), color: v.open ? "#fff" : B.charcoal, padding: "9px 14px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>🎬 Make a Video</button>
                 {saveMsg[shot.id] && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: String(saveMsg[shot.id]).charAt(0) === "✓" ? "#2E7D32" : B.mid, marginTop: 10 }}>{saveMsg[shot.id]}</div>}
