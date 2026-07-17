@@ -71,26 +71,30 @@ async function logCost(id, userId, model, duration, credits, estUsd) {
   } catch {}
 }
 
-// The two signature grades. Rather than one blind wash for everyone (which goes
-// orange on already-warm footage and muddy on dark footage), the AI colorist
-// classifies each video (temperature + exposure) and this maps that analysis to
-// an adjusted wash — the "apply the LUT correctly" step. Color math stays here
-// in code, deterministic; the AI only classifies.
-function washFor(grade, look) {
+// The two signature grades — applied to the FOOTAGE ITSELF (real contrast + a
+// strong warm/creamy overlay on the video pixels), not a faint rectangle floated
+// on a separate track. The AI colorist classifies each video (temperature +
+// exposure) and this maps that analysis to adjusted values — so already-warm
+// footage doesn't go orange and dark footage doesn't turn muddy. Color math stays
+// here in code, deterministic; the AI only classifies.
+function gradeFor(grade, look) {
   const t = (look && look.temperature) || "neutral";
   const x = (look && look.exposure) || "balanced";
   if (grade === "luxury") {
-    // Creamy-bright: lift dark footage more, back off on already-bright footage.
-    let a = x === "dark" ? 0.18 : x === "bright" ? 0.08 : 0.14;
-    if (t === "warm") a = Math.max(0.06, a - 0.03); // already warm — keep it subtle
-    return "rgba(255,246,232," + a.toFixed(2) + ")";
+    // Luxury Vlog — bright, airy, creamy. Strong cream overlay lifts toward white;
+    // gentle contrast keeps it from going flat.
+    let a = x === "dark" ? 0.34 : x === "bright" ? 0.20 : 0.27;
+    if (t === "warm") a = Math.max(0.16, a - 0.05);
+    const contrast = x === "bright" ? 26 : 20;
+    return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,242,225," + a.toFixed(2) + ")" };
   }
-  // Wolf 2383 warm-gold: push harder on cool footage, ease off on warm footage
-  // (no double-warming), and lighten on dark footage so it doesn't go muddy.
-  let a = t === "cool" ? 0.16 : t === "warm" ? 0.07 : 0.12;
-  if (x === "dark") a = Math.max(0.06, a - 0.03);
-  if (x === "bright") a = Math.min(0.18, a + 0.02); // bright footage carries gold beautifully
-  return "rgba(255,166,77," + a.toFixed(2) + ")";
+  // Wolf 2383 — warm gold, filmic contrast, rich. Push gold on cool footage, ease
+  // off on warm, lighten on dark so shadows don't mud; real contrast for depth.
+  let a = t === "cool" ? 0.40 : t === "warm" ? 0.24 : 0.33;
+  if (x === "dark") a = Math.max(0.20, a - 0.06);
+  if (x === "bright") a = Math.min(0.42, a + 0.03);
+  const contrast = x === "dark" ? 30 : 42;
+  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,150,45," + a.toFixed(2) + ")" };
 }
 
 export default async function handler(req, res) {
@@ -151,6 +155,7 @@ export default async function handler(req, res) {
 
     const elements = [];
     const brollTimed = []; // { newTime, prompt } — mapped to the edited timeline
+    const gp = gradeFor(grade, look); // real grade applied to the footage pixels
     let cursor = 0;
     segs.forEach((k, i) => {
       // Chapter card before this segment (tutorial): full-frame charcoal card,
@@ -185,7 +190,10 @@ export default async function handler(req, res) {
         source: url,
         trim_start: k.s,
         trim_duration: d,
-        fit: "cover"
+        fit: "cover",
+        color_filter: gp.color_filter,
+        color_filter_value: gp.color_filter_value,
+        color_overlay: gp.color_overlay
       });
       // Word-by-word animated captions for this clip. Vlog captions sit a touch
       // lower and smaller (the footage is the star); talking-head runs bolder.
@@ -212,11 +220,7 @@ export default async function handler(req, res) {
       });
       cursor += d;
     });
-    // Cinematic grade — adapted to this footage's temperature + exposure
-    elements.push({
-      type: "composition", track: 4, time: 0, duration: Math.round(cursor * 100) / 100,
-      width: "100%", height: "100%", fill_color: washFor(grade, look)
-    });
+    // (Grade is applied per-clip on the video pixels above — no separate wash layer.)
     // Luxury opening title
     if (title) {
       elements.push({
@@ -317,6 +321,9 @@ export default async function handler(req, res) {
             type: "image", track: 2, time: t, duration: dur,
             source: SB_URL + "/storage/v1/object/public/sites/" + bPath,
             width: "100%", height: "100%", fit: "cover",
+            color_filter: gp.color_filter,
+            color_filter_value: gp.color_filter_value,
+            color_overlay: gp.color_overlay,
             animations: [{ easing: "linear", type: "scale", scope: "element", start_scale: "103%", end_scale: "112%", fade: false }]
           });
         } catch (e) { /* skip this b-roll moment */ }
