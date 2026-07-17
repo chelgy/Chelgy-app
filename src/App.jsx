@@ -725,7 +725,8 @@ async function generateVideo(prompt, image, opts) {
 }
 
 async function pollVideo(taskId) {
-  const endpoint = String(taskId||"").indexOf("omni:")===0 ? "/api/omni-result" : "/api/video-result";
+  const tid = String(taskId||"");
+  const endpoint = tid.indexOf("omni:")===0 ? "/api/omni-result" : tid.indexOf("cm:")===0 ? "/api/studio-status" : "/api/video-result";
   for (let i = 0; i < 240; i++) {            // up to ~12 min — 4K Max multi-shot can be slow
     await new Promise(r => setTimeout(r, 3000));
     try {
@@ -792,6 +793,30 @@ async function generateOmniEdit(prompt, videoUrl, referenceImages){
     if (d && d.id) d.id = "omni:" + d.id;
     return d;
   } catch { return { error: "Couldn't reach the video-edit service." }; }
+}
+
+// ─── AI VIDEO EDITOR (studio) pipeline helpers ───────────────────────────────
+// Three steps the AI Editor walks through: transcribe → plan → render.
+async function studioTranscribe(url){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-transcribe", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url }) });
+    return await res.json(); // { transcript, words, duration } or { error }
+  } catch { return { error: "Couldn't reach the transcription service." }; }
+}
+async function studioPlan(words, duration){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration }) });
+    return await res.json(); // { keep, title, outSeconds } or { error }
+  } catch { return { error: "Couldn't reach the edit planner." }; }
+}
+async function studioRender(url, keep, title, grade, orientation, rawDuration){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-render", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, keep, title, grade, orientation, rawDuration }) });
+    return await res.json(); // { id:"cm:...", balance } or { error }
+  } catch { return { error: "Couldn't reach the render service." }; }
 }
 
 // ElevenLabs voiceover generation
@@ -3458,6 +3483,157 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
 }
 
 // ============================================================================
+// AI VIDEO EDITOR — upload raw footage, pick a style, Chelgy edits the video:
+// cuts the filler and dead air, adds animated captions, a cinematic grade and
+// a luxury title. Phase 1 style: Talking-head. Pipeline: Supabase upload →
+// Deepgram transcript → Gemini edit plan → Creatomate render.
+// ============================================================================
+function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+  const [style,setStyle]           = useState("talkinghead");
+  const [grade,setGrade]           = useState("wolf");    // "wolf" | "luxury"
+  const [orient,setOrient]         = useState("portrait");
+  const [videoFile,setVideoFile]   = useState(null);
+  const [videoPreview,setVideoPreview] = useState("");
+  const [videoDur,setVideoDur]     = useState(0);
+  const [rights,setRights]         = useState(false);
+  const [busy,setBusy]             = useState(false);
+  const [stage,setStage]           = useState("");
+  const [err,setErr]               = useState("");
+  const [url,setUrl]               = useState("");
+  const [outTitle,setOutTitle]     = useState("");
+
+  const COST = CREDIT_COSTS.editorQuick;
+  const STYLES = [
+    { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
+    { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy.", ready:false },
+    { id:"tutorial",    label:"Tutorial",     note:"Sit-down, screen + face, chaptered.", ready:false },
+    { id:"cinematic",   label:"Cinematic",    note:"Scorsese-style storytelling with AI b-roll.", ready:false },
+  ];
+  const GRADES = [
+    { id:"wolf",   label:"Wolf 2383",   note:"Warm golden Hollywood-film look — glossy and rich." },
+    { id:"luxury", label:"Luxury Vlog", note:"Bright, creamy and airy — the clean luxury look." },
+  ];
+
+  function pickVideo(e){
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    if(!/^video\//.test(f.type||"")){ setErr("Please choose a video file (MP4 or MOV)."); e.target.value=""; return; }
+    setErr(""); setUrl("");
+    const u = URL.createObjectURL(f);
+    const v = document.createElement("video"); v.preload="metadata";
+    v.onloadedmetadata = ()=>{ setVideoDur(Math.round(v.duration||0)); };
+    v.src = u;
+    setVideoFile(f); setVideoPreview(u); e.target.value="";
+  }
+
+  async function run(){
+    setErr(""); setUrl("");
+    if(!rights){ setErr("Please confirm this is your own footage."); return; }
+    if(!videoFile){ setErr("Upload the raw video you want edited."); return; }
+    if(videoDur > 600){ setErr("Raw footage is limited to 10 minutes for now — trim it down and try again."); return; }
+    if(Number(credits) < COST){ setErr("This edit costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true); setStage("Uploading your footage…");
+    let up=null;
+    try{
+      const ext = ((videoFile.type&&videoFile.type.split("/")[1])||"mp4").split(";")[0];
+      const path = ((user&&user.id)||"anon") + "/editor-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
+      up = await uploadVideoInput(videoFile, path);
+      if(!up || !up.url){ setErr("Couldn't upload that video. Try a smaller file."); setBusy(false); setStage(""); return; }
+
+      setStage("Listening to your video…");
+      const tr = await studioTranscribe(up.url);
+      if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+
+      setStage("Planning the edit — finding the ums, dead air and best takes…");
+      const plan = await studioPlan(tr.words, tr.duration);
+      if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){ setErr((plan&&plan.error)||"Couldn't plan the edit. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+      setOutTitle(plan.title||"");
+
+      setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
+      const started = await studioRender(up.url, plan.keep, plan.title||"", grade, orient, tr.duration);
+      if(!started || !started.id){ setErr((started&&started.error)||"Couldn't start the render. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+      if(typeof started.balance==="number") onBalance(started.balance);
+
+      const out = await pollVideo(started.id);
+      await deleteSiteObject(up.path); // input has done its job — auto-cleanup
+      if(!out){ setErr("The render didn't finish. Your credits were refunded."); if(typeof started.balance==="number") onBalance(started.balance + COST); setBusy(false); setStage(""); return; }
+      setUrl(out);
+      track("tool_used",{tool:"video_editor",style,grade}); onToolUse("video_editor", COST);
+    }catch(e){ if(up&&up.path) await deleteSiteObject(up.path); setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false); setStage("");
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>AI Video Editor</h3>
+      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Upload your raw footage and Chelgy edits the whole video for you — cuts the ums, dead air and bad takes, adds animated captions, a cinematic color grade, and a luxury title. Talking straight to camera works best.
+      </p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        {STYLES.map(s=>(
+          <button key={s.id} disabled={!s.ready} onClick={()=>s.ready&&setStyle(s.id)} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
+            <span style={{fontSize:12,fontWeight:700}}>{s.label}{!s.ready && "  · coming soon"}</span>
+            <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{s.note}</span>
+          </button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {GRADES.map(g=>(
+          <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:"9px 16px",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.charcoal:"#fff",color:grade===g.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{g.label}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"-8px 0 16px"}}>{GRADES.find(g=>g.id===grade).note}</p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {[["portrait","Portrait (9:16)"],["landscape","Landscape (16:9)"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setOrient(v)} style={{padding:"9px 16px",border:"1px solid "+(orient===v?B.charcoal:B.stone),background:orient===v?B.charcoal:"#fff",color:orient===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your raw footage <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— up to 10 minutes</span></p>
+      <input type="file" accept="video/*" onChange={pickVideo} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {videoPreview && (
+        <div style={{marginBottom:16}}>
+          <video src={videoPreview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
+          {videoDur>0 && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>{Math.floor(videoDur/60)}m {videoDur%60}s of raw footage.</p>}
+        </div>
+      )}
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
+        <input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
+      </label>
+
+      <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
+          <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything. Music is coming soon — this version delivers the cut, captions, grade and title.
+        </p>
+      </div>
+
+      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <Btn dark full disabled={busy} onClick={run}>
+        {busy ? "EDITING YOUR VIDEO…" : "EDIT MY VIDEO · "+COST.toLocaleString()+" CREDITS"}
+      </Btn>
+      {busy && stage && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{stage}</p>}
+
+      {url && (
+        <div style={{marginTop:26,textAlign:"center"}}>
+          {outTitle && <p style={{fontFamily:"serif",fontSize:16,margin:"0 0 10px"}}>{outTitle}</p>}
+          <video src={url} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
+          <button onClick={()=>downloadVideo(url,"chelgy-edited.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // GET FEATURED — find podcasts in your niche, and pitch them properly.
 // ============================================================================
 function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
@@ -5178,6 +5354,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -5547,6 +5724,7 @@ const CREDIT_COSTS = {
   seedance480Sec: 300,  // Seedance 2.0 480p — real ~$0.12/s, ~2x markup
   omniClip: 2500,       // Gemini Omni Flash — flat, up to 10s (real ~$1.00 for 10s, ~2x)
   omniEditClip: 3000,   // Gemini Omni Flash video edit — flat, up to 10s (real ~$1.30, ~2x)
+  editorQuick: 2000,    // AI Video Editor — talking-head Quick Edit, flat (real ~$0.30-0.60, generous margin buffer for a new pipeline)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
@@ -5679,6 +5857,8 @@ const CATEGORIES = [
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
     tabs:[ {label:"Fake It",tool:"restage"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
+  { id:"cat_editor", title:"AI Video Editor", icon:"Video", blurb:"Hand Chelgy your raw footage and get back a finished video — the ums, dead air and bad takes cut out, animated captions added, a cinematic Hollywood color grade, and a luxury title. Talk to the camera; we'll do the editing.",
+    tabs:[ {label:"AI Editor",tool:"videoeditor"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
