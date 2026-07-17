@@ -797,6 +797,30 @@ async function generateOmniEdit(prompt, videoUrl, referenceImages){
 
 // ─── AI VIDEO EDITOR (studio) pipeline helpers ───────────────────────────────
 // Three steps the AI Editor walks through: transcribe → plan → render.
+// A still frame is grabbed from the footage so the planner can act as an AI
+// colorist: it classifies the footage (warm/cool, dark/bright) and the render
+// adapts the grade to it — a flat one-size wash over every video looks wrong
+// on already-warm or underexposed footage.
+async function captureVideoFrame(objectUrl, atSec){
+  return new Promise((resolve)=>{
+    try{
+      const v = document.createElement("video");
+      v.preload = "auto"; v.muted = true; v.playsInline = true;
+      const bail = setTimeout(()=>resolve(null), 8000);
+      v.onloadedmetadata = ()=>{ try{ v.currentTime = Math.min(atSec||2, Math.max(0.1,(v.duration||4)-0.2)); }catch(_){ clearTimeout(bail); resolve(null); } };
+      v.onseeked = ()=>{
+        try{
+          const w = 640, h = Math.round(640 * (v.videoHeight||9) / (v.videoWidth||16));
+          const c = document.createElement("canvas"); c.width=w; c.height=h;
+          c.getContext("2d").drawImage(v,0,0,w,h);
+          clearTimeout(bail); resolve(c.toDataURL("image/jpeg",0.7));
+        }catch(_){ clearTimeout(bail); resolve(null); }
+      };
+      v.onerror = ()=>{ clearTimeout(bail); resolve(null); };
+      v.src = objectUrl;
+    }catch(_){ resolve(null); }
+  });
+}
 async function studioTranscribe(url){
   try{
     const token = await freshToken();
@@ -804,19 +828,33 @@ async function studioTranscribe(url){
     return await res.json(); // { transcript, words, duration } or { error }
   } catch { return { error: "Couldn't reach the transcription service." }; }
 }
-async function studioPlan(words, duration){
+async function studioPlan(words, duration, frame, style){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration }) });
-    return await res.json(); // { keep, title, outSeconds } or { error }
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead" }) });
+    return await res.json(); // { keep, title, look, outSeconds } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
-async function studioRender(url, keep, title, grade, orientation, rawDuration){
+async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-render", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, keep, title, grade, orientation, rawDuration }) });
+    const res = await fetch("/api/studio-render", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, keep, title, grade, orientation, rawDuration, look: look||null, style: style||"talkinghead", chapters: chapters||[], music: music||"off" }) });
     return await res.json(); // { id:"cm:...", balance } or { error }
   } catch { return { error: "Couldn't reach the render service." }; }
+}
+async function studioScript(topic, audience, style, length){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-script", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ topic, audience, style, length }) });
+    return await res.json(); // { hook, beats, cta, balance } or { error }
+  } catch { return { error: "Couldn't reach the script writer." }; }
+}
+async function studioShorts(url, words, duration, frame, grade){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-shorts", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, words, duration, frame: frame||null, grade }) });
+    return await res.json(); // { ids, hooks, balance } or { error }
+  } catch { return { error: "Couldn't reach the clip maker." }; }
 }
 
 // ElevenLabs voiceover generation
@@ -3490,6 +3528,20 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
 // ============================================================================
 function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [style,setStyle]           = useState("talkinghead");
+  const [mode,setMode]             = useState("edit");     // "edit" = I have footage · "script" = write my script first
+  const [scTopic,setScTopic]       = useState("");
+  const [scAudience,setScAudience] = useState("");
+  const [scLength,setScLength]     = useState("60");
+  const [scBusy,setScBusy]         = useState(false);
+  const [scErr,setScErr]           = useState("");
+  const [script,setScript]         = useState(null);       // { hook, beats, cta }
+  const [scCopied,setScCopied]     = useState(false);
+  const [shClips,setShClips]       = useState([]);   // [{url, hook}]
+  const [shBusy,setShBusy]         = useState(false);
+  const [shStage,setShStage]       = useState("");
+  const [shErr,setShErr]           = useState("");
+  const [music,setMusic]           = useState("off");  // "off" | "eleven" (more engines coming)
+  const [alsoShorts,setAlsoShorts] = useState(false);  // edit mode: also cut viral clips in the same run
   const [grade,setGrade]           = useState("wolf");    // "wolf" | "luxury"
   const [orient,setOrient]         = useState("portrait");
   const [videoFile,setVideoFile]   = useState(null);
@@ -3505,8 +3557,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const COST = CREDIT_COSTS.editorQuick;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
-    { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy.", ready:false },
-    { id:"tutorial",    label:"Tutorial",     note:"Sit-down, screen + face, chaptered.", ready:false },
+    { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
+    { id:"tutorial",    label:"Tutorial",     note:"Sit-down teaching. The AI finds your sections and inserts luxury chapter cards between them, with callout-style captions.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-style storytelling with AI b-roll.", ready:false },
   ];
   const GRADES = [
@@ -3524,6 +3576,60 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     v.onloadedmetadata = ()=>{ setVideoDur(Math.round(v.duration||0)); };
     v.src = u;
     setVideoFile(f); setVideoPreview(u); e.target.value="";
+  }
+
+  async function writeScript(){
+    setScErr(""); setScript(null); setScCopied(false);
+    if(!scTopic.trim()){ setScErr("Tell us what the video is about."); return; }
+    if(Number(credits) < CREDIT_COSTS.editorScript){ setScErr("This costs "+CREDIT_COSTS.editorScript+" credits."); onBuyCredits(); return; }
+    setScBusy(true);
+    try{
+      const d = await studioScript(scTopic.trim(), scAudience.trim(), style, scLength);
+      if(!d || d.error){ setScErr((d&&d.error)||"Couldn't write that script."); setScBusy(false); return; }
+      setScript({ hook:d.hook, beats:d.beats||[], cta:d.cta||"" });
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"editor_script",style}); onToolUse("editor_script", CREDIT_COSTS.editorScript);
+    }catch(e){ setScErr((e&&e.message)||"Something went wrong."); }
+    setScBusy(false);
+  }
+  function scriptText(){
+    if(!script) return "";
+    return script.hook + "\n\n" + script.beats.join("\n\n") + (script.cta ? "\n\n" + script.cta : "");
+  }
+  function copyScript(){
+    try{ navigator.clipboard.writeText(scriptText()); setScCopied(true); setTimeout(()=>setScCopied(false), 2000); }catch(e){}
+  }
+
+  async function runShorts(){
+    setShErr(""); setShClips([]);
+    if(!rights){ setShErr("Please confirm this is your own footage."); return; }
+    if(!videoFile){ setShErr("Upload the video you want clips from."); return; }
+    if(videoDur > 600){ setShErr("Raw footage is limited to 10 minutes for now."); return; }
+    if(Number(credits) < CREDIT_COSTS.editorShorts){ setShErr("This costs "+CREDIT_COSTS.editorShorts.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setShBusy(true); setShStage("Uploading your footage…");
+    let up=null;
+    try{
+      const ext = ((videoFile.type&&videoFile.type.split("/")[1])||"mp4").split(";")[0];
+      const path = ((user&&user.id)||"anon") + "/clips-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
+      up = await uploadVideoInput(videoFile, path);
+      if(!up || !up.url){ setShErr("Couldn't upload that video."); setShBusy(false); setShStage(""); return; }
+      setShStage("Listening to your video…");
+      const tr = await studioTranscribe(up.url);
+      if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setShErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
+      setShStage("Finding your most viral moments…");
+      const frame = await captureVideoFrame(videoPreview, Math.min(2, Math.max(0.5,(videoDur||4)/2)));
+      const d = await studioShorts(up.url, tr.words, tr.duration, frame, grade);
+      if(!d || d.error || !Array.isArray(d.ids) || !d.ids.length){ setShErr((d&&d.error)||"Couldn't make clips from that footage."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
+      if(typeof d.balance==="number") onBalance(d.balance);
+      setShStage("Rendering "+d.ids.length+" clip"+(d.ids.length>1?"s":"")+" — hooks, captions and grade. A few minutes. Keep this tab open.");
+      const outs = await Promise.all(d.ids.map(id=>pollVideo(id)));
+      await deleteSiteObject(up.path);
+      const done = outs.map((u,i)=>u?{url:u, hook:(d.hooks&&d.hooks[i])||""}:null).filter(Boolean);
+      if(!done.length){ setShErr("The clips didn't finish. Credits for failed clips are refunded automatically."); setShBusy(false); setShStage(""); return; }
+      setShClips(done);
+      track("tool_used",{tool:"viral_clips",grade}); onToolUse("viral_clips", CREDIT_COSTS.editorShorts);
+    }catch(e){ if(up&&up.path) await deleteSiteObject(up.path); setShErr((e&&e.message)||"Something went wrong."); }
+    setShBusy(false); setShStage("");
   }
 
   async function run(){
@@ -3545,20 +3651,36 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
 
       setStage("Planning the edit — finding the ums, dead air and best takes…");
-      const plan = await studioPlan(tr.words, tr.duration);
+      const frame = await captureVideoFrame(videoPreview, Math.min(2, Math.max(0.5,(videoDur||4)/2)));
+      const plan = await studioPlan(tr.words, tr.duration, frame, style);
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){ setErr((plan&&plan.error)||"Couldn't plan the edit. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
       setOutTitle(plan.title||"");
 
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
-      const started = await studioRender(up.url, plan.keep, plan.title||"", grade, orient, tr.duration);
+      const started = await studioRender(up.url, plan.keep, plan.title||"", grade, orient, tr.duration, plan.look||null, style, plan.chapters||[], music);
       if(!started || !started.id){ setErr((started&&started.error)||"Couldn't start the render. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
 
-      const out = await pollVideo(started.id);
+      // Same run, same upload: optionally cut viral clips too. A clips failure
+      // never kills the main edit — it just notes it and carries on.
+      let clipIds=[], clipHooks=[];
+      if(alsoShorts){
+        setStage("Also finding your viral clips…");
+        const sh = await studioShorts(up.url, tr.words, tr.duration, frame, grade);
+        if(sh && Array.isArray(sh.ids) && sh.ids.length){ clipIds=sh.ids; clipHooks=sh.hooks||[]; if(typeof sh.balance==="number") onBalance(sh.balance); }
+        else if(sh && sh.error){ setErr("Heads up — the clips part didn't start ("+sh.error+"), but your main edit is still rendering."); }
+      }
+
+      setStage(clipIds.length ? "Rendering your video + "+clipIds.length+" clips. A few minutes — keep this tab open." : "Rendering your video — a few minutes. Keep this tab open.");
+      const results = await Promise.all([pollVideo(started.id), ...clipIds.map(id=>pollVideo(id))]);
+      const out = results[0];
       await deleteSiteObject(up.path); // input has done its job — auto-cleanup
-      if(!out){ setErr("The render didn't finish. Your credits were refunded."); if(typeof started.balance==="number") onBalance(started.balance + COST); setBusy(false); setStage(""); return; }
+      if(started.musicPath) await deleteSiteObject(started.musicPath);
+      const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
+      if(doneClips.length) setShClips(doneClips);
+      if(!out){ setErr("The render didn't finish. Your credits were refunded."+(doneClips.length?" (Your clips made it, below.)":"")); if(typeof started.balance==="number") onBalance(started.balance + (started.charged||COST)); setBusy(false); setStage(""); return; }
       setUrl(out);
-      track("tool_used",{tool:"video_editor",style,grade}); onToolUse("video_editor", COST);
+      track("tool_used",{tool:"video_editor",style,grade,clips:doneClips.length}); onToolUse("video_editor", COST);
     }catch(e){ if(up&&up.path) await deleteSiteObject(up.path); setErr((e&&e.message)||"Something went wrong."); }
     setBusy(false); setStage("");
   }
@@ -3567,19 +3689,26 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>AI Video Editor</h3>
       <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        Upload your raw footage and Chelgy edits the whole video for you — cuts the ums, dead air and bad takes, adds animated captions, a cinematic color grade, and a luxury title. Talking straight to camera works best.
+        Upload your raw footage and Chelgy edits the whole video for you — cuts the ums, dead air and bad takes, adds animated captions, a cinematic color grade, and a luxury title. Works beautifully for talking-to-camera videos and real-world vlogs.
       </p>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {[["edit","I have footage"],["script","Write my script first"],["shorts","Viral clips"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{ setMode(v); setErr(""); setScErr(""); }} style={{padding:"9px 22px",border:"1px solid "+(mode===v?B.charcoal:B.stone),background:mode===v?B.charcoal:"#fff",color:mode===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.04em"}}>{l}</button>
+        ))}
+      </div>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
         {STYLES.map(s=>(
-          <button key={s.id} disabled={!s.ready} onClick={()=>s.ready&&setStyle(s.id)} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
+          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
             <span style={{fontSize:12,fontWeight:700}}>{s.label}{!s.ready && "  · coming soon"}</span>
             <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{s.note}</span>
           </button>
         ))}
       </div>
 
+      {mode==="edit" && (<>
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {GRADES.map(g=>(
@@ -3587,6 +3716,18 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ))}
       </div>
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"-8px 0 16px"}}>{GRADES.find(g=>g.id===grade).note}</p>
+
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
+      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+        {[["off","No music",true],["eleven","Cinematic score · original",true],["mubert","Budget bed",false],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
+          <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.charcoal:"#fff",color:music===v?"#fff":(ready?B.charcoal:B.mid),fontFamily:"sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
+        {music==="eleven"
+          ? "An original score is composed just for your video and mixed quietly under your voice — matched to your style and grade. + "+CREDIT_COSTS.musicScoreMin+" credits per minute of the final video."
+          : "Add an original AI-composed score for +"+CREDIT_COSTS.musicScoreMin+" credits per finished minute. Licensed real-artist tracks are coming."}
+      </p>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
@@ -3603,6 +3744,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           {videoDur>0 && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>{Math.floor(videoDur/60)}m {videoDur%60}s of raw footage.</p>}
         </div>
       )}
+
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:10,cursor:"pointer"}}>
+        <input type="checkbox" checked={alsoShorts} onChange={e=>setAlsoShorts(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Also cut <strong>2–3 viral clips</strong> from this video for Reels/TikTok (+{CREDIT_COSTS.editorShorts.toLocaleString()} credits)</span>
+      </label>
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
         <input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} style={{marginTop:3}} />
@@ -3629,6 +3775,107 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <button onClick={()=>downloadVideo(url,"chelgy-edited.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
+      {mode==="edit" && shClips.length>0 && (
+        <div style={{marginTop:26}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 12px"}}>Your viral clips</p>
+          {shClips.map((c,i)=>(
+            <div key={i} style={{marginBottom:22,textAlign:"center"}}>
+              {c.hook && <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
+              <video src={c.url} controls playsInline style={{maxWidth:"100%",maxHeight:420,border:"1px solid "+B.stone}} />
+              <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
+            </div>
+          ))}
+        </div>
+      )}
+      </>)}
+
+      {mode==="script" && (<>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Chelgy writes your script before you film — a scroll-stopping hook, the beats, and a call-to-action, in your chosen style. Read it on camera, then flip to <strong>I have footage</strong> and we'll edit it.</p>
+
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>What's the video about?</p>
+        <textarea value={scTopic} onChange={e=>setScTopic(e.target.value)} rows={3}
+          placeholder="e.g. why most small businesses waste money on ads, and the 3 things to do instead"
+          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:14}} />
+
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Who's it for? <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></p>
+        <input value={scAudience} onChange={e=>setScAudience(e.target.value)} placeholder="e.g. boutique owners who run their own Instagram"
+          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,boxSizing:"border-box",marginBottom:14}} />
+
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Length</p>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {[["30","~30s reel"],["60","~60s short"],["180","2–3 min"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setScLength(v)} style={{padding:"9px 16px",border:"1px solid "+(scLength===v?B.charcoal:B.stone),background:scLength===v?B.charcoal:"#fff",color:scLength===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+
+        {scErr && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{scErr}</p>}
+
+        <Btn dark full disabled={scBusy} onClick={writeScript}>
+          {scBusy ? "WRITING YOUR SCRIPT…" : "WRITE MY SCRIPT · "+CREDIT_COSTS.editorScript+" CREDITS"}
+        </Btn>
+
+        {script && (
+          <div style={{marginTop:22,border:"1px solid "+B.stone,padding:18,background:"#fff"}}>
+            <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>Hook — say this first</p>
+            <p style={{fontFamily:"serif",fontSize:16,lineHeight:1.5,margin:"0 0 16px",color:B.charcoal}}>{script.hook}</p>
+            <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>The beats</p>
+            {script.beats.map((b,i)=>(<p key={i} style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 10px",color:B.charcoal}}>{b}</p>))}
+            {script.cta && (<>
+              <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"8px 0 6px"}}>Call to action</p>
+              <p style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 4px",color:B.charcoal}}>{script.cta}</p>
+            </>)}
+            <div style={{display:"flex",gap:14,marginTop:14,alignItems:"center",flexWrap:"wrap"}}>
+              <button onClick={copyScript} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>{scCopied?"COPIED ✓":"COPY SCRIPT"}</button>
+              <button onClick={()=>{ setMode("edit"); }} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"12px 0 0"}}>Tip: read it naturally, flubs and all — the editor cuts the bad takes for you.</p>
+          </div>
+        )}
+      </>)}
+
+      {mode==="shorts" && (<>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Drop in any video where you're talking — Chelgy finds your <strong>2–3 most viral moments</strong>, writes a scroll-stopping hook for each, and renders them as vertical clips with captions and your cinematic grade. Ready for Reels, TikTok and Shorts.</p>
+
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {GRADES.map(g=>(
+            <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:"9px 16px",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.charcoal:"#fff",color:grade===g.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{g.label}</button>
+          ))}
+        </div>
+
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your video <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— up to 10 minutes</span></p>
+        <input type="file" accept="video/*" onChange={pickVideo} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+        {videoPreview && (
+          <div style={{marginBottom:16}}>
+            <video src={videoPreview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
+            {videoDur>0 && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>{Math.floor(videoDur/60)}m {videoDur%60}s of footage.</p>}
+          </div>
+        )}
+
+        <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
+          <input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} style={{marginTop:3}} />
+          <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
+        </label>
+
+        {shErr && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{shErr}</p>}
+
+        <Btn dark full disabled={shBusy} onClick={runShorts}>
+          {shBusy ? "MAKING YOUR CLIPS…" : "MAKE MY VIRAL CLIPS · "+CREDIT_COSTS.editorShorts.toLocaleString()+" CREDITS"}
+        </Btn>
+        {shBusy && shStage && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{shStage}</p>}
+
+        {shClips.length>0 && (
+          <div style={{marginTop:26}}>
+            {shClips.map((c,i)=>(
+              <div key={i} style={{marginBottom:26,textAlign:"center"}}>
+                {c.hook && <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
+                <video src={c.url} controls playsInline style={{maxWidth:"100%",maxHeight:420,border:"1px solid "+B.stone}} />
+                <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>)}
     </div>
   );
 }
@@ -5725,6 +5972,9 @@ const CREDIT_COSTS = {
   omniClip: 2500,       // Gemini Omni Flash — flat, up to 10s (real ~$1.00 for 10s, ~2x)
   omniEditClip: 3000,   // Gemini Omni Flash video edit — flat, up to 10s (real ~$1.30, ~2x)
   editorQuick: 2000,    // AI Video Editor — talking-head Quick Edit, flat (real ~$0.30-0.60, generous margin buffer for a new pipeline)
+  editorScript: 100,    // AI Video Editor — write-my-script-first (one LLM call)
+  editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
+  musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
