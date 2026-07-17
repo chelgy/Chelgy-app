@@ -71,30 +71,31 @@ async function logCost(id, userId, model, duration, credits, estUsd) {
   } catch {}
 }
 
-// The two signature grades — applied to the FOOTAGE ITSELF (real contrast + a
-// strong warm/creamy overlay on the video pixels), not a faint rectangle floated
-// on a separate track. The AI colorist classifies each video (temperature +
-// exposure) and this maps that analysis to adjusted values — so already-warm
-// footage doesn't go orange and dark footage doesn't turn muddy. Color math stays
-// here in code, deterministic; the AI only classifies.
+// The two signature grades — applied to the FOOTAGE ITSELF (real contrast +
+// brightness + a light warm/creamy overlay), not a heavy tint that sepia-washes
+// the frame. A true 2383 look is clean warm gold in the highlights with the image
+// still reading naturally — NOT brown. The AI colorist classifies each video
+// (temperature + exposure) and this maps that to adjusted values so already-warm
+// footage doesn't go orange and dark footage doesn't mud. Deterministic in code.
 function gradeFor(grade, look) {
   const t = (look && look.temperature) || "neutral";
   const x = (look && look.exposure) || "balanced";
   if (grade === "luxury") {
-    // Luxury Vlog — bright, airy, creamy. Strong cream overlay lifts toward white;
-    // gentle contrast keeps it from going flat.
-    let a = x === "dark" ? 0.34 : x === "bright" ? 0.20 : 0.27;
-    if (t === "warm") a = Math.max(0.16, a - 0.05);
-    const contrast = x === "bright" ? 26 : 20;
-    return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,242,225," + a.toFixed(2) + ")" };
+    // Luxury Vlog — bright, airy, creamy. Light cream lift + a touch of brightness.
+    let a = x === "dark" ? 0.16 : x === "bright" ? 0.08 : 0.12;
+    if (t === "warm") a = Math.max(0.05, a - 0.04);
+    const filt = x === "dark" ? "brighten" : "contrast";
+    const val = x === "dark" ? "14%" : "16%";
+    return { color_filter: filt, color_filter_value: val, color_overlay: "rgba(255,247,235," + a.toFixed(2) + ")" };
   }
-  // Wolf 2383 — warm gold, filmic contrast, rich. Push gold on cool footage, ease
-  // off on warm, lighten on dark so shadows don't mud; real contrast for depth.
-  let a = t === "cool" ? 0.40 : t === "warm" ? 0.24 : 0.33;
-  if (x === "dark") a = Math.max(0.20, a - 0.06);
-  if (x === "bright") a = Math.min(0.42, a + 0.03);
-  const contrast = x === "dark" ? 30 : 42;
-  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,150,45," + a.toFixed(2) + ")" };
+  // Wolf 2383 — warm gold, filmic depth, but clean (not brown). Gold pushed on cool
+  // footage, eased on already-warm, lightened on dark. Overlay kept light so it tints
+  // toward gold instead of drowning the image.
+  let a = t === "cool" ? 0.18 : t === "warm" ? 0.09 : 0.14;
+  if (x === "dark") a = Math.max(0.07, a - 0.04);
+  if (x === "bright") a = Math.min(0.20, a + 0.02);
+  const contrast = x === "dark" ? 16 : 24;
+  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,183,92," + a.toFixed(2) + ")" };
 }
 
 export default async function handler(req, res) {
@@ -168,7 +169,7 @@ export default async function handler(req, res) {
           elements: [
             { type: "text", text: ch.label, y: "48%", width: "86%", height: "18%",
               x_alignment: "50%", y_alignment: "50%", fill_color: "#ffffff",
-              font_family: "Playfair Display", font_weight: "700",
+              font_family: "Bodoni Moda", font_weight: 600,
               font_size: orientation === "landscape" ? "6.4 vmin" : "7.6 vmin",
               animations: [{ time: 0, duration: 0.7, easing: "quadratic-out", type: "text-slide", scope: "element", split: "line", distance: "120%", direction: "up", background_effect: "disabled" }] }
           ]
@@ -211,7 +212,7 @@ export default async function handler(req, res) {
         ...(style === "tutorial"
           ? { background_color: "rgba(17,17,17,0.55)", background_x_padding: "34%", background_y_padding: "16%", background_border_radius: "30%" }
           : { stroke_color: "#000000", stroke_width: style === "vlog" ? "1.1 vmin" : "1.4 vmin" }),
-        font_family: "Montserrat", font_weight: "700",
+        font_family: "Montserrat", font_weight: 700,
         font_size: style === "vlog"
           ? (orientation === "landscape" ? "4.4 vmin" : "6.6 vmin")
           : style === "tutorial"
@@ -229,8 +230,8 @@ export default async function handler(req, res) {
         y: "44%", width: "84%", height: "26%",
         x_alignment: "50%", y_alignment: "50%",
         fill_color: "#ffffff",
-        stroke_color: "rgba(0,0,0,0.55)", stroke_width: "0.6 vmin",
-        font_family: "Playfair Display", font_weight: "700",
+        shadow_color: "rgba(0,0,0,0.45)", shadow_blur: "1.4 vmin", shadow_x: "0 vmin", shadow_y: "0.3 vmin",
+        font_family: "Bodoni Moda", font_weight: 600,
         font_size: orientation === "landscape" ? "7 vmin" : "9 vmin"
       });
     }
