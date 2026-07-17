@@ -66,16 +66,17 @@ function gradeFor(grade, look) {
   const t = (look && look.temperature) || "neutral";
   const x = (look && look.exposure) || "balanced";
   if (grade === "luxury") {
-    let a = x === "dark" ? 0.34 : x === "bright" ? 0.20 : 0.27;
-    if (t === "warm") a = Math.max(0.16, a - 0.05);
-    const contrast = x === "bright" ? 26 : 20;
-    return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,242,225," + a.toFixed(2) + ")" };
+    let a = x === "dark" ? 0.16 : x === "bright" ? 0.08 : 0.12;
+    if (t === "warm") a = Math.max(0.05, a - 0.04);
+    const filt = x === "dark" ? "brighten" : "contrast";
+    const val = x === "dark" ? "14%" : "16%";
+    return { color_filter: filt, color_filter_value: val, color_overlay: "rgba(255,247,235," + a.toFixed(2) + ")" };
   }
-  let a = t === "cool" ? 0.40 : t === "warm" ? 0.24 : 0.33;
-  if (x === "dark") a = Math.max(0.20, a - 0.06);
-  if (x === "bright") a = Math.min(0.42, a + 0.03);
-  const contrast = x === "dark" ? 30 : 42;
-  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,150,45," + a.toFixed(2) + ")" };
+  let a = t === "cool" ? 0.18 : t === "warm" ? 0.09 : 0.14;
+  if (x === "dark") a = Math.max(0.07, a - 0.04);
+  if (x === "bright") a = Math.min(0.20, a + 0.02);
+  const contrast = x === "dark" ? 16 : 24;
+  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,183,92," + a.toFixed(2) + ")" };
 }
 
 
