@@ -62,18 +62,20 @@ async function logCost(id, userId, model, duration, credits, estUsd) {
     });
   } catch {}
 }
-function washFor(grade, look) {
+function gradeFor(grade, look) {
   const t = (look && look.temperature) || "neutral";
   const x = (look && look.exposure) || "balanced";
   if (grade === "luxury") {
-    let a = x === "dark" ? 0.18 : x === "bright" ? 0.08 : 0.14;
-    if (t === "warm") a = Math.max(0.06, a - 0.03);
-    return "rgba(255,246,232," + a.toFixed(2) + ")";
+    let a = x === "dark" ? 0.34 : x === "bright" ? 0.20 : 0.27;
+    if (t === "warm") a = Math.max(0.16, a - 0.05);
+    const contrast = x === "bright" ? 26 : 20;
+    return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,242,225," + a.toFixed(2) + ")" };
   }
-  let a = t === "cool" ? 0.16 : t === "warm" ? 0.07 : 0.12;
-  if (x === "dark") a = Math.max(0.06, a - 0.03);
-  if (x === "bright") a = Math.min(0.18, a + 0.02);
-  return "rgba(255,166,77," + a.toFixed(2) + ")";
+  let a = t === "cool" ? 0.40 : t === "warm" ? 0.24 : 0.33;
+  if (x === "dark") a = Math.max(0.20, a - 0.06);
+  if (x === "bright") a = Math.min(0.42, a + 0.03);
+  const contrast = x === "dark" ? 30 : 42;
+  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,150,45," + a.toFixed(2) + ")" };
 }
 
 export default async function handler(req, res) {
@@ -157,14 +159,15 @@ export default async function handler(req, res) {
     const hooks = [];
     for (const c of clips) {
       const d = Math.round((c.e - c.s) * 100) / 100;
+      const gp = gradeFor(grade, c.look || look); // per-clip grade from its colorist read
       const elements = [
-        { type: "video", track: 1, name: "clip", time: 0, source: url, trim_start: c.s, trim_duration: d, fit: "cover" },
+        { type: "video", track: 1, name: "clip", time: 0, source: url, trim_start: c.s, trim_duration: d, fit: "cover", color_filter: gp.color_filter, color_filter_value: gp.color_filter_value, color_overlay: gp.color_overlay },
         { type: "text", track: 2, time: 0, duration: d,
           transcript_source: "clip", transcript_effect: "highlight", transcript_maximum_length: 14,
           y: "80%", width: "82%", height: "30%", x_alignment: "50%", y_alignment: "50%",
           fill_color: "#ffffff", stroke_color: "#000000", stroke_width: "1.4 vmin",
           font_family: "Montserrat", font_weight: "700", font_size: "7.6 vmin" },
-        { type: "composition", track: 3, time: 0, duration: d, width: "100%", height: "100%", fill_color: washFor(grade, look) }
+        // (grade applied on the clip pixels above)
       ];
       if (c.hook) {
         elements.push({
