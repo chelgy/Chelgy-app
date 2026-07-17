@@ -750,13 +750,29 @@ async function pollVideo(taskId) {
 // storage path, so we can delete the input the moment the edit finishes.
 // Upload the user's original video to Supabase — audio and all, at real camera-file sizes.
 // Small files go up in one direct POST. Anything bigger uses Supabase's RESUMABLE
-// upload protocol (TUS): the file is sent in 6MB chunks with live progress, and if
-// the connection hiccups we ask the server where it left off and resume from there
-// instead of starting over. The browser never loads the whole file into memory —
-// it slices chunks off the File on demand, so multi-GB footage is fine.
-const UPLOAD_MAX_GB = 20;                    // guard rail; raise alongside the Supabase limit
-const TUS_CHUNK = 6 * 1024 * 1024;           // Supabase requires exactly 6MB chunks (except the last)
-function b64meta(s){ return btoa(unescape(encodeURIComponent(s))); }
+// upload protocol via the official tus-js-client library (loaded from a CDN, no
+// install needed): the file goes up in 6MB chunks with live progress, and if the
+// connection drops it resumes from where it left off instead of starting over.
+// The browser never holds the whole file in memory — it streams chunks off disk.
+const UPLOAD_MAX_GB = 50;                     // guard rail; resumable/TUS supports up to 50GB
+
+// Load tus-js-client once from a CDN and cache it on window.
+let _tusPromise = null;
+function loadTus(){
+  if(typeof window !== "undefined" && window.tus) return Promise.resolve(window.tus);
+  if(_tusPromise) return _tusPromise;
+  _tusPromise = new Promise((resolve, reject)=>{
+    try{
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js";
+      s.async = true;
+      s.onload = ()=> window.tus ? resolve(window.tus) : reject(new Error("tus unavailable"));
+      s.onerror = ()=> reject(new Error("Couldn't load the uploader. Check your connection and retry."));
+      document.head.appendChild(s);
+    }catch(e){ reject(e); }
+  });
+  return _tusPromise;
+}
 
 async function uploadVideoInput(file, path, onStatus){
   try{
@@ -767,7 +783,7 @@ async function uploadVideoInput(file, path, onStatus){
     const mime = file.type || "video/mp4";
     const publicUrl = SUPABASE_URL + "/storage/v1/object/public/sites/" + path;
 
-    // ── Small files: one direct POST ──
+    // ── Small files: one direct POST (fast path, no library needed) ──
     if(file.size <= 20 * 1024 * 1024){
       const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
         method: "POST",
@@ -781,72 +797,56 @@ async function uploadVideoInput(file, path, onStatus){
       return { ok:true, url: publicUrl, path };
     }
 
-    // ── Large files: resumable chunked upload (TUS) ──
-    const authHeaders = { apikey: SUPABASE_KEY, Authorization: "Bearer " + token };
-    const createRes = await fetch(SUPABASE_URL + "/storage/v1/upload/resumable", {
-      method: "POST",
-      headers: {
-        ...authHeaders,
-        "tus-resumable": "1.0.0",
-        "upload-length": String(file.size),
-        "x-upsert": "true",
-        "upload-metadata":
-          "bucketName " + b64meta("sites") +
-          ",objectName " + b64meta(path) +
-          ",contentType " + b64meta(mime) +
-          ",cacheControl " + b64meta("3600")
-      }
-    });
-    if(!(createRes.status === 201 || createRes.ok)){
-      const body = await createRes.text().catch(()=> "");
-      if(createRes.status === 413 || /size|exceed/i.test(body))
-        return { ok:false, error:"That file exceeds your storage's upload limit. In Supabase: Project Settings → Storage → raise the upload file size limit." };
-      return { ok:false, error:"Couldn't start the upload (" + createRes.status + "). Check your Supabase Storage upload limit." };
-    }
-    let loc = createRes.headers.get("Location") || createRes.headers.get("location");
-    if(!loc) return { ok:false, error:"Upload service didn't return a session. Please try again." };
-    if(loc.indexOf("http") !== 0) loc = new URL(loc, SUPABASE_URL).toString();
+    // ── Large files: resumable upload via tus-js-client ──
+    let tus;
+    try { tus = await loadTus(); }
+    catch(e){ return { ok:false, error: (e && e.message) || "Couldn't load the uploader." }; }
 
-    let offset = 0, retries = 0;
     const totalMb = Math.round(file.size / (1024*1024));
-    while(offset < file.size){
-      const chunk = file.slice(offset, Math.min(offset + TUS_CHUNK, file.size));
-      let ok = false;
-      try{
-        const patch = await fetch(loc, {
-          method: "PATCH",
-          headers: {
-            ...authHeaders,
-            "tus-resumable": "1.0.0",
-            "upload-offset": String(offset),
-            "Content-Type": "application/offset+octet-stream"
-          },
-          body: chunk
-        });
-        if(patch.ok || patch.status === 204){
-          const newOffset = Number(patch.headers.get("Upload-Offset") || patch.headers.get("upload-offset"));
-          offset = Number.isFinite(newOffset) && newOffset > offset ? newOffset : offset + chunk.size;
-          ok = true; retries = 0;
+    return await new Promise((resolve)=>{
+      const upload = new tus.Upload(file, {
+        endpoint: SUPABASE_URL + "/storage/v1/upload/resumable",
+        retryDelays: [0, 3000, 5000, 10000, 20000, 30000],
+        headers: {
+          authorization: "Bearer " + token,
+          apikey: SUPABASE_KEY,
+          "x-upsert": "true"
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        chunkSize: 6 * 1024 * 1024,          // Supabase requires 6MB chunks
+        metadata: {
+          bucketName: "sites",
+          objectName: path,
+          contentType: mime,
+          cacheControl: "3600"
+        },
+        onError: (err)=>{
+          const m = String((err && err.message) || err || "");
+          if(/413|exceeded|maximum allowed size|too large/i.test(m))
+            resolve({ ok:false, error:"That file exceeds your Supabase Storage limit. In Supabase: Storage → Settings → raise the Global file size limit, and check the sites bucket limit." });
+          else if(/401|403|jwt|unauthorized/i.test(m))
+            resolve({ ok:false, error:"Upload was rejected (auth). Please sign out and back in, then retry." });
+          else
+            resolve({ ok:false, error:"Upload failed — check your connection and try again. It won't have to start over." });
+        },
+        onProgress: (uploaded, total)=>{
           if(onStatus){
-            const pct = Math.min(99, Math.floor((offset / file.size) * 100));
+            const pct = Math.min(99, Math.floor((uploaded / (total||file.size)) * 100));
             onStatus("uploading", "Uploading your footage — " + pct + "% of " + totalMb + "MB…");
           }
+        },
+        onSuccess: ()=>{
+          if(onStatus) onStatus("uploaded", "Upload complete — starting the edit…");
+          resolve({ ok:true, url: publicUrl, path });
         }
-      }catch(_){ /* network hiccup — fall through to resume logic */ }
-      if(!ok){
-        retries++;
-        if(retries > 6) return { ok:false, error:"The upload kept failing at " + Math.floor((offset/file.size)*100) + "%. Check your connection and try again — it will not have to start over." };
-        await new Promise(r=>setTimeout(r, Math.min(15000, 1000 * Math.pow(2, retries))));
-        // Ask the server where it actually got to, and resume from there.
-        try{
-          const head = await fetch(loc, { method: "HEAD", headers: { ...authHeaders, "tus-resumable": "1.0.0" } });
-          const srvOffset = Number(head.headers.get("Upload-Offset") || head.headers.get("upload-offset"));
-          if(Number.isFinite(srvOffset) && srvOffset >= 0) offset = srvOffset;
-        }catch(_){ }
-      }
-    }
-    if(onStatus) onStatus("uploaded", "Upload complete — starting the edit…");
-    return { ok:true, url: publicUrl, path };
+      });
+      // Resume a prior interrupted upload of the same file if one exists.
+      upload.findPreviousUploads().then((prev)=>{
+        if(prev && prev.length) upload.resumeFromPreviousUpload(prev[0]);
+        upload.start();
+      }).catch(()=> upload.start());
+    });
   }catch(e){
     return { ok:false, error:"Upload failed — check your connection and try again." };
   }
