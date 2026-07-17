@@ -18,7 +18,8 @@ export const maxDuration = 60;
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-const STUDIO_COST = 2000;        // flat — Quick Edit tier (talking-head)
+const STUDIO_COST = 2000;        // flat — Quick Edit tier
+const CINEMATIC_COST = 4000;     // flat — Cinematic (kinetic cut + scene cards + AI b-roll stills)
 const MUSIC_PER_MIN = 400;       // original score, per minute of final video (real ~$0.15/min)
 const MAX_RAW_SECONDS = 600;     // 10 minutes of raw footage max
 
@@ -100,7 +101,8 @@ export default async function handler(req, res) {
     const keep = Array.isArray(body.keep) ? body.keep : [];
     const title = (typeof body.title === "string" ? body.title : "").slice(0, 60);
     const grade = body.grade === "luxury" ? "luxury" : "wolf";
-    const style = ["vlog","tutorial"].includes(body.style) ? body.style : "talkinghead";
+    const style = ["vlog","tutorial","cinematic"].includes(body.style) ? body.style : "talkinghead";
+    const brollIn = style === "cinematic" && Array.isArray(body.broll) ? body.broll.slice(0, 4) : [];
     const chaptersIn = Array.isArray(body.chapters) ? body.chapters : [];
     const music = body.music === "eleven" ? "eleven" : "off";
     const look = body.look && typeof body.look === "object" ? body.look : null;
@@ -148,6 +150,7 @@ export default async function handler(req, res) {
     }
 
     const elements = [];
+    const brollTimed = []; // { newTime, prompt } — mapped to the edited timeline
     let cursor = 0;
     segs.forEach((k, i) => {
       // Chapter card before this segment (tutorial): full-frame charcoal card,
@@ -168,6 +171,13 @@ export default async function handler(req, res) {
         cursor += CARD;
       }
       const d = Math.round((k.e - k.s) * 100) / 100;
+      // B-roll moments that land inside this kept segment map to the new timeline.
+      for (const b of brollIn) {
+        const bs = Number(b.s) || 0;
+        if (bs >= k.s && bs < k.e && typeof b.prompt === "string" && b.prompt.trim()) {
+          brollTimed.push({ newTime: Math.round((cursor + (bs - k.s)) * 100) / 100, prompt: b.prompt.trim().slice(0, 300) });
+        }
+      }
       const name = "clip-" + i;
       elements.push({
         type: "video", track: 1, name,
@@ -180,7 +190,7 @@ export default async function handler(req, res) {
       // Word-by-word animated captions for this clip. Vlog captions sit a touch
       // lower and smaller (the footage is the star); talking-head runs bolder.
       elements.push({
-        type: "text", track: 2,
+        type: "text", track: 3,
         time: Math.round(cursor * 100) / 100,
         duration: d,
         transcript_source: name,
@@ -204,13 +214,13 @@ export default async function handler(req, res) {
     });
     // Cinematic grade — adapted to this footage's temperature + exposure
     elements.push({
-      type: "composition", track: 3, time: 0, duration: Math.round(cursor * 100) / 100,
+      type: "composition", track: 4, time: 0, duration: Math.round(cursor * 100) / 100,
       width: "100%", height: "100%", fill_color: washFor(grade, look)
     });
     // Luxury opening title
     if (title) {
       elements.push({
-        type: "text", track: 4, time: 0.4, duration: 2.8,
+        type: "text", track: 5, time: 0.4, duration: 2.8,
         text: title,
         y: "44%", width: "84%", height: "26%",
         x_alignment: "50%", y_alignment: "50%",
@@ -222,8 +232,9 @@ export default async function handler(req, res) {
     }
 
     // ── Charge (edit + optional score), then compose music, then submit ──
+    const baseCost = style === "cinematic" ? CINEMATIC_COST : STUDIO_COST;
     const musicCost = music === "eleven" ? Math.max(1, Math.ceil(outSeconds / 60)) * MUSIC_PER_MIN : 0;
-    const chargedTotal = STUDIO_COST + musicCost;
+    const chargedTotal = baseCost + musicCost;
     const paid = await spend(token, chargedTotal, "video-editor:" + style + (music !== "off" ? "+score" : ""));
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
@@ -265,10 +276,51 @@ export default async function handler(req, res) {
         return res.status(502).json({ error: "Couldn't compose the score. Your credits were refunded — try again, or run it without music." });
       }
       elements.push({
-        type: "audio", track: 5, time: 0, duration: Math.round(cursor * 100) / 100,
+        type: "audio", track: 6, time: 0, duration: Math.round(cursor * 100) / 100,
         source: SB_URL + "/storage/v1/object/public/sites/" + musicPath,
         volume: "16%"
       });
+    }
+
+    // ── Cinematic b-roll: generate stills (Nano Banana) and cut them in with a
+    // slow push-zoom. Failures degrade gracefully — a missing image never kills
+    // the edit, that moment just stays on the speaker.
+    const brollPaths = [];
+    if (style === "cinematic" && brollTimed.length) {
+      const GK = (process.env.GEMINI_API_KEY || "").trim();
+      const total = Math.round(cursor * 100) / 100;
+      for (const b of brollTimed.slice(0, 4)) {
+        if (!GK) break;
+        try {
+          const ir = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", {
+            method: "POST",
+            headers: { "x-goog-api-key": GK, "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: "Cinematic film still, warm Kodak-print grade, shallow depth of field. " + b.prompt + " No text, no words, no logos." }] }] })
+          });
+          const idata = await ir.json();
+          let imgB64 = null, imgMime = "image/png";
+          const partsOut = idata && idata.candidates && idata.candidates[0] && idata.candidates[0].content && idata.candidates[0].content.parts || [];
+          for (const pt of partsOut) { if (pt.inlineData && pt.inlineData.data) { imgB64 = pt.inlineData.data; imgMime = pt.inlineData.mimeType || "image/png"; break; } }
+          if (!ir.ok || !imgB64) continue;
+          const ext = (imgMime.split("/")[1] || "png").split("+")[0];
+          const bPath = userId + "/broll-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + "." + ext;
+          const upB = await fetch(SB_URL + "/storage/v1/object/sites/" + bPath, {
+            method: "POST",
+            headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "x-upsert": "true", "Content-Type": imgMime },
+            body: Buffer.from(imgB64, "base64")
+          });
+          if (!upB.ok) continue;
+          brollPaths.push(bPath);
+          const dur = 2.4;
+          const t = Math.max(0, Math.min(b.newTime, total - dur));
+          elements.push({
+            type: "image", track: 2, time: t, duration: dur,
+            source: SB_URL + "/storage/v1/object/public/sites/" + bPath,
+            width: "100%", height: "100%", fit: "cover",
+            animations: [{ easing: "linear", type: "scale", scope: "element", start_scale: "103%", end_scale: "112%", fade: false }]
+          });
+        } catch (e) { /* skip this b-roll moment */ }
+      }
     }
 
     const cr = await fetch("https://api.creatomate.com/v2/renders", {
@@ -291,9 +343,9 @@ export default async function handler(req, res) {
 
     await recordVideoJob("cm:" + rid, userId, chargedTotal);
     // Real-cost estimate: transcription+plan (~$0.05) + render minutes (~$0.12/min) + score ($0.15/min)
-    const estUsd = Math.round((0.05 + 0.12 * (outSeconds / 60) + (music === "eleven" ? 0.15 * (outSeconds / 60) : 0)) * 10000) / 10000;
+    const estUsd = Math.round((0.05 + 0.12 * (outSeconds / 60) + (music === "eleven" ? 0.15 * (outSeconds / 60) : 0) + brollPaths.length * 0.04) * 10000) / 10000;
     await logCost("cm:" + rid, userId, "creatomate-" + style + "-" + grade + (music === "eleven" ? "+score" : ""), outSeconds, chargedTotal, estUsd);
-    return res.status(200).json({ id: "cm:" + rid, balance: paid.balance, charged: chargedTotal, musicPath });
+    return res.status(200).json({ id: "cm:" + rid, balance: paid.balance, charged: chargedTotal, musicPath, brollPaths });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
