@@ -91,7 +91,7 @@ export default async function handler(req, res) {
       '{"hook":"string","beats":["string"],"cta":"string"}';
 
     const gr = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
       {
         method: "POST",
         headers: { "x-goog-api-key": GKEY, "Content-Type": "application/json" },

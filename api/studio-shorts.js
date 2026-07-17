@@ -121,7 +121,7 @@ export default async function handler(req, res) {
     }
     parts.push({ text: prompt });
 
-    const gr = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+    const gr = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
       method: "POST",
       headers: { "x-goog-api-key": GKEY, "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: "application/json", temperature: 0.4 } })

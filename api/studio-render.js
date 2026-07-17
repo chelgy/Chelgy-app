@@ -292,7 +292,7 @@ export default async function handler(req, res) {
       for (const b of brollTimed.slice(0, 4)) {
         if (!GK) break;
         try {
-          const ir = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", {
+          const ir = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent", {
             method: "POST",
             headers: { "x-goog-api-key": GK, "Content-Type": "application/json" },
             body: JSON.stringify({ contents: [{ parts: [{ text: "Cinematic film still, warm Kodak-print grade, shallow depth of field. " + b.prompt + " No text, no words, no logos." }] }] })
