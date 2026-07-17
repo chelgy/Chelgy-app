@@ -55,6 +55,43 @@ const LENGTHS = {
   "180": "a 2-3 minute video (roughly 300-450 spoken words)"
 };
 
+
+// ── Resilient Gemini call: retries the primary model, and if it's shedding load
+// (503/429, or an overloaded/high-demand message returned even inside a 200),
+// automatically falls back to a stable pinned model so callers never see it.
+const GEMINI_PRIMARY = "gemini-flash-latest";
+const GEMINI_FALLBACK = "gemini-3.1-flash-lite"; // stable Gemini 3, low-demand safety net (longer runway than 2.5)
+async function callGemini(GKEY, payload) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const overloaded = (s) => /overloaded|high demand|try again later|unavailable|resource[_ ]?exhausted|rate limit|quota/i.test(String(s || ""));
+  const models = [GEMINI_PRIMARY, GEMINI_PRIMARY, GEMINI_PRIMARY, GEMINI_FALLBACK]; // 3 tries on primary, then fallback
+  let lastErr = "The editor is busy. Please try again in a moment.";
+  for (let i = 0; i < models.length; i++) {
+    try {
+      const gr = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/" + models[i] + ":generateContent",
+        { method: "POST", headers: { "x-goog-api-key": GKEY, "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      );
+      const gdata = await gr.json().catch(() => ({}));
+      if (!gr.ok) {
+        lastErr = (gdata && gdata.error && gdata.error.message) || ("Model error " + gr.status);
+        // Retryable server/capacity errors → wait and try next; hard errors → stop.
+        if (gr.status === 503 || gr.status === 429 || gr.status >= 500 || overloaded(lastErr)) { await sleep(1200 * (i + 1)); continue; }
+        return { ok: false, error: lastErr };
+      }
+      let text = "";
+      try { text = gdata.candidates[0].content.parts[0].text; } catch {}
+      // Model returned 200 but the *content* is a "high demand" apology, not real output.
+      if (!text || overloaded(text)) { lastErr = "The model is experiencing high demand."; await sleep(1200 * (i + 1)); continue; }
+      return { ok: true, text };
+    } catch (e) {
+      lastErr = (e && e.message) || "Network error contacting the editor.";
+      await sleep(1200 * (i + 1));
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -90,25 +127,16 @@ export default async function handler(req, res) {
       "Respond with ONLY this JSON:\n" +
       '{"hook":"string","beats":["string"],"cta":"string"}';
 
-    const gr = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
-      {
-        method: "POST",
-        headers: { "x-goog-api-key": GKEY, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.8 }
-        })
-      }
-    );
-    const gdata = await gr.json();
-    if (!gr.ok) {
+    const g = await callGemini(GKEY, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.8 }
+    });
+    if (!g.ok) {
       await refund(userId, SCRIPT_COST, "refund:editor-script");
-      const msg = (gdata && gdata.error && gdata.error.message) || "Script writing failed.";
-      return res.status(502).json({ error: msg + " Your credits were refunded." });
+      return res.status(502).json({ error: g.error + " Your credits were refunded." });
     }
     let out;
-    try { out = JSON.parse(gdata.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim()); } catch {
+    try { out = JSON.parse((g.text || "").replace(/```json|```/g, "").trim()); } catch {
       await refund(userId, SCRIPT_COST, "refund:editor-script");
       return res.status(502).json({ error: "Couldn't write that script. Your credits were refunded — please try again." });
     }
