@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const words = Array.isArray(body.words) ? body.words : [];
     const duration = Number(body.duration) || 0;
     const frame = typeof body.frame === "string" ? body.frame : null; // small JPEG data URL of one frame
-    const style = ["vlog","tutorial"].includes(body.style) ? body.style : "talkinghead";
+    const style = ["vlog","tutorial","cinematic"].includes(body.style) ? body.style : "talkinghead";
     if (!words.length) return res.status(400).json({ error: "Missing transcript." });
 
     const GKEY = (process.env.GEMINI_API_KEY || "").trim();
@@ -43,6 +43,8 @@ export default async function handler(req, res) {
       ? "You are a professional video editor AND colorist cutting a VLOG (real-world, day-in-the-life footage where the person talks while moving through places)."
       : style === "tutorial"
       ? "You are a professional video editor AND colorist cutting a TUTORIAL (one person teaching, sit-down, possibly with a screen). Clarity beats pace."
+      : style === "cinematic"
+      ? "You are a professional video editor AND colorist cutting a CINEMATIC STORYTELLING piece in the energy of a Scorsese picture — voiceover-driven, kinetic, confessional first-person. Momentum is everything."
       : "You are a professional video editor AND colorist cutting a talking-head video (one person speaking to camera).";
 
     const tutorialRules =
@@ -52,7 +54,14 @@ export default async function handler(req, res) {
         "- Merge keeps that are less than 1s apart into one segment. No kept segment shorter than 1s.\n" +
         "- A good tutorial cut usually keeps 80-95% of clear teaching.\n" +
         "- ALSO identify 2-6 SCENE INTROS: natural section starts in the teaching. Each label is a short cinematic intro to what comes next (2-5 words, title case) — like 'Setting Up', 'The First Step', 'The Common Mistake', 'Bringing It Together'. NEVER use the word Chapter. Give each one's start time (seconds, ORIGINAL timeline, at a sentence boundary).\n";
-    const cutRules = style === "tutorial" ? tutorialRules : style === "vlog"
+    const cinematicRules =
+        "Decide which time segments to KEEP so the piece is KINETIC and relentless — Scorsese energy:\n" +
+        "- Cut hard: remove all filler, hesitation, false starts, dead air over ~1.5s, and anything that slows momentum. Keep only the strongest 60-85% of the material.\n" +
+        "- Never cut mid-word; start keeps ~0.1s before the first word, end ~0.2s after the last.\n" +
+        "- Merge keeps under 0.4s apart. No kept segment shorter than 1s.\n" +
+        "- ALSO identify 0-4 SCENE INTROS where the story clearly turns (a time jump, a place change, a twist). Short cinematic card labels (2-5 words, title case) in the storyteller's own words — like 'Three Months Earlier', 'The Turning Point', 'Back In Miami'. NEVER the word Chapter. Give each start time (seconds, ORIGINAL timeline).\n" +
+        "- ALSO identify 2-4 B-ROLL moments: points where the speaker references something visual (a place, an object, a scene, a memory) and a full-screen cinematic photograph should cut in over their voice. For each give: s (seconds, ORIGINAL timeline, at the moment the thing is mentioned) and prompt (a vivid photography brief for that image — subject, setting, lighting, mood, shot in a warm cinematic film style; absolutely no text or words in the image).\n";
+    const cutRules = style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
          "- IMPORTANT: in a vlog, silence is NOT automatically dead air — quiet gaps under ~4 seconds are usually the person showing something, walking, or letting a moment breathe. KEEP those (extend the surrounding kept segment across them) unless they clearly drag.\n" +
          "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), and only truly long dead air (over ~4-5s of nothing).\n" +
@@ -79,7 +88,9 @@ export default async function handler(req, res) {
       "- exposure: is it dark, balanced, or bright?\n" +
       "(The render will adapt the cinematic grade to this so the look is applied correctly instead of blindly.)\n\n" +
       "Respond with ONLY this JSON, nothing else:\n" +
-      (style !== "talkinghead"
+      (style === "cinematic"
+        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
+        : style !== "talkinghead"
         ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : '{"keep":[{"s":number,"e":number}],"title":"string","look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
       "TRANSCRIPT:\n" + lines;
@@ -120,7 +131,7 @@ export default async function handler(req, res) {
       .map(k => ({ s: Math.max(0, Number(k.s) || 0), e: Math.min(duration || 1e9, Number(k.e) || 0) }))
       .filter(k => k.e - k.s >= 0.8)
       .sort((a, b) => a.s - b.s);
-    const mergeGap = style === "vlog" ? 4.0 : style === "tutorial" ? 1.0 : 0.5; // vlogs bridge visual moments; tutorials breathe
+    const mergeGap = style === "vlog" ? 4.0 : style === "tutorial" ? 1.0 : style === "cinematic" ? 0.4 : 0.5; // vlogs bridge visual moments; tutorials breathe; cinematic cuts hard
     const merged = [];
     for (const k of keep) {
       const last = merged[merged.length - 1];
@@ -149,7 +160,17 @@ export default async function handler(req, res) {
         .slice(0, 6);
     }
 
-    return res.status(200).json({ keep: merged, title, chapters, look, outSeconds });
+    // Sanitize b-roll (cinematic only): valid times, real prompts, max 4.
+    let broll = [];
+    if (style === "cinematic" && Array.isArray(plan.broll)) {
+      broll = plan.broll
+        .map(b => ({ s: Math.max(0, Number(b.s) || 0), prompt: String(b.prompt || "").trim().slice(0, 300) }))
+        .filter(b => b.prompt && b.s < (duration || 1e9))
+        .sort((a, b) => a.s - b.s)
+        .slice(0, 4);
+    }
+
+    return res.status(200).json({ keep: merged, title, chapters, broll, look, outSeconds });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
