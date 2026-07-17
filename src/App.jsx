@@ -946,6 +946,22 @@ async function studioShorts(url, words, duration, frame, grade){
     return await res.json(); // { ids, hooks, balance } or { error }
   } catch { return { error: "Couldn't reach the clip maker." }; }
 }
+// Large-footage optimize: Creatomate pulls the giant source once and outputs a
+// lean 1080p working copy (audio intact) the whole pipeline uses instead.
+const PROXY_THRESHOLD_MB = 300;
+async function studioProxy(url, orientation, rawDuration){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-proxy", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, orientation, rawDuration }) });
+    return await res.json(); // { id:"cm:...", balance, charged } or { error }
+  } catch { return { error: "Couldn't reach the optimizer." }; }
+}
+async function studioProxyDelete(id){
+  try{
+    const token = await freshToken();
+    await fetch("/api/studio-proxy", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ action:"delete", id }) });
+  } catch {}
+}
 
 // ElevenLabs voiceover generation
 async function generateVoiceover(text, voiceId="JBFqnCBsd6RMkjVDRZzb") {
@@ -3703,17 +3719,29 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const path = ((user&&user.id)||"anon") + "/clips-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
       up = await uploadVideoInput(videoFile, path, (st,msg)=>{ if(msg) setShStage(msg); });
       if(!up || !up.ok){ setShErr((up&&up.error)||"Couldn't upload that video."); setShBusy(false); setShStage(""); return; }
+      let sourceUrl = up.url, proxyId = null;
+      if(videoFile.size > PROXY_THRESHOLD_MB * 1024 * 1024){
+        setShStage("Optimizing your footage — large files take a few minutes. Keep this tab open.");
+        const pr = await studioProxy(up.url, "portrait", videoDur);
+        if(!pr || !pr.id){ setShErr((pr&&pr.error)||"Couldn't optimize that footage."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
+        if(typeof pr.balance==="number") onBalance(pr.balance);
+        const proxied = await pollVideo(pr.id);
+        if(!proxied){ setShErr("Optimizing didn't finish — your credits were refunded. Please try again."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
+        sourceUrl = proxied; proxyId = pr.id;
+        await deleteSiteObject(up.path);
+      }
       setShStage("Listening to your video…");
-      const tr = await studioTranscribe(up.url);
+      const tr = await studioTranscribe(sourceUrl);
       if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setShErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
       setShStage("Finding your most viral moments…");
       const frame = await captureVideoFrame(videoPreview, Math.min(2, Math.max(0.5,(videoDur||4)/2)));
-      const d = await studioShorts(up.url, tr.words, tr.duration, frame, grade);
+      const d = await studioShorts(sourceUrl, tr.words, tr.duration, frame, grade);
       if(!d || d.error || !Array.isArray(d.ids) || !d.ids.length){ setShErr((d&&d.error)||"Couldn't make clips from that footage."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
       if(typeof d.balance==="number") onBalance(d.balance);
       setShStage("Rendering "+d.ids.length+" clip"+(d.ids.length>1?"s":"")+" — hooks, captions and grade. A few minutes. Keep this tab open.");
       const outs = await Promise.all(d.ids.map(id=>pollVideo(id)));
       await deleteSiteObject(up.path);
+      if(proxyId) studioProxyDelete(proxyId);
       const done = outs.map((u,i)=>u?{url:u, hook:(d.hooks&&d.hooks[i])||""}:null).filter(Boolean);
       if(!done.length){ setShErr("The clips didn't finish. Credits for failed clips are refunded automatically."); setShBusy(false); setShStage(""); return; }
       setShClips(done);
@@ -3736,8 +3764,22 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       up = await uploadVideoInput(videoFile, path, (stage,msg)=>{ if(msg) setStage(msg); });
       if(!up || !up.ok){ setErr((up&&up.error)||"Couldn't upload that video."); setBusy(false); setStage(""); return; }
 
+      // Big camera files get optimized into a lean 1080p working copy first
+      // (audio intact) so the whole pipeline runs fast off the lean copy.
+      let sourceUrl = up.url, proxyId = null;
+      if(videoFile.size > PROXY_THRESHOLD_MB * 1024 * 1024){
+        setStage("Optimizing your footage for editing — large files take a few minutes. Keep this tab open.");
+        const pr = await studioProxy(up.url, orient, videoDur);
+        if(!pr || !pr.id){ setErr((pr&&pr.error)||"Couldn't optimize that footage."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+        if(typeof pr.balance==="number") onBalance(pr.balance);
+        const proxied = await pollVideo(pr.id);
+        if(!proxied){ setErr("Optimizing didn't finish — your credits were refunded. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+        sourceUrl = proxied; proxyId = pr.id;
+        await deleteSiteObject(up.path); // the giant original is no longer needed
+      }
+
       setStage("Listening to your video…");
-      const tr = await studioTranscribe(up.url);
+      const tr = await studioTranscribe(sourceUrl);
       if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
 
       setStage("Planning the edit — finding the ums, dead air and best takes…");
@@ -3747,7 +3789,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setOutTitle(plan.title||"");
 
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
-      const started = await studioRender(up.url, plan.keep, plan.title||"", grade, orient, tr.duration, plan.look||null, style, plan.chapters||[], music, plan.broll||[]);
+      const started = await studioRender(sourceUrl, plan.keep, plan.title||"", grade, orient, tr.duration, plan.look||null, style, plan.chapters||[], music, plan.broll||[]);
       if(!started || !started.id){ setErr((started&&started.error)||"Couldn't start the render. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
 
@@ -3756,7 +3798,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       let clipIds=[], clipHooks=[];
       if(alsoShorts){
         setStage("Also finding your viral clips…");
-        const sh = await studioShorts(up.url, tr.words, tr.duration, frame, grade);
+        const sh = await studioShorts(sourceUrl, tr.words, tr.duration, frame, grade);
         if(sh && Array.isArray(sh.ids) && sh.ids.length){ clipIds=sh.ids; clipHooks=sh.hooks||[]; if(typeof sh.balance==="number") onBalance(sh.balance); }
         else if(sh && sh.error){ setErr("Heads up — the clips part didn't start ("+sh.error+"), but your main edit is still rendering."); }
       }
@@ -3764,7 +3806,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setStage(clipIds.length ? "Rendering your video + "+clipIds.length+" clips. A few minutes — keep this tab open." : "Rendering your video — a few minutes. Keep this tab open.");
       const results = await Promise.all([pollVideo(started.id), ...clipIds.map(id=>pollVideo(id))]);
       const out = results[0];
-      await deleteSiteObject(up.path); // input has done its job — auto-cleanup
+      await deleteSiteObject(up.path); // input has done its job — auto-cleanup (harmless if already gone)
+      if(proxyId) studioProxyDelete(proxyId); // remove the lean working copy from render storage
       if(started.musicPath) await deleteSiteObject(started.musicPath);
       if(Array.isArray(started.brollPaths)&&started.brollPaths.length) await Promise.all(started.brollPaths.map(p2=>deleteSiteObject(p2)));
       const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
@@ -6067,6 +6110,7 @@ const CREDIT_COSTS = {
   editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
   musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
   editorCinematic: 4000, // AI Video Editor — Cinematic style (kinetic cut + scene cards + AI b-roll stills)
+  editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
