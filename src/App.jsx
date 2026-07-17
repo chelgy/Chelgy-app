@@ -890,10 +890,10 @@ async function studioPlan(words, duration, frame, style){
     return await res.json(); // { keep, title, look, outSeconds } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
-async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music){
+async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music, broll){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-render", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, keep, title, grade, orientation, rawDuration, look: look||null, style: style||"talkinghead", chapters: chapters||[], music: music||"off" }) });
+    const res = await fetch("/api/studio-render", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, keep, title, grade, orientation, rawDuration, look: look||null, style: style||"talkinghead", chapters: chapters||[], music: music||"off", broll: broll||[] }) });
     return await res.json(); // { id:"cm:...", balance } or { error }
   } catch { return { error: "Couldn't reach the render service." }; }
 }
@@ -3609,12 +3609,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [url,setUrl]               = useState("");
   const [outTitle,setOutTitle]     = useState("");
 
-  const COST = CREDIT_COSTS.editorQuick;
+  const COST = style==="cinematic" ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
     { id:"tutorial",    label:"Tutorial",     note:"Sit-down teaching. The AI finds your sections and inserts luxury chapter cards between them, with callout-style captions.", ready:true },
-    { id:"cinematic",   label:"Cinematic",    note:"Scorsese-style storytelling with AI b-roll.", ready:false },
+    { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts, scene cards, and AI-generated cinematic b-roll that cuts in when you reference something. Wolf 2383 by default.", ready:true },
   ];
   const GRADES = [
     { id:"wolf",   label:"Wolf 2383",   note:"Warm golden Hollywood-film look — glossy and rich." },
@@ -3712,7 +3712,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setOutTitle(plan.title||"");
 
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
-      const started = await studioRender(up.url, plan.keep, plan.title||"", grade, orient, tr.duration, plan.look||null, style, plan.chapters||[], music);
+      const started = await studioRender(up.url, plan.keep, plan.title||"", grade, orient, tr.duration, plan.look||null, style, plan.chapters||[], music, plan.broll||[]);
       if(!started || !started.id){ setErr((started&&started.error)||"Couldn't start the render. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
 
@@ -3731,6 +3731,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const out = results[0];
       await deleteSiteObject(up.path); // input has done its job — auto-cleanup
       if(started.musicPath) await deleteSiteObject(started.musicPath);
+      if(Array.isArray(started.brollPaths)&&started.brollPaths.length) await Promise.all(started.brollPaths.map(p2=>deleteSiteObject(p2)));
       const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
       if(doneClips.length) setShClips(doneClips);
       if(!out){ setErr("The render didn't finish. Your credits were refunded."+(doneClips.length?" (Your clips made it, below.)":"")); if(typeof started.balance==="number") onBalance(started.balance + (started.charged||COST)); setBusy(false); setStage(""); return; }
@@ -6030,6 +6031,7 @@ const CREDIT_COSTS = {
   editorScript: 100,    // AI Video Editor — write-my-script-first (one LLM call)
   editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
   musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
+  editorCinematic: 4000, // AI Video Editor — Cinematic style (kinetic cut + scene cards + AI b-roll stills)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)
