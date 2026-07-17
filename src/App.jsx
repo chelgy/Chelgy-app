@@ -748,70 +748,33 @@ async function pollVideo(taskId) {
 // Upload a source clip straight from the browser to Supabase Storage (NOT through
 // /api — that would hit Vercel's ~4.5MB body cap). Returns a public URL + the
 // storage path, so we can delete the input the moment the edit finishes.
-// Compress a video file in the browser before uploading (reduces a multi-GB
-// camera file to a manageable 1080p H.264 stream the user's device generates).
-// Falls back to the original file if the browser doesn't support encoding.
-async function compressVideoForUpload(file, onProgress){
-  const MAX_DIRECT = 80 * 1024 * 1024; // 80MB — upload as-is, no compression needed
-  if(file.size <= MAX_DIRECT) return file;
-  // Use the browser's native VideoEncoder API where available (Chrome/Edge/Safari 17+)
-  if(typeof VideoEncoder === "undefined" || typeof VideoDecoder === "undefined"){
-    if(onProgress) onProgress("compressing", "Preparing your video…");
-    return file; // fallback — try the original; Supabase limit raised so it may work
-  }
-  try{
-    if(onProgress) onProgress("compressing", "Compressing your video for upload (this takes a moment)…");
-    // MediaRecorder transcode path — more broadly supported than VideoEncoder
-    const url = URL.createObjectURL(file);
-    const video = document.createElement("video");
-    video.src = url; video.muted = true; video.playsInline = true;
-    await new Promise((res,rej)=>{ video.onloadedmetadata=res; video.onerror=rej; });
-    const canvas = document.createElement("canvas");
-    const scale = Math.min(1, 1080 / Math.max(video.videoWidth||1920, video.videoHeight||1080));
-    canvas.width  = Math.round((video.videoWidth||1920)  * scale / 2) * 2;
-    canvas.height = Math.round((video.videoHeight||1080) * scale / 2) * 2;
-    const ctx = canvas.getContext("2d");
-    const stream = canvas.captureStream(30);
-    const chunks = [];
-    const rec = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8", videoBitsPerSecond: 4_000_000 });
-    rec.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
-    const done = new Promise(res=>{ rec.onstop=res; });
-    rec.start(200);
-    video.playbackRate = 16; // fast-forward the "recording" so it finishes quickly
-    video.play();
-    await new Promise(res=>{ video.onended=res; video.onerror=res; });
-    rec.stop(); await done;
-    URL.revokeObjectURL(url);
-    const blob = new Blob(chunks, { type: "video/webm" });
-    // If compression made it larger (rare), just use the original
-    if(blob.size >= file.size) return file;
-    if(onProgress) onProgress("compressed", null);
-    return new File([blob], file.name.replace(/\.[^.]+$/, ".webm"), { type: "video/webm" });
-  }catch(e){
-    return file; // compression failed — upload original
-  }
-}
-
+// Upload the user's original video straight to Supabase — audio and all.
+// (We deliberately do NOT transcode in the browser: canvas/MediaRecorder capture
+// drops the audio track, which breaks transcription, and re-timing the frames
+// would break the cut. The Supabase upload limit is raised to handle real files;
+// if giant camera files ever become a scaling problem, that's a server-side job.)
 async function uploadVideoInput(file, path, onStatus){
   try{
     const token = await freshToken();
     if(!token) return { ok:false, error:"Your session expired — please sign in again." };
-    const compressed = await compressVideoForUpload(file, onStatus);
-    const mime = compressed.type || "video/mp4";
-    const uploadPath = path.replace(/\.[^.]+$/, compressed.name && compressed.name.endsWith(".webm") ? ".webm" : path.match(/\.[^.]+$/)?.[0] || ".mp4");
-    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + uploadPath, {
+    if(file.size > 2000 * 1024 * 1024)
+      return { ok:false, error:"That file is over 2GB. Please trim it or export at 1080p from your camera app first." };
+    const bigMb = Math.round(file.size / (1024 * 1024));
+    if(onStatus && bigMb > 150) onStatus("uploading", "Uploading your footage (" + bigMb + "MB) — larger files take a minute or two…");
+    const mime = file.type || "video/mp4";
+    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "x-upsert": "true", "Content-Type": mime },
-      body: compressed
+      body: file
     });
     if(!res.ok){
       const body = await res.json().catch(()=>({}));
       const msg = (body && body.error) || ("Upload failed (" + res.status + ")");
       if(res.status === 413 || (typeof msg === "string" && msg.toLowerCase().includes("size")))
-        return { ok:false, error:"That file is too large to upload directly. Try a shorter clip or export at 1080p from your camera app first." };
+        return { ok:false, error:"That file is too large for the current upload limit. Raise the Supabase Storage limit, or trim the clip." };
       return { ok:false, error: String(msg) };
     }
-    return { ok:true, url: SUPABASE_URL + "/storage/v1/object/public/sites/" + uploadPath, path: uploadPath };
+    return { ok:true, url: SUPABASE_URL + "/storage/v1/object/public/sites/" + path, path };
   }catch(e){
     return { ok:false, error:"Upload failed — check your connection and try again." };
   }
