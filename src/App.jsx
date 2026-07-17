@@ -748,33 +748,105 @@ async function pollVideo(taskId) {
 // Upload a source clip straight from the browser to Supabase Storage (NOT through
 // /api — that would hit Vercel's ~4.5MB body cap). Returns a public URL + the
 // storage path, so we can delete the input the moment the edit finishes.
-// Upload the user's original video straight to Supabase — audio and all.
-// (We deliberately do NOT transcode in the browser: canvas/MediaRecorder capture
-// drops the audio track, which breaks transcription, and re-timing the frames
-// would break the cut. The Supabase upload limit is raised to handle real files;
-// if giant camera files ever become a scaling problem, that's a server-side job.)
+// Upload the user's original video to Supabase — audio and all, at real camera-file sizes.
+// Small files go up in one direct POST. Anything bigger uses Supabase's RESUMABLE
+// upload protocol (TUS): the file is sent in 6MB chunks with live progress, and if
+// the connection hiccups we ask the server where it left off and resume from there
+// instead of starting over. The browser never loads the whole file into memory —
+// it slices chunks off the File on demand, so multi-GB footage is fine.
+const UPLOAD_MAX_GB = 20;                    // guard rail; raise alongside the Supabase limit
+const TUS_CHUNK = 6 * 1024 * 1024;           // Supabase requires exactly 6MB chunks (except the last)
+function b64meta(s){ return btoa(unescape(encodeURIComponent(s))); }
+
 async function uploadVideoInput(file, path, onStatus){
   try{
     const token = await freshToken();
     if(!token) return { ok:false, error:"Your session expired — please sign in again." };
-    if(file.size > 2000 * 1024 * 1024)
-      return { ok:false, error:"That file is over 2GB. Please trim it or export at 1080p from your camera app first." };
-    const bigMb = Math.round(file.size / (1024 * 1024));
-    if(onStatus && bigMb > 150) onStatus("uploading", "Uploading your footage (" + bigMb + "MB) — larger files take a minute or two…");
+    if(file.size > UPLOAD_MAX_GB * 1024 * 1024 * 1024)
+      return { ok:false, error:"That file is over " + UPLOAD_MAX_GB + "GB. Trim the clip or export a smaller version first." };
     const mime = file.type || "video/mp4";
-    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
-      method: "POST",
-      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "x-upsert": "true", "Content-Type": mime },
-      body: file
-    });
-    if(!res.ok){
-      const body = await res.json().catch(()=>({}));
-      const msg = (body && body.error) || ("Upload failed (" + res.status + ")");
-      if(res.status === 413 || (typeof msg === "string" && msg.toLowerCase().includes("size")))
-        return { ok:false, error:"That file is too large for the current upload limit. Raise the Supabase Storage limit, or trim the clip." };
-      return { ok:false, error: String(msg) };
+    const publicUrl = SUPABASE_URL + "/storage/v1/object/public/sites/" + path;
+
+    // ── Small files: one direct POST ──
+    if(file.size <= 20 * 1024 * 1024){
+      const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "x-upsert": "true", "Content-Type": mime },
+        body: file
+      });
+      if(!res.ok){
+        const body = await res.json().catch(()=>({}));
+        return { ok:false, error: String((body && body.error) || ("Upload failed (" + res.status + ")")) };
+      }
+      return { ok:true, url: publicUrl, path };
     }
-    return { ok:true, url: SUPABASE_URL + "/storage/v1/object/public/sites/" + path, path };
+
+    // ── Large files: resumable chunked upload (TUS) ──
+    const authHeaders = { apikey: SUPABASE_KEY, Authorization: "Bearer " + token };
+    const createRes = await fetch(SUPABASE_URL + "/storage/v1/upload/resumable", {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        "tus-resumable": "1.0.0",
+        "upload-length": String(file.size),
+        "x-upsert": "true",
+        "upload-metadata":
+          "bucketName " + b64meta("sites") +
+          ",objectName " + b64meta(path) +
+          ",contentType " + b64meta(mime) +
+          ",cacheControl " + b64meta("3600")
+      }
+    });
+    if(!(createRes.status === 201 || createRes.ok)){
+      const body = await createRes.text().catch(()=> "");
+      if(createRes.status === 413 || /size|exceed/i.test(body))
+        return { ok:false, error:"That file exceeds your storage's upload limit. In Supabase: Project Settings → Storage → raise the upload file size limit." };
+      return { ok:false, error:"Couldn't start the upload (" + createRes.status + "). Check your Supabase Storage upload limit." };
+    }
+    let loc = createRes.headers.get("Location") || createRes.headers.get("location");
+    if(!loc) return { ok:false, error:"Upload service didn't return a session. Please try again." };
+    if(loc.indexOf("http") !== 0) loc = new URL(loc, SUPABASE_URL).toString();
+
+    let offset = 0, retries = 0;
+    const totalMb = Math.round(file.size / (1024*1024));
+    while(offset < file.size){
+      const chunk = file.slice(offset, Math.min(offset + TUS_CHUNK, file.size));
+      let ok = false;
+      try{
+        const patch = await fetch(loc, {
+          method: "PATCH",
+          headers: {
+            ...authHeaders,
+            "tus-resumable": "1.0.0",
+            "upload-offset": String(offset),
+            "Content-Type": "application/offset+octet-stream"
+          },
+          body: chunk
+        });
+        if(patch.ok || patch.status === 204){
+          const newOffset = Number(patch.headers.get("Upload-Offset") || patch.headers.get("upload-offset"));
+          offset = Number.isFinite(newOffset) && newOffset > offset ? newOffset : offset + chunk.size;
+          ok = true; retries = 0;
+          if(onStatus){
+            const pct = Math.min(99, Math.floor((offset / file.size) * 100));
+            onStatus("uploading", "Uploading your footage — " + pct + "% of " + totalMb + "MB…");
+          }
+        }
+      }catch(_){ /* network hiccup — fall through to resume logic */ }
+      if(!ok){
+        retries++;
+        if(retries > 6) return { ok:false, error:"The upload kept failing at " + Math.floor((offset/file.size)*100) + "%. Check your connection and try again — it will not have to start over." };
+        await new Promise(r=>setTimeout(r, Math.min(15000, 1000 * Math.pow(2, retries))));
+        // Ask the server where it actually got to, and resume from there.
+        try{
+          const head = await fetch(loc, { method: "HEAD", headers: { ...authHeaders, "tus-resumable": "1.0.0" } });
+          const srvOffset = Number(head.headers.get("Upload-Offset") || head.headers.get("upload-offset"));
+          if(Number.isFinite(srvOffset) && srvOffset >= 0) offset = srvOffset;
+        }catch(_){ }
+      }
+    }
+    if(onStatus) onStatus("uploaded", "Upload complete — starting the edit…");
+    return { ok:true, url: publicUrl, path };
   }catch(e){
     return { ok:false, error:"Upload failed — check your connection and try again." };
   }
@@ -3435,8 +3507,8 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
     try{
       const ext = ((videoFile.type&&videoFile.type.split("/")[1])||"mp4").split(";")[0];
       const path = ((user&&user.id)||"anon") + "/edit-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
-      up = await uploadVideoInput(videoFile, path);
-      if(!up || !up.ok){ setErr((up&&up.error)||"Couldn't upload that video. Try a shorter clip."); setBusy(false); setStatus(""); return; }
+      up = await uploadVideoInput(videoFile, path, (st,msg)=>{ if(msg) setStatus(msg); });
+      if(!up || !up.ok){ setErr((up&&up.error)||"Couldn't upload that video."); setBusy(false); setStatus(""); return; }
       setStatus("Starting the edit…");
       const started = engine==="omni"
         ? await generateOmniEdit(prompt.trim(), up.url, refs)
@@ -3629,7 +3701,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     try{
       const ext = ((videoFile.type&&videoFile.type.split("/")[1])||"mp4").split(";")[0];
       const path = ((user&&user.id)||"anon") + "/clips-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
-      up = await uploadVideoInput(videoFile, path);
+      up = await uploadVideoInput(videoFile, path, (st,msg)=>{ if(msg) setShStage(msg); });
       if(!up || !up.ok){ setShErr((up&&up.error)||"Couldn't upload that video."); setShBusy(false); setShStage(""); return; }
       setShStage("Listening to your video…");
       const tr = await studioTranscribe(up.url);
