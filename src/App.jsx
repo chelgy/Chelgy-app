@@ -539,7 +539,21 @@ function relTime(iso){
 // ─── Keep the login token fresh (Supabase tokens expire ~hourly) ─────────────
 function decodeExp(token){ try { const p = JSON.parse(atob(token.split(".")[1])); return p.exp ? p.exp * 1000 : 0; } catch { return 0; } }
 function decodeJwtPayload(token){ try { return JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))); } catch { return null; } }
+// Supabase ROTATES refresh tokens: each refresh returns a new one and invalidates
+// the old. Two refreshes racing (multiple tabs, or parallel upload chunks) both
+// send the same old token — the second is rejected and the session dies, which
+// surfaces as a sudden 401 mid-upload. So: only ever one refresh in flight, and
+// everyone else awaits the same result.
+let _refreshInFlight = null;
 async function refreshSession(){
+  if (_refreshInFlight) return await _refreshInFlight;
+  _refreshInFlight = (async () => {
+    try { return await doRefreshSession(); }
+    finally { setTimeout(()=>{ _refreshInFlight = null; }, 0); }
+  })();
+  return await _refreshInFlight;
+}
+async function doRefreshSession(){
   const s = loadSession();
   if (!s || !s.refresh_token) return null;
   try {
@@ -825,6 +839,13 @@ async function uploadVideoInput(file, path, onStatus){
           apikey: SUPABASE_KEY,
           "x-upsert": "true"
         },
+        // Large uploads outlive a single token, so hand every request a fresh one.
+        onBeforeRequest: async (req) => {
+          try {
+            const t = await freshToken();
+            if (t) req.setHeader("authorization", "Bearer " + t);
+          } catch {}
+        },
         uploadDataDuringCreation: true,
         removeFingerprintOnSuccess: true,
         chunkSize: 6 * 1024 * 1024,          // Supabase requires 6MB chunks
@@ -833,6 +854,11 @@ async function uploadVideoInput(file, path, onStatus){
           objectName: path,
           contentType: mime,
           cacheControl: "3600"
+        },
+        onShouldRetry: (err) => {
+          const status = (err && err.originalResponse && err.originalResponse.getStatus && err.originalResponse.getStatus()) || 0;
+          if (status === 401 || status === 403) return true;   // token refreshed on retry
+          return status === 0 || status === 409 || status === 423 || (status >= 500 && status < 600);
         },
         onError: (err)=>{
           const m = String((err && err.message) || err || "");
