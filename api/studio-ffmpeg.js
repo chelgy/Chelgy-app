@@ -105,6 +105,28 @@ export default async function handler(req, res) {
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please log in again." });
 
+    // ── AUDIO: pull just the audio track out of the video for transcription.
+    // Free (it's part of the edit) and it makes transcription independent of how
+    // large the footage is — a 3GB video becomes a ~2MB audio file.
+    if (action === "audio") {
+      const src = body.url;
+      if (!src || !/^https?:\/\//.test(src)) return res.status(400).json({ error: "Missing video URL." });
+      const uploadPath = userId + "/audio-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp3";
+      try {
+        const r = await fetch(RS_URL + "/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
+          body: JSON.stringify({ sourceUrl: src, uploadPath })
+        });
+        const d = await r.json();
+        if (!r.ok || !d || !d.jobId)
+          return res.status(502).json({ error: (d && d.error) || "Couldn't read the audio from that video." });
+        return res.status(200).json({ id: "ff:" + d.jobId });
+      } catch {
+        return res.status(502).json({ error: "Couldn't reach the render engine." });
+      }
+    }
+
     // ── STATUS: poll the render server, refund on failure ──
     if (action === "status") {
       const jid = String(body.id || "").replace(/^ff:/, "").trim();
