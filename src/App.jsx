@@ -724,18 +724,29 @@ async function generateVideo(prompt, image, opts) {
   } catch { return { error: "Couldn't reach the video service." }; }
 }
 
-async function pollVideo(taskId) {
+async function pollVideo(taskId, onProgress) {
   const tid = String(taskId||"");
-  const endpoint = tid.indexOf("omni:")===0 ? "/api/omni-result" : tid.indexOf("cm:")===0 ? "/api/studio-status" : "/api/video-result";
-  for (let i = 0; i < 240; i++) {            // up to ~12 min — 4K Max multi-shot can be slow
+  const isFf = tid.indexOf("ff:")===0;                     // our own ffmpeg render engine
+  const endpoint = isFf ? "/api/studio-ffmpeg"
+    : tid.indexOf("omni:")===0 ? "/api/omni-result"
+    : tid.indexOf("cm:")===0 ? "/api/studio-status"
+    : "/api/video-result";
+  for (let i = 0; i < 300; i++) {            // up to ~15 min
     await new Promise(r => setTimeout(r, 3000));
     try {
+      const token = isFf ? await freshToken() : null;
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: taskId })
+        headers: { "Content-Type": "application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+        body: JSON.stringify(isFf ? { action:"status", id: taskId } : { id: taskId })
       });
       const data = await res.json();
+      if (isFf){
+        if (typeof data.progress === "number" && onProgress) onProgress(data.progress, data.status);
+        if (data.status === "done" && data.url) return data.url;
+        if (data.status === "error") return null;
+        continue;
+      }
       if (data.output) return data.output;                 // finished — we have the video
       if (data.status === "completed") return data.output || null;
       if (data.status === "failed") return null;
@@ -925,6 +936,20 @@ async function studioPlan(words, duration, frame, style){
     return await res.json(); // { keep, title, look, outSeconds } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
+// Our own render engine (Render.com + ffmpeg + real 3D LUTs). Applies the real
+// camera-log conversion and film-print LUT chain that a template service can't.
+async function studioFfmpeg(url, keep, title, orientation, rawDuration, style, footage, look, words){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-ffmpeg", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+      body: JSON.stringify({ action:"start", url, keep, title, orientation, rawDuration, style, footage, look, words })
+    });
+    return await res.json(); // { id:"ff:...", balance, charged } or { error }
+  } catch { return { error: "Couldn't reach the render engine." }; }
+}
+
 async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music, broll){
   try{
     const token = await freshToken();
@@ -3649,6 +3674,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [music,setMusic]           = useState("off");  // "off" | "eleven" (more engines coming)
   const [alsoShorts,setAlsoShorts] = useState(false);  // edit mode: also cut viral clips in the same run
   const [grade,setGrade]           = useState("wolf");    // "wolf" | "luxury"
+  const [footage,setFootage]       = useState("sony");   // "sony" | "canon" | "standard" | "none"
   const [orient,setOrient]         = useState("portrait");
   const [videoFile,setVideoFile]   = useState(null);
   const [videoPreview,setVideoPreview] = useState("");
@@ -3670,6 +3696,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const GRADES = [
     { id:"wolf",   label:"Wolf 2383",   note:"Warm golden Hollywood-film look — glossy and rich." },
     { id:"luxury", label:"Luxury Vlog", note:"Bright, creamy and airy — the clean luxury look." },
+  ];
+  // What the footage was shot on — decides which colour-space conversion runs
+  // before the film look. Log footage MUST be converted or the grade is wrong.
+  const FOOTAGE_TYPES = [
+    { id:"sony",     label:"Sony (S-Log3)",   note:"Shot flat in S-Log3 on a Sony body (a7S III, FX3, etc). We convert it properly, then apply the film look." },
+    { id:"canon",    label:"Canon (C-Log)",   note:"Shot flat in C-Log2 or C-Log3 on a Canon body (R5 II, R6, C70). We convert it properly, then apply the film look." },
+    { id:"standard", label:"Standard",        note:"Shot in a normal picture profile (phone, or camera not set to log). The film look is applied directly." },
+    { id:"none",     label:"No colour",       note:"Leave my colour exactly as I shot it — just cut, caption and title." },
   ];
 
   function pickVideo(e){
@@ -3789,7 +3823,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setOutTitle(plan.title||"");
 
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
-      const started = await studioRender(sourceUrl, plan.keep, plan.title||"", grade, orient, tr.duration, plan.look||null, style, plan.chapters||[], music, plan.broll||[]);
+      // Our own engine: real camera-log conversion + film-print LUT, cuts and captions.
+      const started = await studioFfmpeg(sourceUrl, plan.keep, plan.title||"", orient, tr.duration, style, footage, grade, tr.words);
       if(!started || !started.id){ setErr((started&&started.error)||"Couldn't start the render. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
       if(typeof started.balance==="number") onBalance(started.balance);
 
@@ -3804,7 +3839,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       }
 
       setStage(clipIds.length ? "Rendering your video + "+clipIds.length+" clips. A few minutes — keep this tab open." : "Rendering your video — a few minutes. Keep this tab open.");
-      const results = await Promise.all([pollVideo(started.id), ...clipIds.map(id=>pollVideo(id))]);
+      const results = await Promise.all([
+        pollVideo(started.id, (pct,st)=>{
+          const label = st==="downloading" ? "Fetching your footage" : st==="uploading" ? "Finishing up" : "Rendering your video";
+          setStage(label + " — " + pct + "%. Keep this tab open.");
+        }),
+        ...clipIds.map(id=>pollVideo(id))
+      ]);
       const out = results[0];
       await deleteSiteObject(up.path); // input has done its job — auto-cleanup (harmless if already gone)
       if(proxyId) studioProxyDelete(proxyId); // remove the lean working copy from render storage
@@ -3843,6 +3884,15 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       {mode==="edit" && (<>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>What did you shoot on?</p>
+      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+        {FOOTAGE_TYPES.map(f=>(
+          <button key={f.id} onClick={()=>setFootage(f.id)} title={f.note} style={{padding:"9px 16px",border:"1px solid "+(footage===f.id?B.charcoal:B.stone),background:footage===f.id?B.charcoal:"#fff",color:footage===f.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{f.label}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>{FOOTAGE_TYPES.find(f=>f.id===footage).note}</p>
+
+      {footage!=="none" && (<>
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {GRADES.map(g=>(
@@ -3850,6 +3900,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ))}
       </div>
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"-8px 0 16px"}}>{GRADES.find(g=>g.id===grade).note}</p>
+      </>)}
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
