@@ -940,6 +940,20 @@ async function studioPlan(words, duration, frame, style){
 }
 // Our own render engine (Render.com + ffmpeg + real 3D LUTs). Applies the real
 // camera-log conversion and film-print LUT chain that a template service can't.
+// Pull just the audio out of the uploaded video (on our own render server) so
+// transcription works regardless of how large the footage is.
+async function studioAudio(url){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-ffmpeg", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+      body: JSON.stringify({ action:"audio", url })
+    });
+    return await res.json(); // { id:"ff:..." } or { error }
+  } catch { return { error: "Couldn't reach the render engine." }; }
+}
+
 async function studioFfmpeg(url, keep, title, orientation, rawDuration, style, footage, look, words){
   try{
     const token = await freshToken();
@@ -3814,8 +3828,20 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         await deleteSiteObject(up.path); // the giant original is no longer needed
       }
 
+      setStage("Reading the audio from your video…");
+      let listenUrl = sourceUrl, audioPath = null;
+      const au = await studioAudio(sourceUrl);
+      if(au && au.id){
+        const audioUrl = await pollVideo(au.id, (pct)=>setStage("Reading the audio from your video — " + pct + "%…"));
+        if(audioUrl){
+          listenUrl = audioUrl;
+          try{ audioPath = decodeURIComponent(audioUrl.split("/sites/")[1]||""); }catch{}
+        }
+      }
+      // If extraction failed we still try the video directly — better than stopping.
       setStage("Listening to your video…");
-      const tr = await studioTranscribe(sourceUrl);
+      const tr = await studioTranscribe(listenUrl);
+      if(audioPath) deleteSiteObject(audioPath);
       if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
 
       setStage("Planning the edit — finding the ums, dead air and best takes…");
