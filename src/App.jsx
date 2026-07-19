@@ -975,7 +975,7 @@ async function studioShorts(url, words, duration, frame, grade){
 }
 // Large-footage optimize: Creatomate pulls the giant source once and outputs a
 // lean 1080p working copy (audio intact) the whole pipeline uses instead.
-const PROXY_THRESHOLD_MB = 300;
+const PROXY_THRESHOLD_MB = 999999;   // disabled — our own render engine handles large files directly
 async function studioProxy(url, orientation, rawDuration){
   try{
     const token = await freshToken();
