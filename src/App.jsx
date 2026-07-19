@@ -835,16 +835,20 @@ async function uploadVideoInput(file, path, onStatus){
         endpoint: SUPABASE_URL + "/storage/v1/upload/resumable",
         retryDelays: [0, 3000, 5000, 10000, 20000, 30000],
         headers: {
-          authorization: "Bearer " + token,
           apikey: SUPABASE_KEY,
           "x-upsert": "true"
         },
-        // Large uploads outlive a single token, so hand every request a fresh one.
+        // Authorization is set ONLY here — setting it in `headers` too would make
+        // XHR append a second value ("Bearer x, Bearer x") and Supabase would
+        // reject it as an invalid JWT. This also keeps the token fresh per request,
+        // which matters on uploads that run longer than a token's lifetime.
         onBeforeRequest: async (req) => {
           try {
-            const t = await freshToken();
+            const t = (await freshToken()) || token;
             if (t) req.setHeader("authorization", "Bearer " + t);
-          } catch {}
+          } catch {
+            if (token) req.setHeader("authorization", "Bearer " + token);
+          }
         },
         uploadDataDuringCreation: true,
         removeFingerprintOnSuccess: true,
