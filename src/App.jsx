@@ -747,8 +747,15 @@ async function pollVideo(taskId, onProgress) {
     : tid.indexOf("omni:")===0 ? "/api/omni-result"
     : tid.indexOf("cm:")===0 ? "/api/studio-status"
     : "/api/video-result";
-  for (let i = 0; i < 300; i++) {            // up to ~15 min
-    await new Promise(r => setTimeout(r, 3000));
+  // Long edits genuinely take a while: fetching a multi-GB source, cutting dozens
+  // of segments, then a full encode and upload. The old 15-minute ceiling made the
+  // browser declare failure (and refund) while the render server was still working
+  // — the job often finished fine and nobody ever saw it.
+  const maxMs = isFf ? 90 * 60 * 1000 : 15 * 60 * 1000;
+  const startedAt = Date.now();
+  for (let i = 0; Date.now() - startedAt < maxMs; i++) {
+    // Poll briskly at first, then ease off so a long render isn't hammering the API.
+    await new Promise(r => setTimeout(r, i < 40 ? 3000 : i < 120 ? 6000 : 10000));
     try {
       const token = isFf ? await freshToken() : null;
       const res = await fetch(endpoint, {
@@ -768,6 +775,7 @@ async function pollVideo(taskId, onProgress) {
       if (data.status === "failed") return null;
     } catch {}
   }
+  if (isFf) lastFfError = "This edit is taking longer than usual and is still rendering on our side. Check your library in a few minutes — if it completed, it'll be there.";
   return null;
 }
 
@@ -3868,17 +3876,23 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         await deleteSiteObject(up.path); // the giant original is no longer needed
       }
 
-      setStage("Reading the audio from your video…");
+      // Only pull the audio out when the video is big enough for it to pay off.
+      // Transcription services choke on very large files, but for a small clip the
+      // extra ffmpeg pass + upload + download is pure added wait — so skip it.
       let listenUrl = sourceUrl, audioPath = null;
-      const au = await studioAudio(sourceUrl);
-      if(au && au.id){
-        const audioUrl = await pollVideo(au.id, (pct)=>setStage("Reading the audio from your video — " + pct + "%…"));
-        if(audioUrl){
-          listenUrl = audioUrl;
-          try{ audioPath = decodeURIComponent(audioUrl.split("/sites/")[1]||""); }catch{}
+      const bigEnoughForAudioPass = (videoFile && videoFile.size || 0) > 200 * 1024 * 1024;
+      if(bigEnoughForAudioPass){
+        setStage("Reading the audio from your video…");
+        const au = await studioAudio(sourceUrl);
+        if(au && au.id){
+          const audioUrl = await pollVideo(au.id, (pct)=>setStage("Reading the audio from your video — " + pct + "%…"));
+          if(audioUrl){
+            listenUrl = audioUrl;
+            try{ audioPath = decodeURIComponent(audioUrl.split("/sites/")[1]||""); }catch{}
+          }
         }
+        // If extraction failed we still try the video directly — better than stopping.
       }
-      // If extraction failed we still try the video directly — better than stopping.
       setStage("Listening to your video…");
       const tr = await studioTranscribe(listenUrl);
       if(audioPath) deleteSiteObject(audioPath);
