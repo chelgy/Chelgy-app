@@ -724,8 +724,10 @@ async function generateVideo(prompt, image, opts) {
   } catch { return { error: "Couldn't reach the video service." }; }
 }
 
+let lastFfError = "";        // real error from the render engine, surfaced to the user
 async function pollVideo(taskId, onProgress) {
   const tid = String(taskId||"");
+  lastFfError = "";
   const isFf = tid.indexOf("ff:")===0;                     // our own ffmpeg render engine
   const endpoint = isFf ? "/api/studio-ffmpeg"
     : tid.indexOf("omni:")===0 ? "/api/omni-result"
@@ -744,7 +746,7 @@ async function pollVideo(taskId, onProgress) {
       if (isFf){
         if (typeof data.progress === "number" && onProgress) onProgress(data.progress, data.status);
         if (data.status === "done" && data.url) return data.url;
-        if (data.status === "error") return null;
+        if (data.status === "error") { lastFfError = data.error || ""; return null; }
         continue;
       }
       if (data.output) return data.output;                 // finished — we have the video
@@ -3853,7 +3855,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       if(Array.isArray(started.brollPaths)&&started.brollPaths.length) await Promise.all(started.brollPaths.map(p2=>deleteSiteObject(p2)));
       const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
       if(doneClips.length) setShClips(doneClips);
-      if(!out){ setErr("The render didn't finish. Your credits were refunded."+(doneClips.length?" (Your clips made it, below.)":"")); if(typeof started.balance==="number") onBalance(started.balance + (started.charged||COST)); setBusy(false); setStage(""); return; }
+      if(!out){ setErr((lastFfError ? lastFfError.replace(/\s*Your credits were refunded\.?$/i,"") + " " : "The render didn't finish. ") + "Your credits were refunded."+(doneClips.length?" (Your clips made it, below.)":"")); if(typeof started.balance==="number") onBalance(started.balance + (started.charged||COST)); setBusy(false); setStage(""); return; }
       setUrl(out);
       track("tool_used",{tool:"video_editor",style,grade,clips:doneClips.length}); onToolUse("video_editor", COST);
     }catch(e){ if(up&&up.path) await deleteSiteObject(up.path); setErr((e&&e.message)||"Something went wrong."); }
