@@ -861,13 +861,23 @@ async function uploadVideoInput(file, path, onStatus){
           return status === 0 || status === 409 || status === 423 || (status >= 500 && status < 600);
         },
         onError: (err)=>{
+          // Surface what the storage service ACTUALLY said. A friendly-but-vague
+          // summary hides the real cause and makes these impossible to diagnose.
           const m = String((err && err.message) || err || "");
-          if(/413|exceeded|maximum allowed size|too large/i.test(m))
-            resolve({ ok:false, error:"That file exceeds your Supabase Storage limit. In Supabase: Storage → Settings → raise the Global file size limit, and check the sites bucket limit." });
-          else if(/401|403|jwt|unauthorized/i.test(m))
-            resolve({ ok:false, error:"Upload was rejected (auth). Please sign out and back in, then retry." });
+          let status = 0, bodyText = "";
+          try {
+            const r = err && err.originalResponse;
+            if (r){
+              if (r.getStatus) status = r.getStatus();
+              if (r.getBody) bodyText = String(r.getBody() || "").slice(0, 300);
+            }
+          } catch {}
+          console.error("[upload] tus error", { status, bodyText, message: m });
+          const detail = (status ? ("HTTP " + status + " ") : "") + (bodyText || m).slice(0, 220);
+          if(/413|exceeded|maximum allowed size|too large/i.test(m + bodyText))
+            resolve({ ok:false, error:"That file exceeds your Supabase Storage limit. In Supabase: Storage → Settings → raise the Global file size limit. (" + detail + ")" });
           else
-            resolve({ ok:false, error:"Upload failed — check your connection and try again. It won't have to start over." });
+            resolve({ ok:false, error:"Upload failed. " + detail });
         },
         onProgress: (uploaded, total)=>{
           if(onStatus){
