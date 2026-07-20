@@ -4446,7 +4446,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       {canTransition && (
-        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.line,borderRadius:8}}>
+        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
           <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
             <input type="checkbox" checked={useTransitions} disabled={busy}
               onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:3}} />
