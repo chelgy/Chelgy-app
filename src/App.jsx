@@ -1002,13 +1002,78 @@ async function studioAudio(url){
   } catch { return { error: "Couldn't reach the render engine." }; }
 }
 
-async function studioFfmpeg(url, keep, title, orientation, rawDuration, style, footage, look, words){
+// ─── Multi-clip timeline maths ───────────────────────────────────────────────
+// A real vlog is ten or twenty separate files, not one. Two timelines exist and
+// keeping them straight is the whole game:
+//
+//   GLOBAL  — every clip laid end to end. The edit planner sees this, because it
+//             needs to read the day as one story to decide what to cut.
+//   LOCAL   — seconds inside one clip. ffmpeg seeks inside one file at a time, so
+//             the render server only ever speaks local.
+//
+// Everything converts at these three functions and nowhere else. The moment
+// offset maths gets sprinkled through the pipeline, captions drift by seconds and
+// there's no way to tell which side is wrong.
+
+// Where each clip starts and ends on the global timeline.
+function clipOffsets(clips){
+  let t = 0;
+  return clips.map(c => { const o = { start: t, end: t + (Number(c.dur)||0) }; t = o.end; return o; });
+}
+
+// Per-clip word lists → one global transcript for the planner.
+function mergeClipWords(perClipWords, offsets){
+  const out = [];
+  perClipWords.forEach((ws, ci) => {
+    const off = (offsets[ci] && offsets[ci].start) || 0;
+    (ws||[]).forEach(w => out.push({
+      w: w.w,
+      s: Math.round((Number(w.s)+off) * 100) / 100,
+      e: Math.round((Number(w.e)+off) * 100) / 100
+    }));
+  });
+  return out.sort((a,b) => a.s - b.s);
+}
+
+// Planner's global keep-list → clip-local segments the render server can cut.
+// A keep segment CAN straddle a clip boundary (the vlog planner merges across
+// gaps up to 4s), so each one is sliced at every boundary it crosses. That split
+// is real — it's a genuine cut between two files — and the render server treats
+// it as one, which is exactly what we want for captions and, later, transitions.
+function splitKeepIntoClips(keep, offsets){
+  const segs = [];
+  for(const k of (keep||[])){
+    const s = Math.max(0, Number(k.s)||0);
+    const e = Number(k.e)||0;
+    if(!(e > s)) continue;
+    for(let ci = 0; ci < offsets.length; ci++){
+      const o = offsets[ci];
+      const a = Math.max(s, o.start), b = Math.min(e, o.end);
+      if(b - a <= 0.15) continue;                 // ignore slivers at a boundary
+      segs.push({
+        clip: ci,
+        s: Math.round((a - o.start) * 1000) / 1000,
+        e: Math.round((b - o.start) * 1000) / 1000
+      });
+    }
+  }
+  return segs;
+}
+
+// `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
+// `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
+// two different cameras still converts each one correctly.
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage){
   try{
     const token = await freshToken();
+    const list = Array.isArray(urls) ? urls : [urls];
     const res = await fetch("/api/studio-ffmpeg", {
       method:"POST",
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
-      body: JSON.stringify({ action:"start", url, keep, title, orientation, rawDuration, style, footage, look, words })
+      body: JSON.stringify({
+        action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
+        style, footage, look, words, clipFootage: clipFootage || []
+      })
     });
     return await res.json(); // { id:"ff:...", balance, charged } or { error }
   } catch { return { error: "Couldn't reach the render engine." }; }
@@ -3743,6 +3808,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [videoFile,setVideoFile]   = useState(null);
   const [videoPreview,setVideoPreview] = useState("");
   const [videoDur,setVideoDur]     = useState(0);
+  // Edit mode is multi-clip: a vlogger picks the camera up and puts it down all
+  // day, so a day of footage is ten or twenty files. Each entry is
+  // { id, file, name, size, dur, preview, footage }. Viral-clips mode is still
+  // single-file and keeps using videoFile above.
+  const [clips,setClips]           = useState([]);
+  const [clipsBusy,setClipsBusy]   = useState(false);   // reading durations off disk
   const [rights,setRights]         = useState(false);
   const [busy,setBusy]             = useState(false);
   const [stage,setStage]           = useState("");
@@ -3750,7 +3821,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [url,setUrl]               = useState("");
   const [outTitle,setOutTitle]     = useState("");
 
-  const COST = style==="cinematic" ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
+  // Each extra clip is its own audio extraction, its own transcription and its
+  // own set of cuts on the render box, so the cost scales past the first one.
+  const totalDur = clips.reduce((a,c)=>a+(Number(c.dur)||0), 0);
+  const BASE_COST = style==="cinematic" ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
+  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
@@ -3761,13 +3836,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"wolf",   label:"Wolf 2383",   note:"Warm golden Hollywood-film look — glossy and rich." },
     { id:"luxury", label:"Luxury Vlog", note:"Bright, creamy and airy — the clean luxury look." },
   ];
-  // What the footage was shot on — decides which colour-space conversion runs
+  // What the footage was SHOT IN — decides which colour-space conversion runs
   // before the film look. Log footage MUST be converted or the grade is wrong.
+  //
+  // These are deliberately labelled by picture profile, not by brand. A Sony
+  // owner shooting a normal profile will pick anything that says "Sony" simply
+  // because that's their camera — and get double-converted, wrecked footage.
   const FOOTAGE_TYPES = [
-    { id:"sony",     label:"Sony (S-Log3)",   note:"Shot flat in S-Log3 on a Sony body (a7S III, FX3, etc). We convert it properly, then apply the film look." },
-    { id:"canon",    label:"Canon (C-Log)",   note:"Shot flat in C-Log2 or C-Log3 on a Canon body (R5 II, R6, C70). We convert it properly, then apply the film look." },
-    { id:"standard", label:"Standard",        note:"Shot in a normal picture profile (phone, or camera not set to log). The film look is applied directly." },
-    { id:"none",     label:"No colour",       note:"Leave my colour exactly as I shot it — just cut, caption and title." },
+    { id:"sony",     label:"Shot flat — Sony S-Log3",  note:"Your footage looks washed out and grey straight off the card, and your Sony was set to S-Log3 (a7S III, FX3, etc). We convert it properly, then apply the film look." },
+    { id:"canon",    label:"Shot flat — Canon C-Log",  note:"Your footage looks washed out and grey straight off the card, and your Canon was set to C-Log2 or C-Log3 (R5 II, R6, C70). We convert it properly, then apply the film look." },
+    { id:"standard", label:"Normal picture profile",   note:"Your footage already looks normal — phone, or a camera not set to log (including a Sony or Canon in a standard profile). The film look is applied directly." },
+    { id:"none",     label:"No colour",                note:"Leave my colour exactly as I shot it — just cut, caption and title." },
   ];
 
   function pickVideo(e){
@@ -3780,6 +3859,83 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     v.onloadedmetadata = ()=>{ setVideoDur(Math.round(v.duration||0)); };
     v.src = u;
     setVideoFile(f); setVideoPreview(u); e.target.value="";
+  }
+
+  // Read one file's duration off disk. We need real durations before anything
+  // else, because the global timeline the planner reads is built from them — an
+  // unknown duration would silently shift every later clip's word timings.
+  function readDuration(file){
+    return new Promise((resolve)=>{
+      try{
+        const u = URL.createObjectURL(file);
+        const v = document.createElement("video"); v.preload = "metadata";
+        const bail = setTimeout(()=>resolve({ url:u, dur:0 }), 15000);
+        v.onloadedmetadata = ()=>{ clearTimeout(bail); resolve({ url:u, dur: Math.round((v.duration||0)*100)/100 }); };
+        v.onerror = ()=>{ clearTimeout(bail); resolve({ url:u, dur:0 }); };
+        v.src = u;
+      }catch(_){ resolve({ url:"", dur:0 }); }
+    });
+  }
+
+  // Multi-clip picker. Camera files are named sequentially and carry a real
+  // lastModified, so default ordering by lastModified puts a day of shooting in
+  // the order it actually happened. Anything the camera got wrong, she can drag
+  // back into place with the arrows.
+  async function pickClips(e){
+    const picked = Array.from((e.target && e.target.files) || []);
+    e.target.value = "";
+    if(!picked.length) return;
+    const bad = picked.filter(f => !/^video\//.test(f.type||""));
+    if(bad.length){ setErr("Skipped " + bad.length + " file" + (bad.length>1?"s":"") + " that " + (bad.length>1?"aren't":"isn't") + " video."); }
+    else setErr("");
+    setUrl("");
+    const vids = picked.filter(f => /^video\//.test(f.type||""));
+    if(!vids.length) return;
+
+    setClipsBusy(true);
+    const ordered = vids.slice().sort((a,b)=>(a.lastModified||0)-(b.lastModified||0));
+    const added = [];
+    for(const f of ordered){
+      const meta = await readDuration(f);
+      added.push({
+        id: (f.name||"clip") + ":" + f.size + ":" + (f.lastModified||0) + ":" + Math.random().toString(36).slice(2,7),
+        file: f, name: f.name || "clip.mp4", size: f.size || 0,
+        dur: meta.dur, preview: meta.url,
+        footage: footage                      // seeded from the current global pick
+      });
+    }
+    setClips(prev => {
+      // Don't add the same file twice if she picks the folder again.
+      const seen = new Set(prev.map(c => c.name + ":" + c.size));
+      return prev.concat(added.filter(c => !seen.has(c.name + ":" + c.size)));
+    });
+    setClipsBusy(false);
+  }
+
+  function removeClip(id){
+    setClips(prev => {
+      const gone = prev.find(c => c.id === id);
+      if(gone && gone.preview) { try{ URL.revokeObjectURL(gone.preview); }catch(_){} }
+      return prev.filter(c => c.id !== id);
+    });
+  }
+  function moveClip(idx, dir){
+    setClips(prev => {
+      const next = prev.slice();
+      const j = idx + dir;
+      if(j < 0 || j >= next.length) return prev;
+      const t = next[idx]; next[idx] = next[j]; next[j] = t;
+      return next;
+    });
+  }
+  function setClipFootage(id, val){
+    setClips(prev => prev.map(c => c.id === id ? { ...c, footage: val } : c));
+  }
+  // "All shot on this" — the common case is one camera all day, so make that one
+  // click instead of twenty.
+  function applyFootageToAll(val){
+    setFootage(val);
+    setClips(prev => prev.map(c => ({ ...c, footage: val })));
   }
 
   async function writeScript(){
@@ -3851,71 +4007,129 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   async function run(){
     setErr(""); setUrl("");
     if(!rights){ setErr("Please confirm this is your own footage."); return; }
-    if(!videoFile){ setErr("Upload the raw video you want edited."); return; }
-    if(videoDur > 3600){ setErr("Raw footage is limited to 60 minutes for now — trim it down and try again."); return; }
+    if(!clips.length){ setErr("Add the footage you want edited."); return; }
+    if(clipsBusy){ setErr("Still reading your files — give it a second."); return; }
+    const noDur = clips.filter(c=>!(Number(c.dur)>0));
+    if(noDur.length){ setErr("Couldn't read the length of " + noDur.length + " file" + (noDur.length>1?"s":"") + ". Remove " + (noDur.length>1?"them":"it") + " and try again — the edit needs real durations to line the clips up."); return; }
+    if(totalDur > 3600){ setErr("That's " + Math.round(totalDur/60) + " minutes of footage. The limit is 60 minutes across all clips for now — remove a few and try again."); return; }
     if(Number(credits) < COST){ setErr("This edit costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
-    setBusy(true); setStage("Uploading your footage…");
-    let up=null;
+
+    setBusy(true);
+    const n = clips.length;
+    const many = n > 1;
+    const ofN = (i) => many ? (" (clip " + (i+1) + " of " + n + ")") : "";
+    const uploaded = [];        // { url, path } per clip, index-aligned with clips
+    const cleanup = [];         // storage paths to delete when we're done
+
     try{
-      const ext = ((videoFile.type&&videoFile.type.split("/")[1])||"mp4").split(";")[0];
-      const path = ((user&&user.id)||"anon") + "/editor-" + Date.now() + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
-      up = await uploadVideoInput(videoFile, path, (stage,msg)=>{ if(msg) setStage(msg); });
-      if(!up || !up.ok){ setErr((up&&up.error)||"Couldn't upload that video."); setBusy(false); setStage(""); return; }
-
-      // Big camera files get optimized into a lean 1080p working copy first
-      // (audio intact) so the whole pipeline runs fast off the lean copy.
-      let sourceUrl = up.url, proxyId = null;
-      if(videoFile.size > PROXY_THRESHOLD_MB * 1024 * 1024){
-        setStage("Optimizing your footage for editing — large files take a few minutes. Keep this tab open.");
-        const pr = await studioProxy(up.url, orient, videoDur);
-        if(!pr || !pr.id){ setErr((pr&&pr.error)||"Couldn't optimize that footage."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
-        if(typeof pr.balance==="number") onBalance(pr.balance);
-        const proxied = await pollVideo(pr.id);
-        if(!proxied){ setErr("Optimizing didn't finish — your credits were refunded. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
-        sourceUrl = proxied; proxyId = pr.id;
-        await deleteSiteObject(up.path); // the giant original is no longer needed
-      }
-
-      // Only pull the audio out when the video is big enough for it to pay off.
-      // Transcription services choke on very large files, but for a small clip the
-      // extra ffmpeg pass + upload + download is pure added wait — so skip it.
-      let listenUrl = sourceUrl, audioPath = null;
-      const bigEnoughForAudioPass = (videoFile && videoFile.size || 0) > 200 * 1024 * 1024;
-      if(bigEnoughForAudioPass){
-        setStage("Reading the audio from your video…");
-        const au = await studioAudio(sourceUrl);
-        if(au && au.id){
-          const audioUrl = await pollVideo(au.id, (pct)=>setStage("Reading the audio from your video — " + pct + "%…"));
-          if(audioUrl){
-            listenUrl = audioUrl;
-            try{ audioPath = decodeURIComponent(audioUrl.split("/sites/")[1]||""); }catch{}
-          }
+      // ── 1. Upload every clip ──
+      for(let i = 0; i < n; i++){
+        const c = clips[i];
+        const ext = ((c.file.type && c.file.type.split("/")[1]) || "mp4").split(";")[0];
+        const path = ((user&&user.id)||"anon") + "/editor-" + Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
+        setStage("Uploading your footage…" + ofN(i));
+        const up = await uploadVideoInput(c.file, path, (_st,msg)=>{ if(msg) setStage(msg + ofN(i)); });
+        if(!up || !up.ok){
+          setErr((up && up.error) || ("Couldn't upload " + c.name + "."));
+          for(const p of cleanup) await deleteSiteObject(p);
+          setBusy(false); setStage(""); return;
         }
-        // If extraction failed we still try the video directly — better than stopping.
+        uploaded.push({ url: up.url, path: up.path });
+        cleanup.push(up.path);
       }
-      setStage("Listening to your video…");
-      const tr = await studioTranscribe(listenUrl);
-      if(audioPath) deleteSiteObject(audioPath);
-      if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
 
+      // ── 2. Transcribe each clip on its own ──
+      // Every clip is transcribed separately so each word keeps its own clip
+      // index and its own clip-local timing. Merging audio first would save a
+      // couple of round trips and cost us the ability to ever know which file a
+      // word came from — which is exactly what the cuts and captions need.
+      const perClipWords = [];
+      let heardAnything = false;
+      for(let i = 0; i < n; i++){
+        const c = clips[i];
+        let listenUrl = uploaded[i].url, audioPath = null;
+
+        // Only pull the audio out when the file is big enough for it to pay off.
+        // On a small clip the extra pass is pure added wait.
+        if((c.size||0) > 200 * 1024 * 1024){
+          setStage("Reading the audio from your footage…" + ofN(i));
+          const au = await studioAudio(uploaded[i].url);
+          if(au && au.id){
+            const audioUrl = await pollVideo(au.id, (pct)=>setStage("Reading the audio from your footage — " + pct + "%…" + ofN(i)));
+            if(audioUrl){
+              listenUrl = audioUrl;
+              try{ audioPath = decodeURIComponent(audioUrl.split("/sites/")[1]||""); }catch(_){}
+            }
+          }
+          // If extraction failed we still try the video directly — better than stopping.
+        }
+
+        setStage(many ? ("Listening to clip " + (i+1) + " of " + n + "…") : "Listening to your video…");
+        const tr = await studioTranscribe(listenUrl);
+        if(audioPath) deleteSiteObject(audioPath);
+
+        // A clip with no talking is normal in a vlog — b-roll, walking, showing
+        // something. It still belongs in the edit, it just contributes no words.
+        // Only an entirely silent set of clips is a real failure.
+        if(tr && !tr.error && Array.isArray(tr.words) && tr.words.length){
+          perClipWords.push(tr.words);
+          heardAnything = true;
+        } else {
+          perClipWords.push([]);
+        }
+      }
+      if(!heardAnything){
+        setErr("Couldn't hear any speech in " + (many ? "any of those clips." : "that video.") + " The editor cuts based on what you say, so it needs audio.");
+        for(const p of cleanup) await deleteSiteObject(p);
+        setBusy(false); setStage(""); return;
+      }
+
+      // ── 3. Plan the edit on ONE merged timeline ──
+      // The planner has to read the whole day as a single story to know what's
+      // worth keeping, so the clips are laid end to end into one transcript here
+      // and the result is converted straight back to clip-local below.
       setStage("Planning the edit — finding the ums, dead air and best takes…");
-      const frame = await captureVideoFrame(videoPreview, Math.min(2, Math.max(0.5,(videoDur||4)/2)));
-      const plan = await studioPlan(tr.words, tr.duration, frame, style);
-      if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){ setErr((plan&&plan.error)||"Couldn't plan the edit. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+      const offsets = clipOffsets(clips);
+      const globalWords = mergeClipWords(perClipWords, offsets);
+      const frame = await captureVideoFrame(clips[0].preview, Math.min(2, Math.max(0.5,(clips[0].dur||4)/2)));
+      const plan = await studioPlan(globalWords, totalDur, frame, style);
+      if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){
+        setErr((plan && plan.error) || "Couldn't plan the edit. Please try again.");
+        for(const p of cleanup) await deleteSiteObject(p);
+        setBusy(false); setStage(""); return;
+      }
       setOutTitle(plan.title||"");
 
+      const segs = splitKeepIntoClips(plan.keep, offsets);
+      if(!segs.length){
+        setErr("The edit came out empty. Try again, or remove any clips that are mostly silence.");
+        for(const p of cleanup) await deleteSiteObject(p);
+        setBusy(false); setStage(""); return;
+      }
+
+      // Words go to the render server clip-local and clip-tagged — never global.
+      const taggedWords = [];
+      perClipWords.forEach((ws, ci) => (ws||[]).forEach(w => taggedWords.push({ clip: ci, w: w.w, s: w.s, e: w.e })));
+
+      // ── 4. Render ──
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
-      // Our own engine: real camera-log conversion + film-print LUT, cuts and captions.
-      const started = await studioFfmpeg(sourceUrl, plan.keep, plan.title||"", orient, tr.duration, style, footage, grade, tr.words);
-      if(!started || !started.id){ setErr((started&&started.error)||"Couldn't start the render. Please try again."); await deleteSiteObject(up.path); setBusy(false); setStage(""); return; }
+      const started = await studioFfmpeg(
+        uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
+        style, footage, grade, taggedWords, clips.map(c=>c.footage||footage)
+      );
+      if(!started || !started.id){
+        setErr((started && started.error) || "Couldn't start the render. Please try again.");
+        for(const p of cleanup) await deleteSiteObject(p);
+        setBusy(false); setStage(""); return;
+      }
       if(typeof started.balance==="number") onBalance(started.balance);
 
-      // Same run, same upload: optionally cut viral clips too. A clips failure
-      // never kills the main edit — it just notes it and carries on.
+      // Viral clips run off a single source, so they only make sense on a
+      // single-clip edit. Rather than silently ignore the checkbox, say so.
       let clipIds=[], clipHooks=[];
-      if(alsoShorts){
+      if(alsoShorts && !many){
         setStage("Also finding your viral clips…");
-        const sh = await studioShorts(sourceUrl, tr.words, tr.duration, frame, grade);
+        const sh = await studioShorts(uploaded[0].url, globalWords, totalDur, frame, grade);
         if(sh && Array.isArray(sh.ids) && sh.ids.length){ clipIds=sh.ids; clipHooks=sh.hooks||[]; if(typeof sh.balance==="number") onBalance(sh.balance); }
         else if(sh && sh.error){ setErr("Heads up — the clips part didn't start ("+sh.error+"), but your main edit is still rendering."); }
       }
@@ -3929,19 +4143,26 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ...clipIds.map(id=>pollVideo(id))
       ]);
       const out = results[0];
-      await deleteSiteObject(up.path); // input has done its job — auto-cleanup (harmless if already gone)
-      if(proxyId) studioProxyDelete(proxyId); // remove the lean working copy from render storage
+
+      for(const p of cleanup) await deleteSiteObject(p);   // inputs have done their job
       if(started.musicPath) await deleteSiteObject(started.musicPath);
       if(Array.isArray(started.brollPaths)&&started.brollPaths.length) await Promise.all(started.brollPaths.map(p2=>deleteSiteObject(p2)));
+
       const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
       if(doneClips.length) setShClips(doneClips);
-      if(!out){ setErr((lastFfError ? lastFfError.replace(/\s*Your credits were refunded\.?$/i,"") + " " : "The render didn't finish. ") + "Your credits were refunded."+(doneClips.length?" (Your clips made it, below.)":"")); if(typeof started.balance==="number") onBalance(started.balance + (started.charged||COST)); setBusy(false); setStage(""); return; }
+      if(!out){
+        setErr((lastFfError ? lastFfError.replace(/\s*Your credits were refunded\.?$/i,"") + " " : "The render didn't finish. ") + "Your credits were refunded."+(doneClips.length?" (Your clips made it, below.)":""));
+        if(typeof started.balance==="number") onBalance(started.balance + (started.charged||COST));
+        setBusy(false); setStage(""); return;
+      }
       setUrl(out);
-      track("tool_used",{tool:"video_editor",style,grade,clips:doneClips.length}); onToolUse("video_editor", COST);
-    }catch(e){ if(up&&up.path) await deleteSiteObject(up.path); setErr((e&&e.message)||"Something went wrong."); }
+      track("tool_used",{tool:"video_editor",style,grade,clips:doneClips.length,sources:n}); onToolUse("video_editor", COST);
+    }catch(e){
+      for(const p of cleanup) await deleteSiteObject(p);
+      setErr((e&&e.message)||"Something went wrong.");
+    }
     setBusy(false); setStage("");
   }
-
   return (
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>AI Video Editor</h3>
@@ -3966,13 +4187,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       {mode==="edit" && (<>
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>What did you shoot on?</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>What did you shoot in?</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
         {FOOTAGE_TYPES.map(f=>(
-          <button key={f.id} onClick={()=>setFootage(f.id)} title={f.note} style={{padding:"9px 16px",border:"1px solid "+(footage===f.id?B.charcoal:B.stone),background:footage===f.id?B.charcoal:"#fff",color:footage===f.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{f.label}</button>
+          <button key={f.id} onClick={()=>applyFootageToAll(f.id)} title={f.note} style={{padding:"9px 16px",border:"1px solid "+(footage===f.id?B.charcoal:B.stone),background:footage===f.id?B.charcoal:"#fff",color:footage===f.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{f.label}</button>
         ))}
       </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>{FOOTAGE_TYPES.find(f=>f.id===footage).note}</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>{FOOTAGE_TYPES.find(f=>f.id===footage).note}</p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        This applies to <strong>every clip</strong>. Shot on two different cameras that day? Set each clip individually in the list below.
+      </p>
 
       {footage!=="none" && (<>
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
@@ -4003,19 +4227,61 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ))}
       </div>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your raw footage <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— up to 10 minutes</span></p>
-      <input type="file" accept="video/*" onChange={pickVideo} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
-      {videoPreview && (
-        <div style={{marginBottom:16}}>
-          <video src={videoPreview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
-          {videoDur>0 && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>{Math.floor(videoDur/60)}m {videoDur%60}s of raw footage.</p>}
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your raw footage <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— add as many clips as you shot</span></p>
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+        A day of vlogging is usually a lot of separate files. Add them all — we'll put them in the order you shot them, cut across the whole day as one story, and match the sound levels between them.
+      </p>
+      <input type="file" accept="video/*" multiple onChange={pickClips} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {clipsBusy && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 10px"}}>Reading your files…</p>}
+
+      {clips.length>0 && (
+        <div style={{border:"1px solid "+B.stone,marginBottom:14}}>
+          {clips.map((c,i)=>(
+            <div key={c.id} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 12px",borderBottom:i<clips.length-1?("1px solid "+B.stone):"none",background:i%2?B.offwhite:"#fff"}}>
+              <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.mid,minWidth:20,paddingTop:3}}>{i+1}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
+                <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"2px 0 0"}}>
+                  {c.dur>0 ? (Math.floor(c.dur/60)+"m "+Math.round(c.dur%60)+"s") : "length unreadable"} · {Math.max(1,Math.round(c.size/1048576))}MB
+                </p>
+                {footage!=="none" && (
+                  <select value={c.footage||footage} onChange={e=>setClipFootage(c.id, e.target.value)}
+                    style={{marginTop:6,fontFamily:"sans-serif",fontSize:11,padding:"4px 6px",border:"1px solid "+B.stone,background:"#fff",color:B.charcoal,maxWidth:"100%"}}>
+                    {FOOTAGE_TYPES.filter(f=>f.id!=="none").map(f=>(<option key={f.id} value={f.id}>{f.label}</option>))}
+                  </select>
+                )}
+              </div>
+              <div style={{display:"flex",gap:4,paddingTop:2}}>
+                <button onClick={()=>moveClip(i,-1)} disabled={i===0} title="Move up" style={{fontFamily:"sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:"#fff",color:i===0?B.stone:B.charcoal,cursor:i===0?"default":"pointer",padding:0}}>↑</button>
+                <button onClick={()=>moveClip(i,1)} disabled={i===clips.length-1} title="Move down" style={{fontFamily:"sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:"#fff",color:i===clips.length-1?B.stone:B.charcoal,cursor:i===clips.length-1?"default":"pointer",padding:0}}>↓</button>
+                <button onClick={()=>removeClip(c.id)} title="Remove" style={{fontFamily:"sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:"#fff",color:B.charcoal,cursor:"pointer",padding:0}}>×</button>
+              </div>
+            </div>
+          ))}
+          <div style={{padding:"9px 12px",borderTop:"1px solid "+B.stone,background:"#fff"}}>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>
+              <strong style={{color:B.charcoal}}>{clips.length} clip{clips.length>1?"s":""}</strong> · {Math.floor(totalDur/60)}m {Math.round(totalDur%60)}s total · {Math.max(1,Math.round(clips.reduce((a,c)=>a+(c.size||0),0)/1048576))}MB to upload
+              {clips.length>1 && <> · sound levels matched between clips</>}
+            </p>
+          </div>
         </div>
       )}
 
-      <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:10,cursor:"pointer"}}>
-        <input type="checkbox" checked={alsoShorts} onChange={e=>setAlsoShorts(e.target.checked)} style={{marginTop:3}} />
-        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Also cut <strong>2–3 viral clips</strong> from this video for Reels/TikTok (+{CREDIT_COSTS.editorShorts.toLocaleString()} credits)</span>
-      </label>
+      {clips.length>0 && <div style={{marginBottom:16}}>
+        <video src={clips[0].preview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Previewing clip 1{clips.length>1?" of "+clips.length:""}.</p>
+      </div>}
+
+      {clips.length<=1 ? (
+        <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:10,cursor:"pointer"}}>
+          <input type="checkbox" checked={alsoShorts} onChange={e=>setAlsoShorts(e.target.checked)} style={{marginTop:3}} />
+          <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Also cut <strong>2–3 viral clips</strong> from this video for Reels/TikTok (+{CREDIT_COSTS.editorShorts.toLocaleString()} credits)</span>
+        </label>
+      ) : (
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+          Viral clips are cut from a single video, so they're off for a multi-clip edit. Use the <strong>Viral clips</strong> tab on one file for those.
+        </p>
+      )}
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
         <input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} style={{marginTop:3}} />
@@ -6244,6 +6510,8 @@ const CREDIT_COSTS = {
   musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
   editorCinematic: 4000, // AI Video Editor — Cinematic style (kinetic cut + scene cards + AI b-roll stills)
   editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
+  editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
+                         // (one extra audio pass + one extra transcription + extra cuts; real ~$0.02-0.05)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses
   leadsEnriched: 2000, // Lead Finder — search PLUS email lookups (Hunter)

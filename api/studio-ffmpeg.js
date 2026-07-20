@@ -26,6 +26,8 @@ const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 
 const STUDIO_COST = 2000;    // flat — standard styles
 const CINEMATIC_COST = 4000; // flat — cinematic
+const PER_CLIP_COST = 250;   // each clip past the first — must match CREDIT_COSTS.editorClip in App.jsx
+const MAX_CLIPS = 40;        // sanity bound; the real limit is upload time
 const MAX_OUT_SECONDS = 900;
 
 async function getUserId(token) {
@@ -161,7 +163,11 @@ export default async function handler(req, res) {
     }
 
     // ── START: charge, then hand the job to the render server ──
-    const url = body.url;
+    // Multi-clip: `urls` is the array, one per clip in timeline order. A single
+    // `url` still works — a one-clip edit is just the same thing with one entry.
+    const urls = Array.isArray(body.urls) && body.urls.length
+      ? body.urls.map(u => String(u || "").trim())
+      : (body.url ? [String(body.url).trim()] : []);
     const keep = Array.isArray(body.keep) ? body.keep : [];
     const words = Array.isArray(body.words) ? body.words : [];
     const title = typeof body.title === "string" ? body.title.slice(0, 120) : "";
@@ -171,14 +177,32 @@ export default async function handler(req, res) {
     const look = body.look === "luxury" ? "luxury" : "wolf";
     const rawDuration = Number(body.rawDuration) || 0;
 
-    if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: "Missing video URL." });
+    // Per-clip "what did you shoot in?" — a day can span two cameras.
+    const clipFootage = (Array.isArray(body.clipFootage) ? body.clipFootage : [])
+      .map(f => ["sony", "canon", "standard", "none"].includes(f) ? f : footage);
+
+    if (!urls.length) return res.status(400).json({ error: "Missing video URL." });
+    if (urls.length > MAX_CLIPS) return res.status(400).json({ error: "That's more than " + MAX_CLIPS + " clips. Remove a few and try again." });
+    const badUrl = urls.findIndex(u => !/^https?:\/\//.test(u));
+    if (badUrl >= 0) return res.status(400).json({ error: "Clip " + (badUrl + 1) + " didn't upload correctly. Remove it and try again." });
     if (!keep.length) return res.status(400).json({ error: "Nothing to edit — no segments were kept." });
+    const badSeg = keep.findIndex(k => {
+      const c = Number(k && k.clip);
+      const i = Number.isFinite(c) ? Math.floor(c) : 0;
+      return i < 0 || i >= urls.length;
+    });
+    if (badSeg >= 0) return res.status(400).json({ error: "The edit plan pointed at a clip that wasn't uploaded. Please try again." });
 
     const outSeconds = keep.reduce((a, k) => a + Math.max(0, (Number(k.e) || 0) - (Number(k.s) || 0)), 0);
     if (outSeconds < 1) return res.status(400).json({ error: "The edit came out too short." });
     if (outSeconds > MAX_OUT_SECONDS) return res.status(400).json({ error: "That edit is longer than we support right now." });
 
-    const cost = style === "cinematic" ? CINEMATIC_COST : STUDIO_COST;
+    // Cost scales with clip count: every extra clip is its own audio extraction,
+    // its own transcription and its own set of cuts on the render box. This MUST
+    // match the figure the app shows on the button or she gets charged something
+    // she didn't agree to.
+    const cost = (style === "cinematic" ? CINEMATIC_COST : STUDIO_COST)
+      + Math.max(0, urls.length - 1) * PER_CLIP_COST;
     const paid = await spend(token, cost, "video-editor:ffmpeg");
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
@@ -190,13 +214,14 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
         body: JSON.stringify({
-          sourceUrl: url,
+          sources: urls,
+          sourceUrl: urls[0],
           segments: keep,
           words,
           title,
           orientation,
           uploadPath,
-          grade: { footage, look },
+          grade: { footage, look, clipFootage },
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
       });
@@ -215,7 +240,7 @@ export default async function handler(req, res) {
     await recordVideoJob(id, userId, cost);
     // Real compute cost is roughly $0.02-0.08 per finished minute on the render box.
     const estUsd = Math.round((0.05 * (outSeconds / 60)) * 10000) / 10000;
-    await logCost(id, userId, "ffmpeg-" + style + "-" + footage + "-" + look, outSeconds, cost, estUsd);
+    await logCost(id, userId, "ffmpeg-" + style + "-" + footage + "-" + look + "-x" + urls.length, outSeconds, cost, estUsd);
 
     return res.status(200).json({ id, balance: paid.balance, charged: cost });
   } catch (e) {
