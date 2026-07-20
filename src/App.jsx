@@ -3808,7 +3808,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     setShErr(""); setShClips([]);
     if(!rights){ setShErr("Please confirm this is your own footage."); return; }
     if(!videoFile){ setShErr("Upload the video you want clips from."); return; }
-    if(videoDur > 600){ setShErr("Raw footage is limited to 10 minutes for now."); return; }
+    if(videoDur > 3600){ setShErr("Raw footage is limited to 60 minutes for now."); return; }
     if(Number(credits) < CREDIT_COSTS.editorShorts){ setShErr("This costs "+CREDIT_COSTS.editorShorts.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     setShBusy(true); setShStage("Uploading your footage…");
     let up=null;
@@ -3852,7 +3852,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     setErr(""); setUrl("");
     if(!rights){ setErr("Please confirm this is your own footage."); return; }
     if(!videoFile){ setErr("Upload the raw video you want edited."); return; }
-    if(videoDur > 600){ setErr("Raw footage is limited to 10 minutes for now — trim it down and try again."); return; }
+    if(videoDur > 3600){ setErr("Raw footage is limited to 60 minutes for now — trim it down and try again."); return; }
     if(Number(credits) < COST){ setErr("This edit costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     setBusy(true); setStage("Uploading your footage…");
     let up=null;
