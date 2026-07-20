@@ -1076,7 +1076,7 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1086,11 +1086,82 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
         style, footage, look, words, clipFootage: clipFootage || [],
-        chapters: chapters || [], broll: broll || []
+        chapters: chapters || [], broll: broll || [], transitions: transitions || []
       })
     });
     return await res.json(); // { id:"ff:...", balance, charged } or { error }
   } catch { return { error: "Couldn't reach the render engine." }; }
+}
+
+async function studioTransition(action, payload){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-transition", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+      body: JSON.stringify({ action, ...(payload||{}) })
+    });
+    return await res.json();
+  } catch { return { error: "Couldn't reach the transition engine." }; }
+}
+
+// Poll the render server's boundary extraction (tail clip + both frames).
+async function pollBoundary(id){
+  for(let i=0; i<40; i++){
+    await new Promise(r=>setTimeout(r, i<10 ? 2000 : 4000));
+    const d = await studioTransition("status", { id });
+    if(d && d.status === "done") return d;
+    if(d && d.status === "error") return null;
+  }
+  return null;
+}
+
+// Decide where transitions belong.
+//
+// Two signals, and a point needs BOTH to qualify. A clip boundary is ground truth
+// — the camera was put down and picked up somewhere else. A planner scene change
+// says that moment is also a story beat. Where they agree, that's a real
+// transition; anywhere else is just a cut, and bridging an ordinary cut is what
+// makes this look gimmicky.
+//
+// The cap is a CEILING, never a quota. A video with one qualifying point gets one
+// transition. Filling the cap for its own sake is the failure mode Chelsea
+// specifically called out.
+function planTransitions(segs, chapterCues, offsets, cap){
+  const dur = segs.reduce((t,g)=>t + Math.max(0, (g.e||0) - (g.s||0)), 0);
+  // Where each boundary sits on the finished timeline, for spacing.
+  const at = []; let run = 0;
+  for(const g of segs){ run += Math.max(0, (g.e||0)-(g.s||0)); at.push(run); }
+
+  // Scene changes as points on the GLOBAL timeline, to compare against segments.
+  const sceneAt = (chapterCues||[]).map(c=>{
+    const o = offsets[c.clip]; return o ? o.start + (c.s||0) : null;
+  }).filter(v=>v!==null);
+
+  const cands = [];
+  for(let i=0; i<segs.length-1; i++){
+    const a = segs[i], b = segs[i+1];
+    const clipChange = a.clip !== b.clip;
+    // A big jump forward inside one clip is also a real scene change — the camera
+    // stayed put but a lot of time was thrown away.
+    const bigJump = !clipChange && (b.s - a.e) > 20;
+    if(!clipChange && !bigJump) continue;
+    const bGlobal = (offsets[b.clip] ? offsets[b.clip].start : 0) + (b.s||0);
+    const nearScene = sceneAt.some(p => Math.abs(p - bGlobal) < 6);
+    if(!nearScene) continue;                     // both signals or it doesn't qualify
+    cands.push({ after: i, at: at[i], score: (clipChange?2:1) + 1 });
+  }
+
+  // Strongest first, but never two within 20s of each other on the finished cut.
+  cands.sort((x,y)=> y.score - x.score || x.at - y.at);
+  const chosen = [];
+  for(const c of cands){
+    if(chosen.length >= cap) break;
+    if(chosen.some(k => Math.abs(k.at - c.at) < 20)) continue;
+    chosen.push(c);
+  }
+  chosen.sort((a,b)=>a.after-b.after);
+  return { points: chosen, cutDuration: dur };
 }
 
 async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music, broll){
@@ -3838,8 +3909,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // Each extra clip is its own audio extraction, its own transcription and its
   // own set of cuts on the render box, so the cost scales past the first one.
   const totalDur = clips.reduce((a,c)=>a+(Number(c.dur)||0), 0);
+  const [useTransitions, setUseTransitions] = useState(false);
+  const canTransition = style==="vlog" || style==="cinematic";
+  // A rough ceiling shown before we know how many scene changes the video actually
+  // has. Fewer qualifying points means fewer transitions and a smaller charge.
+  const transitionCap = 4;
+  const TRANSITION_RES = "1080p";   // matches the 1080x1920 render; a softer bridge shows
+  const TRANSITION_SECONDS = 4;     // Seedance's floor for a generated segment
+  const TRANSITION_EST = CREDIT_COSTS.editorTransition * (canTransition && useTransitions ? transitionCap : 0);
+
   const BASE_COST = style==="cinematic" ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
-  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip;
+  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
@@ -4132,12 +4212,58 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const taggedWords = [];
       perClipWords.forEach((ws, ci) => (ws||[]).forEach(w => taggedWords.push({ clip: ci, w: w.w, s: w.s, e: w.e })));
 
+      // ── 3b. AI transitions ──
+      // A bridge shot generated from the actual tail of the outgoing shot, landing
+      // on the first frame of the incoming one. Opt-in, because every one of these
+      // is a paid video generation.
+      const transitionClips = [];
+      if(useTransitions && (style==="vlog" || style==="cinematic")){
+        const cutDur = segs.reduce((t,g)=>t + Math.max(0,(g.e||0)-(g.s||0)), 0);
+        const cap = cutDur < 180 ? 2 : 4;          // short videos two, long videos four
+        const { points } = planTransitions(segs, chapterCues, offsets, cap);
+        if(!points.length){
+          setStage("No scene changes worth bridging — skipping transitions.");
+        }
+        for(let n=0; n<points.length; n++){
+          const p = points[n];
+          const a = segs[p.after], b = segs[p.after+1];
+          setStage("Building transition " + (n+1) + " of " + points.length + " — reading the cut…");
+          try{
+            const bd = await studioTransition("boundary", {
+              outUrl: uploaded[a.clip].url, outEnd: a.e,
+              inUrl:  uploaded[b.clip].url, inStart: b.s
+            });
+            if(!bd || bd.error || !bd.id) throw new Error(bd && bd.error);
+            const frames = await pollBoundary(bd.id);
+            if(!frames || !frames.video) throw new Error("Couldn't read that cut point.");
+            if(Array.isArray(frames.paths)) cleanup.push(...frames.paths);
+
+            setStage("Building transition " + (n+1) + " of " + points.length + " — generating the shot…");
+            const gen = await studioTransition("start", {
+              video: frames.video, from: frames.from, to: frames.to,
+              resolution: TRANSITION_RES, duration: TRANSITION_SECONDS
+            });
+            if(!gen || gen.error || !gen.id) throw new Error(gen && gen.error);
+            if(typeof gen.balance==="number") onBalance(gen.balance);
+
+            const url = await pollVideo(gen.id, (pct)=>setStage(
+              "Building transition " + (n+1) + " of " + points.length + " — " + pct + "%…"));
+            if(!url) throw new Error("That transition didn't come back.");
+            transitionClips.push({ after: p.after, trim: gen.trimStart || 0, url });
+          } catch(e){
+            // One transition failing is a slightly plainer video, not a dead edit.
+            // The credits for a failed generation are refunded by video-result.js.
+            console.warn("transition " + (n+1) + " skipped:", e && e.message);
+          }
+        }
+      }
+
       // ── 4. Render ──
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
         style, footage, grade, taggedWords, clips.map(c=>c.footage||footage),
-        chapterCues, []
+        chapterCues, [], transitionClips
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -4318,6 +4444,24 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything. Music is coming soon — this version delivers the cut, captions, grade, title and scene cards.
         </p>
       </div>
+
+      {canTransition && (
+        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.line,borderRadius:8}}>
+          <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
+            <input type="checkbox" checked={useTransitions} disabled={busy}
+              onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:3}} />
+            <span style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+              <strong>AI transitions</strong> — at a real scene change, generate a short
+              cinematic shot that carries you from one place to the next.
+              <span style={{display:"block",color:"#666",fontSize:12,marginTop:4}}>
+                {CREDIT_COSTS.editorTransition.toLocaleString()} credits each. Up to {transitionCap} on
+                a long video, 2 on a short one — and only where there's a genuine scene
+                change, so you may get fewer. You're only charged for the ones made.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
 
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
@@ -6541,6 +6685,12 @@ const CREDIT_COSTS = {
                          // is wired up and the stills actually appear.
   editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
+  // One AI transition: a 4-second Seedance video-extend bridge shot at 1080p.
+  // Video-extend is billed per second of the NEW segment at $0.60/s at 1080p, so
+  // 1500 credits/second holds the same ~2x margin used everywhere else. This is
+  // deliberately NOT the 900/s in video.js — that rate is for image-to-video and
+  // would sell every transition below cost.
+  editorTransition: 6000,
                          // (one extra audio pass + one extra transcription + extra cuts; real ~$0.02-0.05)
   voiceover: 150,
   leads: 300,          // Lead Finder — one Google search of up to 60 businesses

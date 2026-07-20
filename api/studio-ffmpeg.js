@@ -200,6 +200,17 @@ export default async function handler(req, res) {
       .filter(b => /^https?:\/\//.test(b.url) && b.clip < urls.length)
       .slice(0, 4);
 
+    // Generated bridge shots. `after` indexes the kept segment they follow, `trim`
+    // is how much of the returned clip is the input tail we already have.
+    const transitions = (Array.isArray(body.transitions) ? body.transitions : [])
+      .map(t => ({
+        after: Math.max(0, Math.floor(Number(t && t.after) || 0)),
+        trim: Math.max(0, Math.min(10, Number(t && t.trim) || 0)),
+        url: String((t && t.url) || "").trim()
+      }))
+      .filter(t => /^https?:\/\//.test(t.url) && t.after < keep.length)
+      .slice(0, 4);
+
     // Per-clip "what did you shoot in?" — a day can span two cameras.
     const clipFootage = (Array.isArray(body.clipFootage) ? body.clipFootage : [])
       .map(f => ["sony", "canon", "standard", "none"].includes(f) ? f : footage);
@@ -245,7 +256,7 @@ export default async function handler(req, res) {
           orientation,
           uploadPath,
           grade: { footage, look, clipFootage },
-          chapters, broll,
+          chapters, broll, transitions,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
       });
