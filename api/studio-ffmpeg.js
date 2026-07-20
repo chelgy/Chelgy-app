@@ -134,6 +134,31 @@ export default async function handler(req, res) {
       const jid = String(body.id || "").replace(/^ff:/, "").trim();
       if (!jid) return res.status(400).json({ error: "Missing job id." });
       let data;
+      // A chunked job's state lives in Postgres, so status comes from there — no
+      // render server in the polling path at all. If the row exists it's a chunked
+      // job; if not, fall through to the old in-memory endpoint.
+      try {
+        const q = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(jid) +
+                              "&select=status,progress,output_url,error,stage", {
+          headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC }
+        });
+        const rows = await q.json();
+        if (Array.isArray(rows) && rows[0]) {
+          const j = rows[0];
+          if (j.status === "done" && j.output_url)
+            return res.status(200).json({ status: "done", url: j.output_url, progress: 100 });
+          if (j.status === "error") {
+            const job = await lookupJob("ff:" + jid);
+            if (job && job.user_id === userId && job.cost) {
+              await refund(userId, job.cost, "refund:video-editor-ffmpeg");
+              await clearJob("ff:" + jid);
+            }
+            return res.status(200).json({ status: "error", error: (j.error || "The render failed.") + " Your credits were refunded." });
+          }
+          return res.status(200).json({ status: "pending", progress: j.progress || 0, stage: j.stage || null });
+        }
+      } catch { /* not a chunked job, or a blip — try the legacy path */ }
+
       try {
         const r = await fetch(RS_URL + "/render/" + encodeURIComponent(jid), {
           headers: { "x-render-secret": RS_SECRET }
@@ -243,6 +268,38 @@ export default async function handler(req, res) {
     const uploadPath = userId + "/edit-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp4";
 
     let started;
+    // CHUNKED_RENDER=1 sends the edit to the fan-out pipeline: the job is planned
+    // into chunks and a worker pool renders them in parallel. Unset, it takes the
+    // original single-server path. Same response shape either way, so the app
+    // doesn't know or care which one ran — and a bad day is one env var to undo.
+    if ((process.env.CHUNKED_RENDER || "").trim() === "1") {
+      try {
+        const r = await fetch(RS_URL + "/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
+          body: JSON.stringify({
+            userId, creditsCharged: cost,
+            edl: {
+              sources: urls, segments: keep, words, title, orientation,
+              fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
+              grade: { footage, look, clipFootage },
+              chapters, broll, transitions,
+              captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
+              uploadPath
+            }
+          })
+        });
+        const d = await r.json();
+        if (!r.ok || !d || !d.jobId) {
+          await refund(userId, cost, "refund:video-editor-plan");
+          return res.status(502).json({ error: ((d && d.error) || "Render engine error") + " Your credits were refunded." });
+        }
+        started = { jobId: d.jobId };
+      } catch {
+        await refund(userId, cost, "refund:video-editor-plan-unreachable");
+        return res.status(502).json({ error: "Couldn't reach the render engine. Your credits were refunded." });
+      }
+    } else {
     try {
       const r = await fetch(RS_URL + "/render", {
         method: "POST",
@@ -269,6 +326,7 @@ export default async function handler(req, res) {
     } catch (e) {
       await refund(userId, cost, "refund:video-editor-ffmpeg-unreachable");
       return res.status(502).json({ error: "Couldn't reach the render engine. Your credits were refunded." });
+    }
     }
 
     const id = "ff:" + started.jobId;
