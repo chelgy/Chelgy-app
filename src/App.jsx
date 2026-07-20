@@ -1060,10 +1060,23 @@ function splitKeepIntoClips(keep, offsets){
   return segs;
 }
 
+// A single point in time on the global timeline -> which clip, and where inside it.
+// Scene cards and b-roll cues are points, not ranges, so they need this rather than
+// splitKeepIntoClips. Points past the end of the footage are dropped.
+function pointToClip(t, offsets){
+  const g = Number(t);
+  if(!Number.isFinite(g) || g < 0) return null;
+  for(let ci = 0; ci < offsets.length; ci++){
+    const o = offsets[ci];
+    if(g < o.end) return { clip: ci, s: Math.round(Math.max(0, g - o.start) * 1000) / 1000 };
+  }
+  return null;
+}
+
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1072,7 +1085,8 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || []
+        style, footage, look, words, clipFootage: clipFootage || [],
+        chapters: chapters || [], broll: broll || []
       })
     });
     return await res.json(); // { id:"ff:...", balance, charged } or { error }
@@ -4107,6 +4121,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setBusy(false); setStage(""); return;
       }
 
+      // Scene cards. The planner has been writing these on every vlog, tutorial and
+      // cinematic edit all along; nothing was reading them. They're points on the
+      // global timeline, so each one is converted to a clip and a clip-local second.
+      const chapterCues = (Array.isArray(plan.chapters) ? plan.chapters : [])
+        .map(c => { const p = pointToClip(c.s, offsets); return p ? { ...p, label: String(c.label||"").trim() } : null; })
+        .filter(c => c && c.label);
+
       // Words go to the render server clip-local and clip-tagged — never global.
       const taggedWords = [];
       perClipWords.forEach((ws, ci) => (ws||[]).forEach(w => taggedWords.push({ clip: ci, w: w.w, s: w.s, e: w.e })));
@@ -4115,7 +4136,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
-        style, footage, grade, taggedWords, clips.map(c=>c.footage||footage)
+        style, footage, grade, taggedWords, clips.map(c=>c.footage||footage),
+        chapterCues, []
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -4210,7 +4232,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-        {[["off","No music",true],["eleven","Cinematic score · original",true],["mubert","Budget bed",false],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
+        {/* "eleven" is marked not-ready on purpose: the score was never wired into the
+            ffmpeg engine, so selecting it silently did nothing while the copy below
+            promised a per-minute charge. Flip it back to true when music renders. */}
+        {[["off","No music",true],["eleven","Cinematic score · original",false],["mubert","Budget bed",false],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
           <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.charcoal:"#fff",color:music===v?"#fff":(ready?B.charcoal:B.mid),fontFamily:"sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
         ))}
       </div>
@@ -4290,7 +4315,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
         <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
-          <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything. Music is coming soon — this version delivers the cut, captions, grade and title.
+          <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything. Music is coming soon — this version delivers the cut, captions, grade, title and scene cards.
         </p>
       </div>
 
@@ -6508,7 +6533,12 @@ const CREDIT_COSTS = {
   editorScript: 100,    // AI Video Editor — write-my-script-first (one LLM call)
   editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
   musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
-  editorCinematic: 4000, // AI Video Editor — Cinematic style (kinetic cut + scene cards + AI b-roll stills)
+  editorCinematic: 3000, // AI Video Editor — Cinematic style. Was 4000 when the price
+                         // also covered AI b-roll stills, which the ffmpeg engine
+                         // didn't render — it charged double and delivered a harder
+                         // cut and nothing else. Now delivers kinetic cut + scene
+                         // cards. Put this back to 4000 when b-roll image generation
+                         // is wired up and the stills actually appear.
   editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
                          // (one extra audio pass + one extra transcription + extra cuts; real ~$0.02-0.05)

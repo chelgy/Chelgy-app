@@ -177,6 +177,29 @@ export default async function handler(req, res) {
     const look = body.look === "luxury" ? "luxury" : "wolf";
     const rawDuration = Number(body.rawDuration) || 0;
 
+    // Scene cards and b-roll cues. Both arrive as { clip, s, ... } clip-local, the
+    // same contract as words, so the render server never has to reason about a
+    // merged timeline. Both are sanitised here rather than trusted: they originate
+    // from a language model, and a bad label or a hostile URL should not reach ffmpeg.
+    const chapters = (Array.isArray(body.chapters) ? body.chapters : [])
+      .map(c => ({
+        clip: Math.max(0, Math.floor(Number(c && c.clip) || 0)),
+        s: Math.max(0, Number(c && c.s) || 0),
+        label: String((c && c.label) || "").trim().slice(0, 40)
+      }))
+      .filter(c => c.label && c.clip < urls.length)
+      .slice(0, 6);
+
+    const broll = (Array.isArray(body.broll) ? body.broll : [])
+      .map(b => ({
+        clip: Math.max(0, Math.floor(Number(b && b.clip) || 0)),
+        s: Math.max(0, Number(b && b.s) || 0),
+        url: String((b && b.url) || "").trim(),
+        dur: Math.min(4, Math.max(1.2, Number(b && b.dur) || 2.4))
+      }))
+      .filter(b => /^https?:\/\//.test(b.url) && b.clip < urls.length)
+      .slice(0, 4);
+
     // Per-clip "what did you shoot in?" — a day can span two cameras.
     const clipFootage = (Array.isArray(body.clipFootage) ? body.clipFootage : [])
       .map(f => ["sony", "canon", "standard", "none"].includes(f) ? f : footage);
@@ -222,6 +245,7 @@ export default async function handler(req, res) {
           orientation,
           uploadPath,
           grade: { footage, look, clipFootage },
+          chapters, broll,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
       });
