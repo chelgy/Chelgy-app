@@ -118,12 +118,16 @@ export default async function handler(req, res) {
     if (action === "audio") {
       const src = body.url;
       if (!src || !/^https?:\/\//.test(src)) return res.status(400).json({ error: "Missing video URL." });
+      // Styles that cut from speech alone must never pay for a video decode, so this
+      // is opt-in and travels no further than the render server when it's false.
+      const wantActivity = body.activity === true;
+      const duration = Number(body.duration) || 0;
       const uploadPath = userId + "/audio-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp3";
       try {
         const r = await fetch(RS_URL + "/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
-          body: JSON.stringify({ sourceUrl: src, uploadPath })
+          body: JSON.stringify({ sourceUrl: src, uploadPath, activity: wantActivity, duration })
         });
         const d = await r.json();
         if (!r.ok || !d || !d.jobId)
@@ -175,7 +179,11 @@ export default async function handler(req, res) {
       }
 
       if (data && data.status === "done" && data.url)
-        return res.status(200).json({ status: "done", url: data.url, progress: 100 });
+        return res.status(200).json({
+          status: "done", url: data.url, progress: 100,
+          // Only ever present on an audio job that asked for it. Renders don't set it.
+          activity: (data && data.activity) || null
+        });
 
       if (data && data.status === "error") {
         const job = await lookupJob("ff:" + jid);

@@ -979,10 +979,10 @@ async function studioTranscribe(url){
     return await res.json(); // { transcript, words, duration } or { error }
   } catch { return { error: "Couldn't reach the transcription service." }; }
 }
-async function studioPlan(words, duration, frame, style){
+async function studioPlan(words, duration, frame, style, activity){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead" }) });
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null }) });
     return await res.json(); // { keep, title, look, outSeconds } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
@@ -990,16 +990,43 @@ async function studioPlan(words, duration, frame, style){
 // camera-log conversion and film-print LUT chain that a template service can't.
 // Pull just the audio out of the uploaded video (on our own render server) so
 // transcription works regardless of how large the footage is.
-async function studioAudio(url){
+async function studioAudio(url, wantActivity, duration){
   try{
     const token = await freshToken();
     const res = await fetch("/api/studio-ffmpeg", {
       method:"POST",
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
-      body: JSON.stringify({ action:"audio", url })
+      body: JSON.stringify({ action:"audio", url, activity: wantActivity===true, duration: Number(duration)||0 })
     });
     return await res.json(); // { id:"ff:..." } or { error }
   } catch { return { error: "Couldn't reach the render engine." }; }
+}
+
+// Same poll as pollVideo, but hands back the whole payload instead of just the URL.
+//
+// pollVideo returns data.url and throws the rest away, which is right for a render —
+// a finished video is a link and nothing else. An audio job can also carry the
+// activity track, and that has nowhere to go through a function that only returns
+// strings. Left as a separate function on purpose: pollVideo is on the critical path
+// of every tool in the app and is not worth reshaping for one caller.
+async function pollAudioJob(taskId, onProgress){
+  const started = Date.now();
+  for(let i=0; Date.now() - started < 30*60*1000; i++){
+    await new Promise(r=>setTimeout(r, i<40 ? 3000 : 6000));
+    try{
+      const token = await freshToken();
+      const res = await fetch("/api/studio-ffmpeg", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+        body: JSON.stringify({ action:"status", id: taskId })
+      });
+      const d = await res.json();
+      if(typeof d.progress==="number" && onProgress) onProgress(d.progress, d.status);
+      if(d.status==="done" && d.url) return { url: d.url, activity: (d.activity && Array.isArray(d.activity.activity)) ? d.activity : null };
+      if(d.status==="error") return null;
+    }catch{}
+  }
+  return null;
 }
 
 // ─── Multi-clip timeline maths ───────────────────────────────────────────────
@@ -3965,13 +3992,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const TRANSITION_SECONDS = 4;     // Seedance's floor for a generated segment
   const TRANSITION_EST = CREDIT_COSTS.editorTransition * (canTransition && useTransitions ? transitionCap : 0);
 
-  const BASE_COST = style==="cinematic" ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
+  // Process costs what Cinematic costs: it runs the same b-roll generation and adds
+  // a full video decode on every clip that the speech-only styles never pay for.
+  const BASE_COST = (style==="cinematic"||style==="process") ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
   const MUSIC_EST = music==="off" ? 0 : CREDIT_COSTS.musicScore;
   const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST + MUSIC_EST;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
     { id:"tutorial",    label:"Tutorial",     note:"Sit-down teaching. The AI finds your sections and inserts luxury chapter cards between them, with callout-style captions.", ready:true },
+    { id:"process",     label:"Process",      note:"Cooking, cleaning, building, GRWM — anything where the doing is the point. Reads the footage itself to find where something is happening, so the silent working shots survive instead of being cut as dead air.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts, scene cards, and AI-generated cinematic b-roll that cuts in when you reference something. Wolf 2383 by default.", ready:true },
   ];
   const GRADES = [
@@ -4186,21 +4216,30 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // couple of round trips and cost us the ability to ever know which file a
       // word came from — which is exactly what the cuts and captions need.
       const perClipWords = [];
+      const perClipActivity = [];
+      // Only Process reads the picture. Every other style cuts from speech alone and
+      // must not pay for a video decode it will never look at.
+      const wantsActivity = style==="process";
       let heardAnything = false;
       for(let i = 0; i < n; i++){
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
 
-        // Only pull the audio out when the file is big enough for it to pay off.
-        // On a small clip the extra pass is pure added wait.
-        if((c.size||0) > 200 * 1024 * 1024){
-          setStage("Reading the audio from your footage…" + ofN(i));
-          const au = await studioAudio(uploaded[i].url);
+        // Normally only worth it on a big file — on a small clip the extra pass is
+        // pure added wait. But Process reads the ACTIVITY track out of this same
+        // pass, so on that style it has to run on every clip whatever the size.
+        if(wantsActivity || (c.size||0) > 200 * 1024 * 1024){
+          setStage((wantsActivity ? "Watching your footage…" : "Reading the audio from your footage…") + ofN(i));
+          const au = await studioAudio(uploaded[i].url, wantsActivity, c.dur||0);
           if(au && au.id){
-            const audioUrl = await pollVideo(au.id, (pct)=>setStage("Reading the audio from your footage — " + pct + "%…" + ofN(i)));
-            if(audioUrl){
-              listenUrl = audioUrl;
-              try{ audioPath = decodeURIComponent(audioUrl.split("/sites/")[1]||""); }catch(_){}
+            const done = await pollAudioJob(au.id, (pct)=>setStage(
+              (wantsActivity ? "Reading your footage — " : "Reading the audio from your footage — ") + pct + "%…" + ofN(i)));
+            if(done && done.url){
+              listenUrl = done.url;
+              try{ audioPath = decodeURIComponent(done.url.split("/sites/")[1]||""); }catch(_){}
+              // Clip-local, exactly like words. It gets laid onto the global timeline
+              // below, in the one place every other timeline conversion happens.
+              if(done.activity) perClipActivity[i] = done.activity.activity;
             }
           }
           // If extraction failed we still try the video directly — better than stopping.
@@ -4220,8 +4259,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           perClipWords.push([]);
         }
       }
-      if(!heardAnything){
-        setErr("Couldn't hear any speech in " + (many ? "any of those clips." : "that video.") + " The editor cuts based on what you say, so it needs audio.");
+      // Every other style cuts from speech and cannot proceed without it. Process
+      // can: a silent cooking video is a completely normal thing to hand us, and the
+      // activity track is enough on its own to know what to keep.
+      const haveActivity = perClipActivity.some(a => Array.isArray(a) && a.length);
+      if(!heardAnything && !(wantsActivity && haveActivity)){
+        setErr(wantsActivity
+          ? "Couldn't read " + (many ? "those clips." : "that video.") + " We heard no speech and couldn't measure any movement either, so there's nothing to cut on."
+          : "Couldn't hear any speech in " + (many ? "any of those clips." : "that video.") + " The editor cuts based on what you say, so it needs audio.");
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
       }
@@ -4233,8 +4278,26 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setStage("Planning the edit — finding the ums, dead air and best takes…");
       const offsets = clipOffsets(clips);
       const globalWords = mergeClipWords(perClipWords, offsets);
+      // The activity track onto the same global timeline the planner reads. One value
+      // per second, clips end to end, gaps left as 0 — a clip we couldn't measure
+      // reads as "nothing happening", which is the safe way to be wrong: the planner
+      // falls back to the transcript for that stretch instead of keeping dead footage.
+      const globalActivity = wantsActivity ? (()=>{
+        const total = Math.max(1, Math.ceil(totalDur));
+        const out = new Array(total).fill(0);
+        for(let ci=0; ci<perClipActivity.length; ci++){
+          const arr = perClipActivity[ci];
+          if(!Array.isArray(arr)) continue;
+          const base = Math.floor((offsets[ci] && offsets[ci].start) || 0);
+          for(let k=0; k<arr.length; k++){
+            const idx = base + k;
+            if(idx >= 0 && idx < total) out[idx] = arr[k];
+          }
+        }
+        return out;
+      })() : null;
       const frame = await captureVideoFrame(clips[0].preview, Math.min(2, Math.max(0.5,(clips[0].dur||4)/2)));
-      const plan = await studioPlan(globalWords, totalDur, frame, style);
+      const plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity);
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){
         setErr((plan && plan.error) || "Couldn't plan the edit. Please try again.");
         for(const p of cleanup) await deleteSiteObject(p);
@@ -4313,7 +4376,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // for it. A failed image is skipped, never fatal: a missing insert costs the
       // viewer nothing, a failed render costs them the whole edit.
       const brollShots = [];
-      if(style==="cinematic" && Array.isArray(plan.broll) && plan.broll.length){
+      if((style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
         setStage("Creating your b-roll images…");
         for(const b of plan.broll.slice(0,4)){
           const p = pointToClip(Number(b && b.s)||0, offsets);
@@ -4418,7 +4481,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
         {STYLES.map(s=>(
-          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
+          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
             <span style={{fontSize:12,fontWeight:700}}>{s.label}{!s.ready && "  · coming soon"}</span>
             <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{s.note}</span>
           </button>
