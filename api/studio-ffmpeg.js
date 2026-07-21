@@ -27,6 +27,11 @@ const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 const STUDIO_COST = 2000;    // flat — standard styles
 const CINEMATIC_COST = 4000; // flat — cinematic
 const PER_CLIP_COST = 250;   // each clip past the first — must match CREDIT_COSTS.editorClip in App.jsx
+// The score is charged by /api/studio-music when it is generated, BEFORE the render
+// starts — not here. That is on purpose: the customer is charged for the thing at
+// the moment the thing is bought, so if the score fails it refunds on its own and
+// the edit still runs. Rolling it into the render charge would mean one number
+// covering two purchases with two different failure modes.
 const MAX_CLIPS = 40;        // sanity bound; the real limit is upload time
 const MAX_OUT_SECONDS = 900;
 
@@ -236,6 +241,13 @@ export default async function handler(req, res) {
       .filter(t => /^https?:\/\//.test(t.url) && t.after < keep.length)
       .slice(0, 4);
 
+    // The generated score. Arrives as a provider URL, the same as a bridge shot —
+    // never a file, never a data URL. Validated here rather than trusted: this
+    // string ends up as an ffmpeg input on the render box.
+    const music = typeof body.music === "string" && /^https?:\/\//.test(body.music.trim())
+      ? body.music.trim()
+      : null;
+
     // Per-clip "what did you shoot in?" — a day can span two cameras.
     const clipFootage = (Array.isArray(body.clipFootage) ? body.clipFootage : [])
       .map(f => ["sony", "canon", "standard", "none"].includes(f) ? f : footage);
@@ -283,7 +295,7 @@ export default async function handler(req, res) {
               sources: urls, segments: keep, words, title, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
               grade: { footage, look, clipFootage },
-              chapters, broll, transitions,
+              chapters, broll, transitions, music,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
               uploadPath
             }
@@ -313,7 +325,7 @@ export default async function handler(req, res) {
           orientation,
           uploadPath,
           grade: { footage, look, clipFootage },
-          chapters, broll, transitions,
+          chapters, broll, transitions, music,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
       });

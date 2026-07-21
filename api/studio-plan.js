@@ -119,17 +119,23 @@ export default async function handler(req, res) {
       "\n" + cutRules +
       "- Segments must be in chronological order, non-overlapping, within 0.." + duration + ".\n\n" +
       "Also write:\n" +
-      "- title: a short punchy on-screen opening title for this video (max 6 words, no quotes, no emojis).\n\n" +
+      "- title: a short punchy on-screen opening title for this video (max 6 words, no quotes, no emojis).\n" +
+      "- music: a brief for an ORIGINAL INSTRUMENTAL SCORE to sit quietly under this person's voice for the whole video. " +
+        "Write it as a composer's brief, not a mood word: name the genre, the instruments, the tempo in BPM, and the emotional register, " +
+        "and base it on what this person is ACTUALLY TALKING ABOUT in the transcript above. A piece about losing everything and starting " +
+        "again does not get the same score as a studio tour. Max 60 words. It must be instrumental — never ask for vocals, lyrics or singing. " +
+        "It must be an UNDERSCORE: steady, restrained, no drops, no dramatic build-and-release, nothing that would fight the edit or pull " +
+        "attention off the voice.\n\n" +
       "COLOR ANALYSIS (as a colorist" + (frame ? ", from the attached frame" : ", assume neutral if no frame") + "):\n" +
       "- temperature: is the footage's white balance warm, neutral, or cool?\n" +
       "- exposure: is it dark, balanced, or bright?\n" +
       "(The render will adapt the cinematic grade to this so the look is applied correctly instead of blindly.)\n\n" +
       "Respond with ONLY this JSON, nothing else:\n" +
       (style === "cinematic"
-        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
+        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : style !== "talkinghead"
-        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
-        : '{"keep":[{"s":number,"e":number}],"title":"string","look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
+        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
+        : '{"keep":[{"s":number,"e":number}],"title":"string","music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
       "TRANSCRIPT:\n" + lines;
 
     const parts = [];
@@ -196,7 +202,15 @@ export default async function handler(req, res) {
         .slice(0, 4);
     }
 
-    return res.status(200).json({ keep: merged, title, chapters, broll, look, outSeconds });
+    // The music brief. Free to ask for on every style — the model is already reading
+    // the transcript, so this costs nothing extra and the app simply ignores it when
+    // the customer left music switched off. Length-capped like every other model
+    // string that goes on to a paid API call.
+    const music = {
+      prompt: String((plan.music && plan.music.prompt) || "").trim().slice(0, 400)
+    };
+
+    return res.status(200).json({ keep: merged, title, chapters, broll, music, look, outSeconds });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }

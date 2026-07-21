@@ -1076,7 +1076,7 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1086,7 +1086,8 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
         style, footage, look, words, clipFootage: clipFootage || [],
-        chapters: chapters || [], broll: broll || [], transitions: transitions || []
+        chapters: chapters || [], broll: broll || [], transitions: transitions || [],
+        music: music || null
       })
     });
     return await res.json(); // { id:"ff:...", balance, charged } or { error }
@@ -1190,6 +1191,21 @@ async function studioBrollImage(prompt, orientation, userId){
     if(!url) return { error: "Couldn't store the b-roll image." };
     return { url, path, balance: (typeof r.balance==="number" ? r.balance : null) };
   } catch(e){ return { error: (e && e.message) || "B-roll generation failed." }; }
+}
+
+// Compose the score. Same shape as studioBrollImage and studioTransition: generate
+// before the render, hand the render server a URL. It polls through pollVideo
+// unchanged because a bare WaveSpeed id is what /api/video-result already expects.
+async function studioMusic(prompt, style, look){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/studio-music", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+      body: JSON.stringify({ prompt: prompt||"", style: style||"talkinghead", look: look||"wolf" })
+    });
+    return await res.json(); // { id, balance, charged } or { error }
+  } catch { return { error: "Couldn't reach the music engine." }; }
 }
 
 async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music, broll){
@@ -3913,7 +3929,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [shBusy,setShBusy]         = useState(false);
   const [shStage,setShStage]       = useState("");
   const [shErr,setShErr]           = useState("");
-  const [music,setMusic]           = useState("off");  // "off" | "eleven" (more engines coming)
+  const [music,setMusic]           = useState("off");  // "off" | "score"
+  // "score" is engine-neutral on purpose. It's Lyria 3 Pro today; if that's swapped
+  // for another model the UI, the state and the stored value all stay put and only
+  // api/studio-music.js changes.
   const [alsoShorts,setAlsoShorts] = useState(false);  // edit mode: also cut viral clips in the same run
   const [grade,setGrade]           = useState("wolf");    // "wolf" | "luxury"
   const [footage,setFootage]       = useState("sony");   // "sony" | "canon" | "standard" | "none"
@@ -3947,7 +3966,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const TRANSITION_EST = CREDIT_COSTS.editorTransition * (canTransition && useTransitions ? transitionCap : 0);
 
   const BASE_COST = style==="cinematic" ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
-  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST;
+  const MUSIC_EST = music==="off" ? 0 : CREDIT_COSTS.musicScore;
+  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST + MUSIC_EST;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
@@ -4309,12 +4329,33 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         }
       }
 
+      // ── 3d. The score ──
+      // Generated before the render so the render server gets a finished URL, the
+      // same as b-roll and transitions. A failed score is skipped rather than fatal:
+      // the customer paid for an edit, and losing the whole edit over its background
+      // music would be much the worse outcome. Its own credits refund themselves via
+      // video-result.js, so skipping costs them nothing.
+      let musicUrl = null;
+      if(music!=="off"){
+        setStage("Composing your score…");
+        try{
+          const mus = await studioMusic((plan.music && plan.music.prompt) || "", style, grade);
+          if(!mus || mus.error || !mus.id) throw new Error((mus && mus.error) || "The music engine didn't start.");
+          if(typeof mus.balance==="number") onBalance(mus.balance);
+          musicUrl = await pollVideo(mus.id, (pct)=>setStage("Composing your score — " + pct + "%…"));
+          if(!musicUrl) throw new Error("The score didn't come back.");
+        } catch(e){
+          console.warn("score skipped:", e && e.message);
+          setStage("Couldn't compose the score — carrying on without music.");
+        }
+      }
+
       // ── 4. Render ──
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
         style, footage, grade, taggedWords, clips.map(c=>c.footage||footage),
-        chapterCues, brollShots, transitionClips
+        chapterCues, brollShots, transitionClips, musicUrl
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -4344,7 +4385,6 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const out = results[0];
 
       for(const p of cleanup) await deleteSiteObject(p);   // inputs have done their job
-      if(started.musicPath) await deleteSiteObject(started.musicPath);
       if(Array.isArray(started.brollPaths)&&started.brollPaths.length) await Promise.all(started.brollPaths.map(p2=>deleteSiteObject(p2)));
 
       const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
@@ -4409,17 +4449,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-        {/* "eleven" is marked not-ready on purpose: the score was never wired into the
-            ffmpeg engine, so selecting it silently did nothing while the copy below
-            promised a per-minute charge. Flip it back to true when music renders. */}
-        {[["off","No music",true],["eleven","Cinematic score · original",false],["mubert","Budget bed",false],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
+        {[["off","No music",true],["score","Cinematic score · original",true],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
           <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.charcoal:"#fff",color:music===v?"#fff":(ready?B.charcoal:B.mid),fontFamily:"sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
         ))}
       </div>
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
-        {music==="eleven"
-          ? "An original score is composed just for your video and mixed quietly under your voice — matched to your style and grade. + "+CREDIT_COSTS.musicScoreMin+" credits per minute of the final video."
-          : "Add an original AI-composed score for +"+CREDIT_COSTS.musicScoreMin+" credits per finished minute. Licensed real-artist tracks are coming."}
+        {music==="score"
+          ? "An original score is composed for this video — written from what you actually talk about, then mixed underneath your voice so it swells in the gaps and ducks out of the way when you speak. + "+CREDIT_COSTS.musicScore+" credits, however long the video is."
+          : "Add an original AI-composed score for +"+CREDIT_COSTS.musicScore+" credits, flat. Licensed real-artist tracks are coming."}
       </p>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
@@ -6727,7 +6764,12 @@ const CREDIT_COSTS = {
   editorQuick: 2000,    // AI Video Editor — talking-head Quick Edit, flat (real ~$0.30-0.60, generous margin buffer for a new pipeline)
   editorScript: 100,    // AI Video Editor — write-my-script-first (one LLM call)
   editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
-  musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
+  musicScore: 600,      // AI Video Editor — original cinematic score, FLAT per score.
+                        // Flat, not per-minute, because Lyria is billed per clip
+                        // (~$0.08) regardless of length — the track is looped to fill
+                        // the edit. Per-minute pricing would have charged 4,800 credits
+                        // for an eight-cent track on a twelve-minute video.
+                        // Must match MUSIC_COST in api/studio-music.js.
   editorCinematic: 4000, // AI Video Editor — Cinematic style: kinetic cut, scene
                          // cards, and 2-4 AI b-roll stills cut in over the voice.
                          // Was briefly 3000 while the render side could composite
