@@ -1273,13 +1273,13 @@ async function studioBrollImage(prompt, orientation, userId){
 // Compose the score. Same shape as studioBrollImage and studioTransition: generate
 // before the render, hand the render server a URL. It polls through pollVideo
 // unchanged because a bare WaveSpeed id is what /api/video-result already expects.
-async function studioMusic(prompt, style, look){
+async function studioMusic(prompt, style, look, genre){
   try{
     const token = await freshToken();
     const res = await fetch("/api/studio-music", {
       method:"POST",
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
-      body: JSON.stringify({ prompt: prompt||"", style: style||"talkinghead", look: look||"wolf" })
+      body: JSON.stringify({ prompt: prompt||"", style: style||"talkinghead", look: look||"wolf", genre: genre||"auto" })
     });
     return await res.json(); // { id, balance, charged } or { error }
   } catch { return { error: "Couldn't reach the music engine." }; }
@@ -4007,6 +4007,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [shStage,setShStage]       = useState("");
   const [shErr,setShErr]           = useState("");
   const [music,setMusic]           = useState("off");  // "off" | "score"
+  // "auto" lets the planner choose from what the video is about, which is usually
+  // right and is why it stays the default. The rest are for when it isn't.
+  const [musicGenre,setMusicGenre] = useState("auto");
   // "score" is engine-neutral on purpose. It's Lyria 3 Pro today; if that's swapped
   // for another model the UI, the state and the stored value all stay put and only
   // api/studio-music.js changes.
@@ -4519,7 +4522,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       if(music!=="off"){
         setStage("Composing your score…");
         try{
-          const mus = await studioMusic((plan.music && plan.music.prompt) || "", style, grade);
+          const mus = await studioMusic((plan.music && plan.music.prompt) || "", style, grade, musicGenre);
           if(!mus || mus.error || !mus.id) throw new Error((mus && mus.error) || "The music engine didn't start.");
           if(typeof mus.balance==="number") onBalance(mus.balance);
           musicUrl = await pollVideo(mus.id, (pct)=>setStage("Composing your score — " + pct + "%…"));
@@ -4633,6 +4636,19 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.charcoal:"#fff",color:music===v?"#fff":(ready?B.charcoal:B.mid),fontFamily:"sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
         ))}
       </div>
+      {music==="score" && (<>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"10px 0 8px"}}>Style of score</p>
+        <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+          {[["auto","Match my video"],["classical","Classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setMusicGenre(v)} style={{padding:"8px 14px",border:"1px solid "+(musicGenre===v?B.charcoal:B.stone),background:musicGenre===v?B.charcoal:"#fff",color:musicGenre===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+          {musicGenre==="auto"
+            ? "We'll choose the style from what you're actually talking about."
+            : "Composed in this style, with the mood matched to your video."}
+        </p>
+      </>)}
       <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
         {music==="score"
           ? "An original score is composed for this video — written from what you actually talk about, then mixed underneath your voice so it swells in the gaps and ducks out of the way when you speak. + "+CREDIT_COSTS.musicScore+" credits, however long the video is."

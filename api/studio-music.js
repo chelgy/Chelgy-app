@@ -94,6 +94,28 @@ const HOUSE_STYLE =
 const NEGATIVE = "vocals, singing, lyrics, spoken word, rap, choir, applause, crowd noise, " +
   "sound effects, sudden silence, abrupt ending, distortion, clipping";
 
+// The genres someone can actually ask for.
+//
+// Each one is a composer's brief, not a label. "Classical" on its own gets you an
+// average of everything classical ever written; naming the instruments, the register
+// and the tempo gets you a piece that belongs under a specific video. These are all
+// written as UNDERSCORES — a string quartet recorded to be listened to would bury a
+// voice no matter how hard the ducking worked.
+//
+// "auto" is deliberately kept as the default, because a score written from what the
+// person is actually talking about is usually right. This exists for when it isn't.
+const GENRES = {
+  classical:  "Classical chamber underscore. Warm strings — violin, viola, cello — with restrained dynamics and long sustained lines. Elegant and composed, in the register of a chamber ensemble rather than a full orchestra. Around 70 BPM.",
+  orchestral: "Cinematic orchestral underscore. Low strings and soft brass swells, subtle timpani, sweeping but controlled. Filmic and expansive without ever becoming a fanfare. Around 80 BPM.",
+  piano:      "Solo piano underscore. Felt piano, close-recorded, gentle repeating figures with plenty of space between phrases. Intimate and unhurried. Around 68 BPM.",
+  ambient:    "Ambient underscore. Warm synthesiser pads, slow evolving texture, soft analogue shimmer, no discernible beat. Weightless and atmospheric. Around 60 BPM.",
+  acoustic:   "Acoustic underscore. Fingerpicked guitar, light upright bass, brushed percussion. Warm, organic and easy, golden-hour feeling. Around 90 BPM.",
+  lofi:       "Lo-fi underscore. Soft dusty drums, mellow electric piano, warm vinyl texture and gentle tape wobble. Relaxed and unpressured. Around 82 BPM.",
+  electronic: "Modern electronic underscore. Clean synth arpeggios, soft sub bass, crisp minimal percussion. Sleek and forward-moving without being aggressive. Around 100 BPM.",
+  jazz:       "Jazz underscore. Brushed drums, walking upright bass, muted trumpet or soft rhodes, relaxed swing. Late-evening and effortless. Around 88 BPM."
+};
+const GENRE_IDS = Object.keys(GENRES);
+
 // Fallbacks when the planner didn't write a brief — a look-matched bed rather than
 // a generic one, so the score still belongs to the video it's under.
 const BY_LOOK = {
@@ -125,7 +147,23 @@ export default async function handler(req, res) {
     // way b-roll prompts are — it comes from a language model and shouldn't be
     // trusted verbatim into a paid API call.
     const brief = String(body.prompt || "").trim().slice(0, 400);
-    const musical = brief || BY_LOOK[style + ":" + look] || BY_LOOK["talkinghead:wolf"];
+    const genre = GENRE_IDS.includes(body.genre) ? body.genre : "auto";
+
+    // A chosen genre decides the SOUND; the planner's brief still supplies the mood.
+    //
+    // Keeping both is the point. Genre alone gives a competent stock bed that could
+    // sit under anyone's video. The brief alone gives something written for this
+    // video but in whatever style the model felt like. Together you get a piece in
+    // the style that was asked for, pitched at what the person is actually saying —
+    // and the ordering matters, because the instruction is explicit that the brief
+    // must not drag the instrumentation somewhere else.
+    let musical;
+    if (genre !== "auto") {
+      musical = GENRES[genre] +
+        (brief ? " Keep that instrumentation and style exactly. Use the following only to judge mood, energy and pacing — never to change the instruments or the genre: " + brief : "");
+    } else {
+      musical = brief || BY_LOOK[style + ":" + look] || BY_LOOK["talkinghead:wolf"];
+    }
     const prompt = musical + " " + HOUSE_STYLE;
 
     const paid = await spend(token, MUSIC_COST, "video-editor:score");
@@ -162,7 +200,7 @@ export default async function handler(req, res) {
     }
 
     await recordVideoJob(id, userId, MUSIC_COST);
-    await logCost(id, userId, "lyria-3-pro-" + style + "-" + look, MUSIC_COST, MUSIC_REAL_USD);
+    await logCost(id, userId, "lyria-3-pro-" + genre + "-" + style, MUSIC_COST, MUSIC_REAL_USD);
 
     // No "ff:" or "g:" prefix — a bare id is a WaveSpeed id, which is exactly what
     // /api/video-result polls by default. The app reuses pollVideo unchanged.
