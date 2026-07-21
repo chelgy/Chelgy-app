@@ -6728,12 +6728,13 @@ const CREDIT_COSTS = {
   editorScript: 100,    // AI Video Editor — write-my-script-first (one LLM call)
   editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
   musicScoreMin: 400,   // AI Video Editor — original cinematic score, per minute of final video (ElevenLabs, real $0.15/min)
-  editorCinematic: 3000, // AI Video Editor — Cinematic style. Was 4000 when the price
-                         // also covered AI b-roll stills, which the ffmpeg engine
-                         // didn't render — it charged double and delivered a harder
-                         // cut and nothing else. Now delivers kinetic cut + scene
-                         // cards. Put this back to 4000 when b-roll image generation
-                         // is wired up and the stills actually appear.
+  editorCinematic: 4000, // AI Video Editor — Cinematic style: kinetic cut, scene
+                         // cards, and 2-4 AI b-roll stills cut in over the voice.
+                         // Was briefly 3000 while the render side could composite
+                         // b-roll but nothing generated the images, so the edit was
+                         // charged for something it never delivered. Back to 4000
+                         // now the stills actually ship: a full set is 4 x 120
+                         // credits of Gemini, and the price has to cover it.
   editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
   // One AI transition: a 4-second Seedance video-extend bridge shot at 1080p.
