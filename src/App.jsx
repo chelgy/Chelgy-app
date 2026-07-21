@@ -931,7 +931,11 @@ async function uploadVideoInput(file, path, onStatus){
         onProgress: (uploaded, total)=>{
           if(onStatus){
             const pct = Math.min(99, Math.floor((uploaded / (total||file.size)) * 100));
-            onStatus("uploading", "Uploading your footage — " + pct + "% of " + totalMb + "MB…");
+            // Bytes as well as the sentence. With several clips going at once the
+            // caller needs to add them up itself — "clip 2 is at 40%" is meaningless
+            // when three are in flight.
+            onStatus("uploading", "Uploading your footage — " + pct + "% of " + totalMb + "MB…",
+                     uploaded, total || file.size);
           }
         },
         onSuccess: ()=>{
@@ -4241,20 +4245,72 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
     try{
       // ── 1. Upload every clip ──
-      for(let i = 0; i < n; i++){
-        const c = clips[i];
-        const ext = ((c.file.type && c.file.type.split("/")[1]) || "mp4").split(";")[0];
-        const path = ((user&&user.id)||"anon") + "/editor-" + Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
-        setStage("Uploading your footage…" + ofN(i));
-        const up = await uploadVideoInput(c.file, path, (_st,msg)=>{ if(msg) setStage(msg + ofN(i)); });
-        if(!up || !up.ok){
-          setErr((up && up.error) || ("Couldn't upload " + c.name + "."));
-          for(const p of cleanup) await deleteSiteObject(p);
-          setBusy(false); setStage(""); return;
+      //
+      // Several at once, not one after another.
+      //
+      // Resumable uploads send ONE 6MB chunk at a time and wait for each to be
+      // acknowledged before sending the next. A 5GB clip is ~850 sequential round
+      // trips, and between each one nothing at all is in flight. On a slow line that
+      // is invisible, because the line is the limit. On a fast one those stalls ARE
+      // the upload time: measured at 270Mbps, a 5GB clip should take about two and a
+      // half minutes and took very much longer. The connection was mostly idle.
+      //
+      // Running clips concurrently keeps several requests in the air, so the gaps in
+      // one are filled by the others.
+      //
+      // Capped rather than unlimited. Someone who shot a full day can hand us twenty
+      // files, and twenty simultaneous uploads would compete for the same line, blow
+      // out memory and get rate-limited. Three is enough to keep a fast connection
+      // busy without any of that.
+      const UPLOAD_CONCURRENCY = 3;
+      const bytesDone = new Array(n).fill(0);
+      const bytesTotal = clips.map(c => (c.file && c.file.size) || 0);
+      const grandTotal = bytesTotal.reduce((a,b)=>a+b, 0) || 1;
+      const totalMb = Math.round(grandTotal / (1024*1024));
+      let uploadFailed = null;
+
+      const showProgress = ()=>{
+        const done = bytesDone.reduce((a,b)=>a+b, 0);
+        const pct = Math.min(99, Math.floor((done / grandTotal) * 100));
+        setStage(many
+          ? ("Uploading your footage — " + pct + "% of " + totalMb + "MB (" + n + " clips at once)…")
+          : ("Uploading your footage — " + pct + "% of " + totalMb + "MB…"));
+      };
+      showProgress();
+
+      // Index-assigned, never pushed. The order of `uploaded` IS the timeline order,
+      // and with concurrent uploads the finish order is whatever the network decides.
+      // Pushing would silently reorder someone's day.
+      const slots = new Array(n).fill(null);
+      let nextClip = 0;
+      const worker = async ()=>{
+        while(true){
+          const i = nextClip++;
+          if(i >= n || uploadFailed) return;
+          const c = clips[i];
+          const ext = ((c.file.type && c.file.type.split("/")[1]) || "mp4").split(";")[0];
+          const path = ((user&&user.id)||"anon") + "/editor-" + Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2,7) + "." + ext;
+          const up = await uploadVideoInput(c.file, path, (_st,_msg,sent)=>{
+            if(typeof sent === "number"){ bytesDone[i] = sent; showProgress(); }
+          });
+          if(!up || !up.ok){
+            if(!uploadFailed) uploadFailed = (up && up.error) || ("Couldn't upload " + c.name + ".");
+            return;
+          }
+          bytesDone[i] = bytesTotal[i];
+          slots[i] = { url: up.url, path: up.path };
+          cleanup.push(up.path);   // registered as each one lands, so a later failure still cleans up
+          showProgress();
         }
-        uploaded.push({ url: up.url, path: up.path });
-        cleanup.push(up.path);
+      };
+      await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, n) }, worker));
+
+      if(uploadFailed || slots.some(x => !x)){
+        setErr(uploadFailed || "One of your clips didn't upload. Please try again.");
+        for(const p of cleanup) await deleteSiteObject(p);
+        setBusy(false); setStage(""); return;
       }
+      for(const sl of slots) uploaded.push(sl);
 
       // ── 2. Transcribe each clip on its own ──
       // Every clip is transcribed separately so each word keeps its own clip
@@ -4309,6 +4365,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // can: a silent cooking video is a completely normal thing to hand us, and the
       // activity track is enough on its own to know what to keep.
       const haveActivity = perClipActivity.some(a => Array.isArray(a) && a.length);
+      // Process without an activity track is not Process. The entire style is built
+      // on knowing where something is happening, and planning it from speech alone
+      // silently produces a completely different edit from the one that was asked
+      // for. Stop here and say so — nothing has been charged yet, because the render
+      // charge and the b-roll images both come later.
+      if(wantsActivity && !haveActivity){
+        setErr("We couldn't measure the movement in your footage, and the Process style needs it — without it we'd cut every silent working shot as if it were dead air. Nothing has been charged. If this keeps happening, the render engine may not be up to date.");
+        for(const p of cleanup) await deleteSiteObject(p);
+        setBusy(false); setStage(""); return;
+      }
       if(!heardAnything && !(wantsActivity && haveActivity)){
         setErr(wantsActivity
           ? "Couldn't read " + (many ? "those clips." : "that video.") + " We heard no speech and couldn't measure any movement either, so there's nothing to cut on."
@@ -4328,7 +4394,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // per second, clips end to end, gaps left as 0 — a clip we couldn't measure
       // reads as "nothing happening", which is the safe way to be wrong: the planner
       // falls back to the transcript for that stretch instead of keeping dead footage.
-      const globalActivity = wantsActivity ? (()=>{
+      // ONLY when we genuinely measured something. An array of zeros is not "no
+      // data" to the planner — it reads as "nothing happened for eleven minutes",
+      // and the rules say to cut that. An 11-minute cooking video came back as 17
+      // seconds of the finished dish because of exactly this. Missing data must look
+      // missing.
+      const globalActivity = (wantsActivity && haveActivity) ? (()=>{
         const total = Math.max(1, Math.ceil(totalDur));
         const out = new Array(total).fill(0);
         for(let ci=0; ci<perClipActivity.length; ci++){
