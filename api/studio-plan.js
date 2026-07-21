@@ -89,7 +89,20 @@ async function callGemini(GKEY, payload) {
 // And max_tokens has to be generous. A long vlog can produce sixty or more keep
 // segments plus cards and b-roll, and a truncated response is not a slightly shorter
 // edit — it's unparseable JSON and a failed plan.
-const CLAUDE_MODEL = (process.env.PLANNER_MODEL || "claude-sonnet-5").trim();
+// Opus, deliberately, and it is the one place in this app where the most capable
+// model is worth what it costs.
+//
+// Everything downstream executes this decision faithfully — the render server cuts
+// exactly where it is told, the captions follow, the grade follows. A bad judgement
+// here isn't a slightly worse video, it's eleven minutes of someone's footage
+// returned as seventeen seconds. There is no second chance later in the pipeline to
+// notice the edit was wrong.
+//
+// Against a 4,000-credit cinematic edit the difference in model cost is small, and
+// it is spent on the only step that requires taste rather than execution.
+//
+// PLANNER_MODEL overrides this in Vercel without a deploy.
+const CLAUDE_MODEL = (process.env.PLANNER_MODEL || "claude-opus-4-8").trim();
 
 async function callClaude(AKEY, { system, content }) {
   let lastErr = "The editor is busy. Please try again in a moment.";
