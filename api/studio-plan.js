@@ -108,15 +108,15 @@ export default async function handler(req, res) {
         "- ALSO identify 2-4 B-ROLL moments: points where the speaker references something visual (a place, an object, a scene, a memory) and a full-screen cinematic photograph should cut in over their voice. For each give: s (seconds, ORIGINAL timeline, at the moment the thing is mentioned) and prompt (a vivid photography brief for that image — subject, setting, lighting, mood; absolutely no text or words in the image). Describe the scene NEUTRALLY, as a straight photograph: do NOT ask for a warm, cinematic, filmic, teal-and-orange or otherwise graded look. The render applies the film-look LUT to these inserts itself, so a pre-graded image would be graded twice and would jump out against the surrounding footage.\n";
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
-        "- The TRANSCRIPT below, as usual.\n" +
-        "- An ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 means the picture is essentially still — an empty counter, an abandoned tripod, someone out of frame. 5-9 means real movement: hands working, something being assembled, chopped, wiped, folded, poured.\n" +
+        "- The TRANSCRIPT below, as usual. This is the stronger of the two signals: if someone is talking, that moment matters.\n" +
+        "- An ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 means genuinely nothing is moving — an empty counter, an abandoned tripod, someone out of frame. 4-6 is a person working within a fixed shot: hands chopping, wiping, folding, assembling. 7-9 is large movement — the camera moving, or something carried across the frame: hands working, something being assembled, chopped, wiped, folded, poured.\n" +
         "\n" +
         "THE RULE THAT MATTERS: silence is NOT dead air in this video. A silent stretch with HIGH activity is the most valuable footage there is — it is the actual work being done, and it must be KEPT even though nobody is speaking over it. A silent stretch with activity at or near 0 is genuinely dead and should go.\n" +
         "\n" +
         "- KEEP: anything with activity 4 or above, talking or not. This is the process itself.\n" +
         "- KEEP: talking, on the usual terms — cut filler, false starts, repeated takes.\n" +
         "- CUT: silence where activity is 0-1 for more than ~2s. Nothing is happening and nobody is talking.\n" +
-        "- CUT: activity 0-1 that runs long even if there IS talking over it, when the talking is filler.\n" +
+        "- NEVER cut a segment just because activity is low while the person is TALKING. Speech is proof that something is happening even when the picture is still — a locked-off camera on someone explaining a step is exactly what this style is for. Talking is only ever cut on the usual grounds: filler words, false starts, a repeated take.\n" +
         "- COMPRESS, don't delete, repetitive work. Thirty seconds of continuous chopping at activity 6 does not need to survive whole — keep 6-10 seconds of it and move on. The viewer needs to see that it happened, not watch all of it.\n" +
         "- Never cut mid-word. Start keeps ~0.15s before the first word, end ~0.3s after the last.\n" +
         "- Merge keeps less than 1.5s apart. No kept segment shorter than 1s.\n" +
