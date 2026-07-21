@@ -2,8 +2,28 @@
 // Gemini reads the word-timestamped transcript and decides which segments to
 // KEEP (cutting filler words, false starts, long dead air and rambling), plus
 // writes a short on-screen title. Returns strict JSON the render step consumes.
-// Free step (pennies); credits are charged at the render step.
-// Env: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
+// Credits are charged at the render step, not here.
+//
+// WHICH MODEL DECIDES THE CUT
+// Claude plans the edit; Gemini is kept as an automatic fallback. Deciding what to
+// keep and what to throw away is an editorial judgement made from a transcript and
+// an activity track, and it is the single highest-leverage call in the whole tool —
+// everything downstream just executes it faithfully.
+//
+// Gemini is NOT removed, for two reasons. If Claude is down or shedding load, the
+// editor still works instead of failing outright. And if the planning gets worse
+// rather than better, switching back is one environment variable rather than a
+// revert.
+//
+// Set PLANNER_ENGINE=gemini in Vercel to go back. Nothing else changes: the prompt,
+// the JSON contract and every sanitising rule below are shared, so the two engines
+// are genuinely comparable rather than two different pipelines.
+//
+// The response reports which engine actually planned the edit, so a fallback is
+// visible rather than silent.
+//
+// Env: ANTHROPIC_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
+//      optional: PLANNER_ENGINE ("claude" | "gemini"), PLANNER_MODEL
 
 export const maxDuration = 60;
 
@@ -25,9 +45,10 @@ async function getUserId(token) {
 // automatically falls back to a stable pinned model so callers never see it.
 const GEMINI_PRIMARY = "gemini-flash-latest";
 const GEMINI_FALLBACK = "gemini-3.1-flash-lite"; // stable Gemini 3, low-demand safety net (longer runway than 2.5)
+const overloaded = (s) => /overloaded|high demand|try again later|unavailable|resource[_ ]?exhausted|rate limit|quota/i.test(String(s || ""));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function callGemini(GKEY, payload) {
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const overloaded = (s) => /overloaded|high demand|try again later|unavailable|resource[_ ]?exhausted|rate limit|quota/i.test(String(s || ""));
   const models = [GEMINI_PRIMARY, GEMINI_PRIMARY, GEMINI_PRIMARY, GEMINI_FALLBACK]; // 3 tries on primary, then fallback
   let lastErr = "The editor is busy. Please try again in a moment.";
   for (let i = 0; i < models.length; i++) {
@@ -56,6 +77,61 @@ async function callGemini(GKEY, payload) {
   return { ok: false, error: lastErr };
 }
 
+// ── Claude, with the same retry behaviour ──
+//
+// Two differences from the Gemini call worth knowing about.
+//
+// There's no "respond only in JSON" switch, so the assistant turn is PREFILLED with
+// an opening brace. The model can only continue from there, which makes a preamble
+// like "Here's the plan:" structurally impossible rather than merely discouraged.
+// The brace is added back before parsing.
+//
+// And max_tokens has to be generous. A long vlog can produce sixty or more keep
+// segments plus cards and b-roll, and a truncated response is not a slightly shorter
+// edit — it's unparseable JSON and a failed plan.
+const CLAUDE_MODEL = (process.env.PLANNER_MODEL || "claude-sonnet-5").trim();
+
+async function callClaude(AKEY, { system, content }) {
+  let lastErr = "The editor is busy. Please try again in a moment.";
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": AKEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 8000,
+          temperature: 0.2,
+          system,
+          messages: [
+            { role: "user", content },
+            { role: "assistant", content: "{" }
+          ]
+        })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        lastErr = (d && d.error && d.error.message) || ("Model error " + r.status);
+        if (r.status === 429 || r.status >= 500 || overloaded(lastErr)) { await sleep(1200 * (i + 1)); continue; }
+        return { ok: false, error: lastErr };
+      }
+      const text = (Array.isArray(d.content) ? d.content : [])
+        .map((b) => (b && b.type === "text" ? b.text : "")).join("");
+      if (!text) { lastErr = "The editor returned nothing."; await sleep(1200 * (i + 1)); continue; }
+      // Put back the brace the prefill consumed.
+      return { ok: true, text: "{" + text };
+    } catch (e) {
+      lastErr = (e && e.message) || "Network error contacting the editor.";
+      await sleep(1200 * (i + 1));
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -73,7 +149,10 @@ export default async function handler(req, res) {
     if (!words.length && style !== "process") return res.status(400).json({ error: "Missing transcript." });
 
     const GKEY = (process.env.GEMINI_API_KEY || "").trim();
-    if (!GKEY) return res.status(500).json({ error: "The editor is not configured." });
+    const AKEY = (process.env.ANTHROPIC_API_KEY || "").trim();
+    const engine = (process.env.PLANNER_ENGINE || "claude").trim().toLowerCase() === "gemini" ? "gemini" : "claude";
+    // Only a total absence of BOTH is fatal. Either one on its own can plan an edit.
+    if (!GKEY && !AKEY) return res.status(500).json({ error: "The editor is not configured." });
 
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
     const userId = await getUserId(token);
@@ -179,10 +258,41 @@ export default async function handler(req, res) {
     }
     parts.push({ text: prompt });
 
-    const g = await callGemini(GKEY, {
+    // The same prompt, the same frame, the same JSON contract — only the engine
+    // differs. That is what makes the two comparable instead of two pipelines.
+    const runGemini = () => callGemini(GKEY, {
       contents: [{ parts }],
       generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
     });
+    const runClaude = () => {
+      const content = [];
+      if (frame) {
+        const m = frame.match(/^data:(.*?);base64,(.*)$/);
+        if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1] || "image/jpeg", data: m[2] || "" } });
+      }
+      content.push({ type: "text", text: prompt });
+      return callClaude(AKEY, {
+        system: "You are planning a video edit. Reply with ONE JSON object and nothing else — no preamble, no explanation, no markdown fences.",
+        content
+      });
+    };
+
+    let plannedBy = engine;
+    let g = engine === "claude" && AKEY ? await runClaude() : await runGemini();
+
+    // Fall back rather than fail. A customer who has waited through an upload and a
+    // transcription should not lose the edit because one provider is having a bad
+    // ten minutes. Which engine actually ran is reported back, so a fallback shows up
+    // instead of quietly changing how the edits look.
+    if (!g.ok) {
+      const other = plannedBy === "claude" ? "gemini" : "claude";
+      const canFallBack = other === "gemini" ? !!GKEY : !!AKEY;
+      if (canFallBack) {
+        console.warn("[plan] " + plannedBy + " failed (" + g.error + ") — falling back to " + other);
+        g = other === "gemini" ? await runGemini() : await runClaude();
+        if (g.ok) plannedBy = other;
+      }
+    }
     if (!g.ok) {
       return res.status(502).json({ error: g.error });
     }
@@ -244,7 +354,8 @@ export default async function handler(req, res) {
       prompt: String((plan.music && plan.music.prompt) || "").trim().slice(0, 400)
     };
 
-    return res.status(200).json({ keep: merged, title, chapters, broll, music, look, outSeconds });
+    console.log("[plan] " + style + " planned by " + plannedBy + " — " + merged.length + " segment(s), " + outSeconds + "s");
+    return res.status(200).json({ keep: merged, title, chapters, broll, music, look, outSeconds, plannedBy });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
