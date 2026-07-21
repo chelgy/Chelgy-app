@@ -1164,6 +1164,34 @@ function planTransitions(segs, chapterCues, offsets, cap){
   return { points: chosen, cutDuration: dur };
 }
 
+// Generate one b-roll still and park it in storage so the render server can fetch
+// it over https. Gemini writes the picture, we host it, ffmpeg cuts it in.
+//
+// The image is generated UNGRADED on purpose. The render applies the film-look LUT
+// to inserted visuals (never the camera-log conversion — there is no log footage in
+// a generated still), so asking Gemini for a "warm cinematic" image too would grade
+// it twice and the insert would jump out against the surrounding footage.
+async function studioBrollImage(prompt, orientation, userId){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/image", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+      body: JSON.stringify({
+        prompt,
+        aspectRatio: orientation==="portrait" ? "9:16" : "16:9",
+        quality: "standard"
+      })
+    });
+    const r = await res.json();
+    if(!r || !r.image) return { error: (r && r.error) || "No image came back." };
+    const path = userId+"/broll-"+Date.now()+"-"+Math.random().toString(36).slice(2,6)+".png";
+    const url = await uploadSiteImage(r.image, path);
+    if(!url) return { error: "Couldn't store the b-roll image." };
+    return { url, path, balance: (typeof r.balance==="number" ? r.balance : null) };
+  } catch(e){ return { error: (e && e.message) || "B-roll generation failed." }; }
+}
+
 async function studioRender(url, keep, title, grade, orientation, rawDuration, look, style, chapters, music, broll){
   try{
     const token = await freshToken();
@@ -4258,12 +4286,35 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         }
       }
 
+      // ── 3c. B-roll stills ──
+      // The planner already picks these: 2-4 moments where the speaker references
+      // something visual and a full-screen photograph should cut in over their voice.
+      // Cinematic only — it's the style built around voiceover, and the one priced
+      // for it. A failed image is skipped, never fatal: a missing insert costs the
+      // viewer nothing, a failed render costs them the whole edit.
+      const brollShots = [];
+      if(style==="cinematic" && Array.isArray(plan.broll) && plan.broll.length){
+        setStage("Creating your b-roll images…");
+        for(const b of plan.broll.slice(0,4)){
+          const p = pointToClip(Number(b && b.s)||0, offsets);
+          if(!p) continue;
+          const shot = await studioBrollImage(String((b && b.prompt)||"").trim(), orient, user.id);
+          if(shot && shot.url){
+            brollShots.push({ clip: p.clip, s: p.s, url: shot.url, dur: 2.4 });
+            cleanup.push(shot.path);
+            if(typeof shot.balance==="number") onBalance(shot.balance);
+          } else {
+            console.warn("b-roll skipped:", shot && shot.error);
+          }
+        }
+      }
+
       // ── 4. Render ──
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
         style, footage, grade, taggedWords, clips.map(c=>c.footage||footage),
-        chapterCues, [], transitionClips
+        chapterCues, brollShots, transitionClips
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
