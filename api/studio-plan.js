@@ -123,7 +123,12 @@ export default async function handler(req, res) {
         "- ALSO identify 2-6 SCENE INTROS at real stage changes in the process — 'Prepping The Base', 'Into The Oven', 'The Messy Part', 'Finishing Touches'. 2-5 words, title case. NEVER the word Chapter. Give each start time in seconds on the ORIGINAL timeline.\n" +
         "- ALSO identify 0-3 B-ROLL moments where a full-screen photograph would help — an ingredient, a finished result, a tool being referenced. Same neutral photographic brief as always, no grading language.\n";
 
-    const cutRules = style === "process" ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
+    // Belt and braces: if the track never arrived, do not run the process rules.
+    // They instruct the model to cut silence with low activity, and with no track to
+    // read that becomes "cut all silence" — which is the whole video in a cooking or
+    // cleaning edit. Fall back to vlog behaviour, which protects quiet moments.
+    const processUsable = style === "process" && activity && activity.length;
+    const cutRules = processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
          "- IMPORTANT: in a vlog, silence is NOT automatically dead air — quiet gaps under ~4 seconds are usually the person showing something, walking, or letting a moment breathe. KEEP those (extend the surrounding kept segment across them) unless they clearly drag.\n" +
          "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), and only truly long dead air (over ~4-5s of nothing).\n" +
