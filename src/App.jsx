@@ -838,7 +838,34 @@ async function uploadVideoInput(file, path, onStatus){
     catch(e){ return { ok:false, error: (e && e.message) || "Couldn't load the uploader." }; }
 
     const totalMb = Math.round(file.size / (1024*1024));
-    return await new Promise((resolve)=>{
+
+    // Throw away any saved resume state for this file.
+    //
+    // tus keeps the fingerprint of an in-progress upload in localStorage so an
+    // interrupted one can carry on where it stopped. `removeFingerprintOnSuccess`
+    // clears it when an upload finishes — and NOTHING clears it when one fails. So a
+    // clip that dies partway leaves a pointer to a dead upload behind, every later
+    // attempt resumes that same dead upload, and it fails identically forever. The
+    // first clip of a multi-clip edit uploads fine (it succeeded once, so its
+    // fingerprint is gone) while the second is permanently stuck. That is not a
+    // state a customer can get themselves out of.
+    const forgetResumeState = async (up)=>{
+      try{
+        const fp = await up.options.fingerprint(file, up.options);
+        if(fp) localStorage.removeItem("tus::" + fp);
+      }catch{
+        // Fingerprinting failed — sweep this file's keys the blunt way rather than
+        // leave a poisoned one behind.
+        try{
+          Object.keys(localStorage)
+            .filter(k => k.indexOf("tus::") === 0 && k.indexOf(file.name) !== -1)
+            .forEach(k => localStorage.removeItem(k));
+        }catch{}
+      }
+    };
+
+    const attempt = (allowResume)=> new Promise((resolve)=>{
+      let resumed = false;
       const upload = new tus.Upload(file, {
         endpoint: SUPABASE_URL + "/storage/v1/upload/resumable",
         retryDelays: [0, 3000, 5000, 10000, 20000, 30000],
@@ -886,6 +913,16 @@ async function uploadVideoInput(file, path, onStatus){
           } catch {}
           console.error("[upload] tus error", { status, bodyText, message: m });
           const detail = (status ? ("HTTP " + status + " ") : "") + (bodyText || m).slice(0, 220);
+          // A 400, 404 or 410 while resuming means the saved upload is gone or no
+          // longer valid. That is not a reason to give up — it's a reason to forget
+          // it and start over. Reported ONCE: if the fresh attempt fails too, the
+          // problem is the upload itself and the real error should surface.
+          if(resumed && (status === 400 || status === 404 || status === 410)){
+            console.warn("[upload] stale resume (HTTP " + status + ") — discarding it and starting fresh");
+            if(onStatus) onStatus("uploading", "Restarting the upload…");
+            forgetResumeState(upload).then(()=> resolve({ retry:true }));
+            return;
+          }
           if(/413|exceeded|maximum allowed size|too large/i.test(m + bodyText))
             resolve({ ok:false, error:"That file exceeds your Supabase Storage limit. In Supabase: Storage → Settings → raise the Global file size limit. (" + detail + ")" });
           else
@@ -902,12 +939,21 @@ async function uploadVideoInput(file, path, onStatus){
           resolve({ ok:true, url: publicUrl, path });
         }
       });
-      // Resume a prior interrupted upload of the same file if one exists.
-      upload.findPreviousUploads().then((prev)=>{
-        if(prev && prev.length) upload.resumeFromPreviousUpload(prev[0]);
+      // Resume a prior interrupted upload of the same file if one exists — but only
+      // on the first go. See the retry note in onError.
+      if(allowResume){
+        upload.findPreviousUploads().then((prev)=>{
+          if(prev && prev.length){ resumed = true; upload.resumeFromPreviousUpload(prev[0]); }
+          upload.start();
+        }).catch(()=> upload.start());
+      } else {
         upload.start();
-      }).catch(()=> upload.start());
+      }
     });
+
+    const first = await attempt(true);
+    if(!first || !first.retry) return first;
+    return await attempt(false);      // fresh start, no resume, no second retry
   }catch(e){
     return { ok:false, error:"Upload failed — check your connection and try again." };
   }
