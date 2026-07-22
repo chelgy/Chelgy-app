@@ -4076,26 +4076,66 @@ function EditReview({ review, onCancel, onRender }){
   const words = (review && review.ctx && review.ctx.globalWords) || [];
   const planKeep = (review && review.keep) || [];
 
-  // Build the block list ONCE from the planner's keeps. Each block owns a slice of
-  // the timeline and the words inside it; `on` is whether it's currently in the cut.
+  // Build the review at SENTENCE granularity, not whole-segment. The planner's keep
+  // ranges can each be a big paragraph; if the whole paragraph is one tappable unit,
+  // dropping one bad sentence means losing the entire thing. So every kept range is
+  // split into sentences — on punctuation (. ? !) or a real pause between words — and
+  // each sentence becomes its own block with its own exact time span. Dropping a
+  // sentence removes precisely that span and nothing around it.
   const initial = useMemo(() => {
     const ranges = planKeep.map(k => ({ s: Number(k.s)||0, e: Number(k.e)||0 })).sort((a,b)=>a.s-b.s);
+    const inRange = (w, s, e) => w.s >= s - 0.05 && w.s < e + 0.05;
     const blocks = [];
     let cursor = 0;
-    const wordsIn = (s, e) => words.filter(w => w.s >= s - 0.05 && w.s < e + 0.05).map(w => w.w).join(" ").trim();
+
+    const splitIntoSentences = (rangeWords, rs, re) => {
+      // Group words into sentences. A boundary is a word ending in . ? ! …, or a gap
+      // of more than ~0.6s to the next word (a natural spoken pause). Each sentence
+      // keeps the start of its first word and the end of its last, so the time span
+      // is exact.
+      const out = [];
+      let cur = [];
+      for (let i = 0; i < rangeWords.length; i++) {
+        const w = rangeWords[i], nxt = rangeWords[i+1];
+        cur.push(w);
+        const endsSentence = /[.?!…]$/.test(w.w || "");
+        const bigGap = nxt && (nxt.s - w.e) > 0.6;
+        // Don't make absurdly short fragments unless punctuation clearly ended it.
+        const longEnough = cur.length >= 4;
+        if ((endsSentence && longEnough) || (bigGap && longEnough) || i === rangeWords.length - 1) {
+          const first = cur[0], last = cur[cur.length - 1];
+          out.push({
+            s: (out.length === 0) ? rs : first.s,        // first sentence starts at range start
+            e: last.e,
+            text: cur.map(x => x.w).join(" ").trim(),
+            on: true
+          });
+          cur = [];
+        }
+      }
+      // Make the last sentence run to the true range end so no time is lost.
+      if (out.length) out[out.length - 1].e = re;
+      return out;
+    };
+
     for (const r of ranges) {
       if (r.s > cursor + 0.4) {
-        const txt = wordsIn(cursor, r.s);
-        // Only surface a dropped gap that actually held words — a silent gap has
-        // nothing to show and nothing to restore.
+        const gapWords = words.filter(w => inRange(w, cursor, r.s));
+        const txt = gapWords.map(w => w.w).join(" ").trim();
         if (txt) blocks.push({ s: cursor, e: r.s, on: false, text: txt });
       }
-      blocks.push({ s: r.s, e: r.e, on: true, text: wordsIn(r.s, r.e) || "(no speech — kept for the footage)" });
+      const rangeWords = words.filter(w => inRange(w, r.s, r.e));
+      if (rangeWords.length) {
+        for (const sent of splitIntoSentences(rangeWords, r.s, r.e)) blocks.push(sent);
+      } else {
+        // A kept range with no words (silent footage kept for the visuals).
+        blocks.push({ s: r.s, e: r.e, on: true, text: "(no speech — kept for the footage)" });
+      }
       cursor = Math.max(cursor, r.e);
     }
-    // A trailing dropped tail after the last keep.
-    const tail = wordsIn(cursor, 1e9);
-    if (tail) blocks.push({ s: cursor, e: cursor + 9999, on: false, text: tail });
+    const tailWords = words.filter(w => inRange(w, cursor, 1e9));
+    const tail = tailWords.map(w => w.w).join(" ").trim();
+    if (tail) blocks.push({ s: cursor, e: (tailWords[tailWords.length-1].e)||cursor, on: false, text: tail });
     return blocks;
   }, [review]);
 
@@ -4123,25 +4163,30 @@ function EditReview({ review, onCancel, onRender }){
   return (
     <div style={{marginTop:18,border:"1px solid "+B.charcoal,background:"#fff"}}>
       <div style={{padding:"14px 16px",borderBottom:"1px solid "+B.stone,background:B.offwhite}}>
-        <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut</p>
+        <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut — tap any line to edit it</p>
         <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:0}}>
-          Green is in your video. Struck-through is cut. Tap any part to flip it — restore a bit you want back, or drop a bit you don't. Nothing renders until you're happy.
+          Green lines are in your video; greyed, struck-through lines are cut. <strong>Tap any line to flip it</strong> — put a cut bit back, or drop a kept bit. Nothing renders until you tap “Render this cut”.
         </p>
       </div>
       <div style={{maxHeight:360,overflowY:"auto",padding:"8px 0"}}>
         {blocks.map((b,i)=>(
-          <div key={i} onClick={()=>toggle(i)} style={{
-            padding:"9px 16px", cursor:"pointer", display:"flex", gap:10, alignItems:"flex-start",
-            borderLeft:"3px solid "+(b.on?"#1a7f37":"transparent"),
-            background:b.on?"#f2fbf4":"#fafafa"
+          <button key={i} onClick={()=>toggle(i)} style={{
+            width:"100%", textAlign:"left", border:"none", borderLeft:"3px solid "+(b.on?"#1a7f37":"#d0d0d0"),
+            padding:"11px 16px", cursor:"pointer", display:"flex", gap:12, alignItems:"flex-start",
+            background:b.on?"#f2fbf4":"#f4f4f4", fontFamily:"inherit"
           }}>
-            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",color:b.on?"#1a7f37":B.mid,marginTop:2,minWidth:52}}>
-              {b.on?"● Kept":"○ Cut"}
+            <span style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:74,marginTop:1}}>
+              <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",color:b.on?"#1a7f37":"#999"}}>
+                {b.on?"● Kept":"○ Cut"}
+              </span>
+              <span style={{fontFamily:"sans-serif",fontSize:10,color:b.on?"#c0392b":"#1a7f37",marginTop:3,fontWeight:600}}>
+                {b.on?"tap to cut":"tap to keep"}
+              </span>
             </span>
-            <span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,color:b.on?B.charcoal:B.mid,textDecoration:b.on?"none":"line-through",flex:1}}>
+            <span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.55,color:b.on?B.charcoal:"#999",textDecoration:b.on?"none":"line-through",flex:1}}>
               {b.text}
             </span>
-          </div>
+          </button>
         ))}
       </div>
       <div style={{padding:"14px 16px",borderTop:"1px solid "+B.stone,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
