@@ -4700,12 +4700,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         const merged=[]; for(const k of keep){ const last=merged[merged.length-1]; if(last && k.s-last.e<0.4) last.e=Math.max(last.e,k.e); else merged.push({...k}); }
         // Hand a plan-shaped object downstream so renderFromPlan treats it like any edit.
         plan = { keep: merged, title: "", chapters: [], broll: [], music: {}, look: { temperature:"neutral", exposure:"balanced" }, showcase: showcaseLabels };
-      } else if(style==="process"){
-        // Process now cuts BY SIGHT. Instead of the activity-only planner — which
-        // only knew how MUCH the frame moved, never WHAT was happening, and so kept
-        // "busy" and cut the visually-still finished dish — we sample frames and let
-        // the vision model actually watch. The transcript (if any) and the cheap
-        // activity track ride along as extra signal, but the model's eyes decide.
+      } else if(style==="process" || style==="cinematic" || style==="vlog"){
+        // These now cut BY SIGHT. The model watches sampled frames instead of
+        // planning from the transcript alone — so it keeps a striking silent shot,
+        // lands b-roll on the right frame, and follows the director's note against
+        // what's actually on screen. Cinematic and vlog still have speech, so the
+        // transcript rides along (they were transcribed above); process may be silent.
         setStage("Watching your footage to find the good parts…");
         const pframes = await sampleVideoFrames(clips[0].preview, clips[0].dur||totalDur, 40);
         if(!pframes.length){
@@ -4718,7 +4718,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           const token = await freshToken();
           const res = await fetch("/api/studio-showcase", { method:"POST",
             headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
-            body: JSON.stringify({ mode:"process", frames: pframes, note: directorNote,
+            body: JSON.stringify({ mode: style, frames: pframes, note: directorNote,
               words: globalWords, activity: globalActivity, duration: clips[0].dur||totalDur }) });
           pv = await res.json();
         }catch{ pv = { error: "Couldn't reach the editor." }; }
@@ -4942,14 +4942,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
         {STYLES.map(s=>(
-          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
-            <span style={{fontSize:12,fontWeight:700}}>{s.label}{!s.ready && "  · coming soon"}</span>
-            <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{s.note}</span>
+          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{padding:"9px 16px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",fontSize:12,fontWeight:700,cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55,whiteSpace:"nowrap"}}>
+            {s.label}{!s.ready && " · soon"}
           </button>
         ))}
       </div>
+      {(()=>{ const sel = STYLES.find(s=>s.id===style); return sel ? (
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>{sel.note}</p>
+      ) : null; })()}
 
       {mode==="edit" && (<>
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Direct your edit <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>

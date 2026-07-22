@@ -116,33 +116,68 @@ export default async function handler(req, res) {
     if (!frames.length) return res.status(400).json({ error: "No frames to look at." });
     if (mode === "showcase" && !note) return res.status(400).json({ error: "Tell Chelgy what to show — e.g. \"show my jewelry from cherosi.com, show my shoes.\"" });
 
-    // ── PROCESS: cut a how-to / cooking / cleaning / GRWM video BY SIGHT ──
-    if (mode === "process") {
+    // ── VISION CUT: process / cinematic / vlog all cut BY SIGHT ──
+    // Same mechanism — the model watches sampled frames — but each style keeps its
+    // own cutting personality. Process shows the doing; cinematic is kinetic;
+    // vlog breathes and bridges visual moments. All three now SEE, so they keep a
+    // great silent shot and land b-roll on the right frame instead of guessing.
+    if (["process","cinematic","vlog"].includes(mode)) {
       const wordLines = words.length
-        ? "\nTRANSCRIPT (word|start|end) — use it too; if they explain a step, that moment matters:\n" +
+        ? "\nTRANSCRIPT (word|start|end) — use it too; if they say something that matters, keep that moment:\n" +
           words.slice(0, 4000).map(w => (w.w || "") + "|" + (Number(w.s)||0).toFixed(1) + "|" + (Number(w.e)||0).toFixed(1)).join("\n") + "\n"
         : "\n(This video has little or no speech — cut it by what you SEE.)\n";
       const actLine = activity && activity.length
-        ? "\nACTIVITY HINT — one number per second, 0 (still) to 9 (lots of motion). Use it as a hint for where to LOOK, but trust your own eyes over it:\n" + activity.join(",") + "\n"
+        ? "\nACTIVITY HINT — one number per second, 0 (still) to 9 (lots of motion). A hint for where to LOOK; trust your eyes over it:\n" + activity.join(",") + "\n"
         : "";
 
+      const persona = {
+        process:  "a professional video editor cutting a PROCESS video — cooking, cleaning, a build, a craft, a get-ready-with-me. The point is the DOING, and much of the best footage is silent.",
+        cinematic:"a professional video editor AND colorist cutting a CINEMATIC storytelling piece with Scorsese energy — kinetic, relentless, every shot earning its place.",
+        vlog:     "a professional video editor cutting a VLOG — a day or a moment, warm and moving, that breathes between beats without ever dragging."
+      }[mode];
+
+      const styleRules = {
+        process:
+          "- KEEP the real work you can SEE happening — chopping, searing, plating, wiping, assembling, applying makeup — even when silent. This is the video.\n" +
+          "- KEEP the finished result / reveal shots. These are often visually STILL (a plated dish, a clean room, the final look) so motion alone would wrongly cut them — but they are the most important shots. Your eyes catch what motion cannot.\n" +
+          "- KEEP talking where the person explains what they are doing.\n" +
+          "- CUT genuinely dead footage you can SEE is empty: an abandoned counter, someone out of frame, fumbling.\n" +
+          "- COMPRESS repetitive work — 40 seconds of stirring becomes 6-10. Show it happened, do not play all of it.\n" +
+          "- Merge keeps less than 1.5s apart. Keep 55-80% typically.\n",
+        cinematic:
+          "- Cut HARD and kinetic: remove all filler, hesitation, false starts, and any dead moment that slows momentum. Keep only the strongest material — usually 55-80%.\n" +
+          "- But USE YOUR EYES: keep a striking silent shot (a look, a landscape, a detail) even with no words over it — that is the cinematic B-roll a transcript-only editor would throw away. These are gold.\n" +
+          "- KEEP the strongest spoken moments; cut rambling.\n" +
+          "- Merge keeps under 0.4s apart. Cut close: tight in, tight out.\n",
+        vlog:
+          "- KEEP the natural flow and the VISUAL moments — walking, showing something, a quiet beat that breathes. In a vlog these silent stretches are the texture, not dead air; keep them unless they clearly drag past ~4s.\n" +
+          "- REMOVE filler, false starts, repeated takes, and only truly long dead air.\n" +
+          "- Merge keeps up to 4s apart, bridging the visual moments between spoken bits. Keep 70-90% of decent footage.\n"
+      }[mode];
+
+      const brollLine = mode === "cinematic"
+        ? "- ALSO give 2-4 B-ROLL moments — points where a full-screen cinematic photograph should cut in. Each: s (seconds) and a NEUTRAL photographic prompt (no grading words; the render applies the film look itself).\n"
+        : mode === "process"
+        ? "- ALSO give 0-3 B-ROLL moments where a full-screen photo would help (an ingredient, the finished result). Each: s (seconds) and a NEUTRAL photographic prompt.\n"
+        : "";
+
+      const cardLine = mode === "vlog"
+        ? "- ALSO give 0-5 SCENE CARDS where the day moves to a new moment (a place change, a time jump). Short cinematic labels (2-5 words, title case), never the word Chapter. Each with its start time (seconds).\n"
+        : "- ALSO give 2-6 SCENE CARDS at real turns you can see. 2-5 words, title case, never the word Chapter. Each with its start time (seconds).\n";
+
       const sys =
-        "You are a professional video editor cutting a PROCESS video — cooking, cleaning, a build, a craft, a get-ready-with-me — by actually LOOKING at frames sampled from it. " +
-        "Each image is preceded by its timestamp like [frame @ 6.5s]. You can SEE what is happening at each moment, which is far better than guessing from motion alone. " +
-        "The whole point of this video is the DOING, and much of the best footage is silent. Reply with ONE raw JSON object and nothing else — no prose, no explanation, no markdown code fences.";
+        "You are " + persona + " You cut by actually LOOKING at frames sampled from the video. " +
+        "Each image is preceded by its timestamp like [frame @ 6.5s]. Seeing the footage is far better than guessing from words. " +
+        "Reply with ONE raw JSON object and nothing else — no prose, no explanation, no markdown code fences.";
 
       const instruction =
         (note ? "THE CREATOR'S DIRECTION (follow this above all — it outranks the general rules):\n\"" + note + "\"\n\n" : "") +
         "The video is " + (duration || "?") + " seconds long." + wordLines + actLine + "\n" +
-        "Looking at the actual frames, decide which time ranges to KEEP so the finished video shows the process clearly and keeps moving:\n" +
-        "- KEEP the real work you can SEE happening — chopping, searing, plating, wiping, assembling, applying makeup — even when it is silent. This is the video.\n" +
-        "- KEEP the finished result / reveal shots. These are often visually STILL (a plated dish, a clean room, the final look) so a motion score would wrongly cut them — but they are the most important shots. Your eyes catch what motion cannot.\n" +
-        "- KEEP talking where the person explains what they're doing.\n" +
-        "- CUT genuinely dead footage you can see is empty: an abandoned counter, someone out of frame, fumbling, long nothing.\n" +
-        "- COMPRESS repetitive work — 40 seconds of continuous stirring becomes 6-10 seconds. Show that it happened, don't play all of it.\n" +
-        "- Keep segments in chronological order, non-overlapping, within 0.." + (duration || 0) + ". No kept segment shorter than 1s. Merge keeps less than 1.5s apart.\n" +
-        "- ALSO give 2-6 SCENE CARDS at real stage changes you can see — 'Prepping The Base', 'Into The Oven', 'The Messy Part', 'Finishing Touches'. 2-5 words, title case, never the word Chapter. Each with its start time (seconds).\n" +
-        "- ALSO give 0-3 B-ROLL moments where a full-screen photo would help (an ingredient, the finished result). Each with s (seconds) and a NEUTRAL photographic prompt — no grading words; the render applies the film look itself.\n\n" +
+        "Looking at the actual frames, decide which time ranges to KEEP:\n" +
+        styleRules +
+        "- Keep segments chronological, non-overlapping, within 0.." + (duration || 0) + ". Never cut mid-word. No kept segment shorter than 1s.\n" +
+        cardLine + brollLine +
+        "- ALSO write a short punchy on-screen TITLE (max 6 words) and a MUSIC brief (instrumental underscore; name instruments, tempo, mood; based on what the video is actually about).\n\n" +
         "Respond with ONLY this JSON, nothing else:\n" +
         '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}';
 
@@ -152,7 +187,6 @@ export default async function handler(req, res) {
       try { plan = JSON.parse((g.text || "").replace(/```json|```/g, "").trim()); } catch {
         return res.status(502).json({ error: "The editor couldn't read the footage. Please try again." });
       }
-      // Sanitize into the exact shape the app's plan consumer expects.
       const keep = (Array.isArray(plan.keep) ? plan.keep : [])
         .map(k => ({ s: Math.max(0, Number(k.s)||0), e: Math.max(0, Number(k.e)||0) }))
         .filter(k => k.e > k.s + 0.2)
@@ -162,7 +196,7 @@ export default async function handler(req, res) {
         .filter(c => c.label).slice(0, 6);
       const broll = (Array.isArray(plan.broll) ? plan.broll : [])
         .map(b => ({ s: Math.max(0, Number(b.s)||0), prompt: String(b.prompt||"").trim().slice(0,300) }))
-        .filter(b => b.prompt).slice(0, 3);
+        .filter(b => b.prompt).slice(0, 4);
       const look = {
         temperature: ["warm","neutral","cool"].includes(plan.look&&plan.look.temperature) ? plan.look.temperature : "neutral",
         exposure: ["dark","balanced","bright"].includes(plan.look&&plan.look.exposure) ? plan.look.exposure : "balanced"
@@ -170,7 +204,7 @@ export default async function handler(req, res) {
       const music = { prompt: String((plan.music&&plan.music.prompt)||"").trim().slice(0,400) };
 
       const estUsd = Math.round((frames.length * 600 / 1e6) * 5 * 10000) / 10000;
-      await logCost(userId, "process-vision-" + frames.length + "frames", 0, estUsd, frames.length);
+      await logCost(userId, mode + "-vision-" + frames.length + "frames", 0, estUsd, frames.length);
 
       if (!keep.length) return res.status(502).json({ error: "The editor couldn't find footage worth keeping. Try again, or trim any long empty stretches first." });
       return res.status(200).json({ keep, title: String(plan.title||"").trim().slice(0,60), chapters, broll, music, look });
