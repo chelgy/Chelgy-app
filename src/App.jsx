@@ -1008,36 +1008,51 @@ async function generateOmniEdit(prompt, videoUrl, referenceImages){
 // can return the moment each product appears.
 async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
   const dur = Math.max(1, Number(durationSec) || 1);
-  // ~every 2s on short videos; auto-widen so we never exceed maxFrames.
   const step = Math.max(2, dur / maxFrames);
   const times = [];
-  for (let t = 0.5; t < dur - 0.2 && times.length < maxFrames; t += step) times.push(Math.round(t * 10) / 10);
-  if (!times.length) times.push(Math.min(1, dur / 2));
+  for (let t = 0.4; t < dur - 0.3 && times.length < maxFrames; t += step) times.push(Math.round(t * 10) / 10);
+  if (!times.length) times.push(Math.max(0.1, Math.min(1, dur / 2)));
 
   return new Promise((resolve)=>{
     const out = [];
-    try{
-      const v = document.createElement("video");
-      v.preload = "auto"; v.muted = true; v.playsInline = true;
-      let i = 0;
-      const bail = setTimeout(()=>resolve(out), 60000);
-      const seekNext = ()=>{
-        if (i >= times.length) { clearTimeout(bail); resolve(out); return; }
-        try{ v.currentTime = times[i]; }catch(_){ clearTimeout(bail); resolve(out); }
-      };
-      v.onloadedmetadata = seekNext;
-      v.onseeked = ()=>{
-        try{
-          const w = 512, h = Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9));
-          const c = document.createElement("canvas"); c.width=w; c.height=h;
-          c.getContext("2d").drawImage(v,0,0,w,h);
-          out.push({ t: times[i], data: c.toDataURL("image/jpeg",0.6) });
-        }catch(_){}
-        i++; seekNext();
-      };
-      v.onerror = ()=>{ clearTimeout(bail); resolve(out); };
-      v.src = objectUrl;
-    }catch(_){ resolve(out); }
+    let done = false;
+    const finish = ()=>{ if(done) return; done = true; try{ v.removeAttribute("src"); v.load(); }catch(_){} resolve(out); };
+    const v = document.createElement("video");
+    v.preload = "auto"; v.muted = true; v.playsInline = true;
+    // Whole-run ceiling: a big camera file seeking 40 times can be slow, but must
+    // never hang the edit. Whatever frames we have by then is what the model gets.
+    const bail = setTimeout(finish, 90000);
+
+    let i = 0;
+    let ready = false;
+    const grab = ()=>{
+      try{
+        const vw = v.videoWidth || 9, vh = v.videoHeight || 16;
+        const w = 512, h = Math.max(1, Math.round(512 * vh / vw));
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(v, 0, 0, w, h);
+        out.push({ t: times[i], data: c.toDataURL("image/jpeg", 0.6) });
+      }catch(err){ /* one bad frame is fine; keep going */ }
+    };
+    const seekNext = ()=>{
+      i++;
+      if (i >= times.length) { clearTimeout(bail); finish(); return; }
+      try{ v.currentTime = times[i]; }catch(_){ clearTimeout(bail); finish(); }
+    };
+
+    // Seek only AFTER the video can actually render frames — seeking on metadata
+    // alone drops silently on many camera codecs, which is why the old sampler
+    // returned nothing. `canplay` guarantees the first frame is decodable.
+    const start = ()=>{
+      if (ready) return; ready = true;
+      try{ v.currentTime = times[0]; }catch(_){ finish(); }
+    };
+    v.oncanplay = start;
+    v.onloadeddata = start;
+    v.onseeked = ()=>{ if(!ready) return; grab(); seekNext(); };
+    v.onerror = ()=>{ clearTimeout(bail); finish(); };
+
+    try{ v.src = objectUrl; v.load(); }catch(_){ clearTimeout(bail); finish(); }
   });
 }
 
@@ -4654,7 +4669,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setStage("Watching your footage to find each piece…");
         const frames = await sampleVideoFrames(clips[0].preview, clips[0].dur||totalDur, 40);
         if(!frames.length){
-          setErr("Couldn't read frames from that video. Try a different file.");
+          setErr("Couldn't read the video frames in your browser. This can happen with some camera formats — try again, or convert the clip to standard MP4 (H.264) first.");
           for(const p of cleanup) await deleteSiteObject(p);
           setBusy(false); setStage(""); return;
         }
@@ -4694,7 +4709,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setStage("Watching your footage to find the good parts…");
         const pframes = await sampleVideoFrames(clips[0].preview, clips[0].dur||totalDur, 40);
         if(!pframes.length){
-          setErr("Couldn't read frames from that video. Try a different file.");
+          setErr("Couldn't read the video frames in your browser. This can happen with some camera formats — try again, or convert the clip to standard MP4 (H.264) first.");
           for(const p of cleanup) await deleteSiteObject(p);
           setBusy(false); setStage(""); return;
         }
