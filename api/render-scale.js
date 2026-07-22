@@ -38,22 +38,26 @@ const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const BUCKET  = (process.env.BUCKET || "sites").trim();
 
-// TWO limits, not one, because they answer different questions.
+// There is NO global pod cap, on purpose.
 //
-// PER_JOB is how many machines one render is allowed to spread across. Three is the
-// measured point of diminishing returns: on a five-chunk edit the longest chunk plus
-// the join set a floor no extra pod can beat, so a fourth machine mostly idles.
+// The account that RunPod bills from is the same account credit purchases pay into.
+// So the only correct limit is money: a render runs when its customer has paid and
+// the balance can fund it, and when the balance is empty RunPod simply stops
+// creating pods. Capacity therefore rises with revenue automatically — ten thousand
+// paying members fund a far larger fleet than a test balance does — with no number
+// in this file to hand-raise as the app grows.
 //
-// GLOBAL is the ceiling across EVERYONE at once — the thing that decides the bill
-// when a crowd hits render together. Without it, ten simultaneous edits would each
-// ask for three pods and launch thirty, and at $0.40/hr that is a hole in the
-// balance nobody chose. With it, the fleet fills to the ceiling and further jobs
-// share the pods already up: slower under load, never a runaway spend.
+// A hard cap here would be a second, dumber gate in front of the one that already
+// works, and the failure it produces is the worst kind: turning away a paying
+// customer while there is money in the account to serve them.
 //
-// 15 is five concurrent three-chunk renders' worth. Raise it as real traffic
-// justifies the spend, not before.
-const PER_JOB = Math.max(1, Math.min(8, Number(process.env.RUNPOD_MAX_PODS_PER_JOB) || 3));
-const GLOBAL_CAP = Math.max(PER_JOB, Math.min(64, Number(process.env.RUNPOD_MAX_PODS_TOTAL) || 15));
+// PER_JOB stays, and it is NOT a spend limit — it's a physics one. Measured on a
+// five-chunk edit, the longest single chunk plus the join set a floor no extra pod
+// can beat, so a fourth machine on ONE render just idles. This spreads a job for
+// speed up to the point speed stops improving; it never limits how many DIFFERENT
+// jobs run at once. Override per-job with RUNPOD_MAX_PODS_PER_JOB if that floor ever
+// moves.
+const PER_JOB = Math.max(1, Number(process.env.RUNPOD_MAX_PODS_PER_JOB) || 3);
 const IMAGE = (process.env.RUNPOD_IMAGE || "ghcr.io/chelgy/chelgy-worker:latest").trim();
 // L4 is what's been measured. A list rather than one id so a region short of L4s
 // can fall through to the next acceptable card instead of failing to create.
@@ -131,46 +135,37 @@ async function createPod(n) {
 // and this function doesn't — killing from the outside would abandon work that has
 // to wait out a fifteen-minute lease before anyone retries it. Workers retire
 // themselves instead.
-// `demand` is how many machines THIS job would like — the caller passes the chunk
-// count, capped to PER_JOB. What actually gets created is also bounded by how much
-// room is left under the global ceiling, so one job can never consume the whole
-// fleet and starve everyone else's renders.
+// `demand` is how many machines THIS job wants — the chunk count, capped only by
+// PER_JOB (the physics floor, not a spend limit). Every job gets the pods it needs;
+// the balance is what stops runaway spend, and RunPod enforces that itself by
+// refusing to create pods once the account can't fund them.
 export async function ensurePods(demand, reason) {
   if (!KEY) return { ok: false, skipped: "no RUNPOD_API_KEY" };
-  const jobWant = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
-  if (!jobWant) return { ok: true, created: 0, running: 0 };
+  const create = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
+  if (!create) return { ok: true, created: 0 };
 
-  let existing = [];
-  try { existing = await listOurPods(); }
-  catch (e) {
-    // Can't see the fleet — do nothing rather than guess. Creating blind is how you
-    // end up with fifty pods and a surprise bill.
-    console.error("[scale] couldn't list pods: " + e.message);
-    return { ok: false, error: e.message };
-  }
-
-  // Room left under the global ceiling. Pods already up — this job's or anyone
-  // else's — count against it, because they can ALL pull from the shared queue.
-  // A new job doesn't need its own three if fifteen are already working; it just
-  // adds its chunks and the running fleet drains them.
-  const globalRoom = Math.max(0, GLOBAL_CAP - existing.length);
-  const create = Math.min(jobWant, globalRoom);
-
-  if (create <= 0) {
-    // At the ceiling. Not an error — the job's chunks are queued and the pods
-    // already running will work through them. Slower under load, never a runaway.
-    console.log("[scale] " + reason + ": at global cap (" + existing.length + "/" + GLOBAL_CAP + "), queueing");
-    return { ok: true, created: 0, running: existing.length, atCap: true };
-  }
-
-  let created = 0;
+  let created = 0, fundingStop = false;
   for (let i = 0; i < create; i++) {
-    try { await createPod(existing.length + i); created++; }
-    catch (e) { console.error("[scale] create failed: " + e.message); break; }
+    try {
+      await createPod(i);
+      created++;
+    } catch (e) {
+      // The expected way this ends at scale is the balance running dry: RunPod
+      // returns an error, we stop, and the job's chunks wait in the queue until
+      // there's money to fund a pod. That's the design, not a failure — the paid
+      // work resumes on its own the moment the account can fund it.
+      const msg = String(e.message || "");
+      if (/balance|insufficient|payment|spend|fund|quota/i.test(msg)) {
+        fundingStop = true;
+        console.warn("[scale] " + reason + ": stopped at " + created + "/" + create + " — account can't fund more right now");
+      } else {
+        console.error("[scale] create failed: " + msg);
+      }
+      break;
+    }
   }
-  console.log("[scale] " + reason + ": job wanted " + jobWant + ", global room " + globalRoom +
-              ", had " + existing.length + ", created " + created);
-  return { ok: true, created, running: existing.length + created };
+  console.log("[scale] " + reason + ": wanted " + create + ", created " + created + (fundingStop ? " (funding-limited)" : ""));
+  return { ok: true, created, fundingLimited: fundingStop };
 }
 
 async function getUserId(token) {
