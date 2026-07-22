@@ -2107,7 +2107,7 @@ function Tag({ children, gold, green:g }) {
   return <span style={{background:gold?B.goldLight:g?"#E8F5EE":B.offwhite,color:gold?B.goldDark:g?B.green:B.mid,fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,padding:"3px 9px",textTransform:"uppercase",whiteSpace:"nowrap"}}>{children}</span>;
 }
 function Btn({ children, dark, outline, gold, small, disabled, onClick, full, style:s={} }) {
-  return <button onClick={onClick} disabled={disabled} style={{background:disabled?B.stone:dark?B.charcoal:gold?B.gold:outline?"transparent":B.offwhite,color:disabled?B.mid:dark?"#fff":gold?B.charcoal:B.charcoal,border:outline?"1px solid "+B.charcoal:"none",padding:small?"9px 18px":"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:disabled?"not-allowed":"pointer",width:full?"100%":"auto",...s}}>{children}</button>;
+  return <button onClick={onClick} disabled={disabled} style={{background:disabled?B.stone:dark?B.inkBlock:gold?B.gold:outline?"transparent":B.offwhite,color:disabled?B.mid:dark?B.inkText:gold?B.creamText:B.charcoal,border:outline?"1px solid "+B.charcoal:"none",padding:small?"9px 18px":"13px 28px",fontSize:10,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:disabled?"not-allowed":"pointer",width:full?"100%":"auto",...s}}>{children}</button>;
 }
 function Card({ children, onClick, style:s={} }) {
   const [h,setH]=useState(false);
@@ -17552,7 +17552,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {isTrial?(
                 <div style={{position:"relative"}}>
                   <div style={{maxHeight:180,overflow:"hidden"}}><Rich text={selectedStrategy.content} /></div>
-                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:100,background:"linear-gradient(transparent,#FFFFFF)",pointerEvents:"none"}} />
+                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:100,background:"linear-gradient(transparent,"+B.cream+")",pointerEvents:"none"}} />
                   <div style={{textAlign:"center",paddingTop:20}}>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:14,letterSpacing:"0.04em"}}>Subscribe to read the full strategy</div>
                     <Btn dark onClick={()=>setShowPaywall(true)}>UNLOCK FULL ACCESS</Btn>
@@ -17654,7 +17654,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               {isTrial?(
                 <div style={{position:"relative"}}>
                   <div style={{maxHeight:160,overflow:"hidden"}}><Rich text={selectedPost.content} /></div>
-                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:90,background:"linear-gradient(transparent,#FFFFFF)",pointerEvents:"none"}} />
+                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:90,background:"linear-gradient(transparent,"+B.cream+")",pointerEvents:"none"}} />
                   <div style={{textAlign:"center",paddingTop:18}}>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:13,letterSpacing:"0.04em"}}>Subscribe to read the full update</div>
                     <Btn dark onClick={()=>setShowPaywall(true)}>UNLOCK FULL ACCESS</Btn>
