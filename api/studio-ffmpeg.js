@@ -259,6 +259,7 @@ export default async function handler(req, res) {
       : null;
     // Showcase product labels: [{ clip, s, label, pos }] — placed near each product.
     const showcase = Array.isArray(body.showcase) ? body.showcase : [];
+    const narration = typeof body.narration === "string" && /^https?:\/\//.test(body.narration.trim()) ? body.narration.trim() : null;
 
     // Per-clip "what did you shoot in?" — a day can span two cameras.
     const clipFootage = (Array.isArray(body.clipFootage) ? body.clipFootage : [])
@@ -307,7 +308,7 @@ export default async function handler(req, res) {
               sources: urls, segments: keep, words, title, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
               grade: { footage, look, clipFootage },
-              chapters, broll, transitions, music, showcase,
+              chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
               uploadPath
             }
@@ -351,7 +352,7 @@ export default async function handler(req, res) {
           orientation,
           uploadPath,
           grade: { footage, look, clipFootage },
-          chapters, broll, transitions, music, showcase,
+          chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
       });

@@ -1193,7 +1193,7 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1204,7 +1204,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
         action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
         style, footage, look, words, clipFootage: clipFootage || [],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
-        music: music || null, showcase: showcase || []
+        music: music || null, showcase: showcase || [], narration: narration || null
       })
     });
     return await res.json(); // { id:"ff:...", balance, charged } or { error }
@@ -1769,6 +1769,24 @@ async function generateGeminiImage(prompt, inputImages, aspectRatio, quality) {
 
 // Uploads a base64 data-URL image to the public "sites" storage bucket and
 // returns its public URL. Path must start with the user's id (e.g. "<uid>/hero-1.png").
+// Upload a raw audio File (the person's recorded voiceover) to storage and return
+// its public URL. Same path and auth as the image uploader, just a File instead of
+// a data URL — a voiceover can be several MB, too big to want as base64 in memory.
+async function uploadSiteAudioFile(file, path) {
+  try {
+    const token = await freshToken();
+    if (!token) return null;
+    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token, "x-upsert": "true",
+        "Content-Type": file.type || "audio/mpeg" },
+      body: file
+    });
+    if (!res.ok) return null;
+    return SUPABASE_URL + "/storage/v1/object/public/sites/" + path;
+  } catch (e) { return null; }
+}
+
 async function uploadSiteImage(dataUrl, path) {
   try {
     const m = (dataUrl || "").match(/^data:([^;]+);base64,(.*)$/);
@@ -4151,6 +4169,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // its whole render context to <EditReview> via pendingReview; "render this cut"
   // resumes by calling renderFromPlan with the person's edited keeps.
   const [reviewCuts,setReviewCuts]   = useState(false);
+  // Voiceover-over-footage (the Wolf-of-Wall-Street move): the person records
+  // narration separately and it plays over the video, footage audio ducked beneath.
+  // Their own voice — no AI, no cloning. Cinematic and vlog only, where narration
+  // over B-roll is the look.
+  const [narrationFile,setNarrationFile] = useState(null);
   const [pendingReview,setPendingReview] = useState(null);
   const [scCopied,setScCopied]     = useState(false);
   const [shClips,setShClips]       = useState([]);   // [{url, hook}]
@@ -4606,6 +4629,19 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // moments become the kept segments, and the labels ride to the render as
       // on-screen product tags placed next to each item.
       let plan;
+      // Upload the person's voiceover, if they added one. A failed upload drops the
+      // narration but never the edit — same rule as music.
+      let narrationUrl = null;
+      if(narrationFile && (style==="cinematic"||style==="vlog")){
+        setStage("Adding your voiceover…");
+        try{
+          const ext = ((narrationFile.type&&narrationFile.type.split("/")[1])||"mp3").split(";")[0];
+          const np = ((user&&user.id)||"anon")+"/narration-"+Date.now()+"-"+Math.random().toString(36).slice(2,6)+"."+ext;
+          narrationUrl = await uploadSiteAudioFile(narrationFile, np);
+          if(narrationUrl) cleanup.push(np);
+        }catch(e){ console.warn("narration upload skipped:", e&&e.message); }
+      }
+
       let showcaseLabels = [];
       if(style==="showcase"){
         if(!directorNote.trim()){
@@ -4664,7 +4700,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
         totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage})),
         userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
-        alsoShorts, showcaseLabels
+        alsoShorts, showcaseLabels, narrationUrl
       };
 
       // Review toggle. On → stop here, show the editable timeline, and let the person
@@ -4693,7 +4729,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     const {
       plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
       totalDur, globalWords, frame, n, many, userId, COST,
-      style, grade, music, musicGenre, useTransitions, alsoShorts, showcaseLabels
+      style, grade, music, musicGenre, useTransitions, alsoShorts, showcaseLabels, narrationUrl
     } = ctx;
     const clipFootages = (ctx.clips||[]).map(c=>c.footage||footage);
     setBusy(true);
@@ -4800,7 +4836,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
         style, footage, grade, taggedWords, clipFootages,
-        chapterCues, brollShots, transitionClips, musicUrl, showcaseLabels||[]
+        chapterCues, brollShots, transitionClips, musicUrl, showcaseLabels||[], narrationUrl||null
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -5021,6 +5057,21 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
               </span>
             </span>
           </label>
+        </div>
+      )}
+
+      {(style==="cinematic"||style==="vlog") && (
+        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Voiceover <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>
+            Record a voiceover and drop it in — it plays over your video, with your footage audio ducked softly underneath. This is how you narrate over your best silent shots, Scorsese-style.
+          </p>
+          <input type="file" accept="audio/*" onChange={e=>setNarrationFile((e.target.files&&e.target.files[0])||null)} style={{fontFamily:"sans-serif",fontSize:12,display:"block"}} />
+          {narrationFile && (
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:"#1a7f37",margin:"6px 0 0"}}>
+              ✓ {narrationFile.name} — will play over your edit. <button onClick={()=>setNarrationFile(null)} style={{background:"none",border:"none",color:B.mid,textDecoration:"underline",cursor:"pointer",fontSize:11,padding:0}}>remove</button>
+            </p>
+          )}
         </div>
       )}
 
