@@ -38,9 +38,22 @@ const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const BUCKET  = (process.env.BUCKET || "sites").trim();
 
-// Three is the measured point of diminishing returns, and at $0.40/hr it's also a
-// worst case that can be absorbed if something ever loops.
-const MAX_PODS = Math.max(1, Math.min(8, Number(process.env.RUNPOD_MAX_PODS) || 3));
+// TWO limits, not one, because they answer different questions.
+//
+// PER_JOB is how many machines one render is allowed to spread across. Three is the
+// measured point of diminishing returns: on a five-chunk edit the longest chunk plus
+// the join set a floor no extra pod can beat, so a fourth machine mostly idles.
+//
+// GLOBAL is the ceiling across EVERYONE at once — the thing that decides the bill
+// when a crowd hits render together. Without it, ten simultaneous edits would each
+// ask for three pods and launch thirty, and at $0.40/hr that is a hole in the
+// balance nobody chose. With it, the fleet fills to the ceiling and further jobs
+// share the pods already up: slower under load, never a runaway spend.
+//
+// 15 is five concurrent three-chunk renders' worth. Raise it as real traffic
+// justifies the spend, not before.
+const PER_JOB = Math.max(1, Math.min(8, Number(process.env.RUNPOD_MAX_PODS_PER_JOB) || 3));
+const GLOBAL_CAP = Math.max(PER_JOB, Math.min(64, Number(process.env.RUNPOD_MAX_PODS_TOTAL) || 15));
 const IMAGE = (process.env.RUNPOD_IMAGE || "ghcr.io/chelgy/chelgy-worker:latest").trim();
 // L4 is what's been measured. A list rather than one id so a region short of L4s
 // can fall through to the next acceptable card instead of failing to create.
@@ -118,29 +131,45 @@ async function createPod(n) {
 // and this function doesn't — killing from the outside would abandon work that has
 // to wait out a fifteen-minute lease before anyone retries it. Workers retire
 // themselves instead.
-export async function ensurePods(desired, reason) {
+// `demand` is how many machines THIS job would like — the caller passes the chunk
+// count, capped to PER_JOB. What actually gets created is also bounded by how much
+// room is left under the global ceiling, so one job can never consume the whole
+// fleet and starve everyone else's renders.
+export async function ensurePods(demand, reason) {
   if (!KEY) return { ok: false, skipped: "no RUNPOD_API_KEY" };
-  const want = Math.max(0, Math.min(MAX_PODS, Number(desired) || 0));
-  if (!want) return { ok: true, created: 0, running: 0 };
+  const jobWant = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
+  if (!jobWant) return { ok: true, created: 0, running: 0 };
 
   let existing = [];
   try { existing = await listOurPods(); }
   catch (e) {
     // Can't see the fleet — do nothing rather than guess. Creating blind is how you
-    // end up with eleven pods and a surprise bill.
+    // end up with fifty pods and a surprise bill.
     console.error("[scale] couldn't list pods: " + e.message);
     return { ok: false, error: e.message };
   }
 
-  const create = Math.max(0, want - existing.length);
-  if (!create) return { ok: true, created: 0, running: existing.length };
+  // Room left under the global ceiling. Pods already up — this job's or anyone
+  // else's — count against it, because they can ALL pull from the shared queue.
+  // A new job doesn't need its own three if fifteen are already working; it just
+  // adds its chunks and the running fleet drains them.
+  const globalRoom = Math.max(0, GLOBAL_CAP - existing.length);
+  const create = Math.min(jobWant, globalRoom);
+
+  if (create <= 0) {
+    // At the ceiling. Not an error — the job's chunks are queued and the pods
+    // already running will work through them. Slower under load, never a runaway.
+    console.log("[scale] " + reason + ": at global cap (" + existing.length + "/" + GLOBAL_CAP + "), queueing");
+    return { ok: true, created: 0, running: existing.length, atCap: true };
+  }
 
   let created = 0;
   for (let i = 0; i < create; i++) {
-    try { await createPod(i); created++; }
+    try { await createPod(existing.length + i); created++; }
     catch (e) { console.error("[scale] create failed: " + e.message); break; }
   }
-  console.log("[scale] " + reason + ": wanted " + want + ", had " + existing.length + ", created " + created);
+  console.log("[scale] " + reason + ": job wanted " + jobWant + ", global room " + globalRoom +
+              ", had " + existing.length + ", created " + created);
   return { ok: true, created, running: existing.length + created };
 }
 
