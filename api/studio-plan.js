@@ -228,11 +228,12 @@ export default async function handler(req, res) {
          "- Merge keeps that are less than 4s apart into one segment (bridging the visual moments between them). No kept segment shorter than 1s.\n" +
          "- A good vlog cut usually keeps 75-92% of decent footage.\n" +
          "- ALSO identify 0-5 SCENE INTROS where the day clearly moves to a new moment — a place change, a time jump, a new activity. Each label is a short cinematic card introducing what comes next, in the vlogger's own context — like 'Arriving Home', 'The Next Day', 'Monday, 8:45 AM', 'Back In The Studio'. Use time/place words the speaker actually says when possible. NEVER use the word Chapter. Give each one's start time (seconds, ORIGINAL timeline). If the vlog has no clear scene changes, return an empty list.\n")
-      : ("Decide which time segments to KEEP so the final cut is tight, confident and watchable:\n" +
-         "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), long pauses and dead air, and rambling that doesn't add anything.\n" +
-         "- KEEP the natural flow: never cut mid-word; start each kept segment ~0.15s before its first word and end ~0.25s after its last word.\n" +
-         "- Merge keeps that are less than 0.5s apart into one segment. No kept segment shorter than 1s.\n" +
-         "- Be decisive but not butcher-y: a good result usually keeps 70-90% of a well-delivered video, less if it's rambly.\n");
+      : ("Decide which time segments to KEEP so the final cut is TIGHT and punchy — this is one person talking to camera and the pacing should feel deliberate, never slack:\n" +
+         "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), and ANY pause longer than about half a second between phrases. Dead air between sentences is the main thing that makes a talking-head video drag — cut it out so one thought lands straight into the next.\n" +
+         "- Close the GAPS between kept phrases hard. The single most common complaint is too much silence between breaths and sentences; leave only a natural beat, not a held pause. When someone finishes a sentence and there's a gap before the next, tighten it right up.\n" +
+         "- Never cut mid-word, but cut CLOSE: start each kept segment ~0.08s before its first word and end ~0.12s after its last word. A short tail keeps it clean without leaving trailing silence.\n" +
+         "- Merge keeps less than 0.3s apart into one segment. No kept segment shorter than 1s.\n" +
+         "- Be decisive: a tight talking-head cut usually keeps 65-85% of a well-delivered video, less if it's rambly. When in doubt between leaving a pause and cutting it, CUT it.\n");
 
     const prompt =
       editorRole + "\n" +
@@ -320,7 +321,7 @@ export default async function handler(req, res) {
       .map(k => ({ s: Math.max(0, Number(k.s) || 0), e: Math.min(duration || 1e9, Number(k.e) || 0) }))
       .filter(k => k.e - k.s >= 0.8)
       .sort((a, b) => a.s - b.s);
-    const mergeGap = style === "vlog" ? 4.0 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "cinematic" ? 0.4 : 0.5; // vlogs bridge visual moments; tutorials breathe; cinematic cuts hard
+    const mergeGap = style === "vlog" ? 4.0 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "cinematic" ? 0.4 : 0.3; // vlogs bridge visual moments; tutorials breathe; cinematic and talking-head cut tight
     const merged = [];
     for (const k of keep) {
       const last = merged[merged.length - 1];
