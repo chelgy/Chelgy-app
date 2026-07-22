@@ -4326,6 +4326,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // must not pay for a video decode it will never look at.
       const wantsActivity = style==="process";
       let heardAnything = false;
+      // Set when the render server couldn't give us an audio track. Distinguishes
+      // "we couldn't listen" from "we listened and there was nothing there" — two
+      // completely different problems that used to produce the same sentence.
+      let extractionFailed = false;
       for(let i = 0; i < n; i++){
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
@@ -4333,7 +4337,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         // Normally only worth it on a big file — on a small clip the extra pass is
         // pure added wait. But Process reads the ACTIVITY track out of this same
         // pass, so on that style it has to run on every clip whatever the size.
-        if(wantsActivity || (c.size||0) > 200 * 1024 * 1024){
+        const needsExtraction = wantsActivity || (c.size||0) > 200 * 1024 * 1024;
+        if(needsExtraction){
           setStage((wantsActivity ? "Watching your footage…" : "Reading the audio from your footage…") + ofN(i));
           const au = await studioAudio(uploaded[i].url, wantsActivity, c.dur||0);
           if(au && au.id){
@@ -4347,7 +4352,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
               if(done.activity) perClipActivity[i] = done.activity.activity;
             }
           }
-          // If extraction failed we still try the video directly — better than stopping.
+          // Falling back to transcribing the raw video is only worth trying on a file
+          // small enough for it to succeed. On a multi-gigabyte camera file it cannot
+          // work, and the failure then arrives as "there is no speech in your video"
+          // — blaming someone's footage for our render server being down. Remember
+          // that extraction failed so the message below can tell the truth.
+          if(listenUrl === uploaded[i].url) extractionFailed = true;
         }
 
         setStage(many ? ("Listening to clip " + (i+1) + " of " + n + "…") : "Listening to your video…");
@@ -4379,7 +4389,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setBusy(false); setStage(""); return;
       }
       if(!heardAnything && !(wantsActivity && haveActivity)){
-        setErr(wantsActivity
+        setErr(extractionFailed
+          ? "We couldn't pull the audio out of " + (many ? "your clips" : "your video") + ", so there was nothing to transcribe. This is on our side, not your footage — the render engine may be restarting. Nothing has been charged; please try again in a minute."
+          : wantsActivity
           ? "Couldn't read " + (many ? "those clips." : "that video.") + " We heard no speech and couldn't measure any movement either, so there's nothing to cut on."
           : "Couldn't hear any speech in " + (many ? "any of those clips." : "that video.") + " The editor cuts based on what you say, so it needs audio.");
         for(const p of cleanup) await deleteSiteObject(p);
@@ -4390,6 +4402,23 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // The planner has to read the whole day as a single story to know what's
       // worth keeping, so the clips are laid end to end into one transcript here
       // and the result is converted straight back to clip-local below.
+      // Start a GPU worker warming up NOW, before it's needed.
+      //
+      // A pod takes 30-60 seconds from create to ready, and a five-chunk render
+      // finishes in about 100 seconds — so waiting until the chunks exist means the
+      // machine arrives when the job is nearly over. Planning, b-roll and the score
+      // are two to four minutes of work happening anyway; the pod comes up inside
+      // that window for about a cent.
+      //
+      // Fire and forget: it must never delay or fail an edit. If it doesn't work,
+      // the render step starts pods itself, just later.
+      (async()=>{ try{
+        const token = await freshToken();
+        await fetch("/api/render-scale", { method:"POST",
+          headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+          body: "{}" });
+      }catch{} })();
+
       setStage("Planning the edit — finding the ums, dead air and best takes…");
       const offsets = clipOffsets(clips);
       const globalWords = mergeClipWords(perClipWords, offsets);

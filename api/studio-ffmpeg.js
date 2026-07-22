@@ -16,6 +16,8 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET,
 //               SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
+import { ensurePods } from "./render-scale.js";
+
 export const maxDuration = 60;
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
@@ -315,6 +317,20 @@ export default async function handler(req, res) {
           return res.status(502).json({ error: ((d && d.error) || "Render engine error") + " Your credits were refunded." });
         }
         started = { jobId: d.jobId };
+
+        // Now — and only now — the real chunk count is known. Warm-up started one
+        // pod when planning began; this brings the fleet up to match the work that
+        // actually exists. A two-chunk edit gets two machines, not three.
+        //
+        // Deliberately not awaited into the response path beyond a best effort: a
+        // scaler that's having a bad minute must never stop a render from starting.
+        // The chunks sit in the queue and whatever pods exist will work through them.
+        try {
+          const want = Math.max(1, Number(d.chunks) || 1);
+          await ensurePods(want, "render of job " + d.jobId + " (" + want + " chunks)");
+        } catch (e) {
+          console.error("[scale] skipped: " + ((e && e.message) || e));
+        }
       } catch {
         await refund(userId, cost, "refund:video-editor-plan-unreachable");
         return res.status(502).json({ error: "Couldn't reach the render engine. Your credits were refunded." });
