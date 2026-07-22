@@ -162,8 +162,18 @@ export default async function handler(req, res) {
       musical = GENRES[genre] +
         (brief ? " Keep that instrumentation and style exactly. Use the following only to judge mood, energy and pacing — never to change the instruments or the genre: " + brief : "");
     } else {
-      musical = brief || BY_LOOK[style + ":" + look] || BY_LOOK["talkinghead:wolf"];
+      // "Match my video". Prefer the planner's brief, then a look-matched bed, and
+      // ALWAYS fall back to a real default — an empty string here would send a blank
+      // prompt to the music engine and come back with silence, which is exactly the
+      // "match my video makes no audio" bug. Showcase and Process build their own
+      // plans with no music brief, so this fallback is what they rely on.
+      musical = brief
+        || BY_LOOK[style + ":" + look]
+        || BY_LOOK["cinematic:" + look]
+        || BY_LOOK["talkinghead:wolf"];
     }
+    // Final guard: never let the composed prompt be effectively empty.
+    if (!musical || musical.trim().length < 10) musical = BY_LOOK["talkinghead:wolf"];
     const prompt = musical + " " + HOUSE_STYLE;
 
     const paid = await spend(token, MUSIC_COST, "video-editor:score");

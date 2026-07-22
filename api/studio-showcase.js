@@ -74,7 +74,7 @@ async function callClaudeVision(AKEY, system, frames, instruction) {
           // and rejects the request if it's present. The default sampling is fine for
           // a JSON extraction task like this.
           model: CLAUDE_MODEL, max_tokens: 2000, system,
-          messages: [{ role: "user", content }, { role: "assistant", content: "{" }]
+          messages: [{ role: "user", content }]
         })
       });
       const d = await r.json().catch(() => ({}));
@@ -85,7 +85,7 @@ async function callClaudeVision(AKEY, system, frames, instruction) {
       }
       const text = (Array.isArray(d.content) ? d.content : []).map(b => b && b.type === "text" ? b.text : "").join("");
       if (!text) { lastErr = "Empty response."; await sleep(1200 * (i + 1)); continue; }
-      return { ok: true, text: "{" + text };
+      return { ok: true, text };
     } catch (e) {
       lastErr = (e && e.message) || "Network error.";
       await sleep(1200 * (i + 1));
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
       const sys =
         "You are a professional video editor cutting a PROCESS video — cooking, cleaning, a build, a craft, a get-ready-with-me — by actually LOOKING at frames sampled from it. " +
         "Each image is preceded by its timestamp like [frame @ 6.5s]. You can SEE what is happening at each moment, which is far better than guessing from motion alone. " +
-        "The whole point of this video is the DOING, and much of the best footage is silent.";
+        "The whole point of this video is the DOING, and much of the best footage is silent. Reply with ONE raw JSON object and nothing else — no prose, no explanation, no markdown code fences.";
 
       const instruction =
         (note ? "THE CREATOR'S DIRECTION (follow this above all — it outranks the general rules):\n\"" + note + "\"\n\n" : "") +
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
     const system =
       "You are directing a SILENT product/outfit video by looking at frames sampled from it. " +
       "Each image is preceded by its timestamp like [frame @ 6.5s]. The creator has told you what to feature and what to label it. " +
-      "Your job: for each thing they named, find the frame where it is shown BEST (clearest, most centred, fully in view), and note where in the frame it sits.";
+      "Your job: for each thing they named, find the frame where it is shown BEST (clearest, most centred, fully in view), and note where in the frame it sits. Reply with ONE raw JSON object and nothing else — no prose, no explanation, no markdown code fences.";
 
     const instruction =
       "THE CREATOR'S DIRECTION:\n\"" + note + "\"\n\n" +

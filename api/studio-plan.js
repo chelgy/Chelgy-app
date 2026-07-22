@@ -121,8 +121,7 @@ async function callClaude(AKEY, { system, content }) {
           max_tokens: 8000,
           system,
           messages: [
-            { role: "user", content },
-            { role: "assistant", content: "{" }
+            { role: "user", content }
           ]
         })
       });
@@ -135,8 +134,7 @@ async function callClaude(AKEY, { system, content }) {
       const text = (Array.isArray(d.content) ? d.content : [])
         .map((b) => (b && b.type === "text" ? b.text : "")).join("");
       if (!text) { lastErr = "The editor returned nothing."; await sleep(1200 * (i + 1)); continue; }
-      // Put back the brace the prefill consumed.
-      return { ok: true, text: "{" + text };
+      return { ok: true, text };
     } catch (e) {
       lastErr = (e && e.message) || "Network error contacting the editor.";
       await sleep(1200 * (i + 1));
