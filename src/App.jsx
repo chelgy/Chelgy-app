@@ -1480,6 +1480,10 @@ const LIGHT = {
   cream:"#FFFFFF", white:"#FFFFFF", offwhite:"#F7F6F4", stone:"#E8E6E1",
   mid:"#6B6B6B", charcoal:"#111111", gold:"#111111", goldLight:"#F2F2F0",
   goldDark:"#555555", green:"#4CAF82", red:"#C0392B",
+  // Accent grounds that must NOT invert with the theme. A "dark feature block"
+  // (the AI-tools banner, the hero card) stays dark in BOTH themes; a "light card"
+  // stays light in both. In light mode these match the old hardcoded look exactly.
+  inkBlock:"#111111", inkText:"#FFFFFF", creamBlock:"#F5F1E8", creamText:"#111111",
 };
 const DARK = {
   // cream/white are used as PAGE and CARD grounds → become near-black in dark.
@@ -1487,6 +1491,10 @@ const DARK = {
   // mid = secondary text; charcoal = primary text/ink → become bone in dark.
   mid:"#8f867b", charcoal:"#efe9df", gold:"#efe9df", goldLight:"#1c1815",
   goldDark:"#b8a89a", green:"#5fcf94", red:"#e0685f",
+  // In dark mode the "dark feature block" sits slightly ABOVE the page so it reads
+  // as a raised panel, not a hole; the "light card" becomes a warm dark card too,
+  // so it stops being a blinding cream rectangle.
+  inkBlock:"#1c1714", inkText:"#efe9df", creamBlock:"#1c1714", creamText:"#efe9df",
 };
 // The live object every component reads. Starts LIGHT; applyTheme swaps its contents.
 const B = { ...LIGHT };
@@ -2085,7 +2093,7 @@ function Paywall({ onClose, onSubscribe, onRestore }) {
             </div>
           ))}
         </div>
-        <button onClick={onSubscribe} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>SUBSCRIBE — $100/MONTH</button>
+        <button onClick={onSubscribe} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.18em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",marginBottom:10}}>SUBSCRIBE — $100/MONTH</button>
         <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"11px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer"}}>MAYBE LATER</button>
         {IS_NATIVE&&onRestore&&<button onClick={onRestore} style={{width:"100%",background:"none",border:"none",padding:"4px 11px 0",fontSize:10,letterSpacing:"0.08em",fontFamily:"sans-serif",color:B.mid,cursor:"pointer",textDecoration:"underline"}}>Restore purchases</button>}
       </div>
@@ -2670,7 +2678,7 @@ const Upsell = ({ variant="both" }) => {
   const services = variant==="services"||variant==="both";
   const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:GOLD,color:"#111",textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
   return (
-    <div style={{marginTop:24,background:B.charcoal,padding:"22px 24px",borderLeft:"3px solid #fff"}}>
+    <div style={{marginTop:24,background:B.inkBlock,padding:"22px 24px",borderLeft:"3px solid #fff"}}>
       {course&&<div style={{marginBottom:services?18:0}}>
         <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,letterSpacing:"0.16em",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Go Deeper</div>
         <p style={{fontFamily:"sans-serif",fontSize:13,color:"#fff",lineHeight:1.65,margin:"0 0 12px"}}>Want an in-depth deep dive into every step of marketing your business? It's all in our 138-page course book, <span style={{color:"#fff",fontWeight:700}}>The Profitable Business Blueprint</span>.</p>
@@ -3035,7 +3043,7 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
       {photo && (
         <div style={{marginBottom:16,position:"relative",display:"inline-block"}}>
           <img src={photo.preview} alt="" style={{width:90,height:114,objectFit:"cover",border:"1px solid "+B.stone}} />
-          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.inkBlock,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
         </div>
       )}
 
@@ -3149,7 +3157,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
       {photo && (
         <div style={{marginBottom:16,position:"relative",display:"inline-block"}}>
           <img src={photo.preview} alt="" style={{width:90,height:114,objectFit:"cover",border:"1px solid "+B.stone}} />
-          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+          <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.inkBlock,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
         </div>
       )}
 
@@ -3276,7 +3284,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       {photo ? (
         <div style={{position:"relative",display:"inline-block"}}>
           <img src={photo.preview} alt="" style={{width:110,height:140,objectFit:"cover",border:"1px solid "+B.stone}} />
-          <button onClick={onClear} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+          <button onClick={onClear} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.inkBlock,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
         </div>
       ) : (
         <input type="file" accept="image/*" onChange={onPick} style={{fontFamily:"sans-serif",fontSize:12,display:"block"}} />
@@ -3667,7 +3675,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
             {photos.map((p,i)=>(
               <div key={i} style={{position:"relative"}}>
                 <img src={p.preview} alt="" style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone}} />
-                <button onClick={()=>removePhoto(i)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+                <button onClick={()=>removePhoto(i)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.inkBlock,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
               </div>
             ))}
           </div>
@@ -3941,7 +3949,7 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
           {refs.map((r,i)=>(
             <div key={i} style={{position:"relative"}}>
               <img src={r} alt="" style={{width:84,height:84,objectFit:"cover",border:"1px solid "+B.stone}} />
-              <button onClick={()=>removeRef(i)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.charcoal,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
+              <button onClick={()=>removeRef(i)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.inkBlock,color:"#fff",fontSize:11,lineHeight:1,cursor:"pointer"}}>×</button>
             </div>
           ))}
         </div>
@@ -4858,7 +4866,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             </>)}
             <div style={{display:"flex",gap:14,marginTop:14,alignItems:"center",flexWrap:"wrap"}}>
               <button onClick={copyScript} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>{scCopied?"COPIED ✓":"COPY SCRIPT"}</button>
-              <button onClick={()=>{ setMode("edit"); }} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
+              <button onClick={()=>{ setMode("edit"); }} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:"#fff",background:B.inkBlock,border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
             </div>
             <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"12px 0 0"}}>Tip: read it naturally, flubs and all — the editor cuts the bad takes for you.</p>
           </div>
@@ -5011,7 +5019,7 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") search();}}
           placeholder="Search shows \u2014 e.g. small business marketing"
           style={{flex:1,minWidth:220,padding:"11px 12px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,boxSizing:"border-box"}} />
-        <button onClick={search} disabled={searching} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 22px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:searching?"not-allowed":"pointer",opacity:searching?0.6:1}}>{searching?"SEARCHING\u2026":"SEARCH"}</button>
+        <button onClick={search} disabled={searching} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"11px 22px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:searching?"not-allowed":"pointer",opacity:searching?0.6:1}}>{searching?"SEARCHING\u2026":"SEARCH"}</button>
       </div>
       <label style={{display:"flex",gap:8,alignItems:"center",fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:16,cursor:"pointer"}}>
         <input type="checkbox" checked={emailOnly} onChange={e=>setEmailOnly(e.target.checked)} />
@@ -5063,7 +5071,7 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
                   {pitch.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {pitch.subject}</div>}
                   <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.65,whiteSpace:"pre-wrap",background:B.white,border:"1px solid "+B.stone,padding:12}}>{pitch.body}</div>
                   <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-                    <button onClick={copyPitch} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY PITCH"}</button>
+                    <button onClick={copyPitch} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED \u2713":"COPY PITCH"}</button>
                     {sh.hasEmail && <a href={"mailto:"+sh.email+"?subject="+encodeURIComponent(pitch.subject||"")+"&body="+encodeURIComponent(pitch.body)} style={{background:"#fff",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,textDecoration:"none",display:"inline-block"}}>OPEN IN EMAIL</a>}
                   </div>
                   <p style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,marginTop:8,lineHeight:1.5}}>Read it before you send. A pitch that sounds like you beats a perfect one that doesn't.</p>
@@ -5194,7 +5202,7 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
-        <button onClick={()=>{ if(tab==="find") findOutlets(); else run(tab); }} disabled={busy} style={{background:B.charcoal,color:"#fff",border:"none",padding:"13px 26px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+        <button onClick={()=>{ if(tab==="find") findOutlets(); else run(tab); }} disabled={busy} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"13px 26px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
           {busy?"WORKING…":(tab==="find"?"FIND OUTLETS":tab==="targets"?"CHECK MY STORY":"WRITE THE PITCH")}
         </button>
         <CreditTag n={tab==="find"?FIND_COST:COST} />
@@ -5240,7 +5248,7 @@ function PressPitch({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         <div style={{marginTop:16}}>
           {out.subject && <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:700,marginBottom:8}}>Subject: {out.subject}</div>}
           <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,whiteSpace:"pre-wrap",background:B.white,border:"1px solid "+B.stone,padding:16}}>{out.body}</div>
-          <button onClick={copyOut} style={{marginTop:10,background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED ✓":"COPY"}</button>
+          <button onClick={copyOut} style={{marginTop:10,background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>{copied?"COPIED ✓":"COPY"}</button>
         </div>
       )}
     </div>
@@ -5353,7 +5361,7 @@ function OrdersPanel({ user }){
               ? <div style={{marginTop:8,fontFamily:"sans-serif",fontSize:10.5,fontWeight:700,color:B.green}}>✓ Shipped{o.tracking?(" · "+o.tracking):""}</div>
               : <div style={{marginTop:9,display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
                   <input value={track[o.id]||""} onChange={e=>setTrack(t=>({...t,[o.id]:e.target.value}))} placeholder="Tracking # (optional)" style={{flex:1,minWidth:130,padding:"7px 9px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:11,outline:"none",boxSizing:"border-box"}} />
-                  <button disabled={busyId===o.id} onClick={()=>markShipped(o)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busyId===o.id?"default":"pointer",textTransform:"uppercase"}}>{busyId===o.id?"Saving…":"Mark shipped"}</button>
+                  <button disabled={busyId===o.id} onClick={()=>markShipped(o)} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.07em",fontWeight:700,cursor:busyId===o.id?"default":"pointer",textTransform:"uppercase"}}>{busyId===o.id?"Saving…":"Mark shipped"}</button>
                 </div>}
           </div>
         ); })}
@@ -6097,7 +6105,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         </div>
         )}
       </div>
-      {locked&&<div style={{background:B.white,border:"1px solid "+B.stone,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
+      {locked&&<div style={{background:B.white,border:"1px solid "+B.stone,padding:"12px 16px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.01em"}}>Explore for free — preview mode. Browse every tool; upgrade to start generating.</span><button onClick={onUpgrade} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"8px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>UPGRADE</button></div>}
 
       {(()=>{ const u=toolMediaUrl(toolMedia&&toolMedia[tool],"full"); if(!u) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return (
         <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
@@ -6256,7 +6264,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
                       <label style={{border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Upload photo<input type="file" accept="image/*" onChange={e=>uploadProductImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
                       <button disabled={edProdBusy>=0} onClick={()=>genProductImage(i)} style={{background:B.gold,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"Generating…":"✨ Generate photo"}</button>
-                      {pr.image&&pr.image.url&&<button disabled={edProdBusy>=0} onClick={()=>enhanceProductImage(i)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>✨ Enhance photo</button>}
+                      {pr.image&&pr.image.url&&<button disabled={edProdBusy>=0} onClick={()=>enhanceProductImage(i)} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>✨ Enhance photo</button>}
                       <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                       <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
@@ -6293,7 +6301,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             </div>
             <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 9px"}}>Describe the look you want and Chelgy reshoots every photo in one cohesive style. Leave blank to keep your site's current style.</p>
             <textarea value={wmPhotoStyle} onChange={e=>setWmPhotoStyle(e.target.value)} placeholder="e.g. bright airy natural light, soft neutral tones, minimal styling, shot on film" rows={2} style={{width:"100%",boxSizing:"border-box",padding:"9px 11px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:12,resize:"vertical",marginBottom:9,color:B.charcoal}} />
-            <button disabled={regenAllBusy||edMgrBusy} onClick={regenAllPhotos} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:(regenAllBusy||edMgrBusy)?"default":"pointer",textTransform:"uppercase",opacity:(regenAllBusy||edMgrBusy)?0.6:1}}>{regenAllBusy?(regenAllProg||"Reshooting…"):"Reshoot all photos"}</button>
+            <button disabled={regenAllBusy||edMgrBusy} onClick={regenAllPhotos} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:(regenAllBusy||edMgrBusy)?"default":"pointer",textTransform:"uppercase",opacity:(regenAllBusy||edMgrBusy)?0.6:1}}>{regenAllBusy?(regenAllProg||"Reshooting…"):"Reshoot all photos"}</button>
           </div>
           {sitePhotoSlots().map((slot)=>{ const busy=edMgrBusy===slot.key; return (
             <div key={slot.key} style={{border:"1px solid "+B.stone,background:"#fff",padding:14,marginBottom:12,display:"flex",gap:12,alignItems:"flex-start"}}>
@@ -6406,7 +6414,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                   <Btn dark disabled={edDomainLoad} onClick={connectDomain}>{edDomainLoad?"Connecting…":"Connect domain"}</Btn>
                 </div>}
             {edDomainMsg&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.goldDark,marginTop:12,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.gold,padding:"10px 12px"}}>{edDomainMsg}</div>}
-            {edDomainDns&&<div style={{marginTop:12,background:B.charcoal,color:"#fff",padding:"14px 16px",fontFamily:"monospace",fontSize:12,lineHeight:1.8,overflowX:"auto"}}>
+            {edDomainDns&&<div style={{marginTop:12,background:B.inkBlock,color:"#fff",padding:"14px 16px",fontFamily:"monospace",fontSize:12,lineHeight:1.8,overflowX:"auto"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",opacity:0.6,marginBottom:8}}>Add this DNS record where you manage your domain</div>
               {edDomainDns.map((r,i)=><div key={i}>{r.type}&nbsp;&nbsp;{r.name}&nbsp;&nbsp;&rarr;&nbsp;&nbsp;{r.value}</div>)}
             </div>}
@@ -6457,7 +6465,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                       <input type="checkbox" checked={!!p.pro} onChange={e=>setWmPhotos(a=>a.map((x,j)=>j===idx?{...x,pro:e.target.checked}:x))} /> ✨ Make it look professional
                     </label>
                   </div>
-                  <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
+                  <button onClick={()=>setWmPhotos(a=>a.filter((_,j)=>j!==idx))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.inkBlock,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button>
                 </div>
               ))}
               {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,color:B.goldDark}}>{wmKind==="services"?"+ Add a photo":"+ Add a product / work photo"}<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
@@ -6470,7 +6478,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <textarea value={wmAbout} onChange={e=>setWmAbout(e.target.value)} placeholder="A little about you or the founder — the journey, the why, what you care about." rows={4} style={wmTa} />
             <div style={wmLbl}>Photo of you <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{maxWidth:200,marginBottom:10}}>{wmSelf
-              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:120}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:3,background:"#fff",height:120}}><img src={wmSelf} alt="you" style={{width:"100%",height:"100%",objectFit:"cover"}} /><button onClick={()=>setWmSelf(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.inkBlock,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
               : <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:120,border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8,lineHeight:1.3}}>+ Photo of you<span style={{fontSize:9,opacity:0.8}}>(for your About section)</span><input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmSelf)} style={{display:"none"}} /></label>}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Chelgy never invents people — a photo of you or your team only appears if you upload one here.</div>
           </div>}
@@ -6480,7 +6488,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <textarea value={wmContact} onChange={e=>setWmContact(e.target.value)} placeholder={"Address, email, hours — whatever you'd like shown.\nWe'll use tasteful placeholders if you skip this."} rows={3} style={wmTa} />
             <div style={wmLbl}>Logo <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{maxWidth:220,marginBottom:10}}>{wmLogo
-              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:90}}><img src={wmLogo} alt="logo" style={{maxHeight:72,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
+              ? <div style={{position:"relative",border:"1px solid "+B.stone,padding:6,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",height:90}}><img src={wmLogo} alt="logo" style={{maxHeight:72,maxWidth:"100%",objectFit:"contain"}} /><button onClick={()=>setWmLogo(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.inkBlock,color:"#fff",border:"none",cursor:"pointer",fontSize:11}}>×</button></div>
               : <label style={{display:"flex",alignItems:"center",justifyContent:"center",height:90,border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,textAlign:"center",padding:8}}>+ Logo<input type="file" accept="image/*" onChange={e=>wmRead(e.target.files&&e.target.files[0],setWmLogo)} style={{display:"none"}} /></label>}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,marginBottom:6,lineHeight:1.55}}>Your logo goes in the header. Skip it and Chelgy shows your name in a beautiful typeface.</div>
             <div style={{fontFamily:"sans-serif",fontSize:11.5,color:B.mid,marginTop:16,padding:"12px 14px",background:B.white,border:"1px solid "+B.stone,lineHeight:1.65}}>
@@ -6534,7 +6542,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
               {iUploads.map((u,idx)=>(
                 <div key={idx} style={{position:"relative",width:64,height:64}}>
                   <img src={u} alt={"Reference "+(idx+1)} style={{width:64,height:64,objectFit:"cover",border:"1px solid "+B.stone,display:"block"}} />
-                  <button onClick={()=>setIUploads(prev=>prev.filter((_,i)=>i!==idx))} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  <button onClick={()=>setIUploads(prev=>prev.filter((_,i)=>i!==idx))} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",background:B.inkBlock,color:"#fff",border:"none",cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                 </div>
               ))}
             </div>}
@@ -6570,7 +6578,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>Describe your idea in plain words and AI will turn it into a detailed video prompt you can edit below.</p>
             <St value={vpwIdea} onChange={e=>setVpwIdea(e.target.value)} placeholder="e.g. a fun 15-second reel showing my bakery's new cupcakes" rows={2} />
             <div style={{display:"flex",alignItems:"center",gap:10,marginTop:8}}>
-              <button onClick={runVideoPromptWriter} disabled={vpwLoad||!vpwIdea.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:(vpwLoad||!vpwIdea.trim())?"default":"pointer",textTransform:"uppercase",opacity:(vpwLoad||!vpwIdea.trim())?0.5:1}}>{vpwLoad?"Writing...":"Write My Prompt"}</button>
+              <button onClick={runVideoPromptWriter} disabled={vpwLoad||!vpwIdea.trim()} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:(vpwLoad||!vpwIdea.trim())?"default":"pointer",textTransform:"uppercase",opacity:(vpwLoad||!vpwIdea.trim())?0.5:1}}>{vpwLoad?"Writing...":"Write My Prompt"}</button>
               {vpwErr&&<span style={{fontFamily:"sans-serif",fontSize:11,color:B.red}}>{vpwErr}</span>}
             </div>
           </div>}
@@ -6582,7 +6590,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                 <div key={i} style={{position:"relative",border:"1px solid "+(i===0?B.gold:B.stone),padding:3,background:B.white}}>
                   <img src={src} alt={"Product "+(i+1)} style={{width:66,height:66,objectFit:"cover",display:"block"}} />
                   {i===0&&vType==="generate"&&<span style={{position:"absolute",bottom:3,left:3,right:3,background:"rgba(0,0,0,0.6)",color:"#fff",fontSize:8,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.06em",textAlign:"center",padding:"1px 0",textTransform:"uppercase"}}>Featured</span>}
-                  <button onClick={()=>setVVidPhotos(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
+                  <button onClick={()=>setVVidPhotos(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.inkBlock,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
                 </div>
               ))}
             </div>}
@@ -6740,7 +6748,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
               </div>
             ))}
           </div>
-          {locked&&BIZ[bStage].steps.length>5&&<div style={{marginTop:14,background:B.offwhite,border:"1px dashed "+B.stone,padding:"14px 16px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:10,lineHeight:1.6}}>{BIZ[bStage].steps.length-5} more steps in this plan are unlocked with membership.</div><button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 18px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK FULL PLAN</button></div>}
+          {locked&&BIZ[bStage].steps.length>5&&<div style={{marginTop:14,background:B.offwhite,border:"1px dashed "+B.stone,padding:"14px 16px",textAlign:"center"}}><div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginBottom:10,lineHeight:1.6}}>{BIZ[bStage].steps.length-5} more steps in this plan are unlocked with membership.</div><button onClick={onUpgrade} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 18px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK FULL PLAN</button></div>}
         </div>}
         <div style={{borderTop:"1px solid "+B.stone,paddingTop:24}}>
           <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:4,textTransform:"uppercase",fontWeight:700}}>AI Business Coach</div>
@@ -6766,7 +6774,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <div style={{color:B.stone,marginBottom:14,display:"flex",justifyContent:"center"}}><Icons.Lock /></div>
             <div style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,fontWeight:700,marginBottom:6}}>Supplier directory is members-only</div>
             <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:"0 auto 16px",maxWidth:340}}>Upgrade to unlock all 12 vetted suppliers with direct links, shipping times, and honest notes.</p>
-            <button onClick={onUpgrade} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK SUPPLIERS</button>
+            <button onClick={onUpgrade} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer"}}>UNLOCK SUPPLIERS</button>
           </div>
         ) : (<>
         <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:18}}>
@@ -11757,7 +11765,7 @@ function WinningProductFinder(){
       <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 12px"}}>Tell Claude a niche or interest and get trending products that sell — with the audience, pricing, and a ready-to-use ad hook for each.</p>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")run();}} placeholder="e.g. home fitness, cozy home decor, dog owners" style={{flex:1,minWidth:200,padding:"11px 13px",border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,outline:"none",boxSizing:"border-box"}} />
-        <button onClick={run} disabled={loading||!q.trim()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.04em",cursor:(loading||!q.trim())?"default":"pointer",opacity:(loading||!q.trim())?0.5:1,whiteSpace:"nowrap"}}>{loading?"Researching…":"✨ Find products"}</button>
+        <button onClick={run} disabled={loading||!q.trim()} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"11px 20px",fontFamily:"sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.04em",cursor:(loading||!q.trim())?"default":"pointer",opacity:(loading||!q.trim())?0.5:1,whiteSpace:"nowrap"}}>{loading?"Researching…":"✨ Find products"}</button>
       </div>
       {err&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:8}}>{err}</div>}
       {items.length>0&&<div style={{marginTop:14,display:"grid",gap:10}}>
@@ -11918,7 +11926,7 @@ function BlogWriter({ site, onSave, user, onBalance }) {
             <div style={{border:"1px dashed "+B.stone,padding:"16px",textAlign:"center",marginBottom:14,background:"#fff"}}>
               {imgBusy ? <div style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Creating a matching image…</div> : (
                 <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
-                  <button onClick={()=>genImage()} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>✨ Generate with AI</button>
+                  <button onClick={()=>genImage()} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>✨ Generate with AI</button>
                   <label style={{...btnGhost,display:"inline-block"}}>Upload your own<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>
                 </div>
               )}
@@ -12099,7 +12107,7 @@ function CJProductBrowser({ user, onImport }) {
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "Enter") search(1); }} placeholder="Search CJ, e.g. phone stand, hoodie…" style={{ flex: 1, padding: "10px 12px", border: "1px solid " + B.stone, outline: "none", fontSize: 13, fontFamily: "sans-serif", background: "#fff", color: B.charcoal }} />
-            <button onClick={() => search(1)} disabled={loading} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Searching…" : "Search"}</button>
+            <button onClick={() => search(1)} disabled={loading} style={{ background: B.inkBlock, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>{loading ? "Searching…" : "Search"}</button>
           </div>
           {err && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: B.red, marginBottom: 10 }}>{err}</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10 }}>
@@ -12188,7 +12196,7 @@ function ProductPhotoSet({ onBalance }) {
               </div>
               <button onClick={() => { setRef(null); setShots([]); }} style={{ background: "none", border: "none", color: B.mid, cursor: "pointer", fontSize: 11, fontFamily: "sans-serif", textDecoration: "underline" }}>Remove</button>
             </div>
-            <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate 4 product photos"}</button>
+            <button disabled={busy} onClick={generate} style={{ background: B.inkBlock, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate 4 product photos"}</button>
           </div>}
       {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.red, marginTop: 8 }}>{err}</div>}
       {shots.length > 0 && (
@@ -12309,7 +12317,7 @@ function PhotoCatalog({ onBalance }) {
             {[["standard","Standard"],["2K","HD 2K"],["4K","Ultra 4K"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
-        <button disabled={busy} onClick={generate} style={{ background: B.charcoal, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate catalog"}</button>
+        <button disabled={busy} onClick={generate} style={{ background: B.inkBlock, color: "#fff", border: "none", padding: "10px 18px", fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.1em", fontWeight: 700, cursor: busy ? "default" : "pointer", textTransform: "uppercase", opacity: busy ? 0.6 : 1 }}>{busy ? (prog || "Working…") : "✨ Generate catalog"}</button>
       </div>
       {err && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: B.red, marginTop: 8 }}>{err}</div>}
       {imgs.length > 0 && (
@@ -12404,7 +12412,7 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
         {uploads.map((u,idx)=>(
           <div key={idx} style={{ position:"relative", width:64, height:64 }}>
             <img src={u} alt={"Reference "+(idx+1)} style={{ width:64, height:64, objectFit:"cover", border:"1px solid "+B.stone, display:"block" }} />
-            <button onClick={()=>setUploads(prev=>prev.filter((_,i)=>i!==idx))} style={{ position:"absolute", top:-7, right:-7, width:20, height:20, borderRadius:"50%", background:B.charcoal, color:"#fff", border:"none", cursor:"pointer", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+            <button onClick={()=>setUploads(prev=>prev.filter((_,i)=>i!==idx))} style={{ position:"absolute", top:-7, right:-7, width:20, height:20, borderRadius:"50%", background:B.inkBlock, color:"#fff", border:"none", cursor:"pointer", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
           </div>
         ))}
       </div>}
@@ -12418,7 +12426,7 @@ function UGCCharacter({ onBalance, onUseInVideo }) {
             {[3,4,6,8,10,12].map(v=><option key={v} value={v}>{v} shots</option>)}
           </select>
         </label>
-        <button disabled={busy} onClick={generate} style={{ background:B.charcoal, color:"#fff", border:"none", padding:"10px 18px", fontFamily:"sans-serif", fontSize:10, letterSpacing:"0.1em", fontWeight:700, cursor:busy?"default":"pointer", textTransform:"uppercase", opacity:busy?0.6:1 }}>{busy?(prog||"Working…"):"✨ Generate creator"}</button>
+        <button disabled={busy} onClick={generate} style={{ background:B.inkBlock, color:"#fff", border:"none", padding:"10px 18px", fontFamily:"sans-serif", fontSize:10, letterSpacing:"0.1em", fontWeight:700, cursor:busy?"default":"pointer", textTransform:"uppercase", opacity:busy?0.6:1 }}>{busy?(prog||"Working…"):"✨ Generate creator"}</button>
       </div>
       {err && <div style={{ fontFamily:"sans-serif", fontSize:11, color:B.red, marginTop:8 }}>{err}</div>}
       {imgs.length>0 && (
@@ -12737,7 +12745,7 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
                     <div style={{ fontFamily: "sans-serif", fontSize: 10.5, color: B.mid, marginTop: 3 }}>Invoice {inv.number || "—"} · Paid {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</div>
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontFamily: "sans-serif", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, padding: "3px 9px", background: B.charcoal, color: "#fff" }}>Paid</span>
+                    <span style={{ fontFamily: "sans-serif", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, padding: "3px 9px", background: B.inkBlock, color: "#fff" }}>Paid</span>
                     <button style={secBtn()} onClick={() => printReceipt(inv)}>Receipt</button>
                   </div>
                 </div>
@@ -13053,7 +13061,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
             {products.map((u, idx) => (
               <div key={idx} style={{ position: "relative", width: 72, height: 72 }}>
                 <img src={u} alt={"Product " + (idx + 1)} style={{ width: 72, height: 72, objectFit: "cover", border: "1px solid " + B.stone, display: "block" }} />
-                <button onClick={() => setProducts(prev => prev.filter((_, i) => i !== idx))} style={{ position: "absolute", top: -7, right: -7, width: 20, height: 20, borderRadius: "50%", background: B.charcoal, color: "#fff", border: "none", cursor: "pointer", fontSize: 12, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                <button onClick={() => setProducts(prev => prev.filter((_, i) => i !== idx))} style={{ position: "absolute", top: -7, right: -7, width: 20, height: 20, borderRadius: "50%", background: B.inkBlock, color: "#fff", border: "none", cursor: "pointer", fontSize: 12, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
               </div>
             ))}
           </div>
@@ -13525,14 +13533,14 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
     <div>
       <Card style={{padding:"22px",marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginBottom:12}}>
-          <span style={{display:"inline-block",background:B.charcoal,color:"#fff",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",padding:"5px 10px"}}>{curModel().label.split(" \u2014 ")[0]}</span>
+          <span style={{display:"inline-block",background:B.inkBlock,color:"#fff",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",padding:"5px 10px"}}>{curModel().label.split(" \u2014 ")[0]}</span>
           <CreditTag n={cost()} />
         </div>
         <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>Creator photo</div>
         {photo
           ? <div style={{position:"relative",display:"inline-block",border:"1px solid "+B.gold,padding:3,background:B.white,marginBottom:10}}>
               <img src={photo} alt="Creator" style={{width:88,height:110,objectFit:"cover",display:"block"}} />
-              <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.charcoal,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
+              <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderRadius:"50%",background:B.inkBlock,color:"#fff",border:"none",cursor:"pointer",fontSize:11,lineHeight:"18px",padding:0}}>×</button>
             </div>
           : <label style={{display:"block",border:"1px dashed "+B.stone,background:B.white,padding:"16px",textAlign:"center",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em",marginBottom:10}}>Tap to upload a creator shot — or make one in the Character tab and hit “Use in video”<input type="file" accept="image/*" onChange={onUpload} style={{display:"none"}} /></label>}
         <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,margin:"4px 0 7px",textTransform:"uppercase"}}>Describe the video (optional)</div>
@@ -13702,7 +13710,7 @@ function StoreBuilderTab({ user }) {
           {partial && "Your store connected and most of it built, but a couple of items didn't load. Head to your Shopify admin to check, or reach out and we'll finish it."}
           {!good && !partial && "The connection didn't complete. Double-check your store URL and try connecting again."}
         </Sub>
-        <button onClick={() => setResult("")} style={{ padding: "12px 20px", background: B.charcoal, color: "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: "pointer" }}>
+        <button onClick={() => setResult("")} style={{ padding: "12px 20px", background: B.inkBlock, color: "#fff", border: "none", borderRadius: 2, fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", cursor: "pointer" }}>
           {good ? "Build another" : "Try again"}
         </button>
       </div>
@@ -15305,11 +15313,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(b.t==="p") return <p key={i} style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.7,margin:"0 0 12px"}}>{salesBold(b.x)}</p>;
       if(b.t==="h") return <div key={i} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase",margin:"16px 0 8px"}}>{b.x}</div>;
       if(b.t==="quote") return <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,borderLeft:"3px solid "+B.charcoal,padding:"16px 18px",margin:"2px 0 14px",fontFamily:"Caveline,Georgia,serif",fontSize:15,fontStyle:"italic",lineHeight:1.5,color:B.charcoal}}>{b.x}</div>;
-      if(b.t==="list") return <div key={i} style={{margin:"2px 0 14px"}}>{b.items.map((it,j)=>(<div key={j} style={{display:"flex",gap:10,padding:"7px 0",borderTop:j?"1px solid "+B.offwhite:"none"}}><span style={{width:5,height:5,borderRadius:3,background:B.charcoal,marginTop:7,flexShrink:0}} /><span style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.5}}>{salesBold(it)}</span></div>))}</div>;
+      if(b.t==="list") return <div key={i} style={{margin:"2px 0 14px"}}>{b.items.map((it,j)=>(<div key={j} style={{display:"flex",gap:10,padding:"7px 0",borderTop:j?"1px solid "+B.offwhite:"none"}}><span style={{width:5,height:5,borderRadius:3,background:B.inkBlock,marginTop:7,flexShrink:0}} /><span style={{fontFamily:"sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.5}}>{salesBold(it)}</span></div>))}</div>;
       if(b.t==="cards") return <div key={i} style={{display:"flex",gap:8,margin:"2px 0 14px"}}>{b.items.map((c,j)=>(<div key={j} style={{flex:1,background:"#fff",border:"1px solid "+B.stone,padding:"12px 13px"}}><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,marginBottom:4}}>{c[0]}</div><div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5}}>{c[1]}</div></div>))}</div>;
       if(b.t==="price") return <div key={i} style={{background:"#fff",border:"1px solid "+B.stone,padding:"4px 14px",margin:"2px 0 14px"}}>{b.items.map((r,j)=>(<div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10,padding:"9px 0",borderTop:j?"1px solid "+B.offwhite:"none"}}><div><div style={{fontFamily:"Caveline,Georgia,serif",fontSize:14,color:B.charcoal}}>{r[0]}</div><div style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{r[1]}</div></div><div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:B.charcoal,whiteSpace:"nowrap"}}>{r[2]}</div></div>))}</div>;
       if(b.t==="msg") return <div key={i} style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"12px 14px",margin:"2px 0 12px"}}><div style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.14em",textTransform:"uppercase",color:B.goldDark,fontWeight:700,marginBottom:6}}>{b.label}</div><div style={{fontFamily:"sans-serif",fontSize:12,fontStyle:"italic",color:B.charcoal,lineHeight:1.6}}>{b.body}</div></div>;
-      if(b.t==="callout") return <div key={i} style={{background:B.charcoal,color:"#fff",padding:"18px 20px",margin:"6px 0 12px"}}><div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",fontWeight:700,marginBottom:8}}>{b.title}</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.85)",lineHeight:1.6}}>{b.body}</div></div>;
+      if(b.t==="callout") return <div key={i} style={{background:B.inkBlock,color:"#fff",padding:"18px 20px",margin:"6px 0 12px"}}><div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.14em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",fontWeight:700,marginBottom:8}}>{b.title}</div><div style={{fontFamily:"sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.85)",lineHeight:1.6}}>{b.body}</div></div>;
       return null;
     });
   }
@@ -15812,7 +15820,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               </div>
             ))}
             {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
-            <button onClick={genMarketerPlan} disabled={mkPlanLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPlanLoading?"default":"pointer",textTransform:"uppercase"}}>{mkPlanLoading?"Building your plan...":"Build My 30-Day Plan"}</button>
+            <button onClick={genMarketerPlan} disabled={mkPlanLoading} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:mkPlanLoading?"default":"pointer",textTransform:"uppercase"}}>{mkPlanLoading?"Building your plan...":"Build My 30-Day Plan"}</button>
           </div>
         </div>, false, true);
 
@@ -15823,7 +15831,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           <h1 style={{fontFamily:"Caveline,Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 18px",color:B.charcoal}}>Land your first clients</h1>
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px 24px"}}><Rich text={marketerData.plan||""} /></div>
           <div style={{display:"flex",gap:8,marginTop:16}}>
-            <button onClick={()=>setMarketerView("coach")} style={{flex:1,background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Ask Your Coach</button>
+            <button onClick={()=>setMarketerView("coach")} style={{flex:1,background:B.inkBlock,color:"#fff",border:"none",padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Ask Your Coach</button>
             <button onClick={()=>setMarketerView("onboard")} style={{flex:1,background:"none",color:B.charcoal,border:"1px solid "+B.charcoal,padding:"13px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Rebuild Plan</button>
           </div>
         </div>, false, true);
@@ -15851,7 +15859,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           </div>
           <div style={{display:"flex",gap:8,position:"sticky",bottom:14,background:B.offwhite,paddingTop:8}}>
             <input value={mkCoachInput} onChange={e=>setMkCoachInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")sendMkCoach();}} placeholder="Ask your coach anything..." style={{flex:1,padding:"13px 15px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />
-            <button onClick={()=>sendMkCoach()} disabled={mkCoachLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 20px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send</button>
+            <button onClick={()=>sendMkCoach()} disabled={mkCoachLoading} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"0 20px",fontSize:11,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Send</button>
           </div>
         </div>, false, true);
 
@@ -15893,7 +15901,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <F k="notes" label="Notes" ph="Anything you want to remember about this client" type="textarea" />
                 {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
                 <div style={{display:"flex",gap:8}}>
-                  <button onClick={saveClient} style={{flex:1,background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Save Client</button>
+                  <button onClick={saveClient} style={{flex:1,background:B.inkBlock,color:"#fff",border:"none",padding:"13px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Save Client</button>
                   {clientId!=="new"&&<button onClick={()=>deleteClient(clientDraft.id)} style={{background:"none",color:B.red,border:"1px solid #E0B4B4",padding:"13px 16px",fontSize:11,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Delete</button>}
                 </div>
               </div>
@@ -15918,12 +15926,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{width:28,height:1,background:B.gold,marginBottom:14}} />
                 <h1 style={{fontSize:24,fontWeight:400,margin:0,color:B.charcoal}}>Your Clients</h1>
               </div>
-              <button onClick={newClient} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Add Client</button>
+              <button onClick={newClient} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"10px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>+ Add Client</button>
             </div>
             {list.length===0
               ? <div style={{background:B.white,border:"1px solid "+B.stone,padding:"36px 24px",textAlign:"center"}}>
                   <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>No clients yet. Add your first one to keep their brand, goals, logins, and notes all in one place.</p>
-                  <button onClick={newClient} style={{background:B.charcoal,color:"#fff",border:"none",padding:"11px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Add Your First Client</button>
+                  <button onClick={newClient} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"11px 20px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Add Your First Client</button>
                 </div>
               : <div style={{display:"flex",flexDirection:"column",gap:2,background:B.stone}}>
                   {list.map(c=>(
@@ -15961,14 +15969,14 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   : <input value={dvForm[fd.k]||""} onChange={e=>setDvForm(f=>({...f,[fd.k]:e.target.value}))} placeholder={fd.ph} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff"}} />}
               </div>
             ))}
-            <button onClick={genDeliverable} disabled={dvLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:dvLoading?"default":"pointer",textTransform:"uppercase"}}>{dvLoading?"Generating...":"Generate "+dt.label}</button>
+            <button onClick={genDeliverable} disabled={dvLoading} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:dvLoading?"default":"pointer",textTransform:"uppercase"}}>{dvLoading?"Generating...":"Generate "+dt.label}</button>
           </div>
           {dvResult&&!dvLoading&&(
             <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"22px 24px"}}>
               <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:6}}>
                 <button onClick={()=>{try{navigator.clipboard.writeText(dvResult);setDvCopied(true);setTimeout(()=>setDvCopied(false),2000);}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>{dvCopied?"Copied ✓":"Copy"}</button>
                 <button onClick={()=>downloadTextFile(dvType+"-"+((dvForm.client||"client").toLowerCase().replace(/[^a-z0-9]+/g,"-"))+".txt", dvResult)} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Download</button>
-                {!indie && <button onClick={submitDeliverable} disabled={dvSubmitting} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:dvSubmitting?"default":"pointer",color:"#fff",textTransform:"uppercase",fontWeight:700}}>{dvSubmitting?"Sending...":"Send to Chelgy"}</button>}
+                {!indie && <button onClick={submitDeliverable} disabled={dvSubmitting} style={{background:B.inkBlock,border:"1px solid "+B.charcoal,padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",cursor:dvSubmitting?"default":"pointer",color:"#fff",textTransform:"uppercase",fontWeight:700}}>{dvSubmitting?"Sending...":"Send to Chelgy"}</button>}
               </div>
               {dvSubmitMsg&&<div style={{fontFamily:"sans-serif",fontSize:11,color:dvSubmitMsg.startsWith("✅")?B.green:"#C0392B",textAlign:"right",marginBottom:6}}>{dvSubmitMsg}</div>}
               <div style={{fontFamily:"sans-serif"}}><Rich text={dvResult} /></div>
@@ -16210,7 +16218,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <textarea value={inquiryForm.notes} onChange={e=>setInquiryForm(f=>({...f,notes:e.target.value}))} placeholder="Any context for Chelgy? (e.g., warm referral, budget notes, timeline)" style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",boxSizing:"border-box",background:"#fff",minHeight:80,fontFamily:"sans-serif"}} />
               </div>
               {inquiryErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:inquiryErr.includes("✅")?B.gold:B.red,marginBottom:12}}>{inquiryErr}</div>}
-              <button onClick={submitClientInquiry} disabled={inquiryLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:inquiryLoading?"default":"pointer",textTransform:"uppercase"}}>{inquiryLoading?"Submitting...":"Submit Inquiry"}</button>
+              <button onClick={submitClientInquiry} disabled={inquiryLoading} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:inquiryLoading?"default":"pointer",textTransform:"uppercase"}}>{inquiryLoading?"Submitting...":"Submit Inquiry"}</button>
             </div>
 
             {/* Active Contracts */}
@@ -16270,7 +16278,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       return teamWrap(
         <div style={{paddingBottom:60}}>
           {topBar}
-          <div style={{background:B.charcoal,padding:"28px 26px",marginBottom:18}}>
+          <div style={{background:B.inkBlock,padding:"28px 26px",marginBottom:18}}>
             <h1 style={{color:"#fff",fontSize:25,fontWeight:400,margin:"0 0 8px"}}>Welcome to your workspace, {myName}.</h1>
             <p style={{fontFamily:"sans-serif",color:"rgba(255,255,255,0.6)",fontSize:13,lineHeight:1.6,margin:0}}>Your home base for landing clients and running their marketing.</p>
           </div>
@@ -16357,7 +16365,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const dealIn={width:"100%",padding:"10px 12px",marginBottom:8,border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,boxSizing:"border-box",background:"#fff"};
     const SALES_PRICE_MAP=Object.fromEntries([...SALES_MONTHLY,...SALES_ONETIME].map(pk=>[pk.name, Number((pk.price||"").replace(/[^0-9]/g,""))||0]));
     const salesHdr=(
-      <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
+      <header style={{background:B.inkBlock,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
         <div style={{height:54,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,letterSpacing:"0.22em",color:"#fff"}}>CHELGY <span style={{color:"rgba(255,255,255,0.5)"}}>SALES</span></div>
           <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.75)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
@@ -16386,7 +16394,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {Lbl("Where will you find prospects? (pick any)")}
             <div>{Q_CH.map(([v,l])=>(<button key={v} onClick={()=>toggleSalesArr("channels",v)} style={chip((salesForm.channels||[]).includes(v))}>{l}</button>))}</div>
             {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,margin:"16px 0 0"}}>{teamErr}</div>}
-            <button onClick={saveSalesOnboarding} disabled={salesSaving} style={{width:"100%",marginTop:26,background:B.charcoal,color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:salesSaving?"default":"pointer",textTransform:"uppercase"}}>{salesSaving?"Saving…":"Start selling →"}</button>
+            <button onClick={saveSalesOnboarding} disabled={salesSaving} style={{width:"100%",marginTop:26,background:B.inkBlock,color:"#fff",border:"none",padding:"15px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:salesSaving?"default":"pointer",textTransform:"uppercase"}}>{salesSaving?"Saving…":"Start selling →"}</button>
           </main>
         </div>
       );
@@ -16394,7 +16402,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const SALES_TABS=[["intro","Intro"],["coach","Coach"],["pitches","Pitches"],["find","Clients"],["portfolio","Portfolio"],["logs","Logs"],["account","Account"]];
     return (
       <div style={{minHeight:"100vh",background:B.offwhite,display:"flex",flexDirection:"column"}}>
-        <header style={{background:B.charcoal,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
+        <header style={{background:B.inkBlock,padding:"env(safe-area-inset-top,0px) 20px 0",flexShrink:0}}>
           <div style={{height:54,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,letterSpacing:"0.22em",color:"#fff"}}>CHELGY <span style={{color:"rgba(255,255,255,0.5)"}}>SALES</span></div>
             <button onClick={doLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.25)",color:"rgba(255,255,255,0.75)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Log Out</button>
@@ -16419,8 +16427,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{display:"flex",justifyContent:"space-between",gap:10,marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:16}}>
                     <button onClick={()=>{ if(rIdx>0){setIntroSection(INTRO_SECTIONS[rIdx-1].id); window.scrollTo(0,0);} }} disabled={rIdx===0} style={{background:"none",border:"1px solid "+B.stone,color:rIdx===0?B.stone:B.mid,padding:"10px 16px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:rIdx===0?"default":"pointer"}}>{"\u2039 Prev"}</button>
                     {rIdx<INTRO_SECTIONS.length-1
-                      ? <button onClick={()=>{setIntroSection(INTRO_SECTIONS[rIdx+1].id); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Next \u203a"}</button>
-                      : <button onClick={()=>{setSalesTab("pitches"); window.scrollTo(0,0);}} style={{background:B.charcoal,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Go to Pitches \u203a"}</button>}
+                      ? <button onClick={()=>{setIntroSection(INTRO_SECTIONS[rIdx+1].id); window.scrollTo(0,0);}} style={{background:B.inkBlock,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Next \u203a"}</button>
+                      : <button onClick={()=>{setSalesTab("pitches"); window.scrollTo(0,0);}} style={{background:B.inkBlock,border:"none",color:"#fff",padding:"10px 18px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"}}>{"Go to Pitches \u203a"}</button>}
                   </div>
                 </div>);
               })()}
@@ -16469,7 +16477,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   </div>
                   <div style={{display:"flex",gap:8,marginTop:12}}>
                     <input value={scInput} onChange={e=>setScInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askSalesCoach();}} placeholder="Ask your coach..." style={{flex:1,padding:"12px 14px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:14,boxSizing:"border-box"}} />
-                    <button onClick={askSalesCoach} disabled={scLoading} style={{background:B.charcoal,color:"#fff",border:"none",padding:"0 18px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Send</button>
+                    <button onClick={askSalesCoach} disabled={scLoading} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"0 18px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Send</button>
                   </div>
                 </div>
               )}
@@ -16480,7 +16488,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <input key={f[0]} value={auForm[f[0]]} onChange={e=>setAuForm(v=>({...v,[f[0]]:e.target.value}))} placeholder={f[1]+" \u2014 "+f[2]} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:8,boxSizing:"border-box"}} />
                   ))}
                   <textarea value={auForm.notes} onChange={e=>setAuForm(v=>({...v,notes:e.target.value}))} placeholder="What did you notice? (old website, no reviews, quiet socials, great product but no brand...)" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box",resize:"vertical"}} />
-                  <button onClick={runBizAudit} disabled={auLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"13px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:auLoading?"default":"pointer"}}>{auLoading?"Auditing...":"Run business audit"}</button>
+                  <button onClick={runBizAudit} disabled={auLoading} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"13px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:auLoading?"default":"pointer"}}>{auLoading?"Auditing...":"Run business audit"}</button>
                   {auResult && <div style={{whiteSpace:"pre-wrap",fontFamily:"sans-serif",fontSize:13,lineHeight:1.65,color:B.charcoal,background:"#fff",border:"1px solid "+B.stone,borderTop:"3px solid "+B.charcoal,padding:"16px 18px",marginTop:16}}>{auResult}</div>}
                 </div>
               )}
@@ -16599,7 +16607,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ].map(a=>(
                 <button key={a.label} onClick={a.fn} style={{width:"100%",textAlign:"left",background:"#fff",border:"1px solid "+B.stone,padding:"13px 15px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:"pointer"}}>
                   <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{a.label}</span>
-                  <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",color:"#fff",background:B.charcoal,padding:"6px 10px",textTransform:"uppercase",whiteSpace:"nowrap"}}>Open PDF</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",color:"#fff",background:B.inkBlock,padding:"6px 10px",textTransform:"uppercase",whiteSpace:"nowrap"}}>Open PDF</span>
                 </button>
               ))}
             </div>
@@ -16617,7 +16625,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               ].map(a=>(
                 <button key={a.label} onClick={a.fn} style={{width:"100%",textAlign:"left",background:"#fff",border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:"pointer"}}>
                   <span><span style={{display:"block",fontFamily:"sans-serif",fontSize:13,fontWeight:600,color:B.charcoal}}>{a.label}</span><span style={{display:"block",fontFamily:"sans-serif",fontSize:11,color:B.mid,marginTop:2,lineHeight:1.4}}>{a.desc}</span></span>
-                  <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",color:"#fff",background:B.charcoal,padding:"6px 10px",textTransform:"uppercase",whiteSpace:"nowrap"}}>Open PDF</span>
+                  <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",color:"#fff",background:B.inkBlock,padding:"6px 10px",textTransform:"uppercase",whiteSpace:"nowrap"}}>Open PDF</span>
                 </button>
               ))}
             </div>
@@ -16627,7 +16635,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h1 style={{fontFamily:"Caveline,Georgia,serif",fontSize:26,fontWeight:400,margin:"0 0 6px"}}>Client logs</h1>
               <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Log every business you reach out to and track where each one stands {"\u2014"} who's promising, who to follow up with, and who's a no for now.</p>
               {leadsLoaded && salesLeads.filter(leadDue).length>0 && (
-                <div style={{background:B.charcoal,color:"#fff",padding:"12px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                <div style={{background:B.inkBlock,color:"#fff",padding:"12px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
                   <span style={{fontFamily:"sans-serif",fontSize:12.5,lineHeight:1.4}}>You have {salesLeads.filter(leadDue).length} follow-up{salesLeads.filter(leadDue).length>1?"s":""} due today or overdue.</span>
                   <button onClick={()=>setLeadFilter("Due")} style={{background:"#fff",color:B.charcoal,border:"none",padding:"7px 12px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>Show</button>
                 </div>
@@ -16639,7 +16647,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid,margin:"2px 0 4px"}}>Remind me to follow up on (optional)</div>
                 <input type="date" value={leadForm.follow} onChange={e=>setLeadForm(f=>({...f,follow:e.target.value}))} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box",color:leadForm.follow?B.charcoal:B.mid}} />
                 <textarea value={leadForm.notes} onChange={e=>setLeadForm(f=>({...f,notes:e.target.value}))} placeholder="Notes (what you discussed, next step...)" rows={2} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontFamily:"sans-serif",fontSize:13,marginBottom:10,boxSizing:"border-box",resize:"vertical"}} />
-                <button onClick={addSalesLead} disabled={leadSaving} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"12px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:leadSaving?"default":"pointer"}}>{leadSaving?"Saving...":"Add to logs"}</button>
+                <button onClick={addSalesLead} disabled={leadSaving} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"12px",fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:leadSaving?"default":"pointer"}}>{leadSaving?"Saving...":"Add to logs"}</button>
               </div>
               <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:8,marginBottom:12}}>
                 {["All","Due"].concat(LEAD_STATUSES).map(st=>{ const active=leadFilter===st; const n=st==="All"?salesLeads.length:st==="Due"?salesLeads.filter(leadDue).length:salesLeads.filter(x=>x.status===st).length; return (
@@ -16697,7 +16705,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <input value={dealForm.value} onChange={e=>setDealForm(f=>({...f,value:e.target.value}))} placeholder="Deal value $" inputMode="numeric" style={{...dealIn,flex:1}} />
                   <input type="date" value={dealForm.date} onChange={e=>setDealForm(f=>({...f,date:e.target.value}))} style={{...dealIn,flex:1}} />
                 </div>
-                <button onClick={addSalesDeal} disabled={dealSaving} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"11px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",cursor:dealSaving?"default":"pointer",textTransform:"uppercase"}}>{dealSaving?"Saving…":"+ Log a deal"}</button>
+                <button onClick={addSalesDeal} disabled={dealSaving} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"11px",fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",cursor:dealSaving?"default":"pointer",textTransform:"uppercase"}}>{dealSaving?"Saving…":"+ Log a deal"}</button>
                 {salesDeals.length>0 && (<div style={{marginTop:12}}>
                   {salesDeals.map(d=>(
                     <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid "+B.offwhite,padding:"9px 0"}}>
@@ -16796,7 +16804,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           ))}
           {teamErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginBottom:12}}>{teamErr}</div>}
-          <button onClick={applyMarketer} disabled={applying} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:applying?"default":"pointer",textTransform:"uppercase"}}>{applying?"Submitting...":"Submit Application"}</button>
+          <button onClick={applyMarketer} disabled={applying} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"14px",fontSize:11,letterSpacing:"0.14em",fontFamily:"sans-serif",fontWeight:700,cursor:applying?"default":"pointer",textTransform:"uppercase"}}>{applying?"Submitting...":"Submit Application"}</button>
         </div>
       </div>, false);
   }
@@ -17010,7 +17018,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <h2 style={{fontSize:23,fontFamily:"Caveline,Georgia,serif",fontWeight:400,margin:"0 0 4px"}}>Welcome back{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</h2>
             <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,margin:"0 0 22px",letterSpacing:"0.01em"}}>Here are your tasks for today.</p>
             {hero&&(
-              <div style={{background:B.charcoal,padding:"20px 22px",marginBottom:16}}>
+              <div style={{background:B.inkBlock,padding:"20px 22px",marginBottom:16}}>
                 <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.16em",color:GOLD,fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Today's Highest-Impact Task</div>
                 <div style={{fontFamily:"Caveline,Georgia,serif",fontSize:19,color:"#fff",lineHeight:1.3,marginBottom:10}}>{hero.title}</div>
                 {hero.detail&&<div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:12}}>{hero.detail}</div>}
@@ -17045,7 +17053,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {gift.kind==="image"
                     ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
                     : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
-                  <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                  <button onClick={()=>openTool(gift.tool)} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
                 </div>
               </div>
             )}
@@ -17118,7 +17126,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {gift.kind==="image"
                     ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
                     : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
-                  <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                  <button onClick={()=>openTool(gift.tool)} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
                 </div>
               </div>
             )}
@@ -17127,7 +17135,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
         </div>
       ); })()}
       {celebrate&&(
-        <div style={{position:"fixed",bottom:96,left:"50%",transform:"translateX(-50%)",zIndex:10000,background:B.charcoal,color:"#fff",padding:"12px 22px",fontFamily:"sans-serif",fontSize:13,letterSpacing:"0.02em",boxShadow:"0 6px 24px rgba(0,0,0,0.3)",whiteSpace:"nowrap"}}>
+        <div style={{position:"fixed",bottom:96,left:"50%",transform:"translateX(-50%)",zIndex:10000,background:B.inkBlock,color:"#fff",padding:"12px 22px",fontFamily:"sans-serif",fontSize:13,letterSpacing:"0.02em",boxShadow:"0 6px 24px rgba(0,0,0,0.3)",whiteSpace:"nowrap"}}>
           <span style={{color:B.gold,marginRight:8}}>✓</span>{celebrate}
         </div>
       )}
@@ -17202,12 +17210,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       <header style={{background:B.white,borderBottom:"1px solid "+B.stone,flexShrink:0,zIndex:300,paddingTop:"env(safe-area-inset-top, 0px)"}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div onClick={()=>goTab("home")} style={{cursor:"pointer"}}>
-            <img src={LOGO_B64} alt="Chelgy" onClick={handleLogoTap} onTouchEnd={handleLogoTap} style={{height:26,objectFit:"contain",cursor:"pointer",WebkitTapHighlightColor:"transparent"}} />
+            <img src={LOGO_B64} alt="Chelgy" onClick={handleLogoTap} onTouchEnd={handleLogoTap} style={{height:26,objectFit:"contain",cursor:"pointer",WebkitTapHighlightColor:"transparent",filter:dark?"invert(1)":"none"}} />
           {logoTaps>0&&logoTaps<5&&<div style={{position:"absolute",top:56,left:20,fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.1em",opacity:0.6}}>{5-logoTaps} more</div>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:18}}>
             {isTrial&&(
-              <button onClick={()=>setShowPaywall(true)} style={{background:B.charcoal,border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:"#fff"}}>UPGRADE MEMBERSHIP</button>
+              <button onClick={()=>setShowPaywall(true)} style={{background:B.inkBlock,border:"1px solid "+B.charcoal,padding:"5px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:"#fff"}}>UPGRADE MEMBERSHIP</button>
             )}
             {!isTrial&&(
               <button onClick={()=>setShowCredits(true)} style={{background:B.white,border:"1px solid "+B.stone,padding:"4px 10px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",color:B.goldDark,display:"flex",alignItems:"center",gap:5}}>
@@ -17265,7 +17273,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&!mkPost&&(
             <div style={{paddingTop:28}}>
               {/* Hero card — featured client-acquisition strategy */}
-              <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:360}}>
+              <div style={{background:B.inkBlock,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:360}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
                 <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.15) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)"}} />
                 <div style={{position:"relative"}}>
@@ -17296,7 +17304,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               </div>
               {/* Toolkit promo */}
-              <div style={{background:B.charcoal,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
+              <div style={{background:B.inkBlock,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
                 <div>
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
                   <div style={{color:"#fff",fontFamily:"Caveline,Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Ads · Audits · Voiceover</div>
@@ -17400,7 +17408,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="home"&&subTab==="feed"&&!(isTeamSpace&&marketerStatus==="approved")&&(
             <div style={{paddingTop:28}}>
               {/* Hero card */}
-              <div style={{background:B.charcoal,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
+              <div style={{background:B.inkBlock,padding:"48px 32px 44px",marginBottom:2,position:"relative",overflow:"hidden",minHeight:420}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"url("+homeHero+")",backgroundSize:"cover",backgroundPosition:"center center"}} />
               <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0.12) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)"}} />
                 <div style={{position:"relative"}}>
@@ -17431,10 +17439,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 </div>
               </div>
               {/* AI Tools promo */}
-              <div style={{background:B.charcoal,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
+              <div style={{background:B.inkBlock,padding:"22px 24px",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
                 <div>
                   <div style={{fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>AI TOOLS SUITE</div>
-                  <div style={{color:"#fff",fontFamily:"Caveline,Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Business · Dropshipping · Platforms</div>
+                  <div style={{color:B.inkText,fontFamily:"Caveline,Georgia,serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Business · Dropshipping · Platforms</div>
                 </div>
                 <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:"#111",border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
@@ -17468,7 +17476,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     {gift.kind==="image"
                       ? <a href={gift.content} download={"chelgy-"+gift.type+".png"} target="_blank" rel="noreferrer" style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase",textDecoration:"none"}}>Download</a>
                       : <button onClick={()=>{try{navigator.clipboard.writeText(gift.content);pushNotif("Copied — paste it wherever you post.");}catch(e){}}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",color:B.mid,textTransform:"uppercase"}}>Copy</button>}
-                    <button onClick={()=>openTool(gift.tool)} style={{background:B.charcoal,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
+                    <button onClick={()=>openTool(gift.tool)} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",textTransform:"uppercase"}}>Explore the {gift.label} →</button>
                   </div>
                 </div>
               ) : giftLoading ? (
@@ -17491,7 +17499,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div>
                   <div style={{display:"flex",gap:0}}>
                     <input value={emailSub} onChange={e=>setEmailSub(e.target.value)} placeholder="your@email.com" style={{flex:1,padding:"12px 16px",border:"1px solid "+B.stone,outline:"none",fontSize:13,fontFamily:"sans-serif",background:B.white}} />
-                    <button onClick={submitNewsletter} disabled={subSending} style={{background:B.charcoal,color:"#fff",border:"none",padding:"12px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:subSending?"default":"pointer",opacity:subSending?0.6:1}}>{subSending?"...":"SIGN UP"}</button>
+                    <button onClick={submitNewsletter} disabled={subSending} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"12px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:subSending?"default":"pointer",opacity:subSending?0.6:1}}>{subSending?"...":"SIGN UP"}</button>
                   </div>
                   {subErr&&<div style={{fontFamily:"sans-serif",fontSize:12,color:B.red,marginTop:10}}>{subErr}</div>}
                 </div>
@@ -17598,8 +17606,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   ? <button onClick={()=>{setGuideChapter(GUIDE_CHAPTERS[guideChapter.num-2]);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:"none",border:"1px solid "+B.stone,padding:"9px 14px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:B.charcoal,letterSpacing:"0.04em"}}>← Previous</button>
                   : <span />}
                 {GUIDE_CHAPTERS[guideChapter.num]
-                  ? <button onClick={()=>{setGuideChapter(GUIDE_CHAPTERS[guideChapter.num]);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.charcoal,border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:"#fff",letterSpacing:"0.04em"}}>Next chapter →</button>
-                  : <button onClick={()=>setGuideChapter(null)} style={{background:B.charcoal,border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:"#fff",letterSpacing:"0.04em"}}>Finish ✓</button>}
+                  ? <button onClick={()=>{setGuideChapter(GUIDE_CHAPTERS[guideChapter.num]);if(scrollRef.current)scrollRef.current.scrollTop=0;}} style={{background:B.inkBlock,border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:"#fff",letterSpacing:"0.04em"}}>Next chapter →</button>
+                  : <button onClick={()=>setGuideChapter(null)} style={{background:B.inkBlock,border:"none",padding:"9px 16px",fontFamily:"sans-serif",fontSize:11,cursor:"pointer",color:"#fff",letterSpacing:"0.04em"}}>Finish ✓</button>}
               </div>
             </div>
           )}
@@ -17745,7 +17753,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                         <div style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.title||(item.kind?item.kind.charAt(0).toUpperCase()+item.kind.slice(1):"Creation")}</div>
                         <div style={{fontFamily:"sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.08em",textTransform:"uppercase"}}>{item.kind||"image"} · {item.created_at?new Date(item.created_at).toLocaleDateString():""}</div>
                         <div style={{display:"flex",gap:8,marginTop:4}}>
-                          <a href={item.url} download target="_blank" rel="noopener noreferrer" style={{flex:1,textAlign:"center",background:B.charcoal,color:"#fff",padding:"7px 0",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",textDecoration:"none"}}>Open</a>
+                          <a href={item.url} download target="_blank" rel="noopener noreferrer" style={{flex:1,textAlign:"center",background:B.inkBlock,color:"#fff",padding:"7px 0",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",textDecoration:"none"}}>Open</a>
                           <button onClick={async()=>{ if(!confirm("Remove this from your library?"))return; const ok=await deleteLibraryItem(item.id); if(ok) setLibraryItems(list=>list.filter(x=>x.id!==item.id)); }} style={{flex:1,background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 0",fontFamily:"sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",cursor:"pointer"}}>Remove</button>
                         </div>
                         <ShareBar url={item.url} file={item.url} filename={item.kind==="video"?"chelgy-video.mp4":"chelgy-image.png"} title={item.title||"Made with Chelgy"} text="" />
@@ -17814,7 +17822,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               )}
 
               {launchLoading&&(
-                <div style={{background:B.charcoal,padding:"48px 32px",textAlign:"center"}}>
+                <div style={{background:B.inkBlock,padding:"48px 32px",textAlign:"center"}}>
                   <div style={{width:32,height:1,background:GOLD,margin:"0 auto 20px"}} />
                   <div style={{fontFamily:"Caveline,Georgia,serif",fontSize:20,color:"#fff",marginBottom:10}}>Building your launch package...</div>
                   <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.5)",letterSpacing:"0.04em"}}>This takes about 15 seconds. Your complete package is being written now.</div>
@@ -17823,7 +17831,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
               {launchResult&&!launchLoading&&(
                 <div>
-                  <div style={{background:B.charcoal,padding:"22px 20px",marginBottom:22}}>
+                  <div style={{background:B.inkBlock,padding:"22px 20px",marginBottom:22}}>
                     <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Bring your launch to life</div>
                     <div style={{fontFamily:"Caveline,Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your launch is ready — open and edit it</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy drafts each of these from your answers — click any one to see it and make it yours.</div>
@@ -17838,7 +17846,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"ads",auto:!brandProgress.ads,data:{adBiz:launchData.bizName,adProduct:launchData.services,adCity:launchData.location}}); setSubTab("ads"); }} style={{background:brandProgress.ads?"rgba(255,255,255,0.12)":"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.ads?"See & edit your ads":"Draft my ads"}</button>
                     </div>
                   </div>
-                  <div style={{background:B.charcoal,padding:"22px 20px",marginTop:14}}>
+                  <div style={{background:B.inkBlock,padding:"22px 20px",marginTop:14}}>
                     <div style={{fontFamily:"sans-serif",fontSize:9,color:GOLD,fontWeight:700,letterSpacing:"0.2em",marginBottom:6,textTransform:"uppercase"}}>Get found online</div>
                     <div style={{fontFamily:"Caveline,Georgia,serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
                     <div style={{fontFamily:"sans-serif",fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy writes everything to paste into each profile — you just create the accounts.</div>
@@ -17910,7 +17918,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 4px"}}>Community Forum</h2>
                   <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:0,letterSpacing:"0.01em"}}>Ask questions, share wins, connect with members.</p>
                 </div>
-                <button onClick={()=>{ if(muted){ pushNotif("You've been muted by an admin, so you can't post or comment right now. You still have full access to everything else."); return; } isTrial?setShowPaywall(true):setShowNewPost(true); }} style={{background:B.charcoal,color:"#fff",border:"none",padding:"10px 18px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
+                <button onClick={()=>{ if(muted){ pushNotif("You've been muted by an admin, so you can't post or comment right now. You still have full access to everything else."); return; } isTrial?setShowPaywall(true):setShowNewPost(true); }} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"10px 18px",fontSize:9,letterSpacing:"0.16em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
                   {isTrial?<><Icons.Lock /> NEW POST</>:<><Icons.Plus /> NEW POST</>}
                 </button>
               </div>
@@ -18093,7 +18101,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                 <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
                   {advisorMsgs.map((m,i)=>(
                     m.role==="user"?(
-                      <div key={i} style={{alignSelf:"flex-end",maxWidth:"85%",background:B.charcoal,color:"#fff",padding:"11px 15px",fontFamily:"sans-serif",fontSize:13,lineHeight:1.55}}>{m.content}</div>
+                      <div key={i} style={{alignSelf:"flex-end",maxWidth:"85%",background:B.inkBlock,color:"#fff",padding:"11px 15px",fontFamily:"sans-serif",fontSize:13,lineHeight:1.55}}>{m.content}</div>
                     ):(
                       <div key={i} style={{alignSelf:"flex-start",maxWidth:"94%",background:B.offwhite,border:"1px solid "+B.stone,padding:"14px 16px"}}>
                         <div style={{fontSize:8,color:B.gold,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.2em",marginBottom:10,textTransform:"uppercase"}}>Chelgy</div>
@@ -18121,7 +18129,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="profile"&&!(isTeamSpace&&marketerStatus==="approved")&&!((isMarketerSpace||isDemo)&&!isTeamSpace)&&subTab==="overview"&&(
             <div style={{paddingTop:28}}>
               {(()=>{ const hr=new Date().getHours(); const greet=hr<12?"Good morning":hr<18?"Good afternoon":"Good evening"; const streak=computeStreak(); const total=bigTasks.length; const doneN=bigTasks.filter(t=>t.done).length; const pct=total?Math.round(doneN/total*100):0; const next=(bigTasks.find(t=>!t.done)||{}); return (
-                <div style={{background:B.charcoal,padding:"26px 24px",marginBottom:2}}>
+                <div style={{background:B.inkBlock,padding:"26px 24px",marginBottom:2}}>
                   <div style={{fontFamily:"Caveline,Georgia,serif",fontSize:22,color:"#fff",fontWeight:400,marginBottom:6}}>{greet}{myName&&myName!=="You"&&myName!=="Member"?", "+myName:""}.</div>
                   <div style={{fontFamily:"sans-serif",fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:(total>0?20:0)}}>{streak>0?("You've stayed consistent for "+streak+" day"+(streak===1?"":"s")+". Keep it alive."):"Check off a task today to start your streak."}</div>
                   {total>0&&(<>
@@ -18182,7 +18190,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Plan</span><span style={{fontFamily:"Caveline,Georgia,serif",fontSize:15,color:B.charcoal}}>Chelgy Membership</span></div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Price</span><span style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,fontWeight:700}}>$100 / month</span></div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}><span style={{fontFamily:"sans-serif",fontSize:12,color:B.mid}}>Status</span><span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:isTrial?B.mid:"#2E7D32"}}>{isTrial?"Free · Explore":"Active"}</span></div>
-                    <button onClick={openBillingPortal} disabled={portalLoading} style={{width:"100%",background:B.charcoal,color:"#fff",border:"none",padding:"11px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:portalLoading?"default":"pointer",textTransform:"uppercase"}}>{portalLoading?"Opening…":"Manage subscription"}</button>
+                    <button onClick={openBillingPortal} disabled={portalLoading} style={{width:"100%",background:B.inkBlock,color:"#fff",border:"none",padding:"11px",fontFamily:"sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:portalLoading?"default":"pointer",textTransform:"uppercase"}}>{portalLoading?"Opening…":"Manage subscription"}</button>
                     <div style={{fontFamily:"sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.6,marginTop:10}}>See your next renewal date, update your payment method, download invoices, or cancel — all in Stripe's secure portal.</div>
                     {portalErr&&<div style={{fontFamily:"sans-serif",fontSize:11,color:B.red,marginTop:8,lineHeight:1.5}}>{portalErr}</div>}
                   </div>
@@ -18299,7 +18307,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Your Progress</h2>
               <p style={{fontFamily:"sans-serif",color:B.mid,fontSize:12,margin:"0 0 20px",letterSpacing:"0.01em"}}>You earn points every time you do the work to grow your business.</p>
               {(()=>{ const lv=getLevel(myPoints); const nl=nextLevel(myPoints); const toNext=nl?(nl.min-myPoints):0; const pct=nl?Math.max(0,Math.round(((myPoints-lv.min)/(nl.min-lv.min))*100)):100; return (
-                <div style={{background:B.charcoal,padding:"24px",marginBottom:16}}>
+                <div style={{background:B.inkBlock,padding:"24px",marginBottom:16}}>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.18em",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>Level {lv.level} · {lv.title}</div>
                   <div style={{fontFamily:"Caveline,Georgia,serif",fontSize:36,color:"#fff",fontWeight:400,marginBottom:0}}>{myPoints} <span style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>points</span></div>
                   {nl?(<><div style={{height:4,background:"rgba(255,255,255,0.15)",margin:"14px 0 8px"}}><div style={{height:"100%",width:pct+"%",background:"#fff",transition:"width 0.5s"}} /></div><div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)"}}>{toNext} more to Level {nl.level} · {nl.title}</div></>):(<div style={{fontFamily:"sans-serif",fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:10}}>You've reached the top level. Incredible work.</div>)}
@@ -18340,7 +18348,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
       {/* ── ADMIN MODE FLOATING CONTROL (shows when browsing the app as admin) ── */}
       {isAdmin && !adminPanelOpen && (
-        <div style={{position:"fixed",right:14,bottom:"calc("+(BOT_H+14)+"px + env(safe-area-inset-bottom,0px))",zIndex:350,display:"flex",alignItems:"center",gap:8,background:B.charcoal,padding:"8px 10px 8px 14px",borderRadius:30,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
+        <div style={{position:"fixed",right:14,bottom:"calc("+(BOT_H+14)+"px + env(safe-area-inset-bottom,0px))",zIndex:350,display:"flex",alignItems:"center",gap:8,background:B.inkBlock,padding:"8px 10px 8px 14px",borderRadius:30,boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
           <span style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.gold,textTransform:"uppercase"}}>Admin</span>
           <button onClick={()=>setAdminPanelOpen(true)} style={{background:B.gold,color:"#fff",border:"none",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Panel</button>
           <button onClick={()=>{setIsAdmin(false);setAdminAuthed(false);setAdminPanelOpen(true);}} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.25)",padding:"6px 12px",fontSize:9,letterSpacing:"0.1em",fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",borderRadius:20,textTransform:"uppercase"}}>Exit</button>
@@ -18388,7 +18396,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
               <span style={{fontFamily:"sans-serif",fontSize:10,color:B.mid,letterSpacing:"0.1em"}}>{tourStep+1} / {TOUR_STEPS.length}</span>
               <div style={{display:"flex",gap:8}}>
                 {tourStep>0&&<button onClick={()=>setTourStep(tourStep-1)} style={{background:"none",border:"1px solid "+B.stone,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:B.charcoal,padding:"7px 12px",letterSpacing:"0.08em",textTransform:"uppercase"}}>Back</button>}
-                <button onClick={nextTour} style={{background:B.charcoal,border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:"#fff",padding:"7px 14px",letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase"}}>{last?"Done":"Next"}</button>
+                <button onClick={nextTour} style={{background:B.inkBlock,border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,color:"#fff",padding:"7px 14px",letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase"}}>{last?"Done":"Next"}</button>
               </div>
             </div>
             )}
