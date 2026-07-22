@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import * as IAP from "./iap";
 
 // True only inside the native app (iOS now, Mac later); false on the web (chelgy.app).
@@ -515,7 +515,7 @@ async function authRecover(email) {
 function saveSession(data) {
   try {
     const u = data.user || {};
-    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", created_at: u.created_at || null, is_marketer: !!(u.user_metadata && u.user_metadata.is_marketer), access_token: data.access_token, refresh_token: data.refresh_token };
+    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", created_at: u.created_at || null, is_marketer: !!(u.user_metadata && u.user_metadata.is_marketer), seen_onboarding: !!(u.user_metadata && u.user_metadata.seen_onboarding), access_token: data.access_token, refresh_token: data.refresh_token };
     localStorage.setItem("chelgy_session", JSON.stringify(session));
     return session;
   } catch { return null; }
@@ -13916,6 +13916,312 @@ const INTRO_MENU = {welcome:"Welcome",different:"Different",selling:"What you se
 const SALES_PRICING_TEXT = "MONTHLY PLANS: Starter Growth $1,000/mo (new/small local, look professional + get found); Business Growth $2,000/mo (established, want more leads consistently); Market Domination $3,000/mo (own their market, full outsourced marketing dept, ad spend separate). ONE-TIME: Business Launch $1,500 (brand new, needs presence) then Starter; Brand Foundation $3,000 (ready to compete) then Business Growth; Business Growth Accelerator $5,000 (wants a lead system) then Market Domination; Business Transformation $7,000 (established, full overhaul) then Market Domination; Chelgy Signature Business Build $25,000 (funded, build everything to scale) then Market Domination. Reps earn commission on the FIRST signature only (no recurring), so focus on closing NEW clients and matching them to the right package.";
 const SALES_COACH_SYSTEM = "You are the Chelgy Sales Coach, a sharp, encouraging sales mentor for a Chelgy sales rep who sells Chelgy's done-for-you marketing services to small businesses. Be tactical, specific, and brief. Help them prospect, write outreach, qualify, pitch, handle objections, role-play prospects, and close. Chelgy packages and prices: " + SALES_PRICING_TEXT + " Who-buys-what guidance is a starting point, not a rule — encourage the rep to experiment and do what works for them. In the long run, reps should be willing to sell to any and all businesses that can pay — not just their chosen focus. Never invent prices or packages beyond this list. Keep replies practical and confidence-building.";
 
+// ─── CHELGY ONBOARDING ────────────────────────────────────────────────────────
+// Self-contained first-run onboarding. New users see it once after signup.
+//
+// Usage in App.jsx:
+//   {showOnboarding && (
+//     <ChelgyOnboarding
+//       baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"}
+//       logoUrl={LOGO_B64}
+//       onDone={dismissOnboarding}
+//     />
+//   )}
+//
+// Images expected at {baseUrl}/<name>.jpg (see IMG map). Upload the /export folder
+// to the Supabase `sites` bucket under an `onboarding/` prefix (public read).
+// Fonts (Caveline, Cormorant/Jost) are already loaded app-wide, so this reuses them.
+
+function ChelgyOnboarding({ baseUrl, logoUrl, onDone }) {
+  const [i, setI] = useState(0);
+  const timerRef = useRef(null);
+  const startX = useRef(0);
+
+  const IMG = {
+    beauty:"beauty.jpg", redBlonde:"redBlonde.jpg", redModel:"redModel.jpg",
+    plane:"plane.jpg", before:"before.jpg", websiteDeck:"websiteDeck.jpg",
+    flyerDeck:"flyerDeck.jpg", social1:"social1.jpg", social2:"social2.jpg",
+    social3:"social3.jpg", campaign:"campaign.jpg", closing:"closing.jpg",
+  };
+  const src = (k) => (baseUrl ? baseUrl + "/" + IMG[k] : IMG[k]);
+
+  // Per-panel auto-advance durations (seconds). 99 = last panel, no auto-advance.
+  const DUR = [5, 6, 7, 6, 6, 7, 6, 99];
+  const COUNT = DUR.length;
+
+  const finish = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (onDone) onDone();
+  }, [onDone]);
+
+  const go = useCallback((n) => {
+    if (n < 0) n = 0;
+    if (n >= COUNT) { finish(); return; }
+    setI(n);
+  }, [COUNT, finish]);
+
+  const next = useCallback(() => go(i + 1), [go, i]);
+  const prev = useCallback(() => go(i - 1), [go, i]);
+
+  // Auto-advance for the current panel.
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const d = DUR[i] || 6;
+    if (d < 50) timerRef.current = setTimeout(() => {
+      i < COUNT - 1 ? setI(i + 1) : finish();
+    }, d * 1000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [i]); // eslint-disable-line
+
+  // Keyboard arrows.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") prev(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev]);
+
+  const onTouchStart = (e) => { startX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    const dx = e.changedTouches[0].clientX - startX.current;
+    if (Math.abs(dx) > 50) (dx < 0 ? next() : prev());
+  };
+
+  const last = i === COUNT - 1;
+
+  const CSS = `
+  .cgOnb{ position:fixed; inset:0; z-index:100000; background:#0a0705; color:#efe9df;
+    font-family:'Cormorant','Jost',serif; overflow:hidden;
+    --ink:#0a0705; --ink2:#141010; --bone:#efe9df; --white:#fff; --dim:#8f867b; --line:rgba(239,233,223,.14); --disp:'Caveline',serif; }
+  .cgOnb *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  .cgOnb .display,.cgOnb .sub,.cgOnb .feats li,.cgOnb .lead,.cgOnb .growth .grid .r .k,
+  .cgOnb .growth .grid .r .v,.cgOnb .eyebrow .num{ font-feature-settings:"salt" 1,"liga" 1; -webkit-font-feature-settings:"salt" 1,"liga" 1; }
+  .cgOnb #bars{ position:absolute; top:14px; left:16px; right:16px; z-index:60; display:flex; gap:5px; }
+  .cgOnb #bars .bar{ flex:1; height:2px; background:rgba(239,233,223,.2); overflow:hidden; }
+  .cgOnb #bars .bar i{ display:block; height:100%; width:0; background:var(--bone); }
+  .cgOnb #bars .bar.done i{ width:100%; }
+  .cgOnb #bars .bar.cur i{ width:100%; transition:width var(--d,6s) linear; }
+  .cgOnb .brandbar{ position:absolute; top:30px; left:26px; right:26px; z-index:50; display:flex; align-items:center; justify-content:space-between; }
+  .cgOnb .brandbar img{ height:18px; filter:invert(1); opacity:.9; }
+  .cgOnb .brandbar .ix{ font-family:var(--util,'Jost'); font-weight:300; font-size:10px; letter-spacing:.4em; color:var(--dim); text-transform:uppercase; }
+  .cgOnb .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity 1s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; overflow:hidden; }
+  .cgOnb .panel.active{ opacity:1; pointer-events:auto; }
+  .cgOnb .panel.dark{ background:var(--ink); }
+  .cgOnb .full{ position:absolute; inset:0; } .cgOnb .full img{ width:100%; height:100%; object-fit:cover; }
+  .cgOnb .scrim{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(10,7,5,.5) 0%,rgba(10,7,5,.08) 28%,rgba(10,7,5,.4) 58%,rgba(10,7,5,.96) 100%); }
+  .cgOnb .eyebrow{ font-family:var(--util,'Jost'); font-weight:300; font-size:10px; letter-spacing:.5em; text-transform:uppercase; color:var(--dim); display:flex; align-items:center; gap:14px; opacity:0; transform:translateY(12px); }
+  .cgOnb .eyebrow .num{ font-family:var(--disp); font-size:13px; letter-spacing:.1em; color:var(--bone); }
+  .cgOnb .eyebrow .rule{ width:34px; height:1px; background:var(--line); }
+  .cgOnb .display{ font-family:var(--disp); font-weight:400; line-height:1.0; letter-spacing:.02em; font-size:clamp(46px,13.5vw,80px); text-transform:uppercase; color:var(--white); text-shadow:0 2px 30px rgba(0,0,0,.35); }
+  .cgOnb .display .ln{ display:block; opacity:0; transform:translateY(26px); }
+  .cgOnb .display .it{ text-transform:none; font-style:italic; }
+  .cgOnb .sub{ font-family:var(--disp); font-weight:400; font-size:18px; line-height:1.5; color:var(--white); opacity:.82; letter-spacing:.015em; max-width:90%; margin-top:18px; opacity:0; transform:translateY(14px); }
+  .cgOnb .feats{ list-style:none; margin-top:22px; display:flex; flex-direction:column; gap:11px; }
+  .cgOnb .feats li{ font-family:var(--disp); font-weight:400; font-size:17px; letter-spacing:.015em; color:var(--white); opacity:.82; display:flex; gap:12px; align-items:baseline; opacity:0; transform:translateY(12px); }
+  .cgOnb .feats li::before{ content:""; width:5px; height:5px; flex:none; border:1px solid var(--dim); transform:translateY(-1px); }
+  .cgOnb .content{ position:relative; z-index:20; margin-top:auto; padding:0 30px 128px; }
+  .cgOnb .content.mid{ margin:auto 0; }
+  .cgOnb .active .eyebrow{ animation:cgRise .9s .2s forwards; }
+  .cgOnb .active .display .ln{ animation:cgRise 1s forwards; }
+  .cgOnb .active .display .ln:nth-child(1){ animation-delay:.3s; }
+  .cgOnb .active .display .ln:nth-child(2){ animation-delay:.43s; }
+  .cgOnb .active .display .ln:nth-child(3){ animation-delay:.56s; }
+  .cgOnb .active .sub{ animation:cgRise 1s .72s forwards; }
+  .cgOnb .active .feats li{ animation:cgRise .8s forwards; }
+  .cgOnb .active .feats li:nth-child(1){ animation-delay:.7s; }
+  .cgOnb .active .feats li:nth-child(2){ animation-delay:.82s; }
+  .cgOnb .active .feats li:nth-child(3){ animation-delay:.94s; }
+  .cgOnb .active .feats li:nth-child(4){ animation-delay:1.06s; }
+  @keyframes cgRise{ to{ opacity:1; transform:none; } }
+  .cgOnb .float{ opacity:0; transform:translateY(30px) scale(.97); }
+  .cgOnb .active .float{ animation:cgFloat 1.2s .35s cubic-bezier(.4,0,.2,1) forwards; }
+  .cgOnb .active .float.f2{ animation-delay:.52s; } .cgOnb .active .float.f3{ animation-delay:.68s; }
+  @keyframes cgFloat{ to{ opacity:1; transform:none; } }
+  .cgOnb .triptych{ position:relative; z-index:20; flex:1; display:flex; flex-direction:column; justify-content:center; padding:104px 26px 128px; }
+  .cgOnb .triptych .lead{ font-family:var(--disp); font-weight:400; text-transform:uppercase; letter-spacing:.02em; font-size:clamp(38px,10.5vw,58px); line-height:1.0; margin-bottom:30px; opacity:0; transform:translateY(22px); color:var(--white); }
+  .cgOnb .active .triptych .lead{ animation:cgRise 1s .2s forwards; }
+  .cgOnb .triptych .lead .it{ text-transform:none; font-style:italic; }
+  .cgOnb .row{ display:flex; align-items:center; gap:12px; }
+  .cgOnb .shot{ position:relative; width:108px; height:146px; flex:none; overflow:hidden; border:1px solid var(--line); }
+  .cgOnb .shot img{ width:100%; height:100%; object-fit:cover; }
+  .cgOnb .shot .tag{ position:absolute; left:7px; top:7px; font-family:var(--util,'Jost'); font-weight:300; font-size:8px; letter-spacing:.26em; text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.55); padding:3px 6px; }
+  .cgOnb .shot.vid::after{ content:"\\25B6"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--bone); text-shadow:0 2px 12px rgba(0,0,0,.6); }
+  .cgOnb .arrow{ flex:1; text-align:center; font-family:var(--disp); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  .cgOnb .growth{ position:relative; z-index:20; margin:auto 0; padding:0 30px; }
+  .cgOnb .growth .grid{ margin-top:26px; border-top:1px solid var(--line); }
+  .cgOnb .growth .grid .r{ display:flex; align-items:baseline; gap:16px; padding:15px 0; border-bottom:1px solid var(--line); opacity:0; transform:translateY(12px); }
+  .cgOnb .active .growth .grid .r{ animation:cgRise .8s forwards; }
+  .cgOnb .active .growth .grid .r:nth-child(1){ animation-delay:.6s; }
+  .cgOnb .active .growth .grid .r:nth-child(2){ animation-delay:.74s; }
+  .cgOnb .active .growth .grid .r:nth-child(3){ animation-delay:.88s; }
+  .cgOnb .growth .grid .r .k{ font-family:var(--disp); font-size:22px; text-transform:uppercase; color:var(--bone); flex:none; width:38%; letter-spacing:.02em; }
+  .cgOnb .growth .grid .r .v{ font-family:var(--disp); font-weight:400; font-size:16px; line-height:1.45; color:var(--bone); opacity:.9; }
+  .cgOnb .tapzone{ position:absolute; top:58px; bottom:108px; width:38%; z-index:30; }
+  .cgOnb .tapzone.l{ left:0; } .cgOnb .tapzone.r{ right:0; }
+  .cgOnb #foot{ position:absolute; left:0; right:0; bottom:0; z-index:55; padding:0 26px 34px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .cgOnb .skip{ font-family:var(--util,'Jost'); font-weight:300; font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--dim); background:none; border:none; cursor:pointer; padding:14px 4px; }
+  .cgOnb .nextBtn{ font-family:var(--util,'Jost'); font-weight:400; font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:15px 30px; transition:opacity .2s; }
+  .cgOnb .nextBtn:active{ opacity:.7; }
+  .cgOnb .enter{ font-family:var(--util,'Jost'); font-weight:400; font-size:12px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:17px; width:100%; text-align:center; }
+  .cgOnb .dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:96px; z-index:55; display:flex; gap:6px; }
+  .cgOnb .dots b{ width:5px; height:5px; border-radius:50%; background:rgba(239,233,223,.26); transition:.3s; }
+  .cgOnb .dots b.on{ background:var(--bone); width:16px; border-radius:3px; }
+  `;
+
+  const cls = (base, active) => base + (active ? " active" : "");
+
+  return (
+    <div className="cgOnb" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+
+      {/* progress bars */}
+      <div id="bars">
+        {DUR.map((d, k) => (
+          <div key={k} className={"bar" + (k < i ? " done" : "") + (k === i ? " cur" : "")}
+               style={k === i ? { "--d": (DUR[i] || 6) + "s" } : undefined}>
+            <i />
+          </div>
+        ))}
+      </div>
+
+      {/* brand bar */}
+      <div className="brandbar">
+        <img src={logoUrl} alt="Chelgy" />
+        <span className="ix">{(i + 1) + " / " + COUNT}</span>
+      </div>
+
+      {/* 0 OPENING */}
+      <section className={cls("panel", i === 0)}>
+        <div className="full"><img src={src("beauty")} alt="" /></div><div className="scrim" />
+        <div className="content">
+          <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
+          <h1 className="display"><span className="ln">Your whole</span><span className="ln">brand,</span><span className="ln">in one place.</span></h1>
+          <p className="sub">Websites, campaigns, photoshoots and film — all made to look like you spent a fortune. You didn't.</p>
+        </div>
+      </section>
+
+      {/* 1 WEBSITE */}
+      <section className={cls("panel dark", i === 1)}>
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
+        <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
+          <img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" />
+        </div>
+        <div className="content mid" style={{ paddingBottom:"40px", maxWidth:"62%" }}>
+          <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
+          <h1 className="display" style={{ fontSize:"clamp(40px,11vw,64px)" }}><span className="ln">Luxury</span><span className="ln">sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
+          <p className="sub" style={{ maxWidth:"100%" }}>From a few business details — a complete, published luxury website. With its own AI imagery and an SEO blog.</p>
+        </div>
+      </section>
+
+      {/* 2 PHOTO/VIDEO → FILM */}
+      <section className={cls("panel", i === 2)}>
+        <div className="full" style={{ filter:"brightness(.32)" }}><img src={src("redBlonde")} alt="" /></div><div className="scrim" />
+        <div className="triptych">
+          <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
+          <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
+          <div className="row float">
+            <div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" /></div>
+            <div className="arrow">becomes</div>
+            <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" /></div>
+          </div>
+          <div className="row float f2" style={{ marginTop:"14px", justifyContent:"flex-end" }}>
+            <div className="arrow">then moves</div>
+            <div className="shot vid"><span className="tag">Video</span><img src={src("plane")} alt="" /></div>
+          </div>
+          <p className="sub" style={{ marginTop:"24px", maxWidth:"100%" }}>Put yourself in any setting, or hand over your raw footage — Chelgy makes it cinematic. Because looking expensive is what earns trust, and trust is what grows the business.</p>
+        </div>
+      </section>
+
+      {/* 3 FLYERS */}
+      <section className={cls("panel dark", i === 3)}>
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
+        <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
+          <img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" />
+        </div>
+        <div className="content" style={{ paddingBottom:"128px" }}>
+          <div className="eyebrow"><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
+          <h1 className="display"><span className="ln">Flyers,</span><span className="ln">branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
+          <p className="sub">Launch promos, service menus, product shots, brand kits — cohesive and luxury-looking, every time.</p>
+        </div>
+      </section>
+
+      {/* 4 SOCIAL */}
+      <section className={cls("panel dark", i === 4)}>
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
+        <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
+          <div className="float" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}>
+            <img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" />
+          </div>
+          <div className="float f2" style={{ width:"124px", height:"236px", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}>
+            <img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
+          </div>
+          <div className="float f3" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}>
+            <img src={src("social2")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
+          </div>
+        </div>
+        <div className="content" style={{ paddingBottom:"128px" }}>
+          <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
+          <h1 className="display"><span className="ln">Grow your</span><span className="ln"><span className="it">social</span></span><span className="ln">with Chelgy.</span></h1>
+          <p className="sub">Cohesive posts, stories and a full launch-week plan — so your brand stays seen, and stays consistent.</p>
+        </div>
+      </section>
+
+      {/* 5 GROWTH */}
+      <section className={cls("panel dark", i === 5)}>
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(130% 90% at 50% 10%, #171210 0%, var(--ink) 60%)" }} />
+        <div className="growth">
+          <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
+          <h1 className="display" style={{ marginTop:"22px", fontSize:"clamp(42px,12vw,68px)" }}><span className="ln">Rank</span><span className="ln">higher on</span><span className="ln"><span className="it">Google</span>.</span></h1>
+          <div className="grid">
+            <div className="r"><span className="k">SEO</span><span className="v">Real, white-hat backlinks, directories and press to climb Google — the outreach written for you. Never bought links.</span></div>
+            <div className="r"><span className="k">Fund</span><span className="v">Real grants you might qualify for, searched from across the web.</span></div>
+            <div className="r"><span className="k">Audit</span><span className="v">See exactly what to fix, and how you rank against competitors.</span></div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6 ADS */}
+      <section className={cls("panel", i === 6)}>
+        <div className="full" style={{ filter:"brightness(.55)" }}><img src={src("campaign")} alt="" /></div><div className="scrim" />
+        <div className="content">
+          <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
+          <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
+          <ul className="feats">
+            <li>Ad copy and creative direction, done for you</li>
+            <li>Audience targeting and budget, mapped out</li>
+            <li>Built for Facebook, Instagram and TikTok</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* 7 CLOSING */}
+      <section className={cls("panel", i === 7)}>
+        <div className="full" style={{ filter:"brightness(.6)" }}><img src={src("closing")} alt="" /></div><div className="scrim" />
+        <div className="content" style={{ paddingBottom:"170px" }}>
+          <div className="eyebrow"><span className="rule" />Welcome</div>
+          <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
+        </div>
+        <div id="foot"><button className="enter" onClick={finish}>Enter Chelgy</button></div>
+      </section>
+
+      {/* nav */}
+      <div className="tapzone l" onClick={prev} />
+      <div className="tapzone r" onClick={next} />
+      {!last && (
+        <div className="dots">
+          {DUR.map((d, k) => <b key={k} className={k === i ? "on" : ""} />)}
+        </div>
+      )}
+      {!last && (
+        <div id="foot">
+          <button className="skip" onClick={finish}>Skip</button>
+          <button className="nextBtn" onClick={next}>Next</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function ChelgyApp() {
   const [page, setPage] = useState(CHELGY_HAS_OAUTH_RETURN ? "app" : "onboarding");
   // ── DARK MODE ──────────────────────────────────────────────────────────────
@@ -13942,6 +14248,30 @@ export default function ChelgyApp() {
   useEffect(()=>{
     try{ const s = localStorage.getItem("chelgy_dark"); if(s==="0"){ setDarkState(false); applyTheme(false); } }catch(_){}
   },[]);
+  // ── FEATURE-TOUR ONBOARDING ──────────────────────────────────────────────────
+  // Shown once to a new user. Gated on a per-user flag so it never repeats and
+  // never fires for existing users. localStorage gives an instant check; the
+  // account metadata makes it durable across devices.
+  const [showTour, setShowTour] = useState(false);
+  const dismissTour = () => {
+    setShowTour(false);
+    try { localStorage.setItem("chelgy_seen_tour", "1"); } catch(_){}
+    (async()=>{ try{
+      const tok = await freshToken();
+      if(!tok) return;
+      await fetch(SUPABASE_URL+"/auth/v1/user",{ method:"PUT",
+        headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json" },
+        body: JSON.stringify({ data:{ seen_onboarding: true } }) });
+    }catch(_){} })();
+  };
+  // Decide whether to show the tour once we know who the user is.
+  useEffect(()=>{
+    if (!user) return;
+    let seenLocal = false;
+    try { seenLocal = localStorage.getItem("chelgy_seen_tour") === "1"; } catch(_){}
+    const seenAccount = !!(user && user.seen_onboarding);
+    if (!seenLocal && !seenAccount) setShowTour(true);
+  }, [user]); // eslint-disable-line
   useEffect(()=>{
     try {
       let vp=document.querySelector('meta[name="viewport"]');
@@ -16979,6 +17309,15 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // ── MEMBER APP — VOGUE LAYOUT ────────────────────────────────────────────────
   const BOT_H = 62;
   const TOP_H = 44;
+
+  // First-run feature tour — takes over the screen once for a brand-new user.
+  if (showTour) return (
+    <ChelgyOnboarding
+      baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"}
+      logoUrl={LOGO_B64}
+      onDone={dismissTour}
+    />
+  );
 
   return (
     <div style={{fontFamily:"Caveline,Georgia,serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
