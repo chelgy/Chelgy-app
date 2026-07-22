@@ -14264,22 +14264,6 @@ export default function ChelgyApp() {
         body: JSON.stringify({ data:{ seen_onboarding: true } }) });
     }catch(_){} })();
   };
-  // Decide whether to show the tour once we know who the user is.
-  // Guard: only show it if the onboarding images are actually reachable. If the
-  // Supabase folder isn't populated yet, we skip silently instead of showing a
-  // black screen of broken images.
-  useEffect(()=>{
-    if (!user) return;
-    let seenLocal = false;
-    try { seenLocal = localStorage.getItem("chelgy_seen_tour") === "1"; } catch(_){}
-    const seenAccount = !!(user && user.seen_onboarding);
-    if (seenLocal || seenAccount) return;
-    // Preflight one image; only launch the tour if it loads.
-    const testImg = new Image();
-    testImg.onload = () => setShowTour(true);
-    testImg.onerror = () => setShowTour(false);
-    testImg.src = SUPABASE_URL + "/storage/v1/object/public/sites/onboarding/closing.jpg";
-  }, [user]); // eslint-disable-line
   useEffect(()=>{
     try {
       let vp=document.querySelector('meta[name="viewport"]');
@@ -14335,6 +14319,21 @@ export default function ChelgyApp() {
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
+  // Decide whether to show the first-run tour once we know who the user is.
+  // (Declared here, AFTER `user`, so it never reads user before initialization.)
+  // Guard: only show it if the onboarding images are actually reachable — if the
+  // Supabase folder isn't populated yet we skip silently rather than show a black screen.
+  useEffect(()=>{
+    if (!user) return;
+    let seenLocal = false;
+    try { seenLocal = localStorage.getItem("chelgy_seen_tour") === "1"; } catch(_){}
+    const seenAccount = !!(user && user.seen_onboarding);
+    if (seenLocal || seenAccount) return;
+    const testImg = new Image();
+    testImg.onload = () => setShowTour(true);
+    testImg.onerror = () => setShowTour(false);
+    testImg.src = SUPABASE_URL + "/storage/v1/object/public/sites/onboarding/closing.jpg";
+  }, [user]); // eslint-disable-line
   // ── WHICH SPACE ARE WE IN? ─────────────────────────────────────────────
   // The SUBDOMAIN decides. Nothing else. No URL params, no saved flags, and no
   // account setting can flip you into a portal — so chelgy.app is ALWAYS the
