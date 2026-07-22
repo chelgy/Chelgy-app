@@ -4685,6 +4685,36 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         const merged=[]; for(const k of keep){ const last=merged[merged.length-1]; if(last && k.s-last.e<0.4) last.e=Math.max(last.e,k.e); else merged.push({...k}); }
         // Hand a plan-shaped object downstream so renderFromPlan treats it like any edit.
         plan = { keep: merged, title: "", chapters: [], broll: [], music: {}, look: { temperature:"neutral", exposure:"balanced" }, showcase: showcaseLabels };
+      } else if(style==="process"){
+        // Process now cuts BY SIGHT. Instead of the activity-only planner — which
+        // only knew how MUCH the frame moved, never WHAT was happening, and so kept
+        // "busy" and cut the visually-still finished dish — we sample frames and let
+        // the vision model actually watch. The transcript (if any) and the cheap
+        // activity track ride along as extra signal, but the model's eyes decide.
+        setStage("Watching your footage to find the good parts…");
+        const pframes = await sampleVideoFrames(clips[0].preview, clips[0].dur||totalDur, 40);
+        if(!pframes.length){
+          setErr("Couldn't read frames from that video. Try a different file.");
+          for(const p of cleanup) await deleteSiteObject(p);
+          setBusy(false); setStage(""); return;
+        }
+        let pv;
+        try{
+          const token = await freshToken();
+          const res = await fetch("/api/studio-showcase", { method:"POST",
+            headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+            body: JSON.stringify({ mode:"process", frames: pframes, note: directorNote,
+              words: globalWords, activity: globalActivity, duration: clips[0].dur||totalDur }) });
+          pv = await res.json();
+        }catch{ pv = { error: "Couldn't reach the editor." }; }
+        if(!pv || pv.error || !Array.isArray(pv.keep) || !pv.keep.length){
+          setErr((pv && pv.error) || "The editor couldn't find footage worth keeping. Try again, or trim any long empty stretches first.");
+          for(const p of cleanup) await deleteSiteObject(p);
+          setBusy(false); setStage(""); return;
+        }
+        // Vision times are on the single-clip original timeline; keep as-is.
+        plan = { keep: pv.keep, title: pv.title||"", chapters: (pv.chapters||[]).map(c=>({s:c.s,label:c.label})),
+                 broll: pv.broll||[], music: pv.music||{}, look: pv.look||{ temperature:"neutral", exposure:"balanced" } };
       } else {
         plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote);
       }
