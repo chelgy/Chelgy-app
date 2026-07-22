@@ -1001,6 +1001,46 @@ async function generateOmniEdit(prompt, videoUrl, referenceImages){
 // A still frame is grabbed from the footage so the planner can act as an AI
 // colorist: it classifies the footage (warm/cool, dark/bright) and the render
 // adapts the grade to it — a flat one-size wash over every video looks wrong
+// Sample MANY frames across a video for Showcase — the vision planner needs to see
+// the whole thing to find "the jewelry", "the shoes", etc. Frame count is capped so
+// a long haul video doesn't send hundreds of images: it spaces the samples out
+// instead. Each frame is small (512px) and tagged with its timestamp so the model
+// can return the moment each product appears.
+async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
+  const dur = Math.max(1, Number(durationSec) || 1);
+  // ~every 2s on short videos; auto-widen so we never exceed maxFrames.
+  const step = Math.max(2, dur / maxFrames);
+  const times = [];
+  for (let t = 0.5; t < dur - 0.2 && times.length < maxFrames; t += step) times.push(Math.round(t * 10) / 10);
+  if (!times.length) times.push(Math.min(1, dur / 2));
+
+  return new Promise((resolve)=>{
+    const out = [];
+    try{
+      const v = document.createElement("video");
+      v.preload = "auto"; v.muted = true; v.playsInline = true;
+      let i = 0;
+      const bail = setTimeout(()=>resolve(out), 60000);
+      const seekNext = ()=>{
+        if (i >= times.length) { clearTimeout(bail); resolve(out); return; }
+        try{ v.currentTime = times[i]; }catch(_){ clearTimeout(bail); resolve(out); }
+      };
+      v.onloadedmetadata = seekNext;
+      v.onseeked = ()=>{
+        try{
+          const w = 512, h = Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9));
+          const c = document.createElement("canvas"); c.width=w; c.height=h;
+          c.getContext("2d").drawImage(v,0,0,w,h);
+          out.push({ t: times[i], data: c.toDataURL("image/jpeg",0.6) });
+        }catch(_){}
+        i++; seekNext();
+      };
+      v.onerror = ()=>{ clearTimeout(bail); resolve(out); };
+      v.src = objectUrl;
+    }catch(_){ resolve(out); }
+  });
+}
+
 // on already-warm or underexposed footage.
 async function captureVideoFrame(objectUrl, atSec){
   return new Promise((resolve)=>{
@@ -1153,7 +1193,7 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1164,7 +1204,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
         action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
         style, footage, look, words, clipFootage: clipFootage || [],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
-        music: music || null
+        music: music || null, showcase: showcase || []
       })
     });
     return await res.json(); // { id:"ff:...", balance, charged } or { error }
@@ -4166,6 +4206,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
     { id:"tutorial",    label:"Tutorial",     note:"Sit-down teaching. The AI finds your sections and inserts luxury chapter cards between them, with callout-style captions.", ready:true },
     { id:"process",     label:"Process",      note:"Cooking, cleaning, building, GRWM — anything where the doing is the point. Reads the footage itself to find where something is happening, so the silent working shots survive instead of being cut as dead air.", ready:true },
+    { id:"showcase",    label:"Showcase",     note:"Outfit-of-the-day, jewelry, product hauls — no talking needed. Tell Chelgy what to show and it WATCHES your footage to find each product, keeps that moment, and labels it on screen (e.g. “Jewelry · cherosi.com”) right next to the item so it never gets buried under TikTok's captions.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts, scene cards, and AI-generated cinematic b-roll that cuts in when you reference something. Golden Hour grade by default.", ready:true },
   ];
   const GRADES = [
@@ -4557,7 +4598,58 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         return out;
       })() : null;
       const frame = await captureVideoFrame(clips[0].preview, Math.min(2, Math.max(0.5,(clips[0].dur||4)/2)));
-      const plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote);
+
+      // ── Showcase: watch the footage and find each product the person named ──
+      // A silent OOTD/haul has no transcript to cut on, so instead of the word
+      // planner we sample frames, hand them to the vision planner with the person's
+      // note, and get back the moment + label + position for each product. Those
+      // moments become the kept segments, and the labels ride to the render as
+      // on-screen product tags placed next to each item.
+      let plan;
+      let showcaseLabels = [];
+      if(style==="showcase"){
+        if(!directorNote.trim()){
+          setErr("Tell Chelgy what to show — e.g. \"show my jewelry from cherosi.com, show my shoes.\"");
+          for(const p of cleanup) await deleteSiteObject(p);
+          setBusy(false); setStage(""); return;
+        }
+        setStage("Watching your footage to find each piece…");
+        const frames = await sampleVideoFrames(clips[0].preview, clips[0].dur||totalDur, 40);
+        if(!frames.length){
+          setErr("Couldn't read frames from that video. Try a different file.");
+          for(const p of cleanup) await deleteSiteObject(p);
+          setBusy(false); setStage(""); return;
+        }
+        let sc;
+        try{
+          const token = await freshToken();
+          const res = await fetch("/api/studio-showcase", { method:"POST",
+            headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+            body: JSON.stringify({ frames, note: directorNote, duration: clips[0].dur||totalDur }) });
+          sc = await res.json();
+        }catch{ sc = { error: "Couldn't reach the showcase planner." }; }
+        if(!sc || sc.error || !Array.isArray(sc.items) || !sc.items.length){
+          setErr((sc && sc.error) || "Chelgy couldn't spot the items you named in this footage. Try describing them a little differently, or make sure they're clearly on screen.");
+          for(const p of cleanup) await deleteSiteObject(p);
+          setBusy(false); setStage(""); return;
+        }
+        // Each product moment becomes a kept window (a few seconds around it), and a
+        // label placed on the finished timeline. Single-clip for now (OOTD/haul are
+        // one take), so clip index 0.
+        const keep = [];
+        for(const it of sc.items){
+          const t = Number(it.t)||0;
+          keep.push({ s: Math.max(0, t-1.2), e: Math.min((clips[0].dur||totalDur), t+2.6) });
+          showcaseLabels.push({ clip: 0, s: t, label: it.label, pos: it.pos });
+        }
+        keep.sort((a,b)=>a.s-b.s);
+        // Merge overlapping windows so two nearby products don't double-cut.
+        const merged=[]; for(const k of keep){ const last=merged[merged.length-1]; if(last && k.s-last.e<0.4) last.e=Math.max(last.e,k.e); else merged.push({...k}); }
+        // Hand a plan-shaped object downstream so renderFromPlan treats it like any edit.
+        plan = { keep: merged, title: "", chapters: [], broll: [], music: {}, look: { temperature:"neutral", exposure:"balanced" }, showcase: showcaseLabels };
+      } else {
+        plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote);
+      }
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){
         setErr((plan && plan.error) || "Couldn't plan the edit. Please try again.");
         for(const p of cleanup) await deleteSiteObject(p);
@@ -4572,7 +4664,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
         totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage})),
         userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
-        alsoShorts
+        alsoShorts, showcaseLabels
       };
 
       // Review toggle. On → stop here, show the editable timeline, and let the person
@@ -4601,7 +4693,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     const {
       plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
       totalDur, globalWords, frame, n, many, userId, COST,
-      style, grade, music, musicGenre, useTransitions, alsoShorts
+      style, grade, music, musicGenre, useTransitions, alsoShorts, showcaseLabels
     } = ctx;
     const clipFootages = (ctx.clips||[]).map(c=>c.footage||footage);
     setBusy(true);
@@ -4708,7 +4800,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
         style, footage, grade, taggedWords, clipFootages,
-        chapterCues, brollShots, transitionClips, musicUrl
+        chapterCues, brollShots, transitionClips, musicUrl, showcaseLabels||[]
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
