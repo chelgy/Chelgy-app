@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import * as IAP from "./iap";
 
 // True only inside the native app (iOS now, Mac later); false on the web (chelgy.app).
@@ -3987,6 +3987,104 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
 }
 
 // ============================================================================
+// EDIT REVIEW — the "adjust the cut before rendering" timeline.
+//
+// Chelgy has already planned the edit; this shows the person the DECISIONS instead
+// of just the finished video. From the planner's global keep-ranges and the global
+// word list, it reconstructs the whole transcript as a sequence of blocks — each
+// block either KEPT (green, in the cut) or DROPPED (struck through, cut out) — and
+// lets the person flip any block. "Render this cut" hands the adjusted keep-ranges
+// back to renderFromPlan, which runs exactly as if the planner had chosen them.
+//
+// Nothing here re-transcribes or re-plans; it's pure rearrangement of a decision
+// that already exists, so it's instant and costs nothing until they render.
+// ============================================================================
+function EditReview({ review, onCancel, onRender }){
+  const words = (review && review.ctx && review.ctx.globalWords) || [];
+  const planKeep = (review && review.keep) || [];
+
+  // Build the block list ONCE from the planner's keeps. Each block owns a slice of
+  // the timeline and the words inside it; `on` is whether it's currently in the cut.
+  const initial = useMemo(() => {
+    const ranges = planKeep.map(k => ({ s: Number(k.s)||0, e: Number(k.e)||0 })).sort((a,b)=>a.s-b.s);
+    const blocks = [];
+    let cursor = 0;
+    const wordsIn = (s, e) => words.filter(w => w.s >= s - 0.05 && w.s < e + 0.05).map(w => w.w).join(" ").trim();
+    for (const r of ranges) {
+      if (r.s > cursor + 0.4) {
+        const txt = wordsIn(cursor, r.s);
+        // Only surface a dropped gap that actually held words — a silent gap has
+        // nothing to show and nothing to restore.
+        if (txt) blocks.push({ s: cursor, e: r.s, on: false, text: txt });
+      }
+      blocks.push({ s: r.s, e: r.e, on: true, text: wordsIn(r.s, r.e) || "(no speech — kept for the footage)" });
+      cursor = Math.max(cursor, r.e);
+    }
+    // A trailing dropped tail after the last keep.
+    const tail = wordsIn(cursor, 1e9);
+    if (tail) blocks.push({ s: cursor, e: cursor + 9999, on: false, text: tail });
+    return blocks;
+  }, [review]);
+
+  const [blocks, setBlocks] = useState(initial);
+  const toggle = (i) => setBlocks(bs => bs.map((b,j) => j===i ? { ...b, on: !b.on } : b));
+
+  const keptCount = blocks.filter(b => b.on).length;
+  const keptSecs = Math.round(blocks.filter(b=>b.on).reduce((t,b)=>t + Math.max(0,(b.e===b.s?0:Math.min(b.e,b.s+600)-b.s)),0));
+
+  const render = () => {
+    // Merge adjacent kept blocks back into clean keep-ranges. Adjacent kept blocks
+    // (a kept block whose neighbour is also kept) become one continuous range, which
+    // is exactly what the planner would have produced.
+    const kept = blocks.filter(b => b.on).map(b => ({ s: b.s, e: b.e })).sort((a,b)=>a.s-b.s);
+    const merged = [];
+    for (const r of kept) {
+      const last = merged[merged.length-1];
+      if (last && r.s - last.e < 0.25) last.e = Math.max(last.e, r.e);
+      else merged.push({ ...r });
+    }
+    if (!merged.length) return;
+    onRender(merged);
+  };
+
+  return (
+    <div style={{marginTop:18,border:"1px solid "+B.charcoal,background:"#fff"}}>
+      <div style={{padding:"14px 16px",borderBottom:"1px solid "+B.stone,background:B.offwhite}}>
+        <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut</p>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:0}}>
+          Green is in your video. Struck-through is cut. Tap any part to flip it — restore a bit you want back, or drop a bit you don't. Nothing renders until you're happy.
+        </p>
+      </div>
+      <div style={{maxHeight:360,overflowY:"auto",padding:"8px 0"}}>
+        {blocks.map((b,i)=>(
+          <div key={i} onClick={()=>toggle(i)} style={{
+            padding:"9px 16px", cursor:"pointer", display:"flex", gap:10, alignItems:"flex-start",
+            borderLeft:"3px solid "+(b.on?"#1a7f37":"transparent"),
+            background:b.on?"#f2fbf4":"#fafafa"
+          }}>
+            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",color:b.on?"#1a7f37":B.mid,marginTop:2,minWidth:52}}>
+              {b.on?"● Kept":"○ Cut"}
+            </span>
+            <span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,color:b.on?B.charcoal:B.mid,textDecoration:b.on?"none":"line-through",flex:1}}>
+              {b.text}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{padding:"14px 16px",borderTop:"1px solid "+B.stone,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={render} disabled={!keptCount} style={{fontFamily:"sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"11px 20px",cursor:keptCount?"pointer":"default",opacity:keptCount?1:0.5}}>
+          RENDER THIS CUT
+        </button>
+        <button onClick={onCancel} style={{fontFamily:"sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"11px 20px",cursor:"pointer"}}>
+          START OVER
+        </button>
+        <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{keptCount} section{keptCount===1?"":"s"} kept</span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // AI VIDEO EDITOR — upload raw footage, pick a style, Chelgy edits the video:
 // cuts the filler and dead air, adds animated captions, a cinematic grade and
 // a luxury title. Phase 1 style: Talking-head. Pipeline: Supabase upload →
@@ -4007,6 +4105,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // script writer drops its output in here too, so a written script becomes a
   // director's note over real footage.
   const [directorNote,setDirectorNote] = useState("");
+  // Review-before-render. Off by default so the one-tap auto-edit stays the default
+  // experience; on, the person sees every kept and dropped segment and adjusts the
+  // cut before paying to render. When set, `run()` stops after planning and hands
+  // its whole render context to <EditReview> via pendingReview; "render this cut"
+  // resumes by calling renderFromPlan with the person's edited keeps.
+  const [reviewCuts,setReviewCuts]   = useState(false);
+  const [pendingReview,setPendingReview] = useState(null);
   const [scCopied,setScCopied]     = useState(false);
   const [shClips,setShClips]       = useState([]);   // [{url, hook}]
   const [shBusy,setShBusy]         = useState(false);
@@ -4460,7 +4565,49 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       }
       setOutTitle(plan.title||"");
 
-      const segs = splitKeepIntoClips(plan.keep, offsets);
+      // Everything the render half needs, gathered into one object. Passed forward
+      // rather than left as closure variables so the render can run LATER — after the
+      // person has reviewed and adjusted the cut — from a fresh call.
+      const ctx = {
+        plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
+        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage})),
+        userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
+        alsoShorts
+      };
+
+      // Review toggle. On → stop here, show the editable timeline, and let the person
+      // decide the final cut before anything is rendered. Off → straight to render,
+      // the original one-tap flow, untouched.
+      if(reviewCuts){
+        setPendingReview({ ctx, keep: plan.keep });
+        setBusy(false);
+        setStage("");
+        return;
+      }
+
+      await renderFromPlan(ctx, plan.keep);
+    }catch(e){
+      for(const p of cleanup) await deleteSiteObject(p);
+      setErr((e&&e.message)||"Something went wrong.");
+      setBusy(false); setStage("");
+    }
+  }
+
+  // The render half of the edit — split out of run() so it can run either straight
+  // away (review off) or after the person edits the cut (review on). Takes its whole
+  // context as `ctx` and the FINAL keep array to render, which is either the planner's
+  // or the person's adjusted version.
+  async function renderFromPlan(ctx, keepToRender){
+    const {
+      plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
+      totalDur, globalWords, frame, n, many, userId, COST,
+      style, grade, music, musicGenre, useTransitions, alsoShorts
+    } = ctx;
+    const clipFootages = (ctx.clips||[]).map(c=>c.footage||footage);
+    setBusy(true);
+    setPendingReview(null);
+    try{
+      const segs = splitKeepIntoClips(keepToRender, offsets);
       if(!segs.length){
         setErr("The edit came out empty. Try again, or remove any clips that are mostly silence.");
         for(const p of cleanup) await deleteSiteObject(p);
@@ -4490,10 +4637,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         if(!points.length){
           setStage("No scene changes worth bridging — skipping transitions.");
         }
-        for(let n=0; n<points.length; n++){
-          const p = points[n];
+        for(let nn=0; nn<points.length; nn++){
+          const p = points[nn];
           const a = segs[p.after], b = segs[p.after+1];
-          setStage("Building transition " + (n+1) + " of " + points.length + " — reading the cut…");
+          setStage("Building transition " + (nn+1) + " of " + points.length + " — reading the cut…");
           try{
             const bd = await studioTransition("boundary", {
               outUrl: uploaded[a.clip].url, outEnd: a.e,
@@ -4504,7 +4651,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             if(!frames || !frames.video) throw new Error("Couldn't read that cut point.");
             if(Array.isArray(frames.paths)) cleanup.push(...frames.paths);
 
-            setStage("Building transition " + (n+1) + " of " + points.length + " — generating the shot…");
+            setStage("Building transition " + (nn+1) + " of " + points.length + " — generating the shot…");
             const gen = await studioTransition("start", {
               video: frames.video, from: frames.from, to: frames.to,
               resolution: TRANSITION_RES, duration: TRANSITION_SECONDS
@@ -4513,30 +4660,23 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             if(typeof gen.balance==="number") onBalance(gen.balance);
 
             const url = await pollVideo(gen.id, (pct)=>setStage(
-              "Building transition " + (n+1) + " of " + points.length + " — " + pct + "%…"));
+              "Building transition " + (nn+1) + " of " + points.length + " — " + pct + "%…"));
             if(!url) throw new Error("That transition didn't come back.");
             transitionClips.push({ after: p.after, trim: gen.trimStart || 0, url });
           } catch(e){
-            // One transition failing is a slightly plainer video, not a dead edit.
-            // The credits for a failed generation are refunded by video-result.js.
-            console.warn("transition " + (n+1) + " skipped:", e && e.message);
+            console.warn("transition " + (nn+1) + " skipped:", e && e.message);
           }
         }
       }
 
       // ── 3c. B-roll stills ──
-      // The planner already picks these: 2-4 moments where the speaker references
-      // something visual and a full-screen photograph should cut in over their voice.
-      // Cinematic only — it's the style built around voiceover, and the one priced
-      // for it. A failed image is skipped, never fatal: a missing insert costs the
-      // viewer nothing, a failed render costs them the whole edit.
       const brollShots = [];
       if((style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
         setStage("Creating your b-roll images…");
         for(const b of plan.broll.slice(0,4)){
           const p = pointToClip(Number(b && b.s)||0, offsets);
           if(!p) continue;
-          const shot = await studioBrollImage(String((b && b.prompt)||"").trim(), orient, user.id);
+          const shot = await studioBrollImage(String((b && b.prompt)||"").trim(), orient, userId);
           if(shot && shot.url){
             brollShots.push({ clip: p.clip, s: p.s, url: shot.url, dur: 2.4 });
             cleanup.push(shot.path);
@@ -4548,11 +4688,6 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       }
 
       // ── 3d. The score ──
-      // Generated before the render so the render server gets a finished URL, the
-      // same as b-roll and transitions. A failed score is skipped rather than fatal:
-      // the customer paid for an edit, and losing the whole edit over its background
-      // music would be much the worse outcome. Its own credits refund themselves via
-      // video-result.js, so skipping costs them nothing.
       let musicUrl = null;
       if(music!=="off"){
         setStage("Composing your score…");
@@ -4572,7 +4707,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
-        style, footage, grade, taggedWords, clips.map(c=>c.footage||footage),
+        style, footage, grade, taggedWords, clipFootages,
         chapterCues, brollShots, transitionClips, musicUrl
       );
       if(!started || !started.id){
@@ -4582,8 +4717,6 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       }
       if(typeof started.balance==="number") onBalance(started.balance);
 
-      // Viral clips run off a single source, so they only make sense on a
-      // single-clip edit. Rather than silently ignore the checkbox, say so.
       let clipIds=[], clipHooks=[];
       if(alsoShorts && !many){
         setStage("Also finding your viral clips…");
@@ -4602,7 +4735,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       ]);
       const out = results[0];
 
-      for(const p of cleanup) await deleteSiteObject(p);   // inputs have done their job
+      for(const p of cleanup) await deleteSiteObject(p);
       if(Array.isArray(started.brollPaths)&&started.brollPaths.length) await Promise.all(started.brollPaths.map(p2=>deleteSiteObject(p2)));
 
       const doneClips = clipIds.map((_,i)=>results[i+1]?{url:results[i+1], hook:clipHooks[i]||""}:null).filter(Boolean);
@@ -4764,8 +4897,21 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
         <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
-          <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything. Music is coming soon — this version delivers the cut, captions, grade, title and scene cards.
+          <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything.
         </p>
+      </div>
+
+      <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
+          <input type="checkbox" checked={reviewCuts} disabled={busy}
+            onChange={e=>setReviewCuts(e.target.checked)} style={{marginTop:3}} />
+          <span style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>Review the cut before rendering</strong> — see every part Chelgy kept and dropped, and adjust it yourself before it renders.
+            <span style={{display:"block",color:"#666",fontSize:12,marginTop:4}}>
+              Off by default — Chelgy just makes the cut. Turn this on when you want the final say.
+            </span>
+          </span>
+        </label>
       </div>
 
       {canTransition && (
@@ -4789,9 +4935,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       <Btn dark full disabled={busy} onClick={run}>
-        {busy ? "EDITING YOUR VIDEO…" : "EDIT MY VIDEO · "+COST.toLocaleString()+" CREDITS"}
+        {busy ? "EDITING YOUR VIDEO…" : (reviewCuts ? "PLAN MY EDIT · "+COST.toLocaleString()+" CREDITS" : "EDIT MY VIDEO · "+COST.toLocaleString()+" CREDITS")}
       </Btn>
       {busy && stage && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{stage}</p>}
+
+      {pendingReview && (
+        <EditReview
+          review={pendingReview}
+          onCancel={()=>{ setPendingReview(null); }}
+          onRender={(editedKeep)=>{ renderFromPlan(pendingReview.ctx, editedKeep); }}
+        />
+      )}
 
       {url && (
         <div style={{marginTop:26,textAlign:"center"}}>
