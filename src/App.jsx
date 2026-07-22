@@ -13932,7 +13932,7 @@ const SALES_COACH_SYSTEM = "You are the Chelgy Sales Coach, a sharp, encouraging
 // to the Supabase `sites` bucket under an `onboarding/` prefix (public read).
 // Fonts (Caveline, Cormorant/Jost) are already loaded app-wide, so this reuses them.
 
-function ChelgyOnboarding({ baseUrl, logoUrl, onDone }) {
+function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel }) {
   const [i, setI] = useState(0);
   const timerRef = useRef(null);
   const startX = useRef(0);
@@ -14200,7 +14200,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone }) {
           <div className="eyebrow"><span className="rule" />Welcome</div>
           <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
         </div>
-        <div id="foot"><button className="enter" onClick={finish}>Enter Chelgy</button></div>
+        <div id="foot"><button className="enter" onClick={finish}>{ctaLabel || "Enter Chelgy"}</button></div>
       </section>
 
       {/* nav */}
@@ -16040,7 +16040,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <Onboarding heroImg={heroImg} onTrial={()=>{setIsTrial(true);setPage("app");}} onSubscribe={()=>setPage("signup")} onLogin={()=>setPage("login")} />;
+  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <ChelgyOnboarding baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"} logoUrl={LOGO_B64} ctaLabel="Get started" onDone={()=>setPage("signup")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
   const legalOverlay = legalView ? (
