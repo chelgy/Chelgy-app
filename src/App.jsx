@@ -1029,10 +1029,10 @@ async function studioTranscribe(url){
     return await res.json(); // { transcript, words, duration } or { error }
   } catch { return { error: "Couldn't reach the transcription service." }; }
 }
-async function studioPlan(words, duration, frame, style, activity){
+async function studioPlan(words, duration, frame, style, activity, note){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null }) });
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null, note: note||"" }) });
     return await res.json(); // { keep, title, look, outSeconds } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
@@ -4001,6 +4001,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [scBusy,setScBusy]         = useState(false);
   const [scErr,setScErr]           = useState("");
   const [script,setScript]         = useState(null);       // { hook, beats, cta }
+  // The director's note: free-text instructions the person gives BEFORE the cut —
+  // "keep the pricing part, cut the intro rambling, b-roll of the product when I
+  // mention it." Feeds straight into the planner and outranks the style rules. The
+  // script writer drops its output in here too, so a written script becomes a
+  // director's note over real footage.
+  const [directorNote,setDirectorNote] = useState("");
   const [scCopied,setScCopied]     = useState(false);
   const [shClips,setShClips]       = useState([]);   // [{url, hook}]
   const [shBusy,setShBusy]         = useState(false);
@@ -4446,7 +4452,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         return out;
       })() : null;
       const frame = await captureVideoFrame(clips[0].preview, Math.min(2, Math.max(0.5,(clips[0].dur||4)/2)));
-      const plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity);
+      const plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote);
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){
         setErr((plan && plan.error) || "Couldn't plan the edit. Please try again.");
         for(const p of cleanup) await deleteSiteObject(p);
@@ -4638,6 +4644,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       {mode==="edit" && (<>
+      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Direct your edit <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
+      <textarea value={directorNote} onChange={e=>setDirectorNote(e.target.value)} placeholder="Tell Chelgy how you want this cut, in your own words. e.g. “Keep the part where I talk about pricing, cut the intro rambling. Title should be about transformation. Show b-roll of the product when I mention it. Keep my energy up — cut anything slow.”" rows={4} style={{width:"100%",boxSizing:"border-box",fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 12px",marginBottom:6,resize:"vertical"}} />
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Whatever you write here takes priority over the automatic cutting — it's your director's note. Leave it blank and Chelgy decides for you.</p>
+
       <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your footage &amp; filter</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
         {FOOTAGE_TYPES.map(f=>(
@@ -4841,9 +4851,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             </>)}
             <div style={{display:"flex",gap:14,marginTop:14,alignItems:"center",flexWrap:"wrap"}}>
               <button onClick={copyScript} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>{scCopied?"COPIED ✓":"COPY SCRIPT"}</button>
-              <button onClick={()=>{ setMode("edit"); }} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
+              <button onClick={()=>{ setDirectorNote(scriptText()); setMode("edit"); }} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
             </div>
-            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"12px 0 0"}}>Tip: read it naturally, flubs and all — the editor cuts the bad takes for you.</p>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"12px 0 0"}}>Tip: read it naturally, flubs and all — the editor cuts the bad takes for you. When you hit “edit my footage,” this script comes with you as your directing note, so the cut follows what you planned.</p>
           </div>
         )}
       </>)}
