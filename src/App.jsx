@@ -4500,12 +4500,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Only Process reads the picture. Every other style cuts from speech alone and
       // must not pay for a video decode it will never look at.
       const wantsActivity = style==="process";
+      // Showcase finds products by SIGHT, not sound — it needs no transcript at all,
+      // so it skips the whole listen/transcribe loop below. A jewelry or OOTD video
+      // is silent by design; running speech detection on it and rejecting it for
+      // having no words was the bug.
+      const visionOnly = style==="showcase";
       let heardAnything = false;
-      // Set when the render server couldn't give us an audio track. Distinguishes
-      // "we couldn't listen" from "we listened and there was nothing there" — two
-      // completely different problems that used to produce the same sentence.
       let extractionFailed = false;
-      for(let i = 0; i < n; i++){
+      for(let i = 0; i < n && !visionOnly; i++){
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
 
@@ -4563,7 +4565,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
       }
-      if(!heardAnything && !(wantsActivity && haveActivity)){
+      if(!visionOnly && !heardAnything && !(wantsActivity && haveActivity)){
         setErr(extractionFailed
           ? "We couldn't pull the audio out of " + (many ? "your clips" : "your video") + ", so there was nothing to transcribe. This is on our side, not your footage — the render engine may be restarting. Nothing has been charged; please try again in a minute."
           : wantsActivity
@@ -4594,7 +4596,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           body: "{}" });
       }catch{} })();
 
-      setStage("Planning the edit — finding the ums, dead air and best takes…");
+      setStage(style==="showcase" ? "Getting your footage ready…" : "Planning the edit — finding the ums, dead air and best takes…");
       const offsets = clipOffsets(clips);
       const globalWords = mergeClipWords(perClipWords, offsets);
       // The activity track onto the same global timeline the planner reads. One value
