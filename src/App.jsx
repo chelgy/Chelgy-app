@@ -14265,12 +14265,20 @@ export default function ChelgyApp() {
     }catch(_){} })();
   };
   // Decide whether to show the tour once we know who the user is.
+  // Guard: only show it if the onboarding images are actually reachable. If the
+  // Supabase folder isn't populated yet, we skip silently instead of showing a
+  // black screen of broken images.
   useEffect(()=>{
     if (!user) return;
     let seenLocal = false;
     try { seenLocal = localStorage.getItem("chelgy_seen_tour") === "1"; } catch(_){}
     const seenAccount = !!(user && user.seen_onboarding);
-    if (!seenLocal && !seenAccount) setShowTour(true);
+    if (seenLocal || seenAccount) return;
+    // Preflight one image; only launch the tour if it loads.
+    const testImg = new Image();
+    testImg.onload = () => setShowTour(true);
+    testImg.onerror = () => setShowTour(false);
+    testImg.src = SUPABASE_URL + "/storage/v1/object/public/sites/onboarding/closing.jpg";
   }, [user]); // eslint-disable-line
   useEffect(()=>{
     try {
