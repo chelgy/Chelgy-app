@@ -116,9 +116,9 @@ async function callClaude(AKEY, { system, content }) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          // No temperature: Opus 4.8 deprecated it and rejects the request if present.
           model: CLAUDE_MODEL,
           max_tokens: 8000,
-          temperature: 0.2,
           system,
           messages: [
             { role: "user", content },
