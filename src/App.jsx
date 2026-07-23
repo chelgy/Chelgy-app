@@ -14844,6 +14844,19 @@ export default function ChelgyApp() {
   const [onbMedia, setOnbMedia] = useState({});
   const [hdrMedia, setHdrMedia] = useState({});
   const [showTour, setShowTour] = useState(false);
+  // Record that this person has seen the tour: instantly on the device, and on the
+  // account when there's a session to write to. Called from BOTH exits — finishing
+  // the first-run tour, and tapping "Get started" on the logged-out one.
+  const markTourSeen = () => {
+    try { localStorage.setItem("chelgy_seen_tour", "1"); } catch(_){}
+    (async()=>{ try{
+      const tok = await freshToken();
+      if(!tok) return;
+      await fetch(SUPABASE_URL+"/auth/v1/user",{ method:"PUT",
+        headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json" },
+        body: JSON.stringify({ data:{ seen_onboarding: true } }) });
+    }catch(_){} })();
+  };
   const dismissTour = () => {
     setShowTour(false);
     try { localStorage.setItem("chelgy_seen_tour", "1"); } catch(_){}
@@ -14929,6 +14942,7 @@ export default function ChelgyApp() {
     let seenLocal = false;
     try { seenLocal = localStorage.getItem("chelgy_seen_tour") === "1"; } catch(_){}
     const seenAccount = !!(user && user.seen_onboarding);
+    if (seenLocal && !seenAccount) markTourSeen();   // sync device -> account
     if (seenLocal || seenAccount) return;
     const testImg = new Image();
     testImg.onload = () => setShowTour(true);
@@ -16644,7 +16658,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <ChelgyOnboarding baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"} logoUrl={LOGO_B64} media={onbMedia} ctaLabel="Get started" onDone={()=>setPage("signup")} />;
+  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <ChelgyOnboarding baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"} logoUrl={LOGO_B64} media={onbMedia} ctaLabel="Get started" onDone={()=>{ markTourSeen(); setPage("signup"); }} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
   const legalOverlay = legalView ? (
@@ -17841,10 +17855,33 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   );
 
   if (!isTeamSpace && page==="signup") return (
-    <div style={{fontFamily:"Lacuna,Didot,Georgia,serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-      {/* Background image with overlay */}
-      <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
-      <div style={{position:"fixed",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 100%)",zIndex:1}} />
+    <div className="cgJoin" style={{fontFamily:"Lacuna,Didot,Georgia,serif",background:"#0a0705",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      {/* Signup is the tour's last beat, so it wears the tour's clothes: the closing
+          photo, the same scrim, Caveline display type and the same staged rise. */}
+      <style>{`
+        .cgJoin{ --disp:'Caveline',serif; }
+        .cgJoin .eyebrow{ font-family:'Jost',sans-serif; font-weight:300; font-size:10px; letter-spacing:.5em;
+          text-transform:uppercase; color:#8f867b; display:flex; align-items:center; gap:14px; margin-bottom:14px;
+          opacity:0; transform:translateY(12px); animation:cgJRise .9s .2s forwards; }
+        .cgJoin .eyebrow .rule{ width:34px; height:1px; background:rgba(239,233,223,.14); }
+        .cgJoin .display{ font-family:var(--disp); font-weight:400; line-height:1.0; letter-spacing:.02em;
+          font-size:clamp(40px,12vw,64px); text-transform:uppercase; color:#fff; margin:0 0 10px;
+          text-shadow:0 2px 30px rgba(0,0,0,.35); font-feature-settings:"salt" 1,"liga" 1; }
+        .cgJoin .display .ln{ display:block; opacity:0; transform:translateY(24px); animation:cgJRise 1s forwards; }
+        .cgJoin .display .ln:nth-child(1){ animation-delay:.3s; }
+        .cgJoin .display .ln:nth-child(2){ animation-delay:.43s; }
+        .cgJoin .display .it{ text-transform:none; font-style:italic; }
+        .cgJoin .lede{ font-family:var(--disp); font-size:18px; line-height:1.5; color:#fff; opacity:.82;
+          letter-spacing:.015em; margin:0 0 30px; font-feature-settings:"salt" 1;
+          opacity:0; transform:translateY(14px); animation:cgJRise 1s .66s forwards; }
+        .cgJoin .rise{ opacity:0; transform:translateY(14px); animation:cgJRise 1s .82s forwards; }
+        @keyframes cgJRise{ to{ opacity:1; transform:none; } }
+        @media (prefers-reduced-motion: reduce){
+          .cgJoin .eyebrow,.cgJoin .display .ln,.cgJoin .lede,.cgJoin .rise{ animation:none; opacity:1; transform:none; }
+        }
+      `}</style>
+      <div style={{position:"fixed",inset:0,backgroundImage:"url("+onboardingSrc(onbMedia,"closing",SUPABASE_URL+"/storage/v1/object/public/sites/onboarding")+"), url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center center",zIndex:0}} />
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(180deg,rgba(10,7,5,.5) 0%,rgba(10,7,5,.08) 28%,rgba(10,7,5,.4) 58%,rgba(10,7,5,.96) 100%)",zIndex:1}} />
 
       {/* Content */}
       <div style={{position:"relative",zIndex:2,flex:1,display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0 28px 48px",maxWidth:460,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
@@ -17854,12 +17891,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             {/* Logo */}
             <img src={LOGO_B64} alt="Chelgy" style={{height:32,objectFit:"contain",filter:"invert(1)",marginBottom:36,display:"block"}} />
 
-            <div style={{width:24,height:1,background:"rgba(255,255,255,0.4)",marginBottom:18}} />
-            <h1 style={{fontSize:28,fontWeight:400,margin:"0 0 6px",color:"#fff"}}>Join Chelgy</h1>
-            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:"rgba(255,255,255,0.5)",fontSize:15,margin:"0 0 32px",letterSpacing:"0.01em",lineHeight:1.6}}>Everything you need to master marketing, build your business, and automate the work — in one membership.</p>
+            <div className="eyebrow"><span className="rule" />Welcome</div>
+            <h1 className="display"><span className="ln">Let&rsquo;s make</span><span className="ln">your brand <span className="it">unforgettable</span>.</span></h1>
+            <p className="lede">Websites, campaigns, photoshoots and film — all in one membership.</p>
 
             {/* Email */}
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+            <div className="rise" style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
               <input value={signupData.name} onChange={e=>setSignupData(d=>({...d,name:e.target.value}))} placeholder="Full name" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:15,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
               <input type="email" value={signupData.email} onChange={e=>setSignupData(d=>({...d,email:e.target.value}))} placeholder="Email address" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:15,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
               <input type="password" value={signupData.password} onChange={e=>setSignupData(d=>({...d,password:e.target.value}))} placeholder="Password (6+ characters)" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:15,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
