@@ -4506,7 +4506,7 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
 // a luxury title. Phase 1 style: Talking-head. Pipeline: Supabase upload →
 // Deepgram transcript → Gemini edit plan → Creatomate render.
 // ============================================================================
-function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{}, lutMedia={} }){
   const [style,setStyle]           = useState("talkinghead");
   const [mode,setMode]             = useState("edit");     // "edit" = I have footage · "script" = write my script first
   const [scTopic,setScTopic]       = useState("");
@@ -5873,7 +5873,7 @@ function OrdersPanel({ user }){
     </div>
   );
 }
-function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, isAdmin=false, startType=null }) {
+function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, lutMedia={}, isAdmin=false, startType=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
@@ -7144,7 +7144,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="websiteleads"&&<WebsiteLeads useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} />}
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
-      {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -18790,7 +18790,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&!CAT_BY_ID[subTab]&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} isAdmin={isAdmin} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} lutMedia={lutMedia} isAdmin={isAdmin} />
             </div>
           )}
 
