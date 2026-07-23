@@ -2760,7 +2760,7 @@ function MediaUploadButton({ folder, name, onDone, accept="image/*,video/*" }){
     <div style={{marginBottom:8}}>
       <input ref={ref} type="file" accept={accept} onChange={pick} style={{display:"none"}} />
       <button onClick={()=>ref.current&&ref.current.click()} disabled={busy}
-        style={{background:busy?"#9C9C9C":"#B8955A",color:"#fff",border:"none",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase"}}>
+        style={{background:busy?"#9C9C9C":"#B8955A",color:B.inkText,border:"none",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase"}}>
         {busy?"Uploading…":"Upload file"}
       </button>
       {err&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#C0392B",marginTop:6,lineHeight:1.5}}>{err}</div>}
@@ -4555,10 +4555,10 @@ function EditReview({ review, onCancel, onRender }){
   };
 
   return (
-    <div style={{marginTop:18,border:"1px solid "+B.charcoal,background:"#fff"}}>
+    <div style={{marginTop:18,border:"1px solid "+B.charcoal,background:B.white}}>
       <div style={{padding:"14px 16px",borderBottom:"1px solid "+B.stone,background:B.offwhite}}>
-        <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut</p>
-        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:0}}>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:0}}>
           Green is in your video. Struck-through is cut. Tap any part to flip it — restore a bit you want back, or drop a bit you don't. Nothing renders until you're happy.
         </p>
       </div>
@@ -4569,23 +4569,23 @@ function EditReview({ review, onCancel, onRender }){
             borderLeft:"3px solid "+(b.on?"#1a7f37":"transparent"),
             background:b.on?"#f2fbf4":"#fafafa"
           }}>
-            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",color:b.on?"#1a7f37":B.mid,marginTop:2,minWidth:52}}>
+            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",color:b.on?"#1a7f37":B.mid,marginTop:2,minWidth:52}}>
               {b.on?"● Kept":"○ Cut"}
             </span>
-            <span style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,color:b.on?B.charcoal:B.mid,textDecoration:b.on?"none":"line-through",flex:1}}>
+            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.5,color:b.on?B.charcoal:B.mid,textDecoration:b.on?"none":"line-through",flex:1}}>
               {b.text}
             </span>
           </div>
         ))}
       </div>
       <div style={{padding:"14px 16px",borderTop:"1px solid "+B.stone,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-        <button onClick={render} disabled={!keptCount} style={{fontFamily:"sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"11px 20px",cursor:keptCount?"pointer":"default",opacity:keptCount?1:0.5}}>
+        <button onClick={render} disabled={!keptCount} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.inkText,background:B.inkBlock,border:"1px solid "+B.inkBlock,padding:"11px 20px",cursor:keptCount?"pointer":"default",opacity:keptCount?1:0.5}}>
           RENDER THIS CUT
         </button>
-        <button onClick={onCancel} style={{fontFamily:"sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"11px 20px",cursor:"pointer"}}>
+        <button onClick={onCancel} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"11px 20px",cursor:"pointer"}}>
           START OVER
         </button>
-        <span style={{fontFamily:"sans-serif",fontSize:11,color:B.mid}}>{keptCount} section{keptCount===1?"":"s"} kept</span>
+        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>{keptCount} section{keptCount===1?"":"s"} kept</span>
       </div>
     </div>
   );
@@ -5345,20 +5345,20 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   return (
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>AI Video Editor</h3>
-      <p style={{fontFamily:"sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
         Upload your raw footage and Chelgy edits the whole video for you — cuts the ums, dead air and bad takes, adds animated captions, a cinematic color grade, and a luxury title. Works beautifully for talking-to-camera videos and real-world vlogs.
       </p>
 
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {[["edit","I have footage"],["script","Write my script first"],["shorts","Viral clips"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{ setMode(v); setErr(""); setScErr(""); }} style={{padding:"9px 22px",border:"1px solid "+(mode===v?B.charcoal:B.stone),background:mode===v?B.charcoal:"#fff",color:mode===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.04em"}}>{l}</button>
+          <button key={v} onClick={()=>{ setMode(v); setErr(""); setScErr(""); }} style={{padding:"9px 22px",border:"1px solid "+(mode===v?B.charcoal:B.stone),background:mode===v?B.inkBlock:B.white,color:mode===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer",letterSpacing:"0.04em"}}>{l}</button>
         ))}
       </div>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
         {STYLES.map(s=>(
-          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.charcoal:"#fff",color:style===s.id?"#fff":(s.ready?B.charcoal:B.mid),fontFamily:"sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
+          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
             <span style={{fontSize:12,fontWeight:700}}>{s.label}{!s.ready && "  · coming soon"}</span>
             <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{s.note}</span>
           </button>
@@ -5366,23 +5366,23 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       {mode==="edit" && (<>
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Direct your edit <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
-      <textarea value={directorNote} onChange={e=>setDirectorNote(e.target.value)} placeholder="Tell Chelgy how you want this cut, in your own words. e.g. “Keep the part where I talk about pricing, cut the intro rambling. Title should be about transformation. Show b-roll of the product when I mention it. Keep my energy up — cut anything slow.”" rows={4} style={{width:"100%",boxSizing:"border-box",fontFamily:"sans-serif",fontSize:13,lineHeight:1.5,color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 12px",marginBottom:6,resize:"vertical"}} />
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Whatever you write here takes priority over the automatic cutting — it's your director's note. Leave it blank and Chelgy decides for you.</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Direct your edit <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
+      <textarea value={directorNote} onChange={e=>setDirectorNote(e.target.value)} placeholder="Tell Chelgy how you want this cut, in your own words. e.g. “Keep the part where I talk about pricing, cut the intro rambling. Title should be about transformation. Show b-roll of the product when I mention it. Keep my energy up — cut anything slow.”" rows={4} style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.5,color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 12px",marginBottom:6,resize:"vertical"}} />
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Whatever you write here takes priority over the automatic cutting — it's your director's note. Leave it blank and Chelgy decides for you.</p>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your footage &amp; filter</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your footage &amp; filter</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
         {FOOTAGE_TYPES.map(f=>(
-          <button key={f.id} onClick={()=>applyFootageToAll(f.id)} title={f.note} style={{padding:"9px 16px",border:"1px solid "+(footage===f.id?B.charcoal:B.stone),background:footage===f.id?B.charcoal:"#fff",color:footage===f.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{f.label}</button>
+          <button key={f.id} onClick={()=>applyFootageToAll(f.id)} title={f.note} style={{padding:"9px 16px",border:"1px solid "+(footage===f.id?B.charcoal:B.stone),background:footage===f.id?B.inkBlock:B.white,color:footage===f.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{f.label}</button>
         ))}
       </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>{FOOTAGE_TYPES.find(f=>f.id===footage).note}</p>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>{FOOTAGE_TYPES.find(f=>f.id===footage).note}</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
         This applies to <strong>every clip</strong>. Shot on two different cameras that day? Set each clip individually in the list below.
       </p>
 
       {footage!=="none" && (<>
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {GRADES.map(g=>{ const th=lutThumb(lutMedia,g.id); return (
           <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:0,width:th?132:"auto",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.inkBlock:B.white,color:grade===g.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",overflow:"hidden",textAlign:"left"}}>
@@ -5391,74 +5391,74 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           </button>
         ); })}
       </div>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"-8px 0 16px"}}>{GRADES.find(g=>g.id===grade).note}</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"-8px 0 16px"}}>{GRADES.find(g=>g.id===grade).note}</p>
       </>)}
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
         {[["off","No music",true],["score","Cinematic score · original",true],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
-          <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.charcoal:"#fff",color:music===v?"#fff":(ready?B.charcoal:B.mid),fontFamily:"sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
+          <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.inkBlock:B.white,color:music===v?B.inkText:(ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
         ))}
       </div>
       {music==="score" && (<>
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"10px 0 8px"}}>Style of score</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"10px 0 8px"}}>Style of score</p>
         <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
           {[["auto","Match my video"],["classical","Classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setMusicGenre(v)} style={{padding:"8px 14px",border:"1px solid "+(musicGenre===v?B.charcoal:B.stone),background:musicGenre===v?B.charcoal:"#fff",color:musicGenre===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+            <button key={v} onClick={()=>setMusicGenre(v)} style={{padding:"8px 14px",border:"1px solid "+(musicGenre===v?B.charcoal:B.stone),background:musicGenre===v?B.inkBlock:B.white,color:musicGenre===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
           {musicGenre==="auto"
             ? "We'll choose the style from what you're actually talking about."
             : "Composed in this style, with the mood matched to your video."}
         </p>
       </>)}
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
         {music==="score"
           ? "An original score is composed for this video — written from what you actually talk about, then mixed underneath your voice so it swells in the gaps and ducks out of the way when you speak. + "+CREDIT_COSTS.musicScore+" credits, however long the video is."
           : "Add an original AI-composed score for +"+CREDIT_COSTS.musicScore+" credits, flat. Licensed real-artist tracks are coming."}
       </p>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {[["portrait","Portrait (9:16)"],["landscape","Landscape (16:9)"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setOrient(v)} style={{padding:"9px 16px",border:"1px solid "+(orient===v?B.charcoal:B.stone),background:orient===v?B.charcoal:"#fff",color:orient===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          <button key={v} onClick={()=>setOrient(v)} style={{padding:"9px 16px",border:"1px solid "+(orient===v?B.charcoal:B.stone),background:orient===v?B.inkBlock:B.white,color:orient===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
         ))}
       </div>
 
-      <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your raw footage <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— add as many clips as you shot</span></p>
-      <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your raw footage <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— add as many clips as you shot</span></p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
         A day of vlogging is usually a lot of separate files. Add them all — we'll put them in the order you shot them, cut across the whole day as one story, and match the sound levels between them.
       </p>
-      <input type="file" accept="video/*" multiple onChange={pickClips} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
-      {clipsBusy && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"0 0 10px"}}>Reading your files…</p>}
+      <input type="file" accept="video/*" multiple onChange={pickClips} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+      {clipsBusy && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"0 0 10px"}}>Reading your files…</p>}
 
       {clips.length>0 && (
         <div style={{border:"1px solid "+B.stone,marginBottom:14}}>
           {clips.map((c,i)=>(
             <div key={c.id} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 12px",borderBottom:i<clips.length-1?("1px solid "+B.stone):"none",background:i%2?B.offwhite:"#fff"}}>
-              <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:B.mid,minWidth:20,paddingTop:3}}>{i+1}</span>
+              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,color:B.mid,minWidth:20,paddingTop:3}}>{i+1}</span>
               <div style={{flex:1,minWidth:0}}>
-                <p style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
-                <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"2px 0 0"}}>
+                <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
+                <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"2px 0 0"}}>
                   {c.dur>0 ? (Math.floor(c.dur/60)+"m "+Math.round(c.dur%60)+"s") : "length unreadable"} · {Math.max(1,Math.round(c.size/1048576))}MB
                 </p>
                 {footage!=="none" && (
                   <select value={c.footage||footage} onChange={e=>setClipFootage(c.id, e.target.value)}
-                    style={{marginTop:6,fontFamily:"sans-serif",fontSize:11,padding:"4px 6px",border:"1px solid "+B.stone,background:"#fff",color:B.charcoal,maxWidth:"100%"}}>
+                    style={{marginTop:6,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"4px 6px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,maxWidth:"100%"}}>
                     {FOOTAGE_TYPES.filter(f=>f.id!=="none").map(f=>(<option key={f.id} value={f.id}>{f.label}</option>))}
                   </select>
                 )}
               </div>
               <div style={{display:"flex",gap:4,paddingTop:2}}>
-                <button onClick={()=>moveClip(i,-1)} disabled={i===0} title="Move up" style={{fontFamily:"sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:"#fff",color:i===0?B.stone:B.charcoal,cursor:i===0?"default":"pointer",padding:0}}>↑</button>
-                <button onClick={()=>moveClip(i,1)} disabled={i===clips.length-1} title="Move down" style={{fontFamily:"sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:"#fff",color:i===clips.length-1?B.stone:B.charcoal,cursor:i===clips.length-1?"default":"pointer",padding:0}}>↓</button>
-                <button onClick={()=>removeClip(c.id)} title="Remove" style={{fontFamily:"sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:"#fff",color:B.charcoal,cursor:"pointer",padding:0}}>×</button>
+                <button onClick={()=>moveClip(i,-1)} disabled={i===0} title="Move up" style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:B.white,color:i===0?B.stone:B.charcoal,cursor:i===0?"default":"pointer",padding:0}}>↑</button>
+                <button onClick={()=>moveClip(i,1)} disabled={i===clips.length-1} title="Move down" style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:B.white,color:i===clips.length-1?B.stone:B.charcoal,cursor:i===clips.length-1?"default":"pointer",padding:0}}>↓</button>
+                <button onClick={()=>removeClip(c.id)} title="Remove" style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,width:26,height:26,border:"1px solid "+B.stone,background:B.white,color:B.charcoal,cursor:"pointer",padding:0}}>×</button>
               </div>
             </div>
           ))}
-          <div style={{padding:"9px 12px",borderTop:"1px solid "+B.stone,background:"#fff"}}>
-            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:0}}>
+          <div style={{padding:"9px 12px",borderTop:"1px solid "+B.stone,background:B.white}}>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:0}}>
               <strong style={{color:B.charcoal}}>{clips.length} clip{clips.length>1?"s":""}</strong> · {Math.floor(totalDur/60)}m {Math.round(totalDur%60)}s total · {Math.max(1,Math.round(clips.reduce((a,c)=>a+(c.size||0),0)/1048576))}MB to upload
               {clips.length>1 && <> · sound levels matched between clips</>}
             </p>
@@ -5468,27 +5468,27 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       {clips.length>0 && <div style={{marginBottom:16}}>
         <video src={clips[0].preview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
-        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Previewing clip 1{clips.length>1?" of "+clips.length:""}.</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Previewing clip 1{clips.length>1?" of "+clips.length:""}.</p>
       </div>}
 
       {clips.length<=1 ? (
         <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:10,cursor:"pointer"}}>
           <input type="checkbox" checked={alsoShorts} onChange={e=>setAlsoShorts(e.target.checked)} style={{marginTop:3}} />
-          <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Also cut <strong>2–3 viral clips</strong> from this video for Reels/TikTok (+{CREDIT_COSTS.editorShorts.toLocaleString()} credits)</span>
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>Also cut <strong>2–3 viral clips</strong> from this video for Reels/TikTok (+{CREDIT_COSTS.editorShorts.toLocaleString()} credits)</span>
         </label>
       ) : (
-        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
           Viral clips are cut from a single video, so they're off for a multi-clip edit. Use the <strong>Viral clips</strong> tab on one file for those.
         </p>
       )}
 
       <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
         <input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} style={{marginTop:3}} />
-        <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
+        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
       </label>
 
       <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
-        <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
           <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything.
         </p>
       </div>
@@ -5497,9 +5497,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
           <input type="checkbox" checked={reviewCuts} disabled={busy}
             onChange={e=>setReviewCuts(e.target.checked)} style={{marginTop:3}} />
-          <span style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
             <strong>Review the cut before rendering</strong> — see every part Chelgy kept and dropped, and adjust it yourself before it renders.
-            <span style={{display:"block",color:"#666",fontSize:12,marginTop:4}}>
+            <span style={{display:"block",color:B.mid,fontSize:12,marginTop:4}}>
               Off by default — Chelgy just makes the cut. Turn this on when you want the final say.
             </span>
           </span>
@@ -5511,10 +5511,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
             <input type="checkbox" checked={useTransitions} disabled={busy}
               onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:3}} />
-            <span style={{fontFamily:"sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
               <strong>AI transitions</strong> — at a real scene change, generate a short
               cinematic shot that carries you from one place to the next.
-              <span style={{display:"block",color:"#666",fontSize:12,marginTop:4}}>
+              <span style={{display:"block",color:B.mid,fontSize:12,marginTop:4}}>
                 {CREDIT_COSTS.editorTransition.toLocaleString()} credits each. Up to {transitionCap} on
                 a long video, 2 on a short one — and only where there's a genuine scene
                 change, so you may get fewer. You're only charged for the ones made.
@@ -5526,25 +5526,25 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       {(style==="cinematic"||style==="vlog") && (
         <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
-          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Voiceover <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
-          <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Voiceover <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>
             Record a voiceover and drop it in — it plays over your video, with your footage audio ducked softly underneath. This is how you narrate over your best silent shots, Scorsese-style.
           </p>
-          <input type="file" accept="audio/*" onChange={e=>setNarrationFile((e.target.files&&e.target.files[0])||null)} style={{fontFamily:"sans-serif",fontSize:12,display:"block"}} />
+          <input type="file" accept="audio/*" onChange={e=>setNarrationFile((e.target.files&&e.target.files[0])||null)} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,display:"block"}} />
           {narrationFile && (
-            <p style={{fontFamily:"sans-serif",fontSize:11,color:"#1a7f37",margin:"6px 0 0"}}>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#1a7f37",margin:"6px 0 0"}}>
               ✓ {narrationFile.name} — will play over your edit. <button onClick={()=>setNarrationFile(null)} style={{background:"none",border:"none",color:B.mid,textDecoration:"underline",cursor:"pointer",fontSize:11,padding:0}}>remove</button>
             </p>
           )}
         </div>
       )}
 
-      {err && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
       <Btn dark full disabled={busy} onClick={run}>
         {busy ? "EDITING YOUR VIDEO…" : (reviewCuts ? "PLAN MY EDIT · "+COST.toLocaleString()+" CREDITS" : "EDIT MY VIDEO · "+COST.toLocaleString()+" CREDITS")}
       </Btn>
-      {busy && stage && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{stage}</p>}
+      {busy && stage && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{stage}</p>}
 
       {pendingReview && (
         <EditReview
@@ -5558,17 +5558,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <div style={{marginTop:26,textAlign:"center"}}>
           {outTitle && <p style={{fontFamily:"serif",fontSize:16,margin:"0 0 10px"}}>{outTitle}</p>}
           <video src={url} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <button onClick={()=>downloadVideo(url,"chelgy-edited.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
+          <button onClick={()=>downloadVideo(url,"chelgy-edited.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
         </div>
       )}
       {mode==="edit" && shClips.length>0 && (
         <div style={{marginTop:26}}>
-          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 12px"}}>Your viral clips</p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 12px"}}>Your viral clips</p>
           {shClips.map((c,i)=>(
             <div key={i} style={{marginBottom:22,textAlign:"center"}}>
-              {c.hook && <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
+              {c.hook && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
               <video src={c.url} controls playsInline style={{maxWidth:"100%",maxHeight:420,border:"1px solid "+B.stone}} />
-              <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
+              <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
             </div>
           ))}
         </div>
@@ -5576,87 +5576,87 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </>)}
 
       {mode==="script" && (<>
-        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Chelgy writes your script before you film — a scroll-stopping hook, the beats, and a call-to-action, in your chosen style. Read it on camera, then flip to <strong>I have footage</strong> and we'll edit it.</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Chelgy writes your script before you film — a scroll-stopping hook, the beats, and a call-to-action, in your chosen style. Read it on camera, then flip to <strong>I have footage</strong> and we'll edit it.</p>
 
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>What's the video about?</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>What's the video about?</p>
         <textarea value={scTopic} onChange={e=>setScTopic(e.target.value)} rows={3}
           placeholder="e.g. why most small businesses waste money on ads, and the 3 things to do instead"
-          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:14}} />
+          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,resize:"vertical",boxSizing:"border-box",marginBottom:14}} />
 
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Who's it for? <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Who's it for? <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></p>
         <input value={scAudience} onChange={e=>setScAudience(e.target.value)} placeholder="e.g. boutique owners who run their own Instagram"
-          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"sans-serif",fontSize:13,boxSizing:"border-box",marginBottom:14}} />
+          style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,boxSizing:"border-box",marginBottom:14}} />
 
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Length</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Length</p>
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
           {[["30","~30s reel"],["60","~60s short"],["180","2–3 min"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setScLength(v)} style={{padding:"9px 16px",border:"1px solid "+(scLength===v?B.charcoal:B.stone),background:scLength===v?B.charcoal:"#fff",color:scLength===v?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+            <button key={v} onClick={()=>setScLength(v)} style={{padding:"9px 16px",border:"1px solid "+(scLength===v?B.charcoal:B.stone),background:scLength===v?B.inkBlock:B.white,color:scLength===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
 
-        {scErr && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{scErr}</p>}
+        {scErr && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{scErr}</p>}
 
         <Btn dark full disabled={scBusy} onClick={writeScript}>
           {scBusy ? "WRITING YOUR SCRIPT…" : "WRITE MY SCRIPT · "+CREDIT_COSTS.editorScript+" CREDITS"}
         </Btn>
 
         {script && (
-          <div style={{marginTop:22,border:"1px solid "+B.stone,padding:18,background:"#fff"}}>
-            <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>Hook — say this first</p>
+          <div style={{marginTop:22,border:"1px solid "+B.stone,padding:18,background:B.white}}>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>Hook — say this first</p>
             <p style={{fontFamily:"serif",fontSize:16,lineHeight:1.5,margin:"0 0 16px",color:B.charcoal}}>{script.hook}</p>
-            <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>The beats</p>
-            {script.beats.map((b,i)=>(<p key={i} style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 10px",color:B.charcoal}}>{b}</p>))}
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"0 0 6px"}}>The beats</p>
+            {script.beats.map((b,i)=>(<p key={i} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 10px",color:B.charcoal}}>{b}</p>))}
             {script.cta && (<>
-              <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"8px 0 6px"}}>Call to action</p>
-              <p style={{fontFamily:"sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 4px",color:B.charcoal}}>{script.cta}</p>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,margin:"8px 0 6px"}}>Call to action</p>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 4px",color:B.charcoal}}>{script.cta}</p>
             </>)}
             <div style={{display:"flex",gap:14,marginTop:14,alignItems:"center",flexWrap:"wrap"}}>
-              <button onClick={copyScript} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>{scCopied?"COPIED ✓":"COPY SCRIPT"}</button>
-              <button onClick={()=>{ setDirectorNote(scriptText()); setMode("edit"); }} style={{fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:"#fff",background:B.charcoal,border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
+              <button onClick={copyScript} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.charcoal,padding:"8px 16px",cursor:"pointer"}}>{scCopied?"COPIED ✓":"COPY SCRIPT"}</button>
+              <button onClick={()=>{ setDirectorNote(scriptText()); setMode("edit"); }} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.inkText,background:B.inkBlock,border:"1px solid "+B.inkBlock,padding:"8px 16px",cursor:"pointer"}}>FILMED IT → EDIT MY FOOTAGE</button>
             </div>
-            <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"12px 0 0"}}>Tip: read it naturally, flubs and all — the editor cuts the bad takes for you. When you hit “edit my footage,” this script comes with you as your directing note, so the cut follows what you planned.</p>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"12px 0 0"}}>Tip: read it naturally, flubs and all — the editor cuts the bad takes for you. When you hit “edit my footage,” this script comes with you as your directing note, so the cut follows what you planned.</p>
           </div>
         )}
       </>)}
 
       {mode==="shorts" && (<>
-        <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Drop in any video where you're talking — Chelgy finds your <strong>2–3 most viral moments</strong>, writes a scroll-stopping hook for each, and renders them as vertical clips with captions and your cinematic grade. Ready for Reels, TikTok and Shorts.</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Drop in any video where you're talking — Chelgy finds your <strong>2–3 most viral moments</strong>, writes a scroll-stopping hook for each, and renders them as vertical clips with captions and your cinematic grade. Ready for Reels, TikTok and Shorts.</p>
 
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
           {GRADES.map(g=>(
-            <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:"9px 16px",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.charcoal:"#fff",color:grade===g.id?"#fff":B.charcoal,fontFamily:"sans-serif",fontSize:12,cursor:"pointer"}}>{g.label}</button>
+            <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:"9px 16px",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.inkBlock:B.white,color:grade===g.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{g.label}</button>
           ))}
         </div>
 
-        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your video <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— up to 10 minutes</span></p>
-        <input type="file" accept="video/*" onChange={pickVideo} style={{fontFamily:"sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your video <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— up to 10 minutes</span></p>
+        <input type="file" accept="video/*" onChange={pickVideo} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,marginBottom:10,display:"block"}} />
         {videoPreview && (
           <div style={{marginBottom:16}}>
             <video src={videoPreview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
-            {videoDur>0 && <p style={{fontFamily:"sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>{Math.floor(videoDur/60)}m {videoDur%60}s of footage.</p>}
+            {videoDur>0 && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>{Math.floor(videoDur/60)}m {videoDur%60}s of footage.</p>}
           </div>
         )}
 
         <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:16,cursor:"pointer"}}>
           <input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} style={{marginTop:3}} />
-          <span style={{fontFamily:"sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
         </label>
 
-        {shErr && <p style={{fontFamily:"sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{shErr}</p>}
+        {shErr && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{shErr}</p>}
 
         <Btn dark full disabled={shBusy} onClick={runShorts}>
           {shBusy ? "MAKING YOUR CLIPS…" : "MAKE MY VIRAL CLIPS · "+CREDIT_COSTS.editorShorts.toLocaleString()+" CREDITS"}
         </Btn>
-        {shBusy && shStage && <p style={{fontFamily:"sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{shStage}</p>}
+        {shBusy && shStage && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:10,textAlign:"center"}}>{shStage}</p>}
 
         {shClips.length>0 && (
           <div style={{marginTop:26}}>
             {shClips.map((c,i)=>(
               <div key={i} style={{marginBottom:26,textAlign:"center"}}>
-                {c.hook && <p style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
+                {c.hook && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
                 <video src={c.url} controls playsInline style={{maxWidth:"100%",maxHeight:420,border:"1px solid "+B.stone}} />
-                <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
+                <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
               </div>
             ))}
           </div>
@@ -8656,7 +8656,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
             </div>
 
             <div style={{background:"#FFF8E1",border:"1px solid #E8D4B0",padding:16,marginTop:24,borderRadius:4}}>
-              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,lineHeight:1.6,color:"#666"}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,lineHeight:1.6,color:B.mid}}>
                 <p style={{margin:"0 0 12px"}}><strong>💡 Revenue Model:</strong> Marketers work under Chelgy and pay a <strong>$100/mo membership</strong> for the toolkit. Client service fees are split <strong>50/50</strong> — the marketer keeps 50% and Chelgy earns 50% commission on each client's monthly fee.</p>
                 <p style={{margin:"0 0 12px"}}><strong>Ad Spend:</strong> Separate from service fees. Clients pay the ad platforms directly; marketers run and manage the campaigns.</p>
                 <p style={{margin:0}}><strong>Payouts:</strong> The client pays Chelgy, and Chelgy pays each marketer their 50% share.</p>
