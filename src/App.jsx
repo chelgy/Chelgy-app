@@ -2892,6 +2892,244 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=6500 
     </div>
   );
 }
+// ── HEADER TOUR ───────────────────────────────────────────────────────────────
+// The onboarding tour, rebuilt to live in a page header. Same panels, same copy,
+// same Caveline display face, same staged text rise — relaid out for a short wide
+// frame instead of a full-screen portrait one, and tappable so each panel opens
+// the part of Chelgy it's showing off. Closing "Welcome" panel is deliberately
+// omitted: members have already seen it.
+// Imagery comes from the SAME admin slots as the tour (ONBOARDING_SLOTS), so one
+// upload feeds both surfaces.
+const HEADER_PANELS = [
+  { key:"open",    go:"tools" },
+  { key:"website", go:"tools:cat_website" },
+  { key:"fakeit",  go:"tools:cat_fakeit" },
+  { key:"flyers",  go:"tools:cat_photo" },
+  { key:"social",  go:"tools:cat_social" },
+  { key:"growth",  go:"tools:cat_seo" },
+  { key:"ads",     go:"tools:cat_ads" },
+];
+function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=330 }){
+  const [i, setI] = useState(0);
+  const [reduce, setReduce] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [hover, setHover] = useState(false);
+  const startX = useRef(0);
+  const n = HEADER_PANELS.length;
+  const src = (k) => onboardingSrc(media, k, baseUrl);
+
+  useEffect(()=>{
+    try{
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReduce(!!mq.matches);
+      const h=(e)=>setReduce(!!e.matches);
+      mq.addEventListener ? mq.addEventListener("change",h) : mq.addListener(h);
+      return ()=>{ mq.removeEventListener ? mq.removeEventListener("change",h) : mq.removeListener(h); };
+    }catch(_){ }
+  },[]);
+  useEffect(()=>{
+    const h=()=>{ try{ setHidden(!!document.hidden); }catch(_){ } };
+    try{ document.addEventListener("visibilitychange",h); }catch(_){ }
+    return ()=>{ try{ document.removeEventListener("visibilitychange",h); }catch(_){ } };
+  },[]);
+  const still = paused || hidden || reduce || hover;
+  useEffect(()=>{
+    if(still) return;
+    const t=setTimeout(()=>setI(x=>(x+1)%n), hold);
+    return ()=>clearTimeout(t);
+  },[i, still, n, hold]);
+
+  const cls = (base, on) => base + (on ? " active" : "");
+  const onTouchStart=(e)=>{ startX.current=e.touches[0].clientX; };
+  const onTouchEnd=(e)=>{
+    const dx=e.changedTouches[0].clientX-startX.current;
+    if(Math.abs(dx)>45) setI(x=>(x+(dx<0?1:n-1))%n);
+  };
+  const open=()=>{ const g=HEADER_PANELS[i].go; if(g&&onGo){ const p=String(g).split(":"); onGo(p[0], p[1]||undefined); } };
+
+  const CSS = `
+  .cgHdr{ position:relative; height:${height}px; overflow:hidden; background:#0a0705; color:#efe9df;
+    font-family:'Jost',sans-serif; border:1px solid ${B.stone}; margin-bottom:22px; cursor:pointer;
+    --ink:#0a0705; --bone:#efe9df; --white:#fff; --dim:#8f867b; --line:rgba(239,233,223,.14); --disp:'Caveline',serif; }
+  .cgHdr *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  .cgHdr .display,.cgHdr .sub,.cgHdr .feats li,.cgHdr .lead,.cgHdr .grid .r .k,
+  .cgHdr .grid .r .v,.cgHdr .eyebrow .num{ font-feature-settings:"salt" 1,"liga" 1; -webkit-font-feature-settings:"salt" 1,"liga" 1; }
+  .cgHdr .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .9s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+  .cgHdr .panel.active{ opacity:1; pointer-events:auto; }
+  .cgHdr .full{ position:absolute; inset:0; } .cgHdr .full img{ width:100%; height:100%; object-fit:cover; }
+  .cgHdr .scrim{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(10,7,5,.44) 0%,rgba(10,7,5,.06) 26%,rgba(10,7,5,.42) 58%,rgba(10,7,5,.95) 100%); }
+  .cgHdr .content{ position:absolute; left:0; right:0; bottom:0; z-index:20; padding:0 20px 20px; }
+  .cgHdr .content.mid{ top:0; display:flex; flex-direction:column; justify-content:center; padding-bottom:16px; }
+  .cgHdr .eyebrow{ font-size:8px; font-weight:300; letter-spacing:.42em; text-transform:uppercase; color:var(--dim);
+    display:flex; align-items:center; gap:9px; margin-bottom:7px; opacity:0; transform:translateY(9px); }
+  .cgHdr .eyebrow .num{ font-family:var(--disp); font-size:11px; letter-spacing:.08em; color:var(--bone); }
+  .cgHdr .eyebrow .rule{ width:22px; height:1px; background:var(--line); }
+  .cgHdr .display{ font-family:var(--disp); font-weight:400; line-height:1.02; letter-spacing:.02em;
+    font-size:clamp(25px,7vw,38px); text-transform:uppercase; color:var(--white); text-shadow:0 2px 22px rgba(0,0,0,.4); }
+  .cgHdr .display .ln{ display:block; opacity:0; transform:translateY(16px); }
+  .cgHdr .display .it{ text-transform:none; font-style:italic; }
+  .cgHdr .sub{ font-family:var(--disp); font-size:12.5px; line-height:1.42; color:var(--white); opacity:.82;
+    letter-spacing:.012em; max-width:60%; margin-top:8px; opacity:0; transform:translateY(9px); }
+  .cgHdr .feats{ list-style:none; margin-top:9px; display:flex; flex-direction:column; gap:5px; }
+  .cgHdr .feats li{ font-family:var(--disp); font-size:12px; letter-spacing:.012em; color:var(--white); opacity:.82;
+    display:flex; gap:8px; align-items:baseline; opacity:0; transform:translateY(8px); }
+  .cgHdr .feats li::before{ content:""; width:4px; height:4px; flex:none; border:1px solid var(--dim); transform:translateY(-1px); }
+  .cgHdr .active .eyebrow{ animation:cgHRise .8s .12s forwards; }
+  .cgHdr .active .display .ln{ animation:cgHRise .9s forwards; }
+  .cgHdr .active .display .ln:nth-child(1){ animation-delay:.2s; }
+  .cgHdr .active .display .ln:nth-child(2){ animation-delay:.31s; }
+  .cgHdr .active .display .ln:nth-child(3){ animation-delay:.42s; }
+  .cgHdr .active .sub{ animation:cgHRise .9s .5s forwards; }
+  .cgHdr .active .feats li{ animation:cgHRise .7s forwards; }
+  .cgHdr .active .feats li:nth-child(1){ animation-delay:.46s; }
+  .cgHdr .active .feats li:nth-child(2){ animation-delay:.56s; }
+  .cgHdr .active .feats li:nth-child(3){ animation-delay:.66s; }
+  @keyframes cgHRise{ to{ opacity:1; transform:none; } }
+  .cgHdr .float{ opacity:0; transform:translateY(20px) scale(.97); }
+  .cgHdr .active .float{ animation:cgHFloat 1s .25s cubic-bezier(.4,0,.2,1) forwards; }
+  .cgHdr .active .float.f2{ animation-delay:.38s; } .cgHdr .active .float.f3{ animation-delay:.5s; }
+  @keyframes cgHFloat{ to{ opacity:1; transform:none; } }
+  .cgHdr .lead{ font-family:var(--disp); text-transform:uppercase; letter-spacing:.02em;
+    font-size:clamp(22px,6vw,32px); line-height:1.02; margin-bottom:10px; opacity:0; transform:translateY(14px); color:var(--white); }
+  .cgHdr .active .lead{ animation:cgHRise .9s .14s forwards; }
+  .cgHdr .lead .it{ text-transform:none; font-style:italic; }
+  .cgHdr .row{ display:flex; align-items:center; gap:8px; }
+  .cgHdr .shot{ position:relative; width:62px; height:84px; flex:none; overflow:hidden; border:1px solid var(--line); }
+  .cgHdr .shot img{ width:100%; height:100%; object-fit:cover; }
+  .cgHdr .shot .tag{ position:absolute; left:4px; top:4px; font-size:6px; font-weight:300; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.6); padding:2px 4px; }
+  .cgHdr .arrow{ font-family:var(--disp); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+  .cgHdr .grid{ margin-top:9px; border-top:1px solid var(--line); max-width:74%; }
+  .cgHdr .grid .r{ display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid var(--line);
+    opacity:0; transform:translateY(8px); }
+  .cgHdr .active .grid .r{ animation:cgHRise .7s forwards; }
+  .cgHdr .active .grid .r:nth-child(1){ animation-delay:.44s; }
+  .cgHdr .active .grid .r:nth-child(2){ animation-delay:.55s; }
+  .cgHdr .active .grid .r:nth-child(3){ animation-delay:.66s; }
+  .cgHdr .grid .r .k{ font-family:var(--disp); font-size:14px; text-transform:uppercase; color:var(--bone); flex:none; width:34%; letter-spacing:.02em; }
+  .cgHdr .grid .r .v{ font-family:var(--disp); font-size:10.5px; line-height:1.34; color:var(--bone); opacity:.88; }
+  .cgHdr .cta{ position:absolute; left:20px; bottom:20px; z-index:40; font-size:8px; font-weight:700;
+    letter-spacing:.22em; text-transform:uppercase; color:${B.gold}; opacity:0; animation:cgHRise .8s .8s forwards; }
+  .cgHdr .dots{ position:absolute; top:12px; right:14px; z-index:40; display:flex; gap:4px; }
+  .cgHdr .dots b{ display:block; width:5px; height:3px; background:rgba(239,233,223,.34); transition:width .5s ease, background .5s ease; }
+  .cgHdr .dots b.on{ width:15px; background:rgba(239,233,223,.95); }
+  @media (prefers-reduced-motion: reduce){
+    .cgHdr .panel{ transition:none; }
+    .cgHdr .active .eyebrow,.cgHdr .active .display .ln,.cgHdr .active .sub,.cgHdr .active .feats li,
+    .cgHdr .active .float,.cgHdr .active .lead,.cgHdr .active .grid .r,.cgHdr .cta{ animation:none; opacity:1; transform:none; }
+  }`;
+
+  return (
+    <div className="cgHdr" onClick={open}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <style>{CSS}</style>
+
+      {/* 0 OPENING */}
+      <section className={cls("panel", i===0)}>
+        <div className="full"><img src={src("beauty")} alt="" /></div><div className="scrim" />
+        <div className="content">
+          <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
+          <h1 className="display"><span className="ln">Your whole brand,</span><span className="ln">in one place.</span></h1>
+          <p className="sub">Websites, campaigns, photoshoots and film — all made to look like you spent a fortune. You didn't.</p>
+        </div>
+      </section>
+
+      {/* 1 WEBSITE */}
+      <section className={cls("panel", i===1)}>
+        <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
+        <div className="float" style={{position:"absolute",right:"-18px",top:"38px",zIndex:10,width:"150px",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
+          <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
+        </div>
+        <div className="content mid" style={{maxWidth:"64%"}}>
+          <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
+          <h1 className="display"><span className="ln">Luxury sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
+          <p className="sub" style={{maxWidth:"100%"}}>From a few business details — a complete, published luxury website. With its own AI imagery and an SEO blog.</p>
+        </div>
+      </section>
+
+      {/* 2 FAKE IT STUDIO & THE EDITOR */}
+      <section className={cls("panel", i===2)}>
+        <div className="full" style={{filter:"brightness(.3)"}}><img src={src("redBlonde")} alt="" /></div><div className="scrim" />
+        <div className="content mid">
+          <div className="eyebrow"><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
+          <div className="lead">A photo or video, into a <span className="it">film</span>.</div>
+          <div className="row float">
+            <div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" /></div>
+            <div className="arrow">becomes</div>
+            <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" /></div>
+            <div className="arrow">then moves</div>
+            <div className="shot"><span className="tag">Video</span><img src={src("plane")} alt="" /></div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3 FLYERS & BRANDING */}
+      <section className={cls("panel", i===3)}>
+        <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
+        <div className="float" style={{position:"absolute",left:"-16px",top:"34px",zIndex:10,width:"140px",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
+          <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
+        </div>
+        <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"46%"}}>
+          <div className="eyebrow" style={{justifyContent:"flex-end"}}><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
+          <h1 className="display"><span className="ln">Flyers, branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
+          <p className="sub" style={{maxWidth:"100%"}}>Launch promos, service menus, product shots, brand kits — cohesive and luxury-looking, every time.</p>
+        </div>
+      </section>
+
+      {/* 4 SOCIAL */}
+      <section className={cls("panel", i===4)}>
+        <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
+        <div style={{position:"absolute",right:"12px",top:"46px",zIndex:10,display:"flex",gap:"6px",alignItems:"flex-start"}}>
+          <div className="float" style={{width:"58px",height:"116px",overflow:"hidden",border:"1px solid var(--line)",marginTop:"18px",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
+            <img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" />
+          </div>
+          <div className="float f2" style={{width:"70px",height:"134px",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}>
+            <img src={src("social1")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
+          </div>
+          <div className="float f3" style={{width:"58px",height:"116px",overflow:"hidden",border:"1px solid var(--line)",marginTop:"18px",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
+            <img src={src("social2")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
+          </div>
+        </div>
+        <div className="content mid" style={{maxWidth:"54%"}}>
+          <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
+          <h1 className="display"><span className="ln">Grow your <span className="it">social</span></span><span className="ln">with Chelgy.</span></h1>
+          <p className="sub" style={{maxWidth:"100%"}}>Cohesive posts, stories and a full launch-week plan — so your brand stays seen, and stays consistent.</p>
+        </div>
+      </section>
+
+      {/* 5 GROWTH */}
+      <section className={cls("panel", i===5)}>
+        <div style={{position:"absolute",inset:0,background:"radial-gradient(130% 95% at 50% 12%, #171210 0%, var(--ink) 60%)"}} />
+        <div className="content mid">
+          <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
+          <h1 className="display" style={{fontSize:"clamp(22px,6vw,32px)"}}><span className="ln">Rank higher on <span className="it">Google</span>.</span></h1>
+          <div className="grid">
+            <div className="r"><span className="k">SEO</span><span className="v">Real, white-hat backlinks, directories and press to climb Google — the outreach written for you. Never bought links.</span></div>
+            <div className="r"><span className="k">Fund</span><span className="v">Real grants you might qualify for, searched from across the web.</span></div>
+            <div className="r"><span className="k">Audit</span><span className="v">See exactly what to fix, and how you rank against competitors.</span></div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6 ADS */}
+      <section className={cls("panel", i===6)}>
+        <div className="full" style={{filter:"brightness(.5)"}}><img src={src("campaign")} alt="" /></div><div className="scrim" />
+        <div className="content mid">
+          <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
+          <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
+          <ul className="feats">
+            <li>Ad copy and creative direction, done for you</li>
+            <li>Audience targeting and budget, mapped out</li>
+            <li>Built for Facebook, Instagram and TikTok</li>
+          </ul>
+        </div>
+      </section>
+
+      <div className="dots">{HEADER_PANELS.map((p,k)=><b key={p.key} className={k===i?"on":""} />)}</div>
+    </div>
+  );
+}
 async function loadAppSettings(){
   try { const res = await fetch(SUPABASE_URL+"/rest/v1/app_settings?select=key,value", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); const o={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ o[r.key]=r.value; }); return o; } catch { return {}; }
 }
@@ -17885,12 +18123,16 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {(()=>{
             const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub");
             if(!show) return null;
-            const slides=pageSlides(pageMedia&&pageMedia[tab]);
-            if(!slides.length) return null;
-            // Hold the rail still while anything is open on top of it.
+            // Hold whatever is up there still while anything is open on top of it.
             const busy=!!(showNotifs||showNewPost||showCredits||showPaywall||showPlan||showIntake||selectedStrategy||selectedPost||selectedForumPost);
-            return <HeaderSlideshow slides={slides} B={B} paused={busy}
+            // Custom slides for this page win if you've set any in the admin panel;
+            // otherwise every page gets the feature tour, cropped to header height.
+            const slides=pageSlides(pageMedia&&pageMedia[tab]);
+            if(slides.length) return <HeaderSlideshow slides={slides} B={B} paused={busy}
               onGo={(g)=>{ const p=String(g).split(":"); goTab(p[0], p[1]||undefined); }} />;
+            return <HeaderTour media={onbMedia} B={B} paused={busy}
+              baseUrl={SUPABASE_URL+"/storage/v1/object/public/sites/onboarding"}
+              onGo={(t,sub)=>goTab(t,sub)} />;
           })()}
 
           {/* ═══ HOME ═══ */}
