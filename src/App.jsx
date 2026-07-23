@@ -3023,12 +3023,12 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
     font-size:clamp(22px,6vw,32px); line-height:1.02; margin-bottom:10px; opacity:0; transform:translateY(14px); color:var(--white); }
   .cgHdr .active .lead{ animation:cgHRise 1.2s .24s forwards; }
   .cgHdr .lead .it{ text-transform:none; font-style:italic; }
-  .cgHdr .row{ display:flex; align-items:center; gap:8px; }
-  .cgHdr .shot{ position:relative; width:62px; height:84px; flex:none; overflow:hidden; border:1px solid var(--line); }
+  .cgHdr .row{ display:flex; align-items:center; gap:clamp(6px,1.1vw,20px); flex-wrap:nowrap; }
+  .cgHdr .shot{ position:relative; width:clamp(52px,8.2vw,140px); height:clamp(70px,11vw,188px); flex:none; overflow:hidden; border:1px solid var(--line); }
   .cgHdr .shot img{ width:100%; height:100%; object-fit:cover; }
-  .cgHdr .shot .tag{ position:absolute; left:4px; top:4px; font-size:6px; font-weight:300; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.6); padding:2px 4px; }
-  .cgHdr .arrow{ font-family:var(--disp); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+  .cgHdr .shot .tag{ position:absolute; left:5px; top:5px; font-size:clamp(6px,.62vw,9px); font-weight:300; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.6); padding:2px 5px; }
+  .cgHdr .arrow{ font-family:var(--disp); font-size:clamp(8px,.95vw,15px); letter-spacing:.1em; text-transform:uppercase; color:var(--dim); min-width:0; flex:0 1 auto; }
   .cgHdr .grid{ margin-top:9px; border-top:1px solid var(--line); max-width:74%; }
   .cgHdr .grid .r{ display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid var(--line);
     opacity:0; transform:translateY(8px); }
@@ -3069,10 +3069,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 1 WEBSITE */}
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="float" style={{position:"absolute",right:"-18px",top:"38px",zIndex:10,width:"150px",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
+        <div className="float" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",transform:"translateY(-50%)",zIndex:10,width:"clamp(150px,26vw,440px)",maxHeight:"84%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
         </div>
-        <div className="content mid" style={{maxWidth:"64%"}}>
+        <div className="content mid" style={{maxWidth:"min(64%, 58ch)",paddingRight:"clamp(160px,28vw,470px)"}}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
           <h1 className="display"><span className="ln">Luxury sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>From a few business details — a complete, published luxury website. With its own AI imagery and an SEO blog.</p>
@@ -3098,10 +3098,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 3 FLYERS & BRANDING */}
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="float" style={{position:"absolute",left:"-16px",top:"34px",zIndex:10,width:"140px",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
+        <div className="float" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",transform:"translateY(-50%)",zIndex:10,width:"clamp(140px,25vw,420px)",maxHeight:"84%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
         </div>
-        <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"46%"}}>
+        <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"clamp(160px,29vw,470px)"}}>
           <div className="eyebrow" style={{justifyContent:"flex-end"}}><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
           <h1 className="display"><span className="ln">Flyers, branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>Launch promos, service menus, product shots, brand kits — cohesive and luxury-looking, every time.</p>
@@ -3111,18 +3111,18 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 4 SOCIAL */}
       <section className={cls("panel", i===4)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
-        <div style={{position:"absolute",right:"12px",top:"46px",zIndex:10,display:"flex",gap:"6px",alignItems:"flex-start"}}>
-          <div className="float" style={{width:"58px",height:"116px",overflow:"hidden",border:"1px solid var(--line)",marginTop:"18px",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
+        <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
+          <div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
             <img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" />
           </div>
-          <div className="float f2" style={{width:"70px",height:"134px",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}>
+          <div className="float f2" style={{width:"clamp(70px,11vw,184px)",height:"clamp(134px,21vw,352px)",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}>
             <img src={src("social1")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
           </div>
-          <div className="float f3" style={{width:"58px",height:"116px",overflow:"hidden",border:"1px solid var(--line)",marginTop:"18px",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
+          <div className="float f3" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
             <img src={src("social2")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
           </div>
         </div>
-        <div className="content mid" style={{maxWidth:"54%"}}>
+        <div className="content mid" style={{maxWidth:"min(54%, 52ch)",paddingRight:"clamp(210px,36vw,640px)"}}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
           <h1 className="display"><span className="ln">Grow your <span className="it">social</span></span><span className="ln">with Chelgy.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>Cohesive posts, stories and a full launch-week plan — so your brand stays seen, and stays consistent.</p>
