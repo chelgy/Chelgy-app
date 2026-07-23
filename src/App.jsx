@@ -5549,54 +5549,55 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.6}}>This is my own footage and I have the rights to it.</span>
       </label>
 
-      <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:0}}>
-          <strong style={{color:B.charcoal}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then <strong>automatically deleted</strong> once it's done. It isn't stored, shared, or used to train anything.
-        </p>
-      </div>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:"0 0 18px"}}>
+        <strong style={{color:B.charcoal,fontWeight:700}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then automatically deleted once it's done. It isn't stored, shared, or used to train anything.
+      </p>
 
-      <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
-        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Options</p>
+      <div style={{border:"1px solid "+B.stone,marginBottom:18}}>
+
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px"}}>
           <input type="checkbox" checked={reviewCuts} disabled={busy}
-            onChange={e=>setReviewCuts(e.target.checked)} style={{marginTop:3}} />
+            onChange={e=>setReviewCuts(e.target.checked)} style={{marginTop:2}} />
           <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
-            <strong>Review the cut before rendering</strong> — see every part Chelgy kept and dropped, and adjust it yourself before it renders.
-            <span style={{display:"block",color:B.mid,fontSize:12,marginTop:4}}>
-              Off by default — Chelgy just makes the cut. Turn this on when you want the final say.
+            <strong>Review the cut before rendering</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+              See every part Chelgy kept and dropped and adjust it word by word. Off by default — turn this on when you want the final say.
             </span>
           </span>
         </label>
-      </div>
 
-      {canTransition && (
-        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
-          <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
+        {canTransition && (
+          <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
             <input type="checkbox" checked={useTransitions} disabled={busy}
-              onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:3}} />
+              onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:2}} />
             <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
-              <strong>AI transitions</strong> — at a real scene change, generate a short
-              cinematic shot that carries you from one place to the next.
-              <span style={{display:"block",color:B.mid,fontSize:12,marginTop:4}}>
-                {CREDIT_COSTS.editorTransition.toLocaleString()} credits each. Up to {transitionCap} on
-                a long video, 2 on a short one — and only where there's a genuine scene
-                change, so you may get fewer. You're only charged for the ones made.
+              <strong>AI transitions</strong>
+              <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+                At a real scene change, generate a short cinematic shot that carries you from one place to the next. {CREDIT_COSTS.editorTransition.toLocaleString()} credits each, up to {transitionCap} on a long video and 2 on a short one. You're only charged for the ones made.
               </span>
             </span>
           </label>
-        </div>
-      )}
+        )}
 
-      <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>On-screen text</p>
-        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:8}}>
-          <input type="checkbox" checked={showCaptions} disabled={busy} onChange={e=>setShowCaptions(e.target.checked)} style={{marginTop:3}} />
-          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.charcoal,lineHeight:1.5}}><strong>Captions</strong> — the word-by-word subtitles from what you say.</span>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+          <input type="checkbox" checked={showCaptions} disabled={busy} onChange={e=>setShowCaptions(e.target.checked)} style={{marginTop:2}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>Captions</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>The word-by-word subtitles from what you say.</span>
+          </span>
         </label>
-        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
-          <input type="checkbox" checked={showTitles} disabled={busy} onChange={e=>setShowTitles(e.target.checked)} style={{marginTop:3}} />
-          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.charcoal,lineHeight:1.5}}><strong>Title &amp; cards</strong> — the opening title, scene cards{style==="showcase"?" and product labels":""}.</span>
+
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+          <input type="checkbox" checked={showTitles} disabled={busy} onChange={e=>setShowTitles(e.target.checked)} style={{marginTop:2}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>Title &amp; cards</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+              The opening title, scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut, grade{music!=="off"?", music":""} and b-roll are unaffected.
+            </span>
+          </span>
         </label>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"8px 0 0"}}>Turn either off when your footage speaks for itself. The cut, grade{music!=="off"?", music":""} and b-roll are unaffected.</p>
+
       </div>
 
       {(style==="cinematic"||style==="vlog") && (
