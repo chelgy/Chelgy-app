@@ -4507,85 +4507,133 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
 // Deepgram transcript → Gemini edit plan → Creatomate render.
 // ============================================================================
 function EditReview({ review, onCancel, onRender }){
-  const words = (review && review.ctx && review.ctx.globalWords) || [];
+  const words    = (review && review.ctx && review.ctx.globalWords) || [];
   const planKeep = (review && review.keep) || [];
 
-  // Build the block list ONCE from the planner's keeps. Each block owns a slice of
-  // the timeline and the words inside it; `on` is whether it's currently in the cut.
+  // Word-level tokens. Every spoken word is its own toggle so the cut can be
+  // adjusted a word at a time. A kept stretch that holds no speech — b-roll,
+  // action, a silent showcase beat — becomes ONE token, because there are no
+  // words in it to tap and it would otherwise be silently lost.
   const initial = useMemo(() => {
-    const ranges = planKeep.map(k => ({ s: Number(k.s)||0, e: Number(k.e)||0 })).sort((a,b)=>a.s-b.s);
-    const blocks = [];
-    let cursor = 0;
-    const wordsIn = (s, e) => words.filter(w => w.s >= s - 0.05 && w.s < e + 0.05).map(w => w.w).join(" ").trim();
+    const ranges = planKeep
+      .map(k => ({ s: Number(k.s)||0, e: Number(k.e)||0 }))
+      .filter(r => r.e > r.s)
+      .sort((a,b)=>a.s-b.s);
+    const inKeep = (t) => ranges.some(r => t >= r.s - 0.05 && t < r.e + 0.05);
+
+    const ws = words
+      .filter(w => Number.isFinite(Number(w.s)))
+      .map(w => { const s = Number(w.s)||0; return { s, e: Number(w.e) > s ? Number(w.e) : s + 0.32, text: String(w.w||"") }; })
+      .sort((a,b)=>a.s-b.s);
+
+    const toks = ws.map(w => ({ kind:"word", s:w.s, e:w.e, text:w.text, on: inKeep(w.s) }));
+
+    // Kept ranges with no words inside them survive as single blocks.
     for (const r of ranges) {
-      if (r.s > cursor + 0.4) {
-        const txt = wordsIn(cursor, r.s);
-        // Only surface a dropped gap that actually held words — a silent gap has
-        // nothing to show and nothing to restore.
-        if (txt) blocks.push({ s: cursor, e: r.s, on: false, text: txt });
-      }
-      blocks.push({ s: r.s, e: r.e, on: true, text: wordsIn(r.s, r.e) || "(no speech — kept for the footage)" });
-      cursor = Math.max(cursor, r.e);
+      const hasWords = ws.some(w => w.s >= r.s - 0.05 && w.s < r.e + 0.05);
+      if (!hasWords && r.e - r.s > 0.2) toks.push({ kind:"silent", s:r.s, e:r.e, text:"◼ footage, no speech", on:true });
     }
-    // A trailing dropped tail after the last keep.
-    const tail = wordsIn(cursor, 1e9);
-    if (tail) blocks.push({ s: cursor, e: cursor + 9999, on: false, text: tail });
-    return blocks;
+    toks.sort((a,b)=>a.s-b.s);
+    return toks;
   }, [review]);
 
-  const [blocks, setBlocks] = useState(initial);
-  const toggle = (i) => setBlocks(bs => bs.map((b,j) => j===i ? { ...b, on: !b.on } : b));
+  const [toks, setToks] = useState(initial);
+  // A new review must reset the tokens — useState alone would keep the old ones.
+  useEffect(()=>{ setToks(initial); }, [initial]);
 
-  const keptCount = blocks.filter(b => b.on).length;
-  const keptSecs = Math.round(blocks.filter(b=>b.on).reduce((t,b)=>t + Math.max(0,(b.e===b.s?0:Math.min(b.e,b.s+600)-b.s)),0));
+  // Tap toggles one word; dragging across words paints the same state, so cutting
+  // a whole sentence is one gesture instead of twenty taps.
+  const paint = useRef(null);
+  const setOn = (i, val) => setToks(ts => ts.map((t,j)=> j===i ? { ...t, on: val } : t));
+  const down  = (i) => { const v = !toks[i].on; paint.current = v; setOn(i, v); };
+  const over  = (i) => { if (paint.current !== null) setOn(i, paint.current); };
+  const up    = () => { paint.current = null; };
+
+  const keptWords = toks.filter(t => t.on && t.kind==="word").length;
+  const totalWords = toks.filter(t => t.kind==="word").length;
+  const keptSecs = Math.round(toks.filter(t=>t.on).reduce((a,t)=>a + Math.max(0, t.e - t.s), 0));
+
+  const setAll = (val) => setToks(ts => ts.map(t => ({ ...t, on: val })));
 
   const render = () => {
-    // Merge adjacent kept blocks back into clean keep-ranges. Adjacent kept blocks
-    // (a kept block whose neighbour is also kept) become one continuous range, which
-    // is exactly what the planner would have produced.
-    const kept = blocks.filter(b => b.on).map(b => ({ s: b.s, e: b.e })).sort((a,b)=>a.s-b.s);
+    const kept = toks.filter(t=>t.on).slice().sort((a,b)=>a.s-b.s);
+    if (!kept.length) return;
+    // Consecutive kept tokens become one continuous range. The gap threshold is
+    // wider than the pause between words in a sentence but narrower than a real cut.
     const merged = [];
-    for (const r of kept) {
+    for (const t of kept) {
       const last = merged[merged.length-1];
-      if (last && r.s - last.e < 0.25) last.e = Math.max(last.e, r.e);
-      else merged.push({ ...r });
+      if (last && t.s - last.e < 0.28) last.e = Math.max(last.e, t.e);
+      else merged.push({ s: t.s, e: t.e });
     }
-    if (!merged.length) return;
-    onRender(merged);
+    // A breath either side so words aren't clipped mid-syllable, then re-merge in
+    // case the padding closed a gap.
+    const padded = [];
+    for (const r of merged.map(r => ({ s: Math.max(0, r.s - 0.08), e: r.e + 0.12 }))) {
+      const last = padded[padded.length-1];
+      if (last && r.s - last.e < 0.05) last.e = Math.max(last.e, r.e);
+      else padded.push(r);
+    }
+    if (!padded.length) return;
+    onRender(padded);
   };
 
+  const J = "Jost,Helvetica,Arial,sans-serif";
+  const GREEN = "#4a9d5f";
+
   return (
-    <div style={{marginTop:18,border:"1px solid "+B.charcoal,background:B.white}}>
+    <div style={{marginTop:18,border:"1px solid "+B.charcoal,background:B.white}} onPointerUp={up} onPointerLeave={up}>
       <div style={{padding:"14px 16px",borderBottom:"1px solid "+B.stone,background:B.offwhite}}>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut</p>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:0}}>
-          Green is in your video. Struck-through is cut. Tap any part to flip it — restore a bit you want back, or drop a bit you don't. Nothing renders until you're happy.
+        <p style={{fontFamily:J,fontSize:13,fontWeight:700,color:B.charcoal,margin:"0 0 4px"}}>Review your cut — word by word</p>
+        <p style={{fontFamily:J,fontSize:12,color:B.mid,lineHeight:1.6,margin:0}}>
+          Underlined words are in your video. Struck-through words are cut. Tap any word to flip it, or press and drag across a run of words to cut a whole sentence at once.
         </p>
       </div>
-      <div style={{maxHeight:360,overflowY:"auto",padding:"8px 0"}}>
-        {blocks.map((b,i)=>(
-          <div key={i} onClick={()=>toggle(i)} style={{
-            padding:"9px 16px", cursor:"pointer", display:"flex", gap:10, alignItems:"flex-start",
-            borderLeft:"3px solid "+(b.on?"#1a7f37":"transparent"),
-            background:b.on?"#f2fbf4":"#fafafa"
-          }}>
-            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase",color:b.on?"#1a7f37":B.mid,marginTop:2,minWidth:52}}>
-              {b.on?"● Kept":"○ Cut"}
-            </span>
-            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.5,color:b.on?B.charcoal:B.mid,textDecoration:b.on?"none":"line-through",flex:1}}>
-              {b.text}
-            </span>
-          </div>
-        ))}
+
+      <div style={{padding:"10px 16px",borderBottom:"1px solid "+B.stone,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <button onClick={()=>setAll(true)} style={{fontFamily:J,fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"6px 12px",cursor:"pointer"}}>Keep everything</button>
+        <button onClick={()=>setAll(false)} style={{fontFamily:J,fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"6px 12px",cursor:"pointer"}}>Cut everything</button>
+        <button onClick={()=>setToks(initial)} style={{fontFamily:J,fontSize:10,letterSpacing:"0.08em",fontWeight:700,textTransform:"uppercase",color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"6px 12px",cursor:"pointer"}}>Reset to Chelgy's cut</button>
       </div>
+
+      <div style={{maxHeight:360,overflowY:"auto",padding:"14px 16px",lineHeight:2.1,userSelect:"none",WebkitUserSelect:"none"}}>
+        {toks.map((t,i)=>(
+          t.kind==="silent" ? (
+            <span key={i}
+              onPointerDown={()=>down(i)} onPointerEnter={()=>over(i)}
+              style={{display:"inline-block",margin:"0 5px 6px 0",padding:"2px 8px",cursor:"pointer",
+                fontFamily:J,fontSize:11,letterSpacing:"0.04em",
+                border:"1px solid "+(t.on?GREEN:B.stone),
+                color:t.on?B.charcoal:B.mid,
+                opacity:t.on?1:0.55,
+                textDecoration:t.on?"none":"line-through"}}>
+              {t.text}
+            </span>
+          ) : (
+            <span key={i}
+              onPointerDown={()=>down(i)} onPointerEnter={()=>over(i)}
+              style={{cursor:"pointer",marginRight:6,fontFamily:J,fontSize:14,
+                color:t.on?B.charcoal:B.mid,
+                opacity:t.on?1:0.5,
+                borderBottom:t.on?("2px solid "+GREEN):"2px solid transparent",
+                textDecoration:t.on?"none":"line-through"}}>
+              {t.text}
+            </span>
+          )
+        ))}
+        {!toks.length && (
+          <p style={{fontFamily:J,fontSize:13,color:B.mid,margin:0}}>No transcript came back for this footage, so there's nothing to adjust. Close this and render, or try again.</p>
+        )}
+      </div>
+
       <div style={{padding:"14px 16px",borderTop:"1px solid "+B.stone,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-        <button onClick={render} disabled={!keptCount} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.inkText,background:B.inkBlock,border:"1px solid "+B.inkBlock,padding:"11px 20px",cursor:keptCount?"pointer":"default",opacity:keptCount?1:0.5}}>
+        <button onClick={render} disabled={!toks.some(t=>t.on)} style={{fontFamily:J,fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.inkText,background:B.inkBlock,border:"1px solid "+B.inkBlock,padding:"11px 20px",cursor:toks.some(t=>t.on)?"pointer":"default",opacity:toks.some(t=>t.on)?1:0.5}}>
           RENDER THIS CUT
         </button>
-        <button onClick={onCancel} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"11px 20px",cursor:"pointer"}}>
+        <button onClick={onCancel} style={{fontFamily:J,fontSize:12,letterSpacing:"0.08em",fontWeight:700,color:B.charcoal,background:"none",border:"1px solid "+B.stone,padding:"11px 20px",cursor:"pointer"}}>
           START OVER
         </button>
-        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>{keptCount} section{keptCount===1?"":"s"} kept</span>
+        <span style={{fontFamily:J,fontSize:11,color:B.mid}}>{keptWords} of {totalWords} words kept · about {keptSecs}s</span>
       </div>
     </div>
   );
