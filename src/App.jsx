@@ -12723,18 +12723,29 @@ function giftImagePrompt(key, ctx){
 
 const NAV_TABS = ["home","learn","tools","community","profile"];
 const NAV_DEFAULT_SUB = { home:"feed", learn:"strategies", tools:"hub", community:"forum", profile:"overview" };
+// Which tab "/" resolves to. The member app opens on Tools — it is the homepage.
+// The team and marketer portals keep their own dashboard as the landing page, so
+// "/" still means "home" on those hosts. Read from the hostname so this resolves
+// synchronously at first render, before any profile has loaded.
+function navHomeTab(){
+  try{
+    const h = (window.location.hostname||"").toLowerCase();
+    return (h.startsWith("team.") || h.startsWith("marketer.")) ? "home" : "tools";
+  }catch(e){ return "tools"; }
+}
 // Read the current tab + sub-view from the URL path (e.g. "/tools/website" → {tab:"tools", sub:"website"})
 function parseNavPath(){
   try{
     const segs = window.location.pathname.replace(/^\/+|\/+$/g,"").split("/");
-    const tab = NAV_TABS.includes((segs[0]||"").toLowerCase()) ? (segs[0]||"").toLowerCase() : "home";
+    const tab = NAV_TABS.includes((segs[0]||"").toLowerCase()) ? (segs[0]||"").toLowerCase() : navHomeTab();
     const sub = (segs[1]||"").toLowerCase() || NAV_DEFAULT_SUB[tab] || "feed";
     return { tab, sub };
-  }catch(e){ return { tab:"home", sub:"feed" }; }
+  }catch(e){ return { tab:"tools", sub:"hub" }; }
 }
 // Build the URL path for a tab + sub-view (default sub-views are omitted for clean URLs)
 function buildNavPath(tab, sub){
-  if(tab==="home" && (!sub || sub==="feed")) return "/";
+  const landing = navHomeTab();
+  if(tab===landing && (!sub || sub===NAV_DEFAULT_SUB[landing])) return "/";
   const d = NAV_DEFAULT_SUB[tab];
   return "/"+tab+((sub && sub!==d) ? "/"+sub : "");
 }
@@ -15593,9 +15604,9 @@ export default function ChelgyApp() {
   const navRefs = useRef({});
   const TOUR_STEPS = [
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
-    { target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." },
+    ...((isTeamSpace||isMarketerSpace) ? [{ target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." }] : []),
+    { target: "tools", title: "Tools", body: "This is your home base. Your AI toolkit to build your entire business and automate your marketing — publish a whole website with the Website Builder, hand raw footage to the AI Video Editor and get back a finished cut, and generate photos, ads, logos and social content on demand." },
     { target: "learn", title: "Learn", body: "Marketing strategies and The Chelgy Edit blog. Tap any strategy for a step-by-step deep dive." },
-    { target: "tools", title: "Tools", body: "Your AI toolkit to build your entire business and automate your marketing — publish a whole website with the Website Builder, launch your entire business with the Business Builder, plus create images, flyers, videos, ads, content, voiceovers, and more." },
     { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
     { target: "profile", title: "Profile", body: "Your stats, settings, the Need Help form, and a button to replay this tour anytime." },
     { target: null, chooser: true, title: "Where would you like to start?", body: "Pick one and I'll take you straight there — you can always explore the rest whenever you like." },
@@ -16181,8 +16192,8 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   // Sub-tabs per bottom tab
   const subTabs = {
-    home: [["feed","Feed"],["newsletter","Newsletter"]],
-    learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"]],
+    home: [["feed","Feed"]],
+    learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"],["newsletter","Newsletter"]],
     tools: [["hub","All Tools"],["library","My Library"], ...CATS.map(c=>[c.id, c.title])],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
@@ -18638,7 +18649,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── HEADER ── */}
       <header style={{background:B.white,borderBottom:"1px solid "+B.stone,flexShrink:0,zIndex:300,paddingTop:"env(safe-area-inset-top, 0px)"}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div onClick={()=>goTab("home")} style={{cursor:"pointer"}}>
+          <div onClick={()=>goTab(navHomeTab())} style={{cursor:"pointer"}}>
             <img src={LOGO_B64} alt="Chelgy" onClick={handleLogoTap} onTouchEnd={handleLogoTap} style={{height:26,objectFit:"contain",cursor:"pointer",WebkitTapHighlightColor:"transparent",filter:dark?"invert(1)":"none"}} />
           {logoTaps>0&&logoTaps<5&&<div style={{position:"absolute",top:56,left:20,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:B.gold,letterSpacing:"0.1em",opacity:0.6}}>{5-logoTaps} more</div>}
           </div>
@@ -18924,7 +18935,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             </div>
           )}
 
-          {tab==="home"&&subTab==="newsletter"&&!(isTeamSpace&&marketerStatus==="approved")&&(
+          {tab==="learn"&&subTab==="newsletter"&&(
             <div style={{paddingTop:28,maxWidth:520}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontSize:22,fontWeight:400,margin:"0 0 6px"}}>Stay in the loop</h2>
@@ -19794,9 +19805,11 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── BOTTOM NAV ── */}
       <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,boxSizing:"content-box",paddingBottom:"env(safe-area-inset-bottom,0px)",background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1400,margin:"0 auto",height:BOT_H,display:"flex"}}>
         {[
-          {id:"home",label:"HOME",Icon:Icons.Home},
-          {id:"learn",label:"LEARN",Icon:Icons.Learn},
+          // HOME only exists on the team / marketer portals, where it is their
+          // dashboard. In the member app Tools IS the homepage and sits first.
+          ...((isTeamSpace||isMarketerSpace) ? [{id:"home",label:"HOME",Icon:Icons.Home}] : []),
           {id:"tools",label:"TOOLS",Icon:Icons.Tools},
+          {id:"learn",label:"LEARN",Icon:Icons.Learn},
           {id:"community",label:"COMMUNITY",Icon:Icons.Community},
           {id:"profile",label:"PROFILE",Icon:Icons.Profile},
         ].map(({id,label,Icon})=>(
