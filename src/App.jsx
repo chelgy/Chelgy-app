@@ -3022,7 +3022,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
   .cgHdr .sub{ font-family:'Jost',Helvetica,Arial,sans-serif; font-size:12.5px; line-height:1.42; color:var(--white); opacity:.82;
     letter-spacing:.012em; max-width:60%; margin-top:8px; opacity:0; transform:translateY(9px); }
   .cgHdr .feats{ list-style:none; margin-top:9px; display:flex; flex-direction:column; gap:5px; }
-  .cgHdr .feats li{ font-family:var(--disp); font-size:12px; letter-spacing:.012em; color:var(--white); opacity:.82;
+  .cgHdr .feats li{ font-family:'Jost',Helvetica,Arial,sans-serif; font-size:12px; letter-spacing:.012em; color:var(--white); opacity:.82;
     display:flex; gap:8px; align-items:baseline; opacity:0; transform:translateY(8px); }
   .cgHdr .feats li::before{ content:""; width:4px; height:4px; flex:none; border:1px solid var(--dim); transform:translateY(-1px); }
   .cgHdr .active .eyebrow{ animation:cgHRise 1.1s .2s forwards; }
@@ -3058,7 +3058,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
   .cgHdr .active .grid .r:nth-child(2){ animation-delay:.88s; }
   .cgHdr .active .grid .r:nth-child(3){ animation-delay:1.04s; }
   .cgHdr .grid .r .k{ font-family:var(--disp); font-size:14px; text-transform:uppercase; color:var(--bone); flex:none; width:34%; letter-spacing:.02em; }
-  .cgHdr .grid .r .v{ font-family:var(--disp); font-size:10.5px; line-height:1.34; color:var(--bone); opacity:.88; }
+  .cgHdr .grid .r .v{ font-family:'Jost',Helvetica,Arial,sans-serif; font-size:10.5px; line-height:1.34; color:var(--bone); opacity:.88; }
   .cgHdr .cta{ position:absolute; left:20px; bottom:20px; z-index:40; font-size:8px; font-weight:700;
     letter-spacing:.22em; text-transform:uppercase; color:${B.gold}; opacity:0; animation:cgHRise 1s 1.3s forwards; }
   .cgHdr .dots{ position:absolute; top:10px; right:clamp(14px,3vw,52px); z-index:40; display:flex; gap:3px; }
@@ -14991,7 +14991,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .display .it{ text-transform:none; font-style:italic; }
   .cgOnb .sub{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:400; font-size:18px; line-height:1.5; color:var(--white); opacity:.82; letter-spacing:.015em; max-width:90%; margin-top:18px; opacity:0; transform:translateY(14px); }
   .cgOnb .feats{ list-style:none; margin-top:22px; display:flex; flex-direction:column; gap:11px; }
-  .cgOnb .feats li{ font-family:var(--disp); font-weight:400; font-size:17px; letter-spacing:.015em; color:var(--white); opacity:.82; display:flex; gap:12px; align-items:baseline; opacity:0; transform:translateY(12px); }
+  .cgOnb .feats li{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:400; font-size:17px; letter-spacing:.015em; color:var(--white); opacity:.82; display:flex; gap:12px; align-items:baseline; opacity:0; transform:translateY(12px); }
   .cgOnb .feats li::before{ content:""; width:5px; height:5px; flex:none; border:1px solid var(--dim); transform:translateY(-1px); }
   .cgOnb .content{ position:relative; z-index:20; margin-top:auto; padding:0 30px 128px; }
   .cgOnb .content.mid{ margin:auto 0; }
@@ -15029,7 +15029,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .active .growth .grid .r:nth-child(2){ animation-delay:.74s; }
   .cgOnb .active .growth .grid .r:nth-child(3){ animation-delay:.88s; }
   .cgOnb .growth .grid .r .k{ font-family:var(--disp); font-size:22px; text-transform:uppercase; color:var(--bone); flex:none; width:38%; letter-spacing:.02em; }
-  .cgOnb .growth .grid .r .v{ font-family:var(--disp); font-weight:400; font-size:16px; line-height:1.45; color:var(--bone); opacity:.9; }
+  .cgOnb .growth .grid .r .v{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:400; font-size:16px; line-height:1.45; color:var(--bone); opacity:.9; }
   .cgOnb .tapzone{ position:absolute; top:58px; bottom:108px; width:38%; z-index:30; }
   .cgOnb .tapzone.l{ left:0; } .cgOnb .tapzone.r{ right:0; }
   .cgOnb #foot{ position:absolute; left:0; right:0; bottom:0; z-index:55; padding:0 26px 34px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
