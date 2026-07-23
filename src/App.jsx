@@ -2893,6 +2893,27 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
     </div>
   );
 }
+// ── CINEMATIC GRADE (LUT) THUMBNAILS ─────────────────────────────────────────
+// One admin-uploadable sample frame per look, so members can SEE the grade
+// instead of reading a description. Keyed by the grade's wire id, which never
+// changes, so renaming a look in the picker never orphans its thumbnail.
+const LUT_SLOTS = [
+  ["wolf",     "Golden Hour"],
+  ["luxury",   "Clean Luxury"],
+  ["kodak6",   "Sunlit Film"],
+  ["kodak7",   "Soft Daylight"],
+  ["movie3",   "Modern Cinema"],
+  ["movie5",   "Amber Dusk"],
+  ["screen2",  "High Key"],
+  ["screen3",  "Editorial"],
+  ["timeless", "Timeless"],
+];
+function lutThumb(media, id){
+  const e = media && media[id];
+  const u = (typeof e === "string" ? e : (e && e.full) || "").trim();
+  return u || "";
+}
+
 // ── HEADER IMAGE SLOTS ────────────────────────────────────────────────────────
 // The header tour crops wide; the onboarding crops tall. Same photo rarely suits
 // both, so the header gets its own overridable slot per image.
@@ -4550,9 +4571,20 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"process",     label:"Process",      note:"Cooking, cleaning, building, GRWM — anything where the doing is the point. Reads the footage itself to find where something is happening, so the silent working shots survive instead of being cut as dead air.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts, scene cards, and AI-generated cinematic b-roll that cuts in when you reference something. Wolf 2383 by default.", ready:true },
   ];
+  // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
+  // referenced by the style auto-select below — it must never change. `label` is
+  // the customer-facing name and can be renamed freely.
+  // Notes describe what each LUT measurably does to the picture.
   const GRADES = [
-    { id:"wolf",   label:"Wolf 2383",   note:"Warm golden Hollywood-film look — glossy and rich." },
-    { id:"luxury", label:"Luxury Vlog", note:"Bright, creamy and airy — the clean luxury look." },
+    { id:"wolf",     label:"Golden Hour",   note:"Warm golden Hollywood-film look — glossy and rich." },
+    { id:"luxury",   label:"Clean Luxury",  note:"Bright, creamy and airy — the clean luxury look." },
+    { id:"kodak6",   label:"Sunlit Film",   note:"Warm film stock — golden skin, cooler blues pulled back. Sunlit without looking orange." },
+    { id:"kodak7",   label:"Soft Daylight", note:"Opens the whole picture up — brighter, softer and airy. Best on darker footage." },
+    { id:"movie3",   label:"Modern Cinema", note:"Punchy feature-film contrast with a cool green cast. Crisp and current." },
+    { id:"movie5",   label:"Amber Dusk",    note:"Deep amber warmth, slightly darker and softer. Moody, late-afternoon feel." },
+    { id:"screen2",  label:"High Key",      note:"The boldest look — lifts and sharpens everything. Bright, high-contrast, scroll-stopping." },
+    { id:"screen3",  label:"Editorial",     note:"Cool teal shadows with real contrast. Fashion-editorial, high-end." },
+    { id:"timeless", label:"Timeless",      note:"Reds eased back for a cool, muted, understated finish. Quiet and expensive." },
   ];
   // What the footage was SHOT IN — decides which colour-space conversion runs
   // before the film look. Log footage MUST be converted or the grade is wrong.
@@ -5145,9 +5177,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       {footage!=="none" && (<>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Cinematic grade</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        {GRADES.map(g=>(
-          <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:"9px 16px",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.inkBlock:B.white,color:grade===g.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,cursor:"pointer"}}>{g.label}</button>
-        ))}
+        {GRADES.map(g=>{ const th=lutThumb(lutMedia,g.id); return (
+          <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} style={{padding:0,width:th?132:"auto",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.inkBlock:B.white,color:grade===g.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",overflow:"hidden",textAlign:"left"}}>
+            {th && <div style={{lineHeight:0,background:"#000"}}><img src={th} alt="" style={{width:"100%",height:80,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} /></div>}
+            <div style={{padding:"9px 14px",fontSize:12,fontWeight:700,letterSpacing:"0.04em"}}>{g.label}</div>
+          </button>
+        ); })}
       </div>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"-8px 0 16px"}}>{GRADES.find(g=>g.id===grade).note}</p>
       </>)}
@@ -7770,6 +7805,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [onbMediaSaved, setOnbMediaSaved] = useState(false);
   const [hdrMediaForm, setHdrMediaForm] = useState({});
   const [hdrMediaSaved, setHdrMediaSaved] = useState(false);
+  const [lutMediaForm, setLutMediaForm] = useState({});
+  const [lutMediaSaved, setLutMediaSaved] = useState(false);
   const [marketerApps, setMarketerApps] = useState([]);
   const [marketerLoading, setMarketerLoading] = useState(false);
   const [marketerErr, setMarketerErr] = useState("");
@@ -7882,7 +7919,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } if(s&&s.lut_media){ try{ const raw=typeof s.lut_media==="string"?JSON.parse(s.lut_media):s.lut_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setLutMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -7930,6 +7967,17 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const clean={}; Object.keys(hdrMediaForm||{}).forEach(k=>{ const full=((hdrMediaForm[k]||{}).full||"").trim(); if(full) clean[k]={full}; });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"header_media",value:JSON.stringify(clean)})});
       setHdrMediaSaved(true); setTimeout(()=>setHdrMediaSaved(false),2500);
+    }catch(e){}
+    setDbLoading(false);
+  }
+  async function saveLutMedia(){
+    setDbLoading(true);
+    try{
+      const tok=await freshToken();
+      const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
+      const clean={}; Object.keys(lutMediaForm||{}).forEach(k=>{ const full=((lutMediaForm[k]||{}).full||"").trim(); if(full) clean[k]={full}; });
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"lut_media",value:JSON.stringify(clean)})});
+      setLutMediaSaved(true); setTimeout(()=>setLutMediaSaved(false),2500);
     }catch(e){}
     setDbLoading(false);
   }
@@ -8821,6 +8869,28 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 ))}
               </div>
               <button onClick={saveOnbMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{onbMediaSaved?"Saved ✓":"Save Onboarding Images"}</button>
+            </div>
+            <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Cinematic Grade Thumbnails</div>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>A sample frame for each look in the AI Video Editor, so members can <strong>see</strong> the grade instead of reading a description. Best approach: run one clip through every look and screenshot the same frame from each — then the thumbnails are a true comparison. Any slot left blank simply shows no picture; the look still works. After you Save, hard-refresh.</p>
+              <div style={{maxHeight:420,overflowY:"auto",marginBottom:16,paddingRight:4}}>
+                {LUT_SLOTS.map(([k,label])=>{
+                  const cur=((lutMediaForm[k]||{}).full||"").trim();
+                  return (
+                  <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
+                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,marginBottom:6}}>
+                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal}}>{label}</div>
+                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",color:"#B0B0B0",flexShrink:0}}>id: {k}</div>
+                    </div>
+                    <MediaUploadButton folder="luts" name={k} accept="image/*" onDone={(u)=>setLutMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
+                    <input value={cur} onChange={e=>setLutMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                    {cur && <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,width:150,height:94,overflow:"hidden"}}>
+                      <img src={cur} alt="" style={{width:"100%",height:94,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} />
+                    </div>}
+                  </div>
+                ); })}
+              </div>
+              <button onClick={saveLutMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{lutMediaSaved?"Saved ✓":"Save Grade Thumbnails"}</button>
             </div>
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Header Slideshow Images</div>
@@ -14843,6 +14913,7 @@ export default function ChelgyApp() {
   // reintroduce the temporal-dead-zone crash that once black-screened the app.
   const [onbMedia, setOnbMedia] = useState({});
   const [hdrMedia, setHdrMedia] = useState({});
+  const [lutMedia, setLutMedia] = useState({});
   const [showTour, setShowTour] = useState(false);
   // Record that this person has seen the tour: instantly on the device, and on the
   // account when there's a session to write to. Called from BOTH exits — finishing
@@ -15504,7 +15575,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [toolMedia, setToolMedia] = useState({});
   const [pageMedia, setPageMedia] = useState({});
   const [catOrder, setCatOrder] = useState("");
-  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } if(s&&s.onboarding_media){ try{ setOnbMedia(typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media); }catch(e){} } if(s&&s.header_media){ try{ setHdrMedia(typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } if(s&&s.onboarding_media){ try{ setOnbMedia(typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media); }catch(e){} } if(s&&s.header_media){ try{ setHdrMedia(typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media); }catch(e){} } if(s&&s.lut_media){ try{ setLutMedia(typeof s.lut_media==="string"?JSON.parse(s.lut_media):s.lut_media); }catch(e){} } }); },[]);
   const CATS = orderedCategories(catOrder);   // admin-editable order
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
