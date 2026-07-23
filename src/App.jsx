@@ -5356,14 +5356,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </div>
 
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
         {STYLES.map(s=>(
-          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{textAlign:"left",padding:"10px 14px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55}}>
-            <span style={{fontSize:12,fontWeight:700}}>{s.label}{!s.ready && "  · coming soon"}</span>
-            <span style={{display:"block",fontSize:11,opacity:0.8,marginTop:2}}>{s.note}</span>
+          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{padding:"9px 16px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,fontWeight:700,cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55,whiteSpace:"nowrap"}}>
+            {s.label}{!s.ready && " · soon"}
           </button>
         ))}
       </div>
+      {(()=>{ const sel = STYLES.find(s=>s.id===style); return sel ? (
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>{sel.note}</p>
+      ) : null; })()}
 
       {mode==="edit" && (<>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Direct your edit <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
