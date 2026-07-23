@@ -2797,11 +2797,10 @@ const isVideoUrl = (u) => /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u||"");
 // Motion rules: slow crossfade only (no sliding), continuous loop, and it stops
 // entirely for anyone whose OS asks for reduced motion or when the tab is hidden
 // or something is open on top of it.
-function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=6500 }){
+function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000 }){
   const [i, setI] = useState(0);
   const [reduce, setReduce] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [hover, setHover] = useState(false);
   const startX = useRef(0);
   const n = slides.length;
 
@@ -2821,7 +2820,8 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=6500 
     return ()=>{ try{ document.removeEventListener("visibilitychange",h); }catch(_){ } };
   },[]);
 
-  const still = paused || hidden || reduce || hover || n < 2;
+  // Not paused on hover — full-width means the cursor sits on it constantly.
+  const still = paused || hidden || reduce || n < 2;
   useEffect(()=>{
     if(still) return;
     const t = setTimeout(()=>setI(x=>(x+1)%n), hold);
@@ -2842,14 +2842,13 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=6500 
 
   return (
     <div
-      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
       onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-      style={{position:"relative",marginBottom:22,border:"1px solid "+B.stone,background:"#000",height,overflow:"hidden",lineHeight:0}}>
+      style={{position:"relative",marginBottom:22,borderBottom:"1px solid "+B.stone,background:"#000",height,overflow:"hidden",lineHeight:0}}>
 
       {slides.map((s,idx)=>(
         <div key={idx} aria-hidden={idx!==i}
           style={{position:"absolute",inset:0,opacity:idx===i?1:0,
-                  transition:reduce?"none":"opacity 1.1s cubic-bezier(.4,0,.2,1)"}}>
+                  transition:reduce?"none":"opacity 1.5s cubic-bezier(.4,0,.2,1)"}}>
           {isVideoUrl(s.full)
             ? <video src={s.full} muted playsInline autoPlay loop
                 style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:focusPos(s.focus),display:"block"}} />
@@ -2882,10 +2881,12 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=6500 
       {n > 1 && (
         <div style={{position:"absolute",top:14,right:16,zIndex:4,display:"flex",gap:5}}>
           {slides.map((_,idx)=>(
-            <button key={idx} onClick={()=>setI(idx)} aria-label={"Slide "+(idx+1)}
-              style={{width:idx===i?18:6,height:3,padding:0,border:"none",cursor:"pointer",
+            <button key={idx} onClick={(e)=>{ e.stopPropagation(); setI(idx); }} aria-label={"Slide "+(idx+1)+" of "+n}
+              style={{width:22,height:18,padding:0,border:"none",background:"none",cursor:"pointer"}}>
+              <span style={{display:"block",width:"100%",height:3,marginTop:7,
                 background:idx===i?"rgba(239,233,223,.95)":"rgba(239,233,223,.34)",
-                transition:reduce?"none":"width .5s ease, background .5s ease"}} />
+                transition:reduce?"none":"background .5s ease"}} />
+            </button>
           ))}
         </div>
       )}
@@ -2909,11 +2910,10 @@ const HEADER_PANELS = [
   { key:"growth",  go:"tools:cat_seo" },
   { key:"ads",     go:"tools:cat_ads" },
 ];
-function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=330 }){
+function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=12000, height=330 }){
   const [i, setI] = useState(0);
   const [reduce, setReduce] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [hover, setHover] = useState(false);
   const startX = useRef(0);
   const n = HEADER_PANELS.length;
   const src = (k) => onboardingSrc(media, k, baseUrl);
@@ -2932,7 +2932,9 @@ function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=3
     try{ document.addEventListener("visibilitychange",h); }catch(_){ }
     return ()=>{ try{ document.removeEventListener("visibilitychange",h); }catch(_){ } };
   },[]);
-  const still = paused || hidden || reduce || hover;
+  // NOTE: deliberately NOT paused on hover. On desktop the banner is full-width,
+  // so the cursor rests over it constantly and hover-pause made it look frozen.
+  const still = paused || hidden || reduce;
   useEffect(()=>{
     if(still) return;
     const t=setTimeout(()=>setI(x=>(x+1)%n), hold);
@@ -2945,20 +2947,22 @@ function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=3
     const dx=e.changedTouches[0].clientX-startX.current;
     if(Math.abs(dx)>45) setI(x=>(x+(dx<0?1:n-1))%n);
   };
+  // Jumping via the dots must not also fire the panel's navigate-on-tap.
+  const jump=(e,k)=>{ e.stopPropagation(); setI(k); };
   const open=()=>{ const g=HEADER_PANELS[i].go; if(g&&onGo){ const p=String(g).split(":"); onGo(p[0], p[1]||undefined); } };
 
   const CSS = `
-  .cgHdr{ position:relative; height:${height}px; overflow:hidden; background:#0a0705; color:#efe9df;
-    font-family:'Jost',sans-serif; border:1px solid ${B.stone}; margin-bottom:22px; cursor:pointer;
+  .cgHdr{ position:relative; height:clamp(300px, 24vw, 430px); overflow:hidden; background:#0a0705; color:#efe9df;
+    font-family:'Jost',sans-serif; border-bottom:1px solid ${B.stone}; margin-bottom:22px; cursor:pointer;
     --ink:#0a0705; --bone:#efe9df; --white:#fff; --dim:#8f867b; --line:rgba(239,233,223,.14); --disp:'Caveline',serif; }
   .cgHdr *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   .cgHdr .display,.cgHdr .sub,.cgHdr .feats li,.cgHdr .lead,.cgHdr .grid .r .k,
   .cgHdr .grid .r .v,.cgHdr .eyebrow .num{ font-feature-settings:"salt" 1,"liga" 1; -webkit-font-feature-settings:"salt" 1,"liga" 1; }
-  .cgHdr .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .9s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+  .cgHdr .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity 1.5s cubic-bezier(.4,0,.2,1); overflow:hidden; }
   .cgHdr .panel.active{ opacity:1; pointer-events:auto; }
   .cgHdr .full{ position:absolute; inset:0; } .cgHdr .full img{ width:100%; height:100%; object-fit:cover; }
   .cgHdr .scrim{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(10,7,5,.44) 0%,rgba(10,7,5,.06) 26%,rgba(10,7,5,.42) 58%,rgba(10,7,5,.95) 100%); }
-  .cgHdr .content{ position:absolute; left:0; right:0; bottom:0; z-index:20; padding:0 20px 20px; }
+  .cgHdr .content{ position:absolute; left:0; right:0; bottom:0; z-index:20; padding:0 clamp(20px,4vw,64px) clamp(20px,2.6vw,38px); }
   .cgHdr .content.mid{ top:0; display:flex; flex-direction:column; justify-content:center; padding-bottom:16px; }
   .cgHdr .eyebrow{ font-size:8px; font-weight:300; letter-spacing:.42em; text-transform:uppercase; color:var(--dim);
     display:flex; align-items:center; gap:9px; margin-bottom:7px; opacity:0; transform:translateY(9px); }
@@ -2974,24 +2978,24 @@ function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=3
   .cgHdr .feats li{ font-family:var(--disp); font-size:12px; letter-spacing:.012em; color:var(--white); opacity:.82;
     display:flex; gap:8px; align-items:baseline; opacity:0; transform:translateY(8px); }
   .cgHdr .feats li::before{ content:""; width:4px; height:4px; flex:none; border:1px solid var(--dim); transform:translateY(-1px); }
-  .cgHdr .active .eyebrow{ animation:cgHRise .8s .12s forwards; }
-  .cgHdr .active .display .ln{ animation:cgHRise .9s forwards; }
-  .cgHdr .active .display .ln:nth-child(1){ animation-delay:.2s; }
-  .cgHdr .active .display .ln:nth-child(2){ animation-delay:.31s; }
-  .cgHdr .active .display .ln:nth-child(3){ animation-delay:.42s; }
-  .cgHdr .active .sub{ animation:cgHRise .9s .5s forwards; }
-  .cgHdr .active .feats li{ animation:cgHRise .7s forwards; }
-  .cgHdr .active .feats li:nth-child(1){ animation-delay:.46s; }
-  .cgHdr .active .feats li:nth-child(2){ animation-delay:.56s; }
-  .cgHdr .active .feats li:nth-child(3){ animation-delay:.66s; }
+  .cgHdr .active .eyebrow{ animation:cgHRise 1.1s .2s forwards; }
+  .cgHdr .active .display .ln{ animation:cgHRise 1.2s forwards; }
+  .cgHdr .active .display .ln:nth-child(1){ animation-delay:.34s; }
+  .cgHdr .active .display .ln:nth-child(2){ animation-delay:.5s; }
+  .cgHdr .active .display .ln:nth-child(3){ animation-delay:.66s; }
+  .cgHdr .active .sub{ animation:cgHRise 1.2s .82s forwards; }
+  .cgHdr .active .feats li{ animation:cgHRise 1s forwards; }
+  .cgHdr .active .feats li:nth-child(1){ animation-delay:.74s; }
+  .cgHdr .active .feats li:nth-child(2){ animation-delay:.9s; }
+  .cgHdr .active .feats li:nth-child(3){ animation-delay:1.06s; }
   @keyframes cgHRise{ to{ opacity:1; transform:none; } }
   .cgHdr .float{ opacity:0; transform:translateY(20px) scale(.97); }
-  .cgHdr .active .float{ animation:cgHFloat 1s .25s cubic-bezier(.4,0,.2,1) forwards; }
-  .cgHdr .active .float.f2{ animation-delay:.38s; } .cgHdr .active .float.f3{ animation-delay:.5s; }
+  .cgHdr .active .float{ animation:cgHFloat 1.5s .4s cubic-bezier(.4,0,.2,1) forwards; }
+  .cgHdr .active .float.f2{ animation-delay:.62s; } .cgHdr .active .float.f3{ animation-delay:.84s; }
   @keyframes cgHFloat{ to{ opacity:1; transform:none; } }
   .cgHdr .lead{ font-family:var(--disp); text-transform:uppercase; letter-spacing:.02em;
     font-size:clamp(22px,6vw,32px); line-height:1.02; margin-bottom:10px; opacity:0; transform:translateY(14px); color:var(--white); }
-  .cgHdr .active .lead{ animation:cgHRise .9s .14s forwards; }
+  .cgHdr .active .lead{ animation:cgHRise 1.2s .24s forwards; }
   .cgHdr .lead .it{ text-transform:none; font-style:italic; }
   .cgHdr .row{ display:flex; align-items:center; gap:8px; }
   .cgHdr .shot{ position:relative; width:62px; height:84px; flex:none; overflow:hidden; border:1px solid var(--line); }
@@ -3002,17 +3006,19 @@ function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=3
   .cgHdr .grid{ margin-top:9px; border-top:1px solid var(--line); max-width:74%; }
   .cgHdr .grid .r{ display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid var(--line);
     opacity:0; transform:translateY(8px); }
-  .cgHdr .active .grid .r{ animation:cgHRise .7s forwards; }
-  .cgHdr .active .grid .r:nth-child(1){ animation-delay:.44s; }
-  .cgHdr .active .grid .r:nth-child(2){ animation-delay:.55s; }
-  .cgHdr .active .grid .r:nth-child(3){ animation-delay:.66s; }
+  .cgHdr .active .grid .r{ animation:cgHRise 1s forwards; }
+  .cgHdr .active .grid .r:nth-child(1){ animation-delay:.72s; }
+  .cgHdr .active .grid .r:nth-child(2){ animation-delay:.88s; }
+  .cgHdr .active .grid .r:nth-child(3){ animation-delay:1.04s; }
   .cgHdr .grid .r .k{ font-family:var(--disp); font-size:14px; text-transform:uppercase; color:var(--bone); flex:none; width:34%; letter-spacing:.02em; }
   .cgHdr .grid .r .v{ font-family:var(--disp); font-size:10.5px; line-height:1.34; color:var(--bone); opacity:.88; }
   .cgHdr .cta{ position:absolute; left:20px; bottom:20px; z-index:40; font-size:8px; font-weight:700;
-    letter-spacing:.22em; text-transform:uppercase; color:${B.gold}; opacity:0; animation:cgHRise .8s .8s forwards; }
-  .cgHdr .dots{ position:absolute; top:12px; right:14px; z-index:40; display:flex; gap:4px; }
-  .cgHdr .dots b{ display:block; width:5px; height:3px; background:rgba(239,233,223,.34); transition:width .5s ease, background .5s ease; }
-  .cgHdr .dots b.on{ width:15px; background:rgba(239,233,223,.95); }
+    letter-spacing:.22em; text-transform:uppercase; color:${B.gold}; opacity:0; animation:cgHRise 1s 1.3s forwards; }
+  .cgHdr .dots{ position:absolute; top:10px; right:clamp(14px,3vw,52px); z-index:40; display:flex; gap:3px; }
+  .cgHdr .dots button{ display:block; width:22px; height:18px; padding:0; border:none; background:none; cursor:pointer; }
+  .cgHdr .dots button i{ display:block; width:100%; height:3px; margin-top:7px; background:rgba(239,233,223,.34); transition:background .5s ease; }
+  .cgHdr .dots button:hover i{ background:rgba(239,233,223,.66); }
+  .cgHdr .dots button.on i{ background:rgba(239,233,223,.95); }
   @media (prefers-reduced-motion: reduce){
     .cgHdr .panel{ transition:none; }
     .cgHdr .active .eyebrow,.cgHdr .active .display .ln,.cgHdr .active .sub,.cgHdr .active .feats li,
@@ -3021,7 +3027,6 @@ function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=3
 
   return (
     <div className="cgHdr" onClick={open}
-      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
       onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <style>{CSS}</style>
 
@@ -3126,7 +3131,12 @@ function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=7000, height=3
         </div>
       </section>
 
-      <div className="dots">{HEADER_PANELS.map((p,k)=><b key={p.key} className={k===i?"on":""} />)}</div>
+      <div className="dots">
+        {HEADER_PANELS.map((p,k)=>(
+          <button key={p.key} className={k===i?"on":""} onClick={(e)=>jump(e,k)}
+            aria-label={"Show panel "+(k+1)+" of "+n}><i /></button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -14451,7 +14461,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   const src = (k) => onboardingSrc(media, k, baseUrl);
 
   // Per-panel auto-advance durations (seconds). 99 = last panel, no auto-advance.
-  const DUR = [5, 6, 7, 6, 6, 7, 6, 99];
+  const DUR = [8, 10, 11, 10, 10, 11, 10, 99];
   const COUNT = DUR.length;
 
   const finish = useCallback(() => {
@@ -14567,9 +14577,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .nextBtn{ font-family:var(--util,'Jost'); font-weight:400; font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:15px 30px; transition:opacity .2s; }
   .cgOnb .nextBtn:active{ opacity:.7; }
   .cgOnb .enter{ font-family:var(--util,'Jost'); font-weight:400; font-size:12px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:17px; width:100%; text-align:center; }
-  .cgOnb .dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:96px; z-index:55; display:flex; gap:6px; }
-  .cgOnb .dots b{ width:5px; height:5px; border-radius:50%; background:rgba(239,233,223,.26); transition:.3s; }
-  .cgOnb .dots b.on{ background:var(--bone); width:16px; border-radius:3px; }
+  .cgOnb .dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:96px; z-index:55; display:flex; gap:2px; }
+  .cgOnb .dots button{ width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .cgOnb .dots button i{ display:block; width:5px; height:5px; border-radius:50%; background:rgba(239,233,223,.26); transition:.3s; }
+  .cgOnb .dots button.on i{ background:var(--bone); width:16px; border-radius:3px; }
   `;
 
   const cls = (base, active) => base + (active ? " active" : "");
@@ -14713,7 +14724,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       <div className="tapzone r" onClick={next} />
       {!last && (
         <div className="dots">
-          {DUR.map((d, k) => <b key={k} className={k === i ? "on" : ""} />)}
+          {DUR.map((d, k) => (
+            <button key={k} className={k === i ? "on" : ""} aria-label={"Go to panel " + (k + 1)}
+              onClick={(e) => { e.stopPropagation(); go(k); }}><i /></button>
+          ))}
         </div>
       )}
       {!last && (
@@ -18119,22 +18133,22 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:"calc("+(BOT_H+16)+"px + env(safe-area-inset-bottom,0px))"}}>
-        <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
           {(()=>{
-            const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub");
-            if(!show) return null;
-            // Hold whatever is up there still while anything is open on top of it.
-            const busy=!!(showNotifs||showNewPost||showCredits||showPaywall||showPlan||showIntake||selectedStrategy||selectedPost||selectedForumPost);
-            // Custom slides for this page win if you've set any in the admin panel;
-            // otherwise every page gets the feature tour, cropped to header height.
-            const slides=pageSlides(pageMedia&&pageMedia[tab]);
-            if(slides.length) return <HeaderSlideshow slides={slides} B={B} paused={busy}
-              onGo={(g)=>{ const p=String(g).split(":"); goTab(p[0], p[1]||undefined); }} />;
-            return <HeaderTour media={onbMedia} B={B} paused={busy}
-              baseUrl={SUPABASE_URL+"/storage/v1/object/public/sites/onboarding"}
-              onGo={(t,sub)=>goTab(t,sub)} />;
-          })()}
+          const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub");
+          if(!show) return null;
+          // Hold whatever is up there still while anything is open on top of it.
+          const busy=!!(showNotifs||showNewPost||showCredits||showPaywall||showPlan||showIntake||selectedStrategy||selectedPost||selectedForumPost);
+          // Custom slides for this page win if you've set any in the admin panel;
+          // otherwise every page gets the feature tour, cropped to header height.
+          const slides=pageSlides(pageMedia&&pageMedia[tab]);
+          if(slides.length) return <HeaderSlideshow slides={slides} B={B} paused={busy}
+            onGo={(g)=>{ const p=String(g).split(":"); goTab(p[0], p[1]||undefined); }} />;
+          return <HeaderTour media={onbMedia} B={B} paused={busy}
+            baseUrl={SUPABASE_URL+"/storage/v1/object/public/sites/onboarding"}
+            onGo={(t,sub)=>goTab(t,sub)} />;
+        })()}
 
+        <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
           {/* ═══ HOME ═══ */}
           {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&!mkPost&&(
             <div style={{paddingTop:28}}>
