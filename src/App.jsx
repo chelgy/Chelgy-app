@@ -3019,7 +3019,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
     font-size:clamp(25px,7vw,38px); text-transform:uppercase; color:var(--white); text-shadow:0 2px 22px rgba(0,0,0,.4); }
   .cgHdr .display .ln{ display:block; opacity:0; transform:translateY(16px); }
   .cgHdr .display .it{ text-transform:none; font-style:italic; }
-  .cgHdr .sub{ font-family:var(--disp); font-size:12.5px; line-height:1.42; color:var(--white); opacity:.82;
+  .cgHdr .sub{ font-family:'Jost',Helvetica,Arial,sans-serif; font-size:12.5px; line-height:1.42; color:var(--white); opacity:.82;
     letter-spacing:.012em; max-width:60%; margin-top:8px; opacity:0; transform:translateY(9px); }
   .cgHdr .feats{ list-style:none; margin-top:9px; display:flex; flex-direction:column; gap:5px; }
   .cgHdr .feats li{ font-family:var(--disp); font-size:12px; letter-spacing:.012em; color:var(--white); opacity:.82;
@@ -5370,7 +5370,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
         {STYLES.map(s=>(
-          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{padding:"9px 16px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,fontWeight:700,cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55,whiteSpace:"nowrap"}}>
+          <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{padding:"9px 16px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55,whiteSpace:"nowrap"}}>
             {s.label}{!s.ready && " · soon"}
           </button>
         ))}
@@ -14977,19 +14977,19 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb #bars .bar.cur i{ width:100%; transition:width var(--d,6s) linear; }
   .cgOnb .brandbar{ position:absolute; top:30px; left:26px; right:26px; z-index:50; display:flex; align-items:center; justify-content:space-between; }
   .cgOnb .brandbar img{ height:18px; filter:invert(1); opacity:.9; }
-  .cgOnb .brandbar .ix{ font-family:var(--util,'Jost'); font-weight:300; font-size:10px; letter-spacing:.4em; color:var(--dim); text-transform:uppercase; }
+  .cgOnb .brandbar .ix{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:10px; letter-spacing:.4em; color:var(--dim); text-transform:uppercase; }
   .cgOnb .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity 1s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; overflow:hidden; }
   .cgOnb .panel.active{ opacity:1; pointer-events:auto; }
   .cgOnb .panel.dark{ background:var(--ink); }
   .cgOnb .full{ position:absolute; inset:0; } .cgOnb .full img{ width:100%; height:100%; object-fit:cover; }
   .cgOnb .scrim{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(10,7,5,.5) 0%,rgba(10,7,5,.08) 28%,rgba(10,7,5,.4) 58%,rgba(10,7,5,.96) 100%); }
-  .cgOnb .eyebrow{ font-family:var(--util,'Jost'); font-weight:300; font-size:10px; letter-spacing:.5em; text-transform:uppercase; color:var(--dim); display:flex; align-items:center; gap:14px; opacity:0; transform:translateY(12px); }
+  .cgOnb .eyebrow{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:10px; letter-spacing:.5em; text-transform:uppercase; color:var(--dim); display:flex; align-items:center; gap:14px; opacity:0; transform:translateY(12px); }
   .cgOnb .eyebrow .num{ font-family:var(--disp); font-size:13px; letter-spacing:.1em; color:var(--bone); }
   .cgOnb .eyebrow .rule{ width:34px; height:1px; background:var(--line); }
   .cgOnb .display{ font-family:var(--disp); font-weight:400; line-height:1.0; letter-spacing:.02em; font-size:clamp(46px,13.5vw,80px); text-transform:uppercase; color:var(--white); text-shadow:0 2px 30px rgba(0,0,0,.35); }
   .cgOnb .display .ln{ display:block; opacity:0; transform:translateY(26px); }
   .cgOnb .display .it{ text-transform:none; font-style:italic; }
-  .cgOnb .sub{ font-family:var(--disp); font-weight:400; font-size:18px; line-height:1.5; color:var(--white); opacity:.82; letter-spacing:.015em; max-width:90%; margin-top:18px; opacity:0; transform:translateY(14px); }
+  .cgOnb .sub{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:400; font-size:18px; line-height:1.5; color:var(--white); opacity:.82; letter-spacing:.015em; max-width:90%; margin-top:18px; opacity:0; transform:translateY(14px); }
   .cgOnb .feats{ list-style:none; margin-top:22px; display:flex; flex-direction:column; gap:11px; }
   .cgOnb .feats li{ font-family:var(--disp); font-weight:400; font-size:17px; letter-spacing:.015em; color:var(--white); opacity:.82; display:flex; gap:12px; align-items:baseline; opacity:0; transform:translateY(12px); }
   .cgOnb .feats li::before{ content:""; width:5px; height:5px; flex:none; border:1px solid var(--dim); transform:translateY(-1px); }
@@ -15018,7 +15018,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .row{ display:flex; align-items:center; gap:12px; }
   .cgOnb .shot{ position:relative; width:108px; height:146px; flex:none; overflow:hidden; border:1px solid var(--line); }
   .cgOnb .shot img{ width:100%; height:100%; object-fit:cover; }
-  .cgOnb .shot .tag{ position:absolute; left:7px; top:7px; font-family:var(--util,'Jost'); font-weight:300; font-size:8px; letter-spacing:.26em; text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.55); padding:3px 6px; }
+  .cgOnb .shot .tag{ position:absolute; left:7px; top:7px; font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:8px; letter-spacing:.26em; text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.55); padding:3px 6px; }
   .cgOnb .shot.vid::after{ content:"\\25B6"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--bone); text-shadow:0 2px 12px rgba(0,0,0,.6); }
   .cgOnb .arrow{ flex:1; text-align:center; font-family:var(--disp); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
   .cgOnb .growth{ position:relative; z-index:20; margin:auto 0; padding:0 30px; }
@@ -15033,10 +15033,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .tapzone{ position:absolute; top:58px; bottom:108px; width:38%; z-index:30; }
   .cgOnb .tapzone.l{ left:0; } .cgOnb .tapzone.r{ right:0; }
   .cgOnb #foot{ position:absolute; left:0; right:0; bottom:0; z-index:55; padding:0 26px 34px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
-  .cgOnb .skip{ font-family:var(--util,'Jost'); font-weight:300; font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--dim); background:none; border:none; cursor:pointer; padding:14px 4px; }
-  .cgOnb .nextBtn{ font-family:var(--util,'Jost'); font-weight:400; font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:15px 30px; transition:opacity .2s; }
+  .cgOnb .skip{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--dim); background:none; border:none; cursor:pointer; padding:14px 4px; }
+  .cgOnb .nextBtn{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:400; font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:15px 30px; transition:opacity .2s; }
   .cgOnb .nextBtn:active{ opacity:.7; }
-  .cgOnb .enter{ font-family:var(--util,'Jost'); font-weight:400; font-size:12px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:17px; width:100%; text-align:center; }
+  .cgOnb .enter{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:400; font-size:12px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); background:var(--bone); border:none; cursor:pointer; padding:17px; width:100%; text-align:center; }
   .cgOnb .dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:96px; z-index:55; display:flex; gap:2px; }
   .cgOnb .dots button{ width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .cgOnb .dots button i{ display:block; width:5px; height:5px; border-radius:50%; background:rgba(239,233,223,.26); transition:.3s; }
