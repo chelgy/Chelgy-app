@@ -3069,10 +3069,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 1 WEBSITE */}
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="float" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",transform:"translateY(-50%)",zIndex:10,width:"clamp(150px,26vw,440px)",maxHeight:"84%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
+        <div className="float" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",transform:"translateY(-50%)",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
         </div>
-        <div className="content mid" style={{maxWidth:"min(64%, 58ch)",paddingRight:"clamp(160px,28vw,470px)"}}>
+        <div className="content mid" style={{maxWidth:"64%"}}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
           <h1 className="display"><span className="ln">Luxury sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>From a few business details — a complete, published luxury website. With its own AI imagery and an SEO blog.</p>
@@ -3098,10 +3098,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 3 FLYERS & BRANDING */}
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="float" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",transform:"translateY(-50%)",zIndex:10,width:"clamp(140px,25vw,420px)",maxHeight:"84%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
+        <div className="float" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",transform:"translateY(-50%)",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
         </div>
-        <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"clamp(160px,29vw,470px)"}}>
+        <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"46%"}}>
           <div className="eyebrow" style={{justifyContent:"flex-end"}}><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
           <h1 className="display"><span className="ln">Flyers, branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>Launch promos, service menus, product shots, brand kits — cohesive and luxury-looking, every time.</p>
@@ -3122,7 +3122,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
             <img src={src("social2")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
           </div>
         </div>
-        <div className="content mid" style={{maxWidth:"min(54%, 52ch)",paddingRight:"clamp(210px,36vw,640px)"}}>
+        <div className="content mid" style={{maxWidth:"54%"}}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
           <h1 className="display"><span className="ln">Grow your <span className="it">social</span></span><span className="ln">with Chelgy.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>Cohesive posts, stories and a full launch-week plan — so your brand stays seen, and stays consistent.</p>
