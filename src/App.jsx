@@ -49,6 +49,13 @@ const CA_NAV_LABELS = {
   "tools/manager": "Business Manager",
   "tools/video": "AI Video Studio",
   "tools/videoeditor": "AI Video Editor",
+  "tools/getfeatured": "Podcasts",
+  "tools/presspitch": "Press",
+  "tools/restage": "Fake It",
+  "tools/stylematch": "Style Match",
+  "tools/videoedit": "Fake It Video",
+  "tools/highfashion": "High Fashion",
+  "tools/beauty": "Beauty",
   "tools/ugcstudio": "UGC Studio",
   "tools/viral": "Viral Video Generator",
   "tools/ads": "Ad Campaign Builder",
@@ -99,6 +106,8 @@ Four tabs across the bottom:
 • AI Content Writer — captions and copy for Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blogs, email, and ads.
 • Backlink & Authority Builder — finds real, white-hat ways to get the business linked, listed and featured (local directories, press, roundups, partnerships), writes the outreach, and suggests linkable content. Send people here for "how do I get backlinks" or "how do I rank higher on Google" — it never recommends buying links.
 • Dropshipping Directory — vetted suppliers with links, niches, shipping times, and honest notes.
+• Fake It — upload a photo of your face and appear anywhere: the Amalfi Coast, a Paris café, a rooftop in Tokyo. Any outfit, any light, no training or waiting, and it still looks like them. Tabs: Fake It (the main tool), Style Match (recreate the look of a photo they like), High Fashion and Beauty (editorial presets), and Video Edit (bring a shot to life as a short video). Use tool "restage" for the main tool.
+• Get Featured — search real podcasts in their niche, see who to contact, and get a pitch written for that specific show (tool "getfeatured"). The Press tab does the same for journalists, plus an honest read on whether their story is ready yet (tool "presspitch").
 • Platform Setup Guides — step-by-step setup and posting guides for every major platform.
 • My Library — where saved creations are stored.
 Also: the AI Advisor lives in COMMUNITY — send members there for deep, back-and-forth marketing strategy questions.
@@ -125,7 +134,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and colour-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -19599,6 +19608,19 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   </>)}
                 </div>
+              ); })()}
+              {/* Today's Tasks + the free daily creation. Always rendered — the old
+                  entry point was the home feed, and Profile is now the only way in,
+                  so this must NOT be nested under the roadmap (bigTasks) condition. */}
+              {(()=>{ const dailies=dailyTasksFor(todayStr()); const left=dailies.filter(t=>!dailyDone[t.id]).length; return (
+                <button onClick={()=>setShowTasks(true)} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:14}}>
+                  <div>
+                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:B.mid,letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Today</div>
+                    <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:18,fontWeight:400,marginBottom:3,color:B.charcoal}}>Today&apos;s Tasks &amp; your free daily creation</div>
+                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,letterSpacing:"0.01em"}}>{left>0?(left+" quick win"+(left===1?"":"s")+" left today"):"All done for today — nice work."}{gift?" · your free "+gift.noun+" is ready.":""}</div>
+                  </div>
+                  <Icons.ChevronRight />
+                </button>
               ); })()}
               {plan ? (
                 <button onClick={()=>setShowPlan(true)} style={{width:"100%",textAlign:"left",background:B.white,border:"1px solid "+B.stone,padding:"20px 22px",marginBottom:2,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:14}}>
