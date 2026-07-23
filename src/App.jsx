@@ -5488,6 +5488,68 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ))}
       </div>
 
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Options</p>
+      <div style={{border:"1px solid "+B.stone,marginBottom:18}}>
+
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px"}}>
+          <input type="checkbox" checked={reviewCuts} disabled={busy}
+            onChange={e=>setReviewCuts(e.target.checked)} style={{marginTop:2}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>Review the cut before rendering</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+              See every part Chelgy kept and dropped and adjust it word by word. Off by default — turn this on when you want the final say.
+            </span>
+          </span>
+        </label>
+
+        {canTransition && (
+          <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+            <input type="checkbox" checked={useTransitions} disabled={busy}
+              onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:2}} />
+            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+              <strong>AI transitions</strong>
+              <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+                At a real scene change, generate a short cinematic shot that carries you from one place to the next. {CREDIT_COSTS.editorTransition.toLocaleString()} credits each, up to {transitionCap} on a long video and 2 on a short one. You're only charged for the ones made.
+              </span>
+            </span>
+          </label>
+        )}
+
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+          <input type="checkbox" checked={showCaptions} disabled={busy} onChange={e=>setShowCaptions(e.target.checked)} style={{marginTop:2}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>Captions</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>The word-by-word subtitles from what you say.</span>
+          </span>
+        </label>
+
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+          <input type="checkbox" checked={showTitles} disabled={busy} onChange={e=>setShowTitles(e.target.checked)} style={{marginTop:2}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>Title &amp; cards</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+              The opening title, scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut, grade{music!=="off"?", music":""} and b-roll are unaffected.
+            </span>
+          </span>
+        </label>
+
+      </div>
+
+      {(style==="cinematic"||style==="vlog") && (
+        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Voiceover <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>
+            Record a voiceover and drop it in — it plays over your video, with your footage audio ducked softly underneath. This is how you narrate over your best silent shots, Scorsese-style.
+          </p>
+          <input type="file" accept="audio/*" onChange={e=>setNarrationFile((e.target.files&&e.target.files[0])||null)} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,display:"block"}} />
+          {narrationFile && (
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#1a7f37",margin:"6px 0 0"}}>
+              ✓ {narrationFile.name} — will play over your edit. <button onClick={()=>setNarrationFile(null)} style={{background:"none",border:"none",color:B.mid,textDecoration:"underline",cursor:"pointer",fontSize:11,padding:0}}>remove</button>
+            </p>
+          )}
+        </div>
+      )}
+
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your raw footage <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— add as many clips as you shot</span></p>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
         A day of vlogging is usually a lot of separate files. Add them all — we'll put them in the order you shot them, cut across the whole day as one story, and match the sound levels between them.
@@ -5552,68 +5614,6 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.7,margin:"0 0 18px"}}>
         <strong style={{color:B.charcoal,fontWeight:700}}>How your footage is handled.</strong> Your video is uploaded only to run this edit, then automatically deleted once it's done. It isn't stored, shared, or used to train anything.
       </p>
-
-      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Options</p>
-      <div style={{border:"1px solid "+B.stone,marginBottom:18}}>
-
-        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px"}}>
-          <input type="checkbox" checked={reviewCuts} disabled={busy}
-            onChange={e=>setReviewCuts(e.target.checked)} style={{marginTop:2}} />
-          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
-            <strong>Review the cut before rendering</strong>
-            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-              See every part Chelgy kept and dropped and adjust it word by word. Off by default — turn this on when you want the final say.
-            </span>
-          </span>
-        </label>
-
-        {canTransition && (
-          <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
-            <input type="checkbox" checked={useTransitions} disabled={busy}
-              onChange={e=>setUseTransitions(e.target.checked)} style={{marginTop:2}} />
-            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
-              <strong>AI transitions</strong>
-              <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-                At a real scene change, generate a short cinematic shot that carries you from one place to the next. {CREDIT_COSTS.editorTransition.toLocaleString()} credits each, up to {transitionCap} on a long video and 2 on a short one. You're only charged for the ones made.
-              </span>
-            </span>
-          </label>
-        )}
-
-        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
-          <input type="checkbox" checked={showCaptions} disabled={busy} onChange={e=>setShowCaptions(e.target.checked)} style={{marginTop:2}} />
-          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
-            <strong>Captions</strong>
-            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>The word-by-word subtitles from what you say.</span>
-          </span>
-        </label>
-
-        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
-          <input type="checkbox" checked={showTitles} disabled={busy} onChange={e=>setShowTitles(e.target.checked)} style={{marginTop:2}} />
-          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
-            <strong>Title &amp; cards</strong>
-            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-              The opening title, scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut, grade{music!=="off"?", music":""} and b-roll are unaffected.
-            </span>
-          </span>
-        </label>
-
-      </div>
-
-      {(style==="cinematic"||style==="vlog") && (
-        <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Voiceover <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>
-            Record a voiceover and drop it in — it plays over your video, with your footage audio ducked softly underneath. This is how you narrate over your best silent shots, Scorsese-style.
-          </p>
-          <input type="file" accept="audio/*" onChange={e=>setNarrationFile((e.target.files&&e.target.files[0])||null)} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,display:"block"}} />
-          {narrationFile && (
-            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#1a7f37",margin:"6px 0 0"}}>
-              ✓ {narrationFile.name} — will play over your edit. <button onClick={()=>setNarrationFile(null)} style={{background:"none",border:"none",color:B.mid,textDecoration:"underline",cursor:"pointer",fontSize:11,padding:0}}>remove</button>
-            </p>
-          )}
-        </div>
-      )}
 
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
 
