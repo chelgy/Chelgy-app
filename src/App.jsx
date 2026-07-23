@@ -15269,6 +15269,32 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 }
 
 
+// Shared by the signup page AND the login page so the two can never drift apart.
+// This is the onboarding tour's own type treatment: Caveline display caps, the
+// hairline eyebrow rule, and the staged rise. Edit here, both pages follow.
+const CHELGY_JOIN_CSS = `
+        .cgJoin{ --disp:'Caveline',serif; }
+        .cgJoin .eyebrow{ font-family:'Jost',sans-serif; font-weight:300; font-size:10px; letter-spacing:.5em;
+          text-transform:uppercase; color:#8f867b; display:flex; align-items:center; gap:14px; margin-bottom:14px;
+          opacity:0; transform:translateY(12px); animation:cgJRise .9s .2s forwards; }
+        .cgJoin .eyebrow .rule{ width:34px; height:1px; background:rgba(239,233,223,.14); }
+        .cgJoin .display{ font-family:var(--disp); font-weight:400; line-height:1.0; letter-spacing:.02em;
+          font-size:clamp(40px,12vw,64px); text-transform:uppercase; color:#fff; margin:0 0 10px;
+          text-shadow:0 2px 30px rgba(0,0,0,.35); font-feature-settings:"salt" 1,"liga" 1; }
+        .cgJoin .display .ln{ display:block; opacity:0; transform:translateY(24px); animation:cgJRise 1s forwards; }
+        .cgJoin .display .ln:nth-child(1){ animation-delay:.3s; }
+        .cgJoin .display .ln:nth-child(2){ animation-delay:.43s; }
+        .cgJoin .display .it{ text-transform:none; font-style:italic; }
+        .cgJoin .lede{ font-family:var(--disp); font-size:18px; line-height:1.5; color:#fff; opacity:.82;
+          letter-spacing:.015em; margin:0 0 30px; font-feature-settings:"salt" 1;
+          opacity:0; transform:translateY(14px); animation:cgJRise 1s .66s forwards; }
+        .cgJoin .rise{ opacity:0; transform:translateY(14px); animation:cgJRise 1s .82s forwards; }
+        @keyframes cgJRise{ to{ opacity:1; transform:none; } }
+        @media (prefers-reduced-motion: reduce){
+          .cgJoin .eyebrow,.cgJoin .display .ln,.cgJoin .lede,.cgJoin .rise{ animation:none; opacity:1; transform:none; }
+        }
+      `;
+
 export default function ChelgyApp() {
   const [page, setPage] = useState(CHELGY_HAS_OAUTH_RETURN ? "app" : "onboarding");
   // ── DARK MODE ──────────────────────────────────────────────────────────────
@@ -16204,7 +16230,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const subTabs = {
     home: [["feed","Feed"]],
     learn: [["strategies","Strategies"],["guide","Marketing Guide"],["weekly","The Chelgy Edit"],["newsletter","Newsletter"]],
-    tools: [["hub","All Tools"],["library","My Library"], ...CATS.map(c=>[c.id, c.title])],
+    tools: [["hub","All Tools"], ...CATS.map(c=>[c.id, c.title]), ["library","My Library"]],
     community: [["forum","Forum"],["events","Events"]],
     profile: [["overview","Overview"],["stats","Progress"]],
   };
@@ -18288,15 +18314,17 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
 
   if (!isTeamSpace && page==="login") return (
-    <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",background:"#000",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+    <div className="cgJoin" style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",background:"#0a0705",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      {/* Login wears the same clothes as signup and the closing beat of the tour. */}
+      <style>{CHELGY_JOIN_CSS}</style>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center top",zIndex:0}} />
-      <div style={{position:"fixed",inset:0,background:"linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 100%)",zIndex:1}} />
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(180deg,rgba(10,7,5,.5) 0%,rgba(10,7,5,.08) 28%,rgba(10,7,5,.4) 58%,rgba(10,7,5,.96) 100%)",zIndex:1}} />
       <div style={{position:"relative",zIndex:2,flex:1,display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0 28px 48px",maxWidth:460,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
         <img src={LOGO_B64} alt="Chelgy" style={{height:32,objectFit:"contain",filter:"invert(1)",marginBottom:36,display:"block"}} />
-        <div style={{width:24,height:1,background:"rgba(255,255,255,0.4)",marginBottom:18}} />
-        <h1 style={{fontSize:28,fontWeight:400,margin:"0 0 6px",color:"#fff"}}>Welcome back</h1>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:"rgba(255,255,255,0.5)",fontSize:15,margin:"0 0 32px",letterSpacing:"0.01em",lineHeight:1.6}}>Log in to your Chelgy account.</p>
-        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+        <div className="eyebrow"><span className="rule" />Welcome back</div>
+        <h1 className="display"><span className="ln">Good to see</span><span className="ln">you <span className="it">again</span>.</span></h1>
+        <p className="lede">Log in to your Chelgy account.</p>
+        <div className="rise" style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
           <input type="email" value={loginData.email} onChange={e=>setLoginData(d=>({...d,email:e.target.value}))} placeholder="Email address" style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:15,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
           <input type="password" value={loginData.password} onChange={e=>setLoginData(d=>({...d,password:e.target.value}))} placeholder="Password" onKeyDown={e=>{if(e.key==="Enter")doLogin();}} style={{width:"100%",padding:"13px 16px",border:"1px solid rgba(255,255,255,0.15)",outline:"none",fontSize:15,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:"rgba(255,255,255,0.07)",color:"#fff"}} />
           {authError&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#ff8a8a",lineHeight:1.5}}>{authError}</div>}
@@ -18320,28 +18348,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     <div className="cgJoin" style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",background:"#0a0705",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* Signup is the tour's last beat, so it wears the tour's clothes: the closing
           photo, the same scrim, Caveline display type and the same staged rise. */}
-      <style>{`
-        .cgJoin{ --disp:'Caveline',serif; }
-        .cgJoin .eyebrow{ font-family:'Jost',sans-serif; font-weight:300; font-size:10px; letter-spacing:.5em;
-          text-transform:uppercase; color:#8f867b; display:flex; align-items:center; gap:14px; margin-bottom:14px;
-          opacity:0; transform:translateY(12px); animation:cgJRise .9s .2s forwards; }
-        .cgJoin .eyebrow .rule{ width:34px; height:1px; background:rgba(239,233,223,.14); }
-        .cgJoin .display{ font-family:var(--disp); font-weight:400; line-height:1.0; letter-spacing:.02em;
-          font-size:clamp(40px,12vw,64px); text-transform:uppercase; color:#fff; margin:0 0 10px;
-          text-shadow:0 2px 30px rgba(0,0,0,.35); font-feature-settings:"salt" 1,"liga" 1; }
-        .cgJoin .display .ln{ display:block; opacity:0; transform:translateY(24px); animation:cgJRise 1s forwards; }
-        .cgJoin .display .ln:nth-child(1){ animation-delay:.3s; }
-        .cgJoin .display .ln:nth-child(2){ animation-delay:.43s; }
-        .cgJoin .display .it{ text-transform:none; font-style:italic; }
-        .cgJoin .lede{ font-family:var(--disp); font-size:18px; line-height:1.5; color:#fff; opacity:.82;
-          letter-spacing:.015em; margin:0 0 30px; font-feature-settings:"salt" 1;
-          opacity:0; transform:translateY(14px); animation:cgJRise 1s .66s forwards; }
-        .cgJoin .rise{ opacity:0; transform:translateY(14px); animation:cgJRise 1s .82s forwards; }
-        @keyframes cgJRise{ to{ opacity:1; transform:none; } }
-        @media (prefers-reduced-motion: reduce){
-          .cgJoin .eyebrow,.cgJoin .display .ln,.cgJoin .lede,.cgJoin .rise{ animation:none; opacity:1; transform:none; }
-        }
-      `}</style>
+      <style>{CHELGY_JOIN_CSS}</style>
       <div style={{position:"fixed",inset:0,backgroundImage:"url("+onboardingSrc(onbMedia,"closing",SUPABASE_URL+"/storage/v1/object/public/sites/onboarding")+"), url("+heroImg+")",backgroundSize:"cover",backgroundPosition:"center center",zIndex:0}} />
       <div style={{position:"fixed",inset:0,background:"linear-gradient(180deg,rgba(10,7,5,.5) 0%,rgba(10,7,5,.08) 28%,rgba(10,7,5,.4) 58%,rgba(10,7,5,.96) 100%)",zIndex:1}} />
 
@@ -19176,7 +19183,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           {tab==="tools"&&CAT_BY_ID[subTab]&&(
             <CategoryView cat={CAT_BY_ID[subTab]} onNav={(t)=>setSubTab(t)}
               isLockedTool={(t)=> isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(t)) : false}
-              toolsProps={{ onBack:()=>{ setFromLaunch(false); setSubTab("hub"); }, onGoTool:(t)=>goTab("tools", t), credits, useCredits, onBuyCredits:()=>setShowCredits(true), onUpgrade:()=>setShowPaywall(true), onBalance:(n)=>{ if(typeof n==="number") setCredits(n); }, bizCtx:bizContext(), user, prefill, onPrefillDone:()=>setPrefill(null), onBrandProgress:markBrand, multiSite:(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace, marketerMode:isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved"), fromLaunch, onBackToLaunch:()=>{ setFromLaunch(false); setSubTab("launch"); }, onToolUse:logLedger, toolMedia, isAdmin }} />
+              toolsProps={{ onBack:()=>{ setFromLaunch(false); setSubTab("hub"); }, onGoTool:(t)=>goTab("tools", t), credits, useCredits, onBuyCredits:()=>setShowCredits(true), onUpgrade:()=>setShowPaywall(true), onBalance:(n)=>{ if(typeof n==="number") setCredits(n); }, bizCtx:bizContext(), user, prefill, onPrefillDone:()=>setPrefill(null), onBrandProgress:markBrand, multiSite:(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace, marketerMode:isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved"), fromLaunch, onBackToLaunch:()=>{ setFromLaunch(false); setSubTab("launch"); }, onToolUse:logLedger, toolMedia, lutMedia, isAdmin }} />
           )}
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&!CAT_BY_ID[subTab]&&(
