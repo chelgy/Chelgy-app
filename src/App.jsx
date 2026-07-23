@@ -1029,10 +1029,10 @@ async function studioTranscribe(url){
     return await res.json(); // { transcript, words, duration } or { error }
   } catch { return { error: "Couldn't reach the transcription service." }; }
 }
-async function studioPlan(words, duration, frame, style, activity){
+async function studioPlan(words, duration, frame, style, activity, note){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null }) });
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null, note: note||"" }) });
     return await res.json(); // { keep, title, look, outSeconds } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
