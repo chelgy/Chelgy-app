@@ -2893,6 +2893,32 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
     </div>
   );
 }
+// ── HEADER IMAGE SLOTS ────────────────────────────────────────────────────────
+// The header tour crops wide; the onboarding crops tall. Same photo rarely suits
+// both, so the header gets its own overridable slot per image.
+// Resolution order: header override -> onboarding image -> original bucket file.
+// Leave a header slot empty and it simply inherits, which is the behaviour that
+// shipped before this existed.
+const HEADER_SLOTS = [
+  ["beauty",      "Panel 1 · Opening — background"],
+  ["websiteDeck", "Panel 2 · Website Builder — mockup"],
+  ["redBlonde",   "Panel 3 · Fake It Studio — background"],
+  ["before",      "Panel 3 · Fake It Studio — “Your photo”"],
+  ["redModel",    "Panel 3 · Fake It Studio — “Chelgy”"],
+  ["plane",       "Panel 3 · Fake It Studio — “Video”"],
+  ["flyerDeck",   "Panel 4 · Flyers & Branding — deck"],
+  ["social3",     "Panel 5 · Social — tile 1"],
+  ["social1",     "Panel 5 · Social — tile 2"],
+  ["social2",     "Panel 5 · Social — tile 3"],
+  ["campaign",    "Panel 7 · Ad Campaigns — background"],
+];
+function headerSrc(headerMedia, onbMedia, key, baseUrl){
+  const e = headerMedia && headerMedia[key];
+  const u = (typeof e === "string" ? e : (e && e.full) || "").trim();
+  if (u) return u;
+  return onboardingSrc(onbMedia, key, baseUrl);
+}
+
 // ── HEADER TOUR ───────────────────────────────────────────────────────────────
 // The onboarding tour, rebuilt to live in a page header. Same panels, same copy,
 // same Caveline display face, same staged text rise — relaid out for a short wide
@@ -2910,13 +2936,13 @@ const HEADER_PANELS = [
   { key:"growth",  go:"tools:cat_seo" },
   { key:"ads",     go:"tools:cat_ads" },
 ];
-function HeaderTour({ media, baseUrl, onGo, B, paused=false, hold=12000, height=330 }){
+function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold=12000, height=330 }){
   const [i, setI] = useState(0);
   const [reduce, setReduce] = useState(false);
   const [hidden, setHidden] = useState(false);
   const startX = useRef(0);
   const n = HEADER_PANELS.length;
-  const src = (k) => onboardingSrc(media, k, baseUrl);
+  const src = (k) => headerSrc(media, fallbackMedia, k, baseUrl);
 
   useEffect(()=>{
     try{
@@ -7742,6 +7768,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [pageMediaSaved, setPageMediaSaved] = useState(false);
   const [onbMediaForm, setOnbMediaForm] = useState({});
   const [onbMediaSaved, setOnbMediaSaved] = useState(false);
+  const [hdrMediaForm, setHdrMediaForm] = useState({});
+  const [hdrMediaSaved, setHdrMediaSaved] = useState(false);
   const [marketerApps, setMarketerApps] = useState([]);
   const [marketerLoading, setMarketerLoading] = useState(false);
   const [marketerErr, setMarketerErr] = useState("");
@@ -7854,7 +7882,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -7891,6 +7919,17 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const clean={}; Object.keys(onbMediaForm||{}).forEach(k=>{ const full=((onbMediaForm[k]||{}).full||"").trim(); if(full) clean[k]={full}; });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"onboarding_media",value:JSON.stringify(clean)})});
       setOnbMediaSaved(true); setTimeout(()=>setOnbMediaSaved(false),2500);
+    }catch(e){}
+    setDbLoading(false);
+  }
+  async function saveHdrMedia(){
+    setDbLoading(true);
+    try{
+      const tok=await freshToken();
+      const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
+      const clean={}; Object.keys(hdrMediaForm||{}).forEach(k=>{ const full=((hdrMediaForm[k]||{}).full||"").trim(); if(full) clean[k]={full}; });
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"header_media",value:JSON.stringify(clean)})});
+      setHdrMediaSaved(true); setTimeout(()=>setHdrMediaSaved(false),2500);
     }catch(e){}
     setDbLoading(false);
   }
@@ -8782,6 +8821,34 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                 ))}
               </div>
               <button onClick={saveOnbMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{onbMediaSaved?"Saved ✓":"Save Onboarding Images"}</button>
+            </div>
+            <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Header Slideshow Images</div>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>The same tour runs across the top of every page, but it crops <strong>wide</strong> instead of tall — so a photo that looks right in the full-screen tour often loses its head and feet up here. Set a wider alternative for any slot that needs one. <strong>Leave a slot blank and it just uses the onboarding image</strong>, so you only have to override the ones that actually look wrong. Landscape shots with the subject near the middle work best. After you Save, hard-refresh.</p>
+              <div style={{maxHeight:420,overflowY:"auto",marginBottom:16,paddingRight:4}}>
+                {HEADER_SLOTS.map(([k,label])=>{
+                  const own=((hdrMediaForm[k]||{}).full||"").trim();
+                  const inherited=((onbMediaForm[k]||{}).full||"").trim();
+                  const eff=own||inherited;
+                  return (
+                  <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
+                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,marginBottom:6}}>
+                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal}}>{label}</div>
+                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,flexShrink:0,color:own?"#B8955A":"#9C9C9C"}}>{own?"Header-only":(inherited?"Using onboarding":"Using default")}</div>
+                    </div>
+                    <MediaUploadButton folder="header" name={k} accept="image/*" onDone={(u)=>setHdrMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
+                    <input value={own} onChange={e=>setHdrMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="Blank = use the onboarding image" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                    {own && <button onClick={()=>setHdrMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:""}}))} style={{background:"none",border:"none",padding:"6px 0 0",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",color:"#6B6B6B",cursor:"pointer",textDecoration:"underline"}}>Clear — go back to the onboarding image</button>}
+                    {eff && <div style={{marginTop:8}}>
+                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>How it crops in the header</div>
+                      <div style={{border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:96,overflow:"hidden"}}>
+                        <img src={eff} alt="preview" style={{width:"100%",height:96,objectFit:"cover",objectPosition:"center center",display:"block"}} onError={e=>{e.target.style.display="none";}} />
+                      </div>
+                    </div>}
+                  </div>
+                ); })}
+              </div>
+              <button onClick={saveHdrMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{hdrMediaSaved?"Saved ✓":"Save Header Images"}</button>
             </div>
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Hero Images</div>
@@ -14775,6 +14842,7 @@ export default function ChelgyApp() {
   // both <ChelgyOnboarding> call sites — moving this below either of them would
   // reintroduce the temporal-dead-zone crash that once black-screened the app.
   const [onbMedia, setOnbMedia] = useState({});
+  const [hdrMedia, setHdrMedia] = useState({});
   const [showTour, setShowTour] = useState(false);
   const dismissTour = () => {
     setShowTour(false);
@@ -15412,7 +15480,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [toolMedia, setToolMedia] = useState({});
   const [pageMedia, setPageMedia] = useState({});
   const [catOrder, setCatOrder] = useState("");
-  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } if(s&&s.onboarding_media){ try{ setOnbMedia(typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } if(s&&s.onboarding_media){ try{ setOnbMedia(typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media); }catch(e){} } if(s&&s.header_media){ try{ setHdrMedia(typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media); }catch(e){} } }); },[]);
   const CATS = orderedCategories(catOrder);   // admin-editable order
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
@@ -18143,7 +18211,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
           const slides=pageSlides(pageMedia&&pageMedia[tab]);
           if(slides.length) return <HeaderSlideshow slides={slides} B={B} paused={busy}
             onGo={(g)=>{ const p=String(g).split(":"); goTab(p[0], p[1]||undefined); }} />;
-          return <HeaderTour media={onbMedia} B={B} paused={busy}
+          return <HeaderTour media={hdrMedia} fallbackMedia={onbMedia} B={B} paused={busy}
             baseUrl={SUPABASE_URL+"/storage/v1/object/public/sites/onboarding"}
             onGo={(t,sub)=>goTab(t,sub)} />;
         })()}
