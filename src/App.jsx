@@ -4623,6 +4623,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // Their own voice — no AI, no cloning. Cinematic and vlog only, where narration
   // over B-roll is the look.
   const [narrationFile,setNarrationFile] = useState(null);
+  // Let the person turn the on-screen text off when the footage speaks for itself.
+  // Both default ON — that's the current behaviour. Captions = the word-by-word
+  // subtitles; titles = the opening title, scene cards and showcase product labels.
+  const [showCaptions,setShowCaptions] = useState(true);
+  const [showTitles,setShowTitles]     = useState(true);
   const [pendingReview,setPendingReview] = useState(null);
   const [scCopied,setScCopied]     = useState(false);
   const [shClips,setShClips]       = useState([]);   // [{url, hook}]
@@ -5294,10 +5299,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       // ── 4. Render ──
       setStage("Rendering your video — cuts, captions, grade and title. Usually a few minutes. Keep this tab open.");
+      // Honour the visibility toggles: captions off → no words reach the burner;
+      // titles off → no opening title, scene cards or showcase labels. Everything
+      // else (the cut, grade, music, b-roll, narration) is unaffected.
+      const wordsForRender    = showCaptions ? taggedWords : [];
+      const titleForRender    = showTitles ? (plan.title||"") : "";
+      const chaptersForRender = showTitles ? chapterCues : [];
+      const showcaseForRender = showTitles ? (showcaseLabels||[]) : [];
       const started = await studioFfmpeg(
-        uploaded.map(u=>u.url), segs, plan.title||"", orient, totalDur,
-        style, footage, grade, taggedWords, clipFootages,
-        chapterCues, brollShots, transitionClips, musicUrl, showcaseLabels||[], narrationUrl||null
+        uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
+        style, footage, grade, wordsForRender, clipFootages,
+        chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -5525,6 +5537,19 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           </label>
         </div>
       )}
+
+      <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>On-screen text</p>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:8}}>
+          <input type="checkbox" checked={showCaptions} disabled={busy} onChange={e=>setShowCaptions(e.target.checked)} style={{marginTop:3}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.charcoal,lineHeight:1.5}}><strong>Captions</strong> — the word-by-word subtitles from what you say.</span>
+        </label>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}>
+          <input type="checkbox" checked={showTitles} disabled={busy} onChange={e=>setShowTitles(e.target.checked)} style={{marginTop:3}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.charcoal,lineHeight:1.5}}><strong>Title &amp; cards</strong> — the opening title, scene cards{style==="showcase"?" and product labels":""}.</span>
+        </label>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"8px 0 0"}}>Turn either off when your footage speaks for itself. The cut, grade{music!=="off"?", music":""} and b-roll are unaffected.</p>
+      </div>
 
       {(style==="cinematic"||style==="vlog") && (
         <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
