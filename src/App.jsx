@@ -16292,11 +16292,18 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     const isAdminUrl = window.location.search.includes("admin");
     const isPay = params.get("payment")==="success";
     if (isPay) {
+      // SECURITY: ?payment=success is only a HINT that a Stripe checkout just
+      // finished. It is attacker-controlled — anyone can type it — so it must never
+      // grant access or write status. Membership is decided by the database, set by
+      // the Stripe webhook. All we do here is poll until the server says paid, the
+      // same way ?member=success and ?membership=success already do.
       let n = params.get("name");
       try { if(!n) n = localStorage.getItem("chelgy_name"); } catch {}
-      setMyName(n||"Member"); setIsTrial(false); setPage("app");
-      try { localStorage.setItem("chelgy_member","1"); } catch {}
-      try { const ss=loadSession(); if(ss&&ss.access_token&&ss.id) patchMyMember(ss.access_token, ss.id, { status:"paid" }); } catch {}
+      setMyName(n||"Member"); setPage("app");
+      pushNotif("Payment received — activating your membership…");
+      const refreshPay = ()=>{ const ss=loadSession(); if(ss&&ss.access_token&&ss.id) getMyMember(ss.access_token, ss.id).then(m=>{ if(m&&m.status&&["paid","comp","admin","active"].includes(String(m.status).toLowerCase())){ setIsPaid(true); setIsTrial(false); try{localStorage.setItem("chelgy_member","1");}catch(e){} freshToken().then(t=>t?claimMonthlyCredits(t):null).then(tot=>{ if(typeof tot==="number"){ setCredits(tot); lsSet("chelgy_credits", tot); } }); } }); };
+      setTimeout(refreshPay, 2500); setTimeout(refreshPay, 7000); setTimeout(refreshPay, 12000); // webhook may take a moment
+      try { window.history.replaceState({}, "", "/"); } catch {}
     }
     if (isAdminUrl) {
       setPage("app"); setIsTrial(false); setIsAdmin(true); setAdminPanelOpen(true);
