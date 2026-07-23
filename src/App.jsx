@@ -2698,6 +2698,76 @@ const ASs = ({children,...p}) => <select {...p} style={{width:"100%",padding:"10
 // Resolve a tool's demo media URL for a given slot ("thumb" = Tools Hub card, "full" = inside the tool).
 // Back-compat: a plain string (legacy single URL) is used for both slots.
 function toolMediaUrl(entry, slot){ if(!entry) return ""; if(typeof entry==="string") return entry; return (entry[slot]||"").trim ? (entry[slot]||"").trim() : (entry[slot]||""); }
+
+// ── ONBOARDING IMAGE SLOTS ────────────────────────────────────────────────
+// One registry, used by BOTH the admin panel and the tour itself, so the two can
+// never drift apart. Adding a new swappable onboarding image = one row here.
+// `file` is the legacy filename in sites/onboarding/ — still the fallback when a
+// slot has no admin-set URL, so nothing breaks if app_settings is empty.
+const ONBOARDING_SLOTS = [
+  ["beauty",      "beauty.jpg",      "Panel 1 · Opening — full-bleed portrait"],
+  ["websiteDeck", "websiteDeck.jpg", "Panel 2 · Website Builder — device mockup"],
+  ["redBlonde",   "redBlonde.jpg",   "Panel 3 · Fake It Studio — background"],
+  ["before",      "before.jpg",      "Panel 3 · Fake It Studio — “Your photo”"],
+  ["redModel",    "redModel.jpg",    "Panel 3 · Fake It Studio — “Chelgy”"],
+  ["plane",       "plane.jpg",       "Panel 3 · Fake It Studio — “Video”"],
+  ["flyerDeck",   "flyerDeck.jpg",   "Panel 4 · Flyers & Branding — deck"],
+  ["social3",     "social3.jpg",     "Panel 5 · Social — tile 1"],
+  ["social1",     "social1.jpg",     "Panel 5 · Social — tile 2"],
+  ["social2",     "social2.jpg",     "Panel 5 · Social — tile 3"],
+  ["campaign",    "campaign.jpg",    "Panel 7 · Ad Campaigns — full-bleed"],
+  ["closing",     "closing.jpg",     "Panel 8 · Welcome — full-bleed"],
+];
+const ONBOARDING_FILE = {}; ONBOARDING_SLOTS.forEach(([k,f])=>{ ONBOARDING_FILE[k]=f; });
+// Resolve one onboarding image: admin-set URL wins, else the bucket file.
+function onboardingSrc(media, key, baseUrl){
+  const e = media && media[key];
+  const u = (typeof e === "string" ? e : (e && e.full) || "").trim();
+  if (u) return u;
+  const f = ONBOARDING_FILE[key] || (key + ".jpg");
+  return baseUrl ? baseUrl + "/" + f : f;
+}
+
+// Read a picked File into a data URL so it can go through uploadSiteImage().
+function fileToDataUrl(file){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("read failed")); r.readAsDataURL(file); });
+}
+// Reusable "choose a file → upload to the sites bucket → hand back a public URL"
+// button. Used by every media slot in the admin panel so no image ever has to be
+// placed by hand in Supabase Storage again.
+function MediaUploadButton({ folder, name, onDone, accept="image/*,video/*" }){
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const ref=useRef(null);
+  const pick=async(e)=>{
+    const f=e.target.files&&e.target.files[0];
+    if(ref.current) ref.current.value="";
+    if(!f) return;
+    setErr(""); setBusy(true);
+    try{
+      const dataUrl=await fileToDataUrl(f);
+      const ext=((f.name||"").match(/\.([a-zA-Z0-9]+)$/)||[null,"jpg"])[1].toLowerCase();
+      const safe=String(name||"file").replace(/[^a-zA-Z0-9_-]/g,"")||"file";
+      const url=await uploadSiteImage(dataUrl, (folder||"admin-media")+"/"+safe+"."+ext);
+      // Cache-buster: the bucket upserts over the same path, so without this the
+      // browser and CDN keep serving the old picture after a swap.
+      if(url) onDone(url+"?v="+Date.now());
+      else setErr("Upload failed. Sign in with your admin account (the ?admin shortcut alone has no session token), then try again.");
+    }catch(_){ setErr("Couldn't read that file."); }
+    setBusy(false);
+  };
+  return (
+    <div style={{marginBottom:8}}>
+      <input ref={ref} type="file" accept={accept} onChange={pick} style={{display:"none"}} />
+      <button onClick={()=>ref.current&&ref.current.click()} disabled={busy}
+        style={{background:busy?"#9C9C9C":"#B8955A",color:"#fff",border:"none",padding:"7px 14px",fontSize:9,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:busy?"default":"pointer",textTransform:"uppercase"}}>
+        {busy?"Uploading…":"Upload file"}
+      </button>
+      {err&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#C0392B",marginTop:6,lineHeight:1.5}}>{err}</div>}
+    </div>
+  );
+}
+
 async function loadAppSettings(){
   try { const res = await fetch(SUPABASE_URL+"/rest/v1/app_settings?select=key,value", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); const o={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ o[r.key]=r.value; }); return o; } catch { return {}; }
 }
@@ -7298,6 +7368,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   const [toolMediaSaved, setToolMediaSaved] = useState(false);
   const [pageMediaForm, setPageMediaForm] = useState({});
   const [pageMediaSaved, setPageMediaSaved] = useState(false);
+  const [onbMediaForm, setOnbMediaForm] = useState({});
+  const [onbMediaSaved, setOnbMediaSaved] = useState(false);
   const [marketerApps, setMarketerApps] = useState([]);
   const [marketerLoading, setMarketerLoading] = useState(false);
   const [marketerErr, setMarketerErr] = useState("");
@@ -7410,7 +7482,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||""),focus:(v&&v.focus)||"center"}; }); setPageMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||""),focus:(v&&v.focus)||"center"}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -7430,6 +7502,17 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const clean={}; Object.keys(pageMediaForm||{}).forEach(k=>{ const full=((pageMediaForm[k]||{}).full||"").trim(); if(full){ const o={full}; const foc=((pageMediaForm[k]||{}).focus||"").trim(); if(foc&&foc!=="center")o.focus=foc; clean[k]=o; } });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"page_media",value:JSON.stringify(clean)})});
       setPageMediaSaved(true); setTimeout(()=>setPageMediaSaved(false),2500);
+    }catch(e){}
+    setDbLoading(false);
+  }
+  async function saveOnbMedia(){
+    setDbLoading(true);
+    try{
+      const tok=await freshToken();
+      const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
+      const clean={}; Object.keys(onbMediaForm||{}).forEach(k=>{ const full=((onbMediaForm[k]||{}).full||"").trim(); if(full) clean[k]={full}; });
+      await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"onboarding_media",value:JSON.stringify(clean)})});
+      setOnbMediaSaved(true); setTimeout(()=>setOnbMediaSaved(false),2500);
     }catch(e){}
     setDbLoading(false);
   }
@@ -8241,10 +8324,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal,marginBottom:8}}>{label}</div>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Thumbnail · Tools Hub card</div>
-                    <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white,marginBottom:8}} />
+                    <MediaUploadButton folder="tool-media" name={k+"-thumb"} onDone={(u)=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:u}}))} />
+                    <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white,marginBottom:8}} />
                     {((toolMediaForm[k]&&toolMediaForm[k].thumb)||"").trim() && (()=>{ const u=((toolMediaForm[k]&&toolMediaForm[k].thumb)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.minHeight="34px";e.target.parentNode.setAttribute("data-broken","1");}} />}</div>; })()}
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Inside the tool · top of page</div>
-                    <input value={(toolMediaForm[k]&&toolMediaForm[k].full)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                    <MediaUploadButton folder="tool-media" name={k+"-full"} onDone={(u)=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
+                    <input value={(toolMediaForm[k]&&toolMediaForm[k].full)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
                     {((toolMediaForm[k]&&toolMediaForm[k].full)||"").trim() && (()=>{ const u=((toolMediaForm[k]&&toolMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.minHeight="34px";e.target.parentNode.setAttribute("data-broken","1");}} />}</div>; })()}
                   </div>
                 ))}
@@ -8257,7 +8342,8 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               {[["home","Home / Dashboard"],["tools","Tools Hub"],["learn","Learn"],["community","Community"],["profile","Profile"]].map(([k,label])=>(
                 <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                   <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal,marginBottom:8}}>{label}</div>
-                  <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (image or video URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                  <MediaUploadButton folder="page-banners" name={k} onDone={(u)=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
+                  <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
                   {((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim() && (()=>{ const u=((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMediaForm[k]&&pageMediaForm[k].focus)||"50% 50%"; const mm=/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(foc); const fx=mm?+mm[1]:50; const fy=mm?+mm[2]:50; const setFoc=(e)=>{ const r=e.currentTarget.getBoundingClientRect(); let x=Math.round(((e.clientX-r.left)/r.width)*100); let y=Math.round(((e.clientY-r.top)/r.height)*100); x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y)); setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:x+"% "+y+"%"}})); }; return (<div style={{marginTop:8}}>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>Drag the dot to choose what shows</div>
                     <div onMouseDown={setFoc} onMouseMove={e=>{ if(e.buttons===1) setFoc(e); }} style={{position:"relative",border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:150,overflow:"hidden",cursor:"crosshair",userSelect:"none"}}>
@@ -8270,12 +8356,32 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <button onClick={savePageMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{pageMediaSaved?"Saved ✓":"Save Page Banners"}</button>
             </div>
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Onboarding Tour Images</div>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Every photo in the welcome tour — the first thing a new visitor sees. Hit <strong>Upload file</strong> to pick one straight off your Mac; it goes to storage and fills in the link for you. Or paste a link if you already have one. Leave a slot blank and it falls back to the original image. Portraits look best; the tour crops to fill. After you Save, hard-refresh to see the change.</p>
+              <div style={{maxHeight:420,overflowY:"auto",marginBottom:16,paddingRight:4}}>
+                {ONBOARDING_SLOTS.map(([k,file,label])=>(
+                  <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
+                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal,marginBottom:2}}>{label}</div>
+                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#9C9C9C",marginBottom:8}}>Default: {file}</div>
+                    <MediaUploadButton folder="onboarding" name={k} accept="image/*" onDone={(u)=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
+                    <input value={(onbMediaForm[k]&&onbMediaForm[k].full)||""} onChange={e=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                    {(()=>{ const u=((onbMediaForm[k]&&onbMediaForm[k].full)||"").trim(); if(!u) return null; return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><img src={u} alt="preview" style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} /></div>; })()}
+                  </div>
+                ))}
+              </div>
+              <button onClick={saveOnbMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{onbMediaSaved?"Saved ✓":"Save Onboarding Images"}</button>
+            </div>
+            <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Hero Images</div>
               <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Paste an image URL to change the main background photos. Leave blank to keep the built-in default. Tip: you can make one in your Image Creator and paste its link here.</p>
-              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Login & Onboarding background</div>
-              <input value={heroForm.hero_image} onChange={e=>setHeroForm(f=>({...f,hero_image:e.target.value}))} placeholder="https://... (image URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",marginBottom:16,boxSizing:"border-box",background:B.white}} />
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Sign up & login background</div>
+              <MediaUploadButton folder="hero" name="signup-bg" accept="image/*" onDone={(u)=>setHeroForm(f=>({...f,hero_image:u}))} />
+              <input value={heroForm.hero_image} onChange={e=>setHeroForm(f=>({...f,hero_image:e.target.value}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",marginBottom:10,boxSizing:"border-box",background:B.white}} />
+              {(heroForm.hero_image||"").trim() && <div style={{marginBottom:16,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><img src={(heroForm.hero_image||"").trim()} alt="preview" style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} /></div>}
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:6,textTransform:"uppercase"}}>Home page hero</div>
-              <input value={heroForm.home_hero} onChange={e=>setHeroForm(f=>({...f,home_hero:e.target.value}))} placeholder="https://... (image URL)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",marginBottom:16,boxSizing:"border-box",background:B.white}} />
+              <MediaUploadButton folder="hero" name="home-hero" accept="image/*" onDone={(u)=>setHeroForm(f=>({...f,home_hero:u}))} />
+              <input value={heroForm.home_hero} onChange={e=>setHeroForm(f=>({...f,home_hero:e.target.value}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",marginBottom:10,boxSizing:"border-box",background:B.white}} />
+              {(heroForm.home_hero||"").trim() && <div style={{marginBottom:16,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><img src={(heroForm.home_hero||"").trim()} alt="preview" style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} /></div>}
               <button onClick={saveHeroImages} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{heroSaved?"Saved ✓":"Save Hero Images"}</button>
             </div>
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
@@ -8288,7 +8394,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               ))}
             </div>
             <div style={{background:"#FEF2F2",border:"1px solid #FECACA",padding:"16px 18px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#C0392B",lineHeight:1.7}}>
-              Your posts are saved permanently to Supabase. Any strategy or weekly update you publish will appear instantly for all members and will never be lost. Image uploads coming soon!
+              Your posts are saved permanently to Supabase. Any strategy or weekly update you publish will appear instantly for all members and will never be lost. Images you upload here go straight to storage — you never need to open the Supabase dashboard.
             </div>
           </div>
         )}
@@ -13932,18 +14038,15 @@ const SALES_COACH_SYSTEM = "You are the Chelgy Sales Coach, a sharp, encouraging
 // to the Supabase `sites` bucket under an `onboarding/` prefix (public read).
 // Fonts (Caveline, Cormorant/Jost) are already loaded app-wide, so this reuses them.
 
-function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel }) {
+function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   const [i, setI] = useState(0);
   const timerRef = useRef(null);
   const startX = useRef(0);
 
-  const IMG = {
-    beauty:"beauty.jpg", redBlonde:"redBlonde.jpg", redModel:"redModel.jpg",
-    plane:"plane.jpg", before:"before.jpg", websiteDeck:"websiteDeck.jpg",
-    flyerDeck:"flyerDeck.jpg", social1:"social1.jpg", social2:"social2.jpg",
-    social3:"social3.jpg", campaign:"campaign.jpg", closing:"closing.jpg",
-  };
-  const src = (k) => (baseUrl ? baseUrl + "/" + IMG[k] : IMG[k]);
+  // Image slots live in ONBOARDING_SLOTS (single source of truth, shared with the
+  // admin panel). An admin-set URL wins; otherwise we fall back to the original
+  // file in sites/onboarding/, so an empty setting behaves exactly as before.
+  const src = (k) => onboardingSrc(media, k, baseUrl);
 
   // Per-panel auto-advance durations (seconds). 99 = last panel, no auto-advance.
   const DUR = [5, 6, 7, 6, 6, 7, 6, 99];
@@ -14252,6 +14355,10 @@ export default function ChelgyApp() {
   // Shown once to a new user. Gated on a per-user flag so it never repeats and
   // never fires for existing users. localStorage gives an instant check; the
   // account metadata makes it durable across devices.
+  // Admin-set onboarding images. DECLARED HERE, above the preflight effect and
+  // both <ChelgyOnboarding> call sites — moving this below either of them would
+  // reintroduce the temporal-dead-zone crash that once black-screened the app.
+  const [onbMedia, setOnbMedia] = useState({});
   const [showTour, setShowTour] = useState(false);
   const dismissTour = () => {
     setShowTour(false);
@@ -14332,8 +14439,11 @@ export default function ChelgyApp() {
     const testImg = new Image();
     testImg.onload = () => setShowTour(true);
     testImg.onerror = () => setShowTour(false);
-    testImg.src = SUPABASE_URL + "/storage/v1/object/public/sites/onboarding/closing.jpg";
-  }, [user]); // eslint-disable-line
+    // Test whatever the last panel will ACTUALLY load — an admin-set URL if there
+    // is one, else the bucket file. Testing a hardcoded path would wrongly skip
+    // the tour for anyone who has swapped their images.
+    testImg.src = onboardingSrc(onbMedia, "closing", SUPABASE_URL + "/storage/v1/object/public/sites/onboarding");
+  }, [user, onbMedia]); // eslint-disable-line
   // ── WHICH SPACE ARE WE IN? ─────────────────────────────────────────────
   // The SUBDOMAIN decides. Nothing else. No URL params, no saved flags, and no
   // account setting can flip you into a portal — so chelgy.app is ALWAYS the
@@ -14886,7 +14996,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   const [toolMedia, setToolMedia] = useState({});
   const [pageMedia, setPageMedia] = useState({});
   const [catOrder, setCatOrder] = useState("");
-  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ if(s&&s.hero_image) setHeroImg(s.hero_image); if(s&&s.home_hero) setHomeHero(s.home_hero); if(s&&s.cat_order) setCatOrder(s.cat_order); if(s&&s.tool_media){ try{ setToolMedia(typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media); }catch(e){} } if(s&&s.page_media){ try{ setPageMedia(typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media); }catch(e){} } if(s&&s.onboarding_media){ try{ setOnbMedia(typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media); }catch(e){} } }); },[]);
   const CATS = orderedCategories(catOrder);   // admin-editable order
   const [blogCat, setBlogCat] = useState("All");
   const BLOG_CATS = ["All","Marketing","Money & Finance","Mindset & Motivation","Productivity","Trends & AI","Branding","Social Media","Lifestyle & Self-Care","Story Time","Entrepreneur Life"];
@@ -16040,7 +16150,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   if (isAdmin && adminPanelOpen && adminAuthed) return <AdminDashboard onExit={()=>setAdminPanelOpen(false)} strategies={appStrategies} setStrategies={setAppStrategies} weeklyPosts={appWeeklyPosts} setWeeklyPosts={setAppWeeklyPosts} />;
 
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
-  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <ChelgyOnboarding baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"} logoUrl={LOGO_B64} ctaLabel="Get started" onDone={()=>setPage("signup")} />;
+  if (!isTeamSpace && !isSalesSpace && page==="onboarding") return <ChelgyOnboarding baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"} logoUrl={LOGO_B64} media={onbMedia} ctaLabel="Get started" onDone={()=>setPage("signup")} />;
 
   // ── SIGNUP ──────────────────────────────────────────────────────────────────
   const legalOverlay = legalView ? (
@@ -17322,6 +17432,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     <ChelgyOnboarding
       baseUrl={SUPABASE_URL + "/storage/v1/object/public/sites/onboarding"}
       logoUrl={LOGO_B64}
+      media={onbMedia}
       onDone={dismissTour}
     />
   );
