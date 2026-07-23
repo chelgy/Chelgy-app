@@ -515,7 +515,7 @@ async function authRecover(email) {
 function saveSession(data) {
   try {
     const u = data.user || {};
-    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", created_at: u.created_at || null, is_marketer: !!(u.user_metadata && u.user_metadata.is_marketer), seen_onboarding: !!(u.user_metadata && u.user_metadata.seen_onboarding), access_token: data.access_token, refresh_token: data.refresh_token };
+    const session = { id: u.id, email: u.email, name: (u.user_metadata && u.user_metadata.name) || "", created_at: u.created_at || null, is_marketer: !!(u.user_metadata && u.user_metadata.is_marketer), seen_onboarding: !!(u.user_metadata && u.user_metadata.seen_onboarding), dark_mode: (u.user_metadata && typeof u.user_metadata.dark_mode === "boolean") ? u.user_metadata.dark_mode : null, access_token: data.access_token, refresh_token: data.refresh_token };
     localStorage.setItem("chelgy_session", JSON.stringify(session));
     return session;
   } catch { return null; }
@@ -14813,7 +14813,7 @@ export default function ChelgyApp() {
   // ── DARK MODE ──────────────────────────────────────────────────────────────
   // Per-user preference. Read from the saved session/user metadata when we have it,
   // and re-applied to the shared B palette on every change so the whole tree follows.
-  const [dark, setDarkState] = useState(true);
+  const [dark, setDarkState] = useState(false);
   // Apply synchronously on first paint and whenever it changes, BEFORE children read B.
   applyTheme(dark);
   const setDark = (v) => {
@@ -14830,9 +14830,9 @@ export default function ChelgyApp() {
         body: JSON.stringify({ data:{ dark_mode: !!v } }) });
     }catch(_){} })();
   };
-  // Dark is the default. On load, only flip to LIGHT if the user has explicitly chosen it.
+  // LIGHT is the default. On load, only flip to DARK if the user has explicitly chosen it.
   useEffect(()=>{
-    try{ const s = localStorage.getItem("chelgy_dark"); if(s==="0"){ setDarkState(false); applyTheme(false); } }catch(_){}
+    try{ const s = localStorage.getItem("chelgy_dark"); if(s==="1"){ setDarkState(true); applyTheme(true); } }catch(_){}
   },[]);
   // ── FEATURE-TOUR ONBOARDING ──────────────────────────────────────────────────
   // Shown once to a new user. Gated on a per-user flag so it never repeats and
@@ -14910,6 +14910,16 @@ export default function ChelgyApp() {
   const [signupStep, setSignupStep] = useState(1);
   const [signupData, setSignupData] = useState({ name:"", email:"", password:"" });
   const [user, setUser] = useState(null);
+  // ...and apply it once we know who they are. Placed BELOW `user` on purpose —
+  // reading it above the declaration is what black-screened the app once before.
+  // A device the person has explicitly set wins; the account only fills the gap.
+  useEffect(()=>{
+    if(!user || typeof user.dark_mode !== "boolean") return;
+    let chosenHere = false;
+    try{ chosenHere = localStorage.getItem("chelgy_dark") !== null; }catch(_){}
+    if(chosenHere) return;
+    setDarkState(user.dark_mode); applyTheme(user.dark_mode);
+  },[user]); // eslint-disable-line
   // Decide whether to show the first-run tour once we know who the user is.
   // (Declared here, AFTER `user`, so it never reads user before initialization.)
   // Guard: only show it if the onboarding images are actually reachable — if the
