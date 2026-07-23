@@ -2768,6 +2768,130 @@ function MediaUploadButton({ folder, name, onDone, accept="image/*,video/*" }){
   );
 }
 
+// Normalise a page_media entry into an ordered slide list.
+// Accepts all three shapes we've ever stored, so nothing already configured breaks:
+//   "url"                          -> one slide  (oldest)
+//   {full, focus}                  -> one slide  (current)
+//   {slides:[{full,focus,label,sub,go}]} -> many  (new)
+function pageSlides(entry){
+  const one = (s) => ({
+    full:(s.full||"").trim(), focus:s.focus||"center",
+    label:(s.label||"").trim(), sub:(s.sub||"").trim(), go:(s.go||"").trim(),
+  });
+  if(!entry) return [];
+  if(typeof entry==="string") return entry.trim() ? [one({full:entry})] : [];
+  if(Array.isArray(entry.slides)) return entry.slides.filter(s=>s&&(s.full||"").trim()).map(one);
+  return (entry.full||"").trim() ? [one(entry)] : [];
+}
+function focusPos(foc){
+  return foc==="top" ? "center top" : foc==="bottom" ? "center bottom"
+       : foc==="center" ? "center center" : (foc || "center center");
+}
+const isVideoUrl = (u) => /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u||"");
+
+// ── HEADER SLIDESHOW ──────────────────────────────────────────────────────────
+// A discovery rail, not decoration. Every slide carries a label and a destination
+// so it works the way a streaming-service hero row works: each panel names a
+// specific thing and you can press it. Slides without a destination still show,
+// they just aren't clickable.
+// Motion rules: slow crossfade only (no sliding), continuous loop, and it stops
+// entirely for anyone whose OS asks for reduced motion or when the tab is hidden
+// or something is open on top of it.
+function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=6500 }){
+  const [i, setI] = useState(0);
+  const [reduce, setReduce] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [hover, setHover] = useState(false);
+  const startX = useRef(0);
+  const n = slides.length;
+
+  useEffect(()=>{
+    try{
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReduce(!!mq.matches);
+      const h = (e)=>setReduce(!!e.matches);
+      mq.addEventListener ? mq.addEventListener("change",h) : mq.addListener(h);
+      return ()=>{ mq.removeEventListener ? mq.removeEventListener("change",h) : mq.removeListener(h); };
+    }catch(_){ }
+  },[]);
+
+  useEffect(()=>{
+    const h = ()=>{ try{ setHidden(!!document.hidden); }catch(_){ } };
+    try{ document.addEventListener("visibilitychange",h); }catch(_){ }
+    return ()=>{ try{ document.removeEventListener("visibilitychange",h); }catch(_){ } };
+  },[]);
+
+  const still = paused || hidden || reduce || hover || n < 2;
+  useEffect(()=>{
+    if(still) return;
+    const t = setTimeout(()=>setI(x=>(x+1)%n), hold);
+    return ()=>clearTimeout(t);
+  },[i, still, n, hold]);
+
+  useEffect(()=>{ if(i>=n) setI(0); },[n]); // eslint-disable-line
+
+  if(!n) return null;
+  const cur = slides[i] || slides[0];
+  const clickable = !!(cur.go && onGo);
+
+  const onTouchStart = (e)=>{ startX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e)=>{
+    const dx = e.changedTouches[0].clientX - startX.current;
+    if(Math.abs(dx) > 45){ setI(x=>(x + (dx<0?1:n-1)) % n); }
+  };
+
+  return (
+    <div
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+      style={{position:"relative",marginBottom:22,border:"1px solid "+B.stone,background:"#000",height,overflow:"hidden",lineHeight:0}}>
+
+      {slides.map((s,idx)=>(
+        <div key={idx} aria-hidden={idx!==i}
+          style={{position:"absolute",inset:0,opacity:idx===i?1:0,
+                  transition:reduce?"none":"opacity 1.1s cubic-bezier(.4,0,.2,1)"}}>
+          {isVideoUrl(s.full)
+            ? <video src={s.full} muted playsInline autoPlay loop
+                style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:focusPos(s.focus),display:"block"}} />
+            : <img src={s.full} alt={s.label||""}
+                style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:focusPos(s.focus),display:"block"}}
+                onError={e=>{ e.target.style.visibility="hidden"; }} />}
+        </div>
+      ))}
+
+      {/* Scrim so type stays readable over any photo — same treatment as the tour. */}
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",
+        background:"linear-gradient(180deg,rgba(10,7,5,.30) 0%,rgba(10,7,5,.04) 34%,rgba(10,7,5,.46) 68%,rgba(10,7,5,.93) 100%)"}} />
+
+      {(cur.label || cur.sub) && (
+        <div
+          onClick={clickable ? ()=>onGo(cur.go) : undefined}
+          role={clickable?"button":undefined} tabIndex={clickable?0:undefined}
+          onKeyDown={clickable ? (e)=>{ if(e.key==="Enter"||e.key===" ") onGo(cur.go); } : undefined}
+          style={{position:"absolute",left:0,right:0,bottom:0,padding:"0 22px 26px",zIndex:3,
+                  cursor:clickable?"pointer":"default",lineHeight:1.1}}>
+          {cur.sub && <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:300,
+            letterSpacing:"0.42em",textTransform:"uppercase",color:"rgba(239,233,223,.72)",marginBottom:9}}>{cur.sub}</div>}
+          {cur.label && <div style={{fontFamily:"Lacuna,Didot,Georgia,serif",fontSize:31,
+            letterSpacing:"0.01em",color:"#fff",textShadow:"0 2px 26px rgba(0,0,0,.45)"}}>{cur.label}</div>}
+          {clickable && <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,
+            letterSpacing:"0.22em",textTransform:"uppercase",color:B.gold,marginTop:11}}>Open →</div>}
+        </div>
+      )}
+
+      {n > 1 && (
+        <div style={{position:"absolute",top:14,right:16,zIndex:4,display:"flex",gap:5}}>
+          {slides.map((_,idx)=>(
+            <button key={idx} onClick={()=>setI(idx)} aria-label={"Slide "+(idx+1)}
+              style={{width:idx===i?18:6,height:3,padding:0,border:"none",cursor:"pointer",
+                background:idx===i?"rgba(239,233,223,.95)":"rgba(239,233,223,.34)",
+                transition:reduce?"none":"width .5s ease, background .5s ease"}} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 async function loadAppSettings(){
   try { const res = await fetch(SUPABASE_URL+"/rest/v1/app_settings?select=key,value", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); const o={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ o[r.key]=r.value; }); return o; } catch { return {}; }
 }
@@ -7482,7 +7606,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||""),focus:(v&&v.focus)||"center"}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -7499,7 +7623,13 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{
       const tok=await freshToken();
       const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
-      const clean={}; Object.keys(pageMediaForm||{}).forEach(k=>{ const full=((pageMediaForm[k]||{}).full||"").trim(); if(full){ const o={full}; const foc=((pageMediaForm[k]||{}).focus||"").trim(); if(foc&&foc!=="center")o.focus=foc; clean[k]=o; } });
+      const clean={}; Object.keys(pageMediaForm||{}).forEach(k=>{
+        const list=((pageMediaForm[k]||{}).slides||[]).map(sl=>({ full:(sl.full||"").trim(), focus:(sl.focus||"center"), label:(sl.label||"").trim(), sub:(sl.sub||"").trim(), go:(sl.go||"").trim() })).filter(sl=>sl.full);
+        if(!list.length) return;
+        // Also write the legacy full/focus off slide 1 so a browser still running
+        // an older cached bundle keeps showing a banner instead of nothing.
+        clean[k]={ slides:list, full:list[0].full, focus:list[0].focus };
+      });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"page_media",value:JSON.stringify(clean)})});
       setPageMediaSaved(true); setTimeout(()=>setPageMediaSaved(false),2500);
     }catch(e){}
@@ -8337,23 +8467,57 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               <button onClick={saveToolMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{toolMediaSaved?"Saved ✓":"Save Tool Demos"}</button>
             </div>
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
-              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Page Banners</div>
-              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Set a banner photo or video shown at the top of each main page — the same idea as tool banners, but for whole pages. Videos (.mp4, .webm, .mov) play inline; other links show as an image. Leave a field blank to hide it. Tip: make one in your Image Creator and paste its link here. A preview shows under each link. If it stays blank, that URL isn't loading as an image or video (some hosts block hotlinking) - try a direct image file such as one made in your own Image Creator. After you Save, hard-refresh the page to see banner changes.</p>
-              {[["home","Home / Dashboard"],["tools","Tools Hub"],["learn","Learn"],["community","Community"],["profile","Profile"]].map(([k,label])=>(
-                <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
-                  <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal,marginBottom:8}}>{label}</div>
-                  <MediaUploadButton folder="page-banners" name={k} onDone={(u)=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
-                  <input value={(pageMediaForm[k]&&pageMediaForm[k].full)||""} onChange={e=>setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
-                  {((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim() && (()=>{ const u=((pageMediaForm[k]&&pageMediaForm[k].full)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMediaForm[k]&&pageMediaForm[k].focus)||"50% 50%"; const mm=/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(foc); const fx=mm?+mm[1]:50; const fy=mm?+mm[2]:50; const setFoc=(e)=>{ const r=e.currentTarget.getBoundingClientRect(); let x=Math.round(((e.clientX-r.left)/r.width)*100); let y=Math.round(((e.clientY-r.top)/r.height)*100); x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y)); setPageMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:x+"% "+y+"%"}})); }; return (<div style={{marginTop:8}}>
-                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>Drag the dot to choose what shows</div>
-                    <div onMouseDown={setFoc} onMouseMove={e=>{ if(e.buttons===1) setFoc(e); }} style={{position:"relative",border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:150,overflow:"hidden",cursor:"crosshair",userSelect:"none"}}>
-                      {isVid?<video src={u} muted playsInline style={{width:"100%",height:150,objectFit:"cover",objectPosition:foc,display:"block",pointerEvents:"none"}}/>:<img src={u} alt="preview" draggable={false} style={{width:"100%",height:150,objectFit:"cover",objectPosition:foc,display:"block",pointerEvents:"none"}} onError={e=>{e.target.style.display="none";}} />}
-                      <div style={{position:"absolute",left:fx+"%",top:fy+"%",width:20,height:20,marginLeft:-10,marginTop:-10,borderRadius:"50%",border:"2px solid #fff",boxShadow:"0 0 0 2px rgba(0,0,0,0.55)",pointerEvents:"none"}} />
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Page Banners &amp; Slideshows</div>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Add one or more slides to the top of each page. With one slide it's a static banner; with two or more it becomes a slideshow that crossfades every 6.5 seconds and loops. Give every slide a <strong>headline</strong> and a <strong>destination</strong> — that's what turns it into a way for members to discover tools they haven't opened yet, rather than just a picture. Drag the dot on the preview to pick what stays in frame when it crops. It pauses automatically when a pop-up is open, when the tab is in the background, and for anyone whose device is set to reduce motion. Videos (.mp4, .webm, .mov) work too. After you Save, hard-refresh.</p>
+              {[["home","Home / Dashboard"],["tools","Tools Hub"],["learn","Learn"],["community","Community"],["profile","Profile"]].map(([k,label])=>{
+                const list=((pageMediaForm[k]||{}).slides)||[];
+                const setList=(fn)=>setPageMediaForm(f=>{ const cur=((f[k]||{}).slides)||[]; return {...f,[k]:{...(f[k]||{}),slides:fn(cur)}}; });
+                const upd=(idx,patch)=>setList(cur=>cur.map((sl,j)=>j===idx?{...sl,...patch}:sl));
+                const move=(idx,dir)=>setList(cur=>{ const t=idx+dir; if(t<0||t>=cur.length) return cur; const c=cur.slice(); const tmp=c[idx]; c[idx]=c[t]; c[t]=tmp; return c; });
+                return (
+                <div key={k} style={{marginBottom:20,paddingBottom:16,borderBottom:"1px solid #E8E6E1"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal}}>{label}</div>
+                    <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#9C9C9C"}}>{list.length===0?"no slides":list.length===1?"1 slide (static)":list.length+" slides"}</div>
+                  </div>
+                  {list.map((sl,idx)=>(
+                    <div key={idx} style={{border:"1px solid #F0EEEA",background:"#FCFBFA",padding:"12px 12px 10px",marginBottom:10}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:"#6B6B6B",textTransform:"uppercase"}}>Slide {idx+1}</div>
+                        <div style={{display:"flex",gap:6}}>
+                          <button onClick={()=>move(idx,-1)} disabled={idx===0} title="Move up" style={{background:"none",border:"1px solid #E8E6E1",padding:"3px 8px",fontSize:11,cursor:idx===0?"default":"pointer",opacity:idx===0?.35:1}}>&#8593;</button>
+                          <button onClick={()=>move(idx,1)} disabled={idx===list.length-1} title="Move down" style={{background:"none",border:"1px solid #E8E6E1",padding:"3px 8px",fontSize:11,cursor:idx===list.length-1?"default":"pointer",opacity:idx===list.length-1?.35:1}}>&#8595;</button>
+                          <button onClick={()=>setList(cur=>cur.filter((_,j)=>j!==idx))} title="Remove slide" style={{background:"none",border:"1px solid #FECACA",color:"#C0392B",padding:"3px 8px",fontSize:9,letterSpacing:"0.08em",fontWeight:700,fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
+                        </div>
+                      </div>
+                      <MediaUploadButton folder="page-banners" name={k+"-"+(idx+1)} onDone={(u)=>upd(idx,{full:u})} />
+                      <input value={sl.full||""} onChange={e=>upd(idx,{full:e.target.value})} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white,marginBottom:8}} />
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <input value={sl.sub||""} onChange={e=>upd(idx,{sub:e.target.value})} placeholder="Eyebrow — e.g. NEW" style={{flex:"0 0 34%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                        <input value={sl.label||""} onChange={e=>upd(idx,{label:e.target.value})} placeholder="Headline — e.g. AI Video Editor" style={{flex:1,padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
+                      </div>
+                      <select value={sl.go||""} onChange={e=>upd(idx,{go:e.target.value})} style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",background:B.white,color:B.charcoal,cursor:"pointer",marginBottom:8,boxSizing:"border-box"}}>
+                        <option value="">Goes nowhere (not tappable)</option>
+                        <option value="home">Home / Dashboard</option>
+                        <option value="tools">Tools Hub</option>
+                        <option value="learn">Learn</option>
+                        <option value="community">Community</option>
+                        <option value="profile">Profile</option>
+                        {Object.keys(TOOL_LABELS).sort((x,y)=>TOOL_ORDER.indexOf(x)-TOOL_ORDER.indexOf(y)).map(t=>(<option key={t} value={"tools:"+t}>Tool &#8594; {TOOL_LABELS[t]}</option>))}
+                      </select>
+                      {(sl.full||"").trim() && (()=>{ const u=(sl.full||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=sl.focus||"50% 50%"; const mm=/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(foc); const fx=mm?+mm[1]:50; const fy=mm?+mm[2]:50; const setFoc=(e)=>{ const r=e.currentTarget.getBoundingClientRect(); let x=Math.round(((e.clientX-r.left)/r.width)*100); let y=Math.round(((e.clientY-r.top)/r.height)*100); x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y)); upd(idx,{focus:x+"% "+y+"%"}); }; return (<div>
+                        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>Drag the dot to choose what shows</div>
+                        <div onMouseDown={setFoc} onMouseMove={e=>{ if(e.buttons===1) setFoc(e); }} style={{position:"relative",border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:150,overflow:"hidden",cursor:"crosshair",userSelect:"none"}}>
+                          {isVid?<video src={u} muted playsInline style={{width:"100%",height:150,objectFit:"cover",objectPosition:foc,display:"block",pointerEvents:"none"}}/>:<img src={u} alt="preview" draggable={false} style={{width:"100%",height:150,objectFit:"cover",objectPosition:foc,display:"block",pointerEvents:"none"}} onError={e=>{e.target.style.display="none";}} />}
+                          <div style={{position:"absolute",left:fx+"%",top:fy+"%",width:20,height:20,marginLeft:-10,marginTop:-10,borderRadius:"50%",border:"2px solid #fff",boxShadow:"0 0 0 2px rgba(0,0,0,0.55)",pointerEvents:"none"}} />
+                        </div>
+                      </div>); })()}
                     </div>
-                  </div>); })()}
+                  ))}
+                  <button onClick={()=>setList(cur=>cur.concat([{full:"",focus:"center",label:"",sub:"",go:""}]))} style={{background:"none",border:"1px dashed #C9C4BC",color:B.charcoal,padding:"9px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase",width:"100%"}}>+ Add slide to {label}</button>
                 </div>
-              ))}
-              <button onClick={savePageMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{pageMediaSaved?"Saved ✓":"Save Page Banners"}</button>
+              ); })}
+              <button onClick={savePageMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{pageMediaSaved?"Saved ✓":"Save Page Slides"}</button>
             </div>
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Onboarding Tour Images</div>
@@ -17718,13 +17882,16 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:"calc("+(BOT_H+16)+"px + env(safe-area-inset-bottom,0px))"}}>
         <div className="cg-main" style={{maxWidth:1400,margin:"0 auto"}}>
-          {(()=>{ const u=toolMediaUrl(pageMedia&&pageMedia[tab],"full"); const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub"); if(!u||!show) return null; const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); const foc=(pageMedia&&pageMedia[tab]&&pageMedia[tab].focus)||"center"; const pos=foc==="top"?"center top":foc==="bottom"?"center bottom":foc==="center"?"center center":(foc||"center center"); return (
-            <div style={{marginBottom:22,border:"1px solid "+B.stone,background:"#000",lineHeight:0}}>
-              {isVid
-                ? <video src={u} controls playsInline style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover",objectPosition:pos,background:"#000"}} />
-                : <img src={u} alt="" style={{width:"100%",display:"block",maxHeight:360,objectFit:"cover",objectPosition:pos}} onError={e=>{e.target.parentNode.style.display="none";}} />}
-            </div>
-          ); })()}
+          {(()=>{
+            const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub");
+            if(!show) return null;
+            const slides=pageSlides(pageMedia&&pageMedia[tab]);
+            if(!slides.length) return null;
+            // Hold the rail still while anything is open on top of it.
+            const busy=!!(showNotifs||showNewPost||showCredits||showPaywall||showPlan||showIntake||selectedStrategy||selectedPost||selectedForumPost);
+            return <HeaderSlideshow slides={slides} B={B} paused={busy}
+              onGo={(g)=>{ const p=String(g).split(":"); goTab(p[0], p[1]||undefined); }} />;
+          })()}
 
           {/* ═══ HOME ═══ */}
           {tab==="home"&&isTeamSpace&&marketerStatus==="approved"&&!mkPost&&(
