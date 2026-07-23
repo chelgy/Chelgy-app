@@ -5424,7 +5424,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ))}
       </div>
       {(()=>{ const sel = STYLES.find(s=>s.id===style); return sel ? (
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>{sel.note}</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>{sel.note}</p>
       ) : null; })()}
 
       {mode==="edit" && (<>
