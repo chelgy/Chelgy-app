@@ -1516,7 +1516,12 @@ function applyTheme(dark){
   for (const k in src) B[k] = src[k];
 }
 // Gold accent — used ONLY on dark/black blocks & buttons (light UI stays black/white/grey)
-const GOLD = "#B8955A";
+// Was #B8955A. The tan read as a third brand colour against a site that is
+// otherwise ink-and-cream, and it fought the photography. Now a soft off-white:
+// it works as a label on the dark blocks AND as a button fill, provided the text
+// ON that fill flips to B.inkBlock — which is dark in BOTH themes. B.creamText
+// would NOT do: it inverts to #efe9df in dark mode, giving 1.1:1 on this fill.
+const GOLD = "#F2EFE9";
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/dRm00i1Qg2eXectewKdEs00";
 // Demo accounts: these emails get full access automatically (no payment), and the
 // AI treats them as an independent marketer. Create them once via normal signup.
@@ -2692,7 +2697,7 @@ const Rb=({label,content,loading})=>{
 const Upsell = ({ variant="both" }) => {
   const course = variant==="course"||variant==="both";
   const services = variant==="services"||variant==="both";
-  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:GOLD,color:B.inkText,textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
+  const link = (href,label)=>(<a href={href} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:GOLD,color:B.inkBlock,textDecoration:"none",padding:"9px 16px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,textTransform:"uppercase"}}>{label}</a>);
   return (
     <div style={{marginTop:24,background:B.inkBlock,padding:"22px 24px",borderLeft:"3px solid #fff"}}>
       {course&&<div style={{marginBottom:services?18:0}}>
@@ -15167,12 +15172,22 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .active .float{ animation:cgFloat 1.2s .35s cubic-bezier(.4,0,.2,1) forwards; }
   .cgOnb .active .float.f2{ animation-delay:.52s; } .cgOnb .active .float.f3{ animation-delay:.68s; }
   @keyframes cgFloat{ to{ opacity:1; transform:none; } }
-  .cgOnb .triptych{ position:relative; z-index:20; flex:1; display:flex; flex-direction:column; justify-content:center; padding:104px 26px 128px; }
-  .cgOnb .triptych .lead{ font-family:var(--disp); font-weight:400; text-transform:uppercase; letter-spacing:.02em; font-size:clamp(38px,10.5vw,58px); line-height:1.0; margin-bottom:30px; opacity:0; transform:translateY(22px); color:var(--white); }
+  /* Padding was a flat 104/128 — 232px of fixed chrome, which on a short laptop is a
+     third of the panel before any content exists. vh-based so it gives room back. */
+  .cgOnb .triptych{ position:relative; z-index:20; flex:1; display:flex; flex-direction:column; justify-content:center; padding:clamp(64px,11vh,104px) 26px clamp(88px,14vh,128px); }
+  .cgOnb .triptych .lead{ font-family:var(--disp); font-weight:400; text-transform:uppercase; letter-spacing:.02em; font-size:clamp(34px,9vw,50px); line-height:1.0; margin-bottom:22px; opacity:0; transform:translateY(22px); color:var(--white); }
   .cgOnb .active .triptych .lead{ animation:cgRise 1s .2s forwards; }
   .cgOnb .triptych .lead .it{ text-transform:none; font-style:italic; }
   .cgOnb .row{ display:flex; align-items:center; gap:clamp(12px,1.4vw,22px); max-width:520px; }
-  .cgOnb .shot{ position:relative; width:clamp(108px,10.5vw,164px); height:clamp(146px,14.2vw,222px); flex:none; overflow:hidden; border:1px solid var(--line); }
+  /* Two stacked rows of these sit between the headline and the paragraph, so the
+     ceiling is a height budget, not a taste call: at 164x222 the pair pushed the
+     copy off the bottom of the panel on a laptop. 138x186 keeps them legible and
+     leaves the paragraph room. */
+  /* The vh cap is the load-bearing part. Width-based clamps alone still overflow a
+     SHORT window (a laptop at 800px tall), because they only ever look at how WIDE
+     the screen is. min() with vh means the pair of rows shrinks when there is no
+     vertical room, which is the actual constraint here. */
+  .cgOnb .shot{ position:relative; width:min(clamp(104px,8.6vw,138px), 14vh); height:min(clamp(140px,11.6vw,186px), 19vh); flex:none; overflow:hidden; border:1px solid var(--line); }
   .cgOnb .shot img{ width:100%; height:100%; object-fit:cover; }
   .cgOnb .shot .tag{ position:absolute; left:7px; top:7px; font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:8px; letter-spacing:.26em; text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.55); padding:3px 6px; }
   .cgOnb .shot.vid::after{ content:"\\25B6"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--bone); text-shadow:0 2px 12px rgba(0,0,0,.6); }
@@ -15274,7 +15289,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
             <div className="arrow">then moves</div>
             <div className="shot vid"><span className="tag">Video</span><img src={src("plane")} alt="" /></div>
           </div>
-          <p className="sub" style={{ marginTop:"24px", maxWidth:"660px" }}>Put yourself in any setting, or hand over your raw footage — Chelgy makes it cinematic. Because looking expensive is what earns trust, and trust is what grows the business.</p>
+          <p className="sub" style={{ marginTop:"18px", maxWidth:"660px" }}>Put yourself in any setting, or hand over your raw footage — Chelgy makes it cinematic. Because looking expensive is what earns trust, and trust is what grows the business.</p>
         </div>
       </section>
 
@@ -18715,7 +18730,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   {hero.time&&<div><div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Time</div><div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#fff"}}>{hero.time}</div></div>}
                   <div><div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8,letterSpacing:"0.12em",color:"rgba(255,255,255,0.4)",textTransform:"uppercase",marginBottom:3}}>Impact</div><div style={{color:"#fff",fontSize:14}}>{"★".repeat(hero.impact)+"☆".repeat(5-hero.impact)}</div></div>
                 </div>
-                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:GOLD,color:B.inkText,border:"none",padding:"11px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
+                {hero.tool&&<button onClick={()=>openTool(hero.tool)} style={{marginTop:16,background:GOLD,color:B.inkBlock,border:"none",padding:"11px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.08em",cursor:"pointer"}}>DO IT WITH THE {TOOL_LABELS[hero.tool].toUpperCase()} →</button>}
               </div>
             )}
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.14em",color:B.mid,fontWeight:700,textTransform:"uppercase",marginBottom:12}}>Today's Quick Wins</div>
@@ -19005,7 +19020,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>YOUR MARKETING TOOLKIT</div>
                   <div style={{color:"#fff",fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Ads · Audits · Voiceover</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:B.inkText,border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:B.inkBlock,border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Latest client-acquisition strategies */}
               <div style={{paddingTop:20}}>
@@ -19140,7 +19155,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                   <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.18em",color:GOLD,fontWeight:700,marginBottom:8}}>AI TOOLS SUITE</div>
                   <div style={{color:B.inkText,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:16,fontWeight:400}}>Content · Images · Video · Business · Dropshipping · Platforms</div>
                 </div>
-                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:B.inkText,border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
+                <button onClick={()=>goTab("tools","hub")} style={{background:GOLD,color:B.inkBlock,border:"none",padding:"11px 22px",fontSize:9,letterSpacing:"0.16em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",flexShrink:0}}>OPEN TOOLS</button>
               </div>
               {/* Recent strategies */}
               <div style={{paddingTop:20}}>
@@ -19535,7 +19550,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                       {[["website","Website"],["ads","Ads"]].map(([k,l])=>(<span key={k} style={{color:brandProgress[k]?GOLD:"rgba(255,255,255,0.5)"}}>{brandProgress[k]?"✓":"○"} {l}</span>))}
                     </div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:!brandProgress.website,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:GOLD,color:B.inkText,border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
+                      <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"website",auto:!brandProgress.website,data:{name:launchData.bizName,desc:[launchData.bizType,launchData.niche,launchData.uniqueValue].filter(Boolean).join(" — "),kind:"both",offerings:launchData.services,contact:launchData.location,audience:launchData.targetCustomer,diff:launchData.uniqueValue,tone:launchData.tone}}); setSubTab("website"); }} style={{background:GOLD,color:B.inkBlock,border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{brandProgress.website?"See & edit your website":"✨ Build my website"}</button>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"images",data:{iType:"flyer",iBiz:launchData.bizName,iExtra:"A social media flyer promoting "+launchData.bizName+(launchData.services?(" — "+launchData.services):(launchData.bizType?(" — "+launchData.bizType):""))+". Eye-catching and on-brand, with a bold headline and a clear call to action."+(launchData.tone?(" Style: "+launchData.tone+"."):"")}}); setSubTab("images"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✨ Make a social flyer</button>
                       <button onClick={()=>{ setFromLaunch(true); setPrefill({tool:"grants",data:{grBiz:launchData.bizName,grLoc:launchData.location,grDetails:[launchData.bizType,launchData.targetCustomer].filter(Boolean).join(" — ")}}); setSubTab("grants"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Find grants</button>
                       <button onClick={()=>{ setFromLaunch(true); setSubTab("platforms"); }} style={{background:"none",color:"#fff",border:"1px solid rgba(255,255,255,0.4)",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Platform guides</button>
@@ -19547,7 +19562,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:18,color:"#fff",marginBottom:6}}>Your Google, Facebook &amp; Instagram</div>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"rgba(255,255,255,0.6)",lineHeight:1.6,marginBottom:14}}>Chelgy writes everything to paste into each profile — you just create the accounts.</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:GOLD,color:B.inkText,border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
+                      <button onClick={generateProfileKit} disabled={profileKitLoad} style={{background:GOLD,color:B.inkBlock,border:"none",padding:"13px 22px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{profileKitLoad?"Writing…":(brandProgress.profiles?"✓ Refresh my profiles":"Set up my profiles")}</button>
                       <button onClick={()=>{ setFromLaunch(false); setSubTab("hub"); }} style={{background:"none",color:"rgba(255,255,255,0.6)",border:"none",padding:"13px 10px",fontSize:10,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Explore all tools →</button>
                     </div>
                   </div>
