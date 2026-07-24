@@ -651,6 +651,9 @@ async function patchMyMember(token, uid, body){
   } catch { return false; }
 }
 // Resets the monthly credit allowance to 12,000 if a new month has started.
+// NOTE: the real number lives in the claim_monthly_credits Postgres function.
+// Changing it here alone does nothing — the RPC is the source of truth, and the
+// two must move together or new members start on one number and reset to another.
 // The database decides whether a reset is due (once per calendar month, paid
 // members only) and returns the up-to-date total balance (allowance + purchased).
 async function claimMonthlyCredits(token){
@@ -12739,16 +12742,11 @@ function giftImagePrompt(key, ctx){
 
 const NAV_TABS = ["home","learn","tools","community","profile"];
 const NAV_DEFAULT_SUB = { home:"feed", learn:"strategies", tools:"hub", community:"forum", profile:"overview" };
-// Which tab "/" resolves to. The member app opens on Tools — it is the homepage.
-// The team and marketer portals keep their own dashboard as the landing page, so
-// "/" still means "home" on those hosts. Read from the hostname so this resolves
-// synchronously at first render, before any profile has loaded.
-function navHomeTab(){
-  try{
-    const h = (window.location.hostname||"").toLowerCase();
-    return (h.startsWith("team.") || h.startsWith("marketer.")) ? "home" : "tools";
-  }catch(e){ return "tools"; }
-}
+// Which tab "/" resolves to. Tools is the homepage everywhere — the member app,
+// the team portal and the marketer portal. None of them has a home tab: the
+// marketer hub lives on Profile, so a separate home page was only a duplicate
+// launcher into Learn and Tools.
+function navHomeTab(){ return "tools"; }
 // Read the current tab + sub-view from the URL path (e.g. "/tools/website" → {tab:"tools", sub:"website"})
 function parseNavPath(){
   try{
@@ -15646,7 +15644,6 @@ export default function ChelgyApp() {
   const navRefs = useRef({});
   const TOUR_STEPS = [
     { target: null, title: "Welcome to Chelgy! 👋", body: "Here's a quick 30-second tour so you know where everything lives. You can exit anytime." },
-    ...((isTeamSpace||isMarketerSpace) ? [{ target: "home", title: "Home", body: "Your home base — announcements, your latest activity, and quick links to jump anywhere." }] : []),
     { target: "tools", title: "Tools", body: "This is your home base. Your AI toolkit to build your entire business and automate your marketing — publish a whole website with the Website Builder, hand raw footage to the AI Video Editor and get back a finished cut, and generate photos, ads, logos and social content on demand." },
     { target: "learn", title: "Learn", body: "Marketing strategies and The Chelgy Edit blog. Tap any strategy for a step-by-step deep dive." },
     { target: "community", title: "Community", body: "The forum, member directory, and your AI Advisor — ask it anything about marketing your business." },
@@ -19848,9 +19845,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── BOTTOM NAV ── */}
       <nav style={{position:"fixed",bottom:0,left:0,right:0,height:BOT_H,boxSizing:"content-box",paddingBottom:"env(safe-area-inset-bottom,0px)",background:B.white,borderTop:"1px solid "+B.stone,zIndex:300}}><div style={{maxWidth:1400,margin:"0 auto",height:BOT_H,display:"flex"}}>
         {[
-          // HOME only exists on the team / marketer portals, where it is their
-          // dashboard. In the member app Tools IS the homepage and sits first.
-          ...((isTeamSpace||isMarketerSpace) ? [{id:"home",label:"HOME",Icon:Icons.Home}] : []),
+          // No HOME anywhere. Tools is the homepage and the first tab on every host.
           {id:"tools",label:"TOOLS",Icon:Icons.Tools},
           {id:"learn",label:"LEARN",Icon:Icons.Learn},
           {id:"community",label:"COMMUNITY",Icon:Icons.Community},
