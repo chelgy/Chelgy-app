@@ -650,7 +650,7 @@ async function patchMyMember(token, uid, body){
     return res.ok;
   } catch { return false; }
 }
-// Resets the monthly credit allowance to 12,000 if a new month has started.
+// Resets the monthly credit allowance to 40,000 if a new month has started.
 // NOTE: the real number lives in the claim_monthly_credits Postgres function.
 // Changing it here alone does nothing — the RPC is the source of truth, and the
 // two must move together or new members start on one number and reset to another.
@@ -7973,7 +7973,7 @@ const CREDIT_PACKS = [
 
 // Welcome credits for new members — enough to try a cinematic Veo clip (or a 4K short)
 // plus a good run of standard images, videos and voiceovers before topping up.
-const STARTING_CREDITS = 12000;
+const STARTING_CREDITS = 40000;
 
 // ─── Daily quick-win tasks (each linked to the Chelgy tool that does it) ─────
 const DAILY_POOL = [
@@ -16437,7 +16437,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     return ()=>{ cancelled = true; };
   },[user]);
 
-  // ─── Monthly allowance: reset to 12,000 at the start of each month (paid members) ─
+  // ─── Monthly allowance: reset to 40,000 at the start of each month (paid members) ─
   // The database decides if a reset is due (once per calendar month) and returns the
   // authoritative total (monthly allowance + any purchased pack credits).
   useEffect(()=>{
