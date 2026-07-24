@@ -57,7 +57,13 @@ const BUCKET  = (process.env.BUCKET || "sites").trim();
 // speed up to the point speed stops improving; it never limits how many DIFFERENT
 // jobs run at once. Override per-job with RUNPOD_MAX_PODS_PER_JOB if that floor ever
 // moves.
-const PER_JOB = Math.max(1, Number(process.env.RUNPOD_MAX_PODS_PER_JOB) || 3);
+// 6, raised from 3. The old number came from a FIVE-chunk edit, where the longest
+// single chunk plus the join set a floor no fourth machine could beat. That floor is
+// real but it only binds on SHORT jobs: one chunk per kept segment means a heavily
+// cut 40-minute upload produces dozens of chunks, and there three pods is twenty
+// sequential rounds, not a floor. Nothing is wasted on small edits — demand is the
+// chunk count, so a 2-chunk job still asks for 2.
+const PER_JOB = Math.max(1, Number(process.env.RUNPOD_MAX_PODS_PER_JOB) || 6);
 const IMAGE = (process.env.RUNPOD_IMAGE || "ghcr.io/chelgy/chelgy-worker:latest").trim();
 // L4 is what's been measured. A list rather than one id so a region short of L4s
 // can fall through to the next acceptable card instead of failing to create.
