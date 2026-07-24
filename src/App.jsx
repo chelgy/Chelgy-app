@@ -4840,7 +4840,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"tutorial",    label:"Tutorial",     note:"Sit-down teaching. The AI finds your sections and inserts luxury chapter cards between them, with callout-style captions.", ready:true },
     { id:"process",     label:"Process",      note:"Cooking, cleaning, building, GRWM — anything where the doing is the point. Reads the footage itself to find where something is happening, so the silent working shots survive instead of being cut as dead air.", ready:true },
     { id:"showcase",    label:"Showcase",     note:"Outfit-of-the-day, jewelry, product hauls — no talking needed. Tell Chelgy what to show and it WATCHES your footage to find each product, keeps that moment, and labels it on screen (e.g. “Jewelry · cherosi.com”) right next to the item so it never gets buried under TikTok's captions.", ready:true },
-    { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts, scene cards, and AI-generated cinematic b-roll that cuts in when you reference something. Golden Hour grade by default.", ready:true },
+    { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts and scene cards that punctuate the story. Golden Hour grade by default.", ready:true },
   ];
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
@@ -5421,7 +5421,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       // ── 3c. B-roll stills ──
       const brollShots = [];
-      if((style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
+      if(BROLL_ENABLED && (style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
         setStage("Creating your b-roll images…");
         for(const b of plan.broll.slice(0,4)){
           const p = pointToClip(Number(b && b.s)||0, offsets);
@@ -5537,7 +5537,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       {mode==="edit" && (<>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Direct your edit <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
-      <textarea value={directorNote} onChange={e=>setDirectorNote(e.target.value)} placeholder="Tell Chelgy how you want this cut, in your own words. e.g. “Keep the part where I talk about pricing, cut the intro rambling. Title should be about transformation. Show b-roll of the product when I mention it. Keep my energy up — cut anything slow.”" rows={4} style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.5,color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 12px",marginBottom:6,resize:"vertical"}} />
+      <textarea value={directorNote} onChange={e=>setDirectorNote(e.target.value)} placeholder="Tell Chelgy how you want this cut, in your own words. e.g. “Keep the part where I talk about pricing, cut the intro rambling. Title should be about transformation. Keep my energy up — cut anything slow.”" rows={4} style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,lineHeight:1.5,color:B.charcoal,border:"1px solid "+B.stone,padding:"10px 12px",marginBottom:6,resize:"vertical"}} />
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Whatever you write here takes priority over the automatic cutting — it's your director's note. Leave it blank and Chelgy decides for you.</p>
 
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Your footage &amp; filter</p>
@@ -5636,7 +5636,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
             <strong>Title &amp; cards</strong>
             <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-              The opening title, scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut, grade{music!=="off"?", music":""} and b-roll are unaffected.
+              The opening title, scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut{music!=="off"?", music":""} and grade are unaffected.
             </span>
           </span>
         </label>
@@ -7976,6 +7976,11 @@ function ReviewPrompt({ onClose, onReview }) {
 const ADMIN_PASSWORD = "chelochelo1";
 
 // ─── CREDIT SYSTEM ────────────────────────────────────────────────────────────
+// Master switch for the generated b-roll stills. false = the planner may still
+// suggest cues and the render server can still composite them, but nothing is
+// generated and nothing is sent. One line to bring the whole feature back.
+const BROLL_ENABLED = false;
+
 const CREDIT_COSTS = {
   image: 120,      // Standard — Nano Banana (Gemini 2.5 Flash Image) ~$0.039
   imageHD: 420,    // HD 2K — Nano Banana Pro ~$0.134
@@ -8003,13 +8008,25 @@ const CREDIT_COSTS = {
                         // the edit. Per-minute pricing would have charged 4,800 credits
                         // for an eight-cent track on a twelve-minute video.
                         // Must match MUSIC_COST in api/studio-music.js.
-  editorCinematic: 4000, // AI Video Editor — Cinematic style: kinetic cut, scene
+  // ── B-ROLL: DISABLED, NOT REMOVED ───────────────────────────────────────────
+  // The generated stills were generic and added nothing to the edit, so they are
+  // switched off rather than stripped out: the generator, the render-side compositing
+  // and the planner's cues all still exist and work. Flip this back to true and the
+  // feature returns exactly as it was.
+  //
+  // If it ever comes back, the lesson from this round is that AI is the wrong tool for
+  // "show me a real place" — a named location comes back generic and slightly wrong.
+  // Real stock footage does that job properly; AI earns its place only on the frame-
+  // aware transitions, where the shot has to match footage that exists nowhere else.
+  editorCinematic: 3000, // AI Video Editor — Cinematic style: kinetic cut, scene
                          // cards, and 2-4 AI b-roll stills cut in over the voice.
                          // Was briefly 3000 while the render side could composite
                          // b-roll but nothing generated the images, so the edit was
-                         // charged for something it never delivered. Back to 4000
-                         // now the stills actually ship: a full set is 4 x 120
-                         // credits of Gemini, and the price has to cover it.
+                         // charged for something it never delivered. Back to 3000
+                         // now b-roll is off again — charging 4000 for stills that
+                         // no longer ship would repeat exactly that mistake. The
+                         // 1000 over editorQuick still covers the kinetic cut and
+                         // the scene cards, which is what Cinematic actually is now.
   editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
   // One AI transition: a 4-second Seedance video-extend bridge shot at 1080p.
