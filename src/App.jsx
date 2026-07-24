@@ -1130,6 +1130,54 @@ function mergeClipWords(perClipWords, offsets){
 // gaps up to 4s), so each one is sliced at every boundary it crosses. That split
 // is real — it's a genuine cut between two files — and the render server treats
 // it as one, which is exactly what we want for captions and, later, transitions.
+// Snap the planner's ranges to real word boundaries.
+//
+// The planner returns seconds. Nothing guaranteed those seconds landed between
+// words, so a cut at 12.47s straight through a word running 12.31-12.68 clipped it
+// mid-syllable — which is exactly what it sounded like. The review timeline already
+// solved this ("a breath either side so words aren't clipped mid-syllable"), but
+// only for people who turned review ON. Everyone else got the raw numbers.
+//
+// Ranges holding NO words are left exactly as they are. Those are the deliberate
+// silent stretches — b-roll beats, product showcase moments — and rebuilding them
+// from word timings would delete them.
+function snapKeepToWords(keep, words){
+  const ws = (Array.isArray(words) ? words : []).filter(w => w && Number.isFinite(Number(w.s)));
+  if(!ws.length) return keep || [];
+  const out = [];
+  for(const r of (keep||[])){
+    const s = Math.max(0, Number(r.s)||0), e = Number(r.e)||0;
+    if(!(e > s)) continue;
+    // 0.05 tolerance matches the review timeline, so both paths agree on which
+    // words belong to a range.
+    const inside = ws.filter(w => Number(w.s) >= s - 0.05 && Number(w.s) < e + 0.05);
+    if(!inside.length){ out.push({ s, e }); continue; }   // silent stretch — keep verbatim
+    const first = inside[0], last = inside[inside.length-1];
+    out.push({
+      s: Math.max(0, Number(first.s)),
+      e: Math.max(Number(last.e) || Number(last.s) || e, Number(first.s) + 0.05)
+    });
+  }
+  // A breath either side — but CLAMPED to the neighbouring words. Padding blindly is
+  // how the first version of this still clipped: reaching 0.08s back from a word can
+  // land inside the word before it, and 0.12s forward can land inside the word after.
+  // The breath may only extend into actual silence.
+  out.sort((a,b)=>a.s-b.s);
+  const padded = [];
+  for(const r of out){
+    const prevEnd = ws.reduce((acc,w)=> (Number(w.e)||Number(w.s)) <= r.s + 0.001 ? Math.max(acc, Number(w.e)||Number(w.s)) : acc, 0);
+    const nextStart = ws.reduce((acc,w)=> Number(w.s) >= r.e - 0.001 ? Math.min(acc, Number(w.s)) : acc, Infinity);
+    const p = {
+      s: Math.max(0, Math.max(r.s - 0.08, prevEnd)),
+      e: Number.isFinite(nextStart) ? Math.min(r.e + 0.12, nextStart) : r.e + 0.12
+    };
+    const last = padded[padded.length-1];
+    if(last && p.s - last.e < 0.05) last.e = Math.max(last.e, p.e);
+    else padded.push(p);
+  }
+  return padded;
+}
+
 function splitKeepIntoClips(keep, offsets){
   const segs = [];
   for(const k of (keep||[])){
@@ -2798,6 +2846,25 @@ function hasMedia(media, key){
   return !!(typeof e === "string" ? e : (e && e.full) || "").trim();
 }
 
+// A background slot that accepts a VIDEO as readily as a still.
+//
+// Every onboarding and header background used a bare <img>, so pasting a video URL
+// into an admin slot produced a broken image. This looks at the URL and renders the
+// right element — so any slot in the admin panel can now hold a looping clip without
+// a single one of the 15 render sites needing to know which it got.
+//
+// muted + playsInline are load-bearing on iOS: without both, Safari refuses to
+// autoplay and the panel shows a black rectangle with a play button on it.
+function MediaFill({ url, className, style }){
+  const u = String(url || "");
+  const isVideo = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(u);
+  if(isVideo) return (
+    <video src={u} className={className} style={style}
+           autoPlay muted loop playsInline preload="metadata" />
+  );
+  return <img src={u} className={className} style={style} alt="" />;
+}
+
 // Read a picked File into a data URL so it can go through uploadSiteImage().
 function fileToDataUrl(file){
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("read failed")); r.readAsDataURL(file); });
@@ -3077,7 +3144,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
   .cgHdr .grid .r .v,.cgHdr .eyebrow .num{ font-feature-settings:"salt" 1,"liga" 1; -webkit-font-feature-settings:"salt" 1,"liga" 1; }
   .cgHdr .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity 1.5s cubic-bezier(.4,0,.2,1); overflow:hidden; }
   .cgHdr .panel.active{ opacity:1; pointer-events:auto; }
-  .cgHdr .full{ position:absolute; inset:0; } .cgHdr .full img{ width:100%; height:100%; object-fit:cover; }
+  .cgHdr .full{ position:absolute; inset:0; } .cgHdr .full img, .cgHdr .full video{ width:100%; height:100%; object-fit:cover; }
   .cgHdr .scrim{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(10,7,5,.44) 0%,rgba(10,7,5,.06) 26%,rgba(10,7,5,.42) 58%,rgba(10,7,5,.95) 100%); }
   .cgHdr .content{ position:absolute; left:0; right:0; bottom:0; z-index:20; padding:0 clamp(20px,4vw,64px) clamp(20px,2.6vw,38px); }
   .cgHdr .content.mid{ top:0; display:flex; flex-direction:column; justify-content:center; padding-bottom:16px; }
@@ -3121,7 +3188,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
   .cgHdr .lead .it{ text-transform:none; font-style:italic; }
   .cgHdr .row{ display:flex; align-items:center; gap:clamp(6px,1.1vw,20px); flex-wrap:nowrap; }
   .cgHdr .shot{ position:relative; width:clamp(52px,8.2vw,140px); height:clamp(70px,11vw,188px); flex:none; overflow:hidden; border:1px solid var(--line); }
-  .cgHdr .shot img{ width:100%; height:100%; object-fit:cover; }
+  .cgHdr .shot img, .cgHdr .shot video{ width:100%; height:100%; object-fit:cover; }
   .cgHdr .shot .tag{ position:absolute; left:5px; top:5px; font-size:clamp(6px,.62vw,9px); font-weight:300; letter-spacing:.2em;
     text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.6); padding:2px 5px; }
   .cgHdr .arrow{ font-family:var(--disp); font-size:clamp(8px,.95vw,15px); letter-spacing:.1em; text-transform:uppercase; color:var(--dim); min-width:0; flex:0 1 auto; }
@@ -3155,7 +3222,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 0 OPENING */}
       <section className={cls("panel", i===0)}>
-        <div className="full"><img src={src("beauty")} alt="" /></div><div className="scrim" />
+        <div className="full"><MediaFill url={src("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole brand,</span><span className="ln">in one place.</span></h1>
@@ -3173,7 +3240,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 1 WEBSITE */}
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
-        {hasMedia(media,"websiteBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><img src={src("websiteBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"websiteBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" /></>)}
         <div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
         </div>
@@ -3193,7 +3260,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 2 FAKE IT STUDIO & THE EDITOR */}
       <section className={cls("panel", i===2)}>
-        <div className="full" style={{filter:"brightness(.3)"}}><img src={src("redBlonde")} alt="" /></div><div className="scrim" />
+        <div className="full" style={{filter:"brightness(.3)"}}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video, into a <span className="it">film</span>.</div>
@@ -3210,7 +3277,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 3 FLYERS & BRANDING */}
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
-        {hasMedia(media,"flyerBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><img src={src("flyerBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"flyerBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" /></>)}
         <div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
         </div>
@@ -3231,7 +3298,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 4 SOCIAL */}
       <section className={cls("panel", i===4)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
-        {hasMedia(media,"socialBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><img src={src("socialBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"socialBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" /></>)}
         <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
           <div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
             <img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" />
@@ -3253,7 +3320,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 5 GROWTH */}
       <section className={cls("panel", i===5)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(130% 95% at 50% 12%, #171210 0%, var(--ink) 60%)"}} />
-        {hasMedia(media,"growthBg") && (<><div className="full" style={{ filter:"brightness(.45)" }}><img src={src("growthBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"growthBg") && (<><div className="full" style={{ filter:"brightness(.45)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" /></>)}
         <div className="content mid">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{fontSize:"clamp(22px,6vw,32px)"}}><span className="ln">Rank higher on <span className="it">Google</span>.</span></h1>
@@ -3274,7 +3341,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 6 ADS */}
       <section className={cls("panel", i===6)}>
-        <div className="full" style={{filter:"brightness(.5)"}}><img src={src("campaign")} alt="" /></div><div className="scrim" />
+        <div className="full" style={{filter:"brightness(.5)"}}><MediaFill url={src("campaign")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
           <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
@@ -5346,7 +5413,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         return;
       }
 
-      await renderFromPlan(ctx, plan.keep);
+      // Review OFF: the planner's raw seconds go straight to the renderer, so they
+      // have to be snapped here. Review ON returns ranges already snapped and padded,
+      // which is why that call is left alone — doing it twice would pad twice.
+      await renderFromPlan(ctx, snapKeepToWords(plan.keep, globalWords));
     }catch(e){
       for(const p of cleanup) await deleteSiteObject(p);
       setErr((e&&e.message)||"Something went wrong.");
@@ -9303,7 +9373,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal,marginBottom:8}}>{label}</div>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Thumbnail · Tools Hub card</div>
                     <MediaUploadButton folder="tool-media" name={k+"-thumb"} onDone={(u)=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:u}}))} />
-                    <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white,marginBottom:8}} />
+                    <input value={(toolMediaForm[k]&&toolMediaForm[k].thumb)||""} onChange={e=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),thumb:e.target.value}}))} placeholder="https://... image OR video (.mp4)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white,marginBottom:8}} />
                     {((toolMediaForm[k]&&toolMediaForm[k].thumb)||"").trim() && (()=>{ const u=((toolMediaForm[k]&&toolMediaForm[k].thumb)||"").trim(); const isVid=/\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(u); return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:120,overflow:"hidden"}}>{isVid?<video src={u} muted playsInline style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}}/>:<img src={u} alt="preview" style={{width:"100%",maxHeight:120,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.minHeight="34px";e.target.parentNode.setAttribute("data-broken","1");}} />}</div>; })()}
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",marginBottom:4,textTransform:"uppercase"}}>Inside the tool · top of page</div>
                     <MediaUploadButton folder="tool-media" name={k+"-full"} onDone={(u)=>setToolMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
@@ -9375,9 +9445,9 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                   <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal,marginBottom:2}}>{label}</div>
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#9C9C9C",marginBottom:8}}>Default: {file}</div>
-                    <MediaUploadButton folder="onboarding" name={k} accept="image/*" onDone={(u)=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
+                    <MediaUploadButton folder="onboarding" name={k} accept="image/*,video/*" onDone={(u)=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
                     <input value={(onbMediaForm[k]&&onbMediaForm[k].full)||""} onChange={e=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
-                    {(()=>{ const u=((onbMediaForm[k]&&onbMediaForm[k].full)||"").trim(); if(!u) return null; return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><img src={u} alt="preview" style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} /></div>; })()}
+                    {(()=>{ const u=((onbMediaForm[k]&&onbMediaForm[k].full)||"").trim(); if(!u) return null; return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><MediaFill url={u} style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} /></div>; })()}
                   </div>
                 ))}
               </div>
@@ -15177,7 +15247,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .panel{ position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity 1s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; overflow:hidden; }
   .cgOnb .panel.active{ opacity:1; pointer-events:auto; }
   .cgOnb .panel.dark{ background:var(--ink); }
-  .cgOnb .full{ position:absolute; inset:0; } .cgOnb .full img{ width:100%; height:100%; object-fit:cover; }
+  .cgOnb .full{ position:absolute; inset:0; } .cgOnb .full img, .cgOnb .full video{ width:100%; height:100%; object-fit:cover; }
   .cgOnb .scrim{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(10,7,5,.5) 0%,rgba(10,7,5,.08) 28%,rgba(10,7,5,.4) 58%,rgba(10,7,5,.96) 100%); }
   .cgOnb .eyebrow{ font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:10px; letter-spacing:.5em; text-transform:uppercase; color:var(--dim); display:flex; align-items:center; gap:14px; opacity:0; transform:translateY(12px); }
   .cgOnb .eyebrow .num{ font-family:var(--disp); font-size:13px; letter-spacing:.1em; color:var(--bone); }
@@ -15223,8 +15293,9 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
      the screen is. min() with vh means the pair of rows shrinks when there is no
      vertical room, which is the actual constraint here. */
   .cgOnb .shot{ position:relative; width:min(clamp(104px,8.6vw,138px), 14vh); height:min(clamp(140px,11.6vw,186px), 19vh); flex:none; overflow:hidden; border:1px solid var(--line); }
-  .cgOnb .shot img{ width:100%; height:100%; object-fit:cover; }
+  .cgOnb .shot img, .cgOnb .shot video{ width:100%; height:100%; object-fit:cover; }
   .cgOnb .shot .tag{ position:absolute; left:7px; top:7px; font-family:'Jost',Helvetica,Arial,sans-serif; font-weight:300; font-size:8px; letter-spacing:.26em; text-transform:uppercase; color:var(--bone); background:rgba(10,7,5,.55); padding:3px 6px; }
+  /* .playing = a real clip, so no fake play button over it. */
   .cgOnb .shot.vid::after{ content:"\\25B6"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--bone); text-shadow:0 2px 12px rgba(0,0,0,.6); }
   .cgOnb .arrow{ flex:1; text-align:center; font-family:var(--disp); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
   .cgOnb .growth{ position:relative; z-index:20; margin:auto 0; padding:0 30px; }
@@ -15247,6 +15318,36 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   .cgOnb .dots button{ width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .cgOnb .dots button i{ display:block; width:5px; height:5px; border-radius:50%; background:rgba(239,233,223,.26); transition:.3s; }
   .cgOnb .dots button.on i{ background:var(--bone); width:16px; border-radius:3px; }
+
+  /* ── PHONES ────────────────────────────────────────────────────────────────
+     Everything above was sized for a desktop viewport and then asked to survive a
+     390px screen, which it doesn't. Scoped to max-width:520px so the desktop tour
+     and the header slider (.cgHdr, a separate stylesheet) are untouched.
+
+     The three real problems, in order of how bad they look:
+       1. .eyebrow at .5em tracking cannot fit "FAKE IT STUDIO & THE EDITOR" on a
+          phone, so it wrapped INSIDE a flex row and collided with the number and
+          the rule. Tighter tracking, smaller, and no wrapping.
+       2. .display has a 46px floor — it cannot shrink below that however narrow the
+          screen gets, so long titles swallowed the panel and ran into the images.
+       3. 128px of bottom padding on a short screen left the paragraph nowhere to go,
+          so it ran under SKIP and NEXT. */
+  @media (max-width: 520px) {
+    .cgOnb .eyebrow{ font-size:8.5px; letter-spacing:.22em; gap:9px; flex-wrap:nowrap; white-space:nowrap; }
+    .cgOnb .eyebrow .num{ font-size:11px; }
+    .cgOnb .eyebrow .rule{ width:20px; flex:none; }
+    .cgOnb .display{ font-size:clamp(28px,8.6vw,44px); letter-spacing:.01em; }
+    .cgOnb .sub{ font-size:15px; line-height:1.45; max-width:100%; }
+    .cgOnb .content{ padding:0 22px 104px; }
+    .cgOnb .triptych{ padding:clamp(52px,8vh,80px) 20px clamp(76px,12vh,104px); }
+    .cgOnb .triptych .lead{ font-size:clamp(26px,7.6vw,38px); margin-bottom:16px; }
+    /* Copy sits over photography on half these panels. A phone shows less of the
+       image, so the light parts land under the text more often — the scrim has to
+       work harder than it does on a wide screen. */
+    .cgOnb .scrim{ background:linear-gradient(180deg,rgba(10,7,5,.55) 0%,rgba(10,7,5,.35) 30%,rgba(10,7,5,.72) 62%,rgba(10,7,5,.97) 100%); }
+    .cgOnb .row{ max-width:100%; gap:10px; }
+    .cgOnb .dots{ bottom:88px; }
+  }
   `;
 
   const cls = (base, active) => base + (active ? " active" : "");
@@ -15273,7 +15374,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 0 OPENING */}
       <section className={cls("panel", i === 0)}>
-        <div className="full"><img src={src("beauty")} alt="" /></div><div className="scrim" />
+        <div className="full"><MediaFill url={src("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole</span><span className="ln">brand,</span><span className="ln">in one place.</span></h1>
@@ -15291,7 +15392,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 1 WEBSITE */}
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
-        {hasMedia(media,"websiteBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><img src={src("websiteBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"websiteBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" /></>)}
         <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
           <img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" />
         </div>
@@ -15311,7 +15412,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 2 PHOTO/VIDEO → FILM */}
       <section className={cls("panel", i === 2)}>
-        <div className="full" style={{ filter:"brightness(.32)" }}><img src={src("redBlonde")} alt="" /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
         <div className="triptych">
           <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
@@ -15322,7 +15423,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
           </div>
           <div className="row float f2" style={{ marginTop:"14px", justifyContent:"flex-end" }}>
             <div className="arrow">then moves</div>
-            <div className="shot vid"><span className="tag">Video</span><img src={src("plane")} alt="" /></div>
+            <div className={"shot" + (/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(src("plane"))) ? " playing" : " vid")}><span className="tag">Video</span><MediaFill url={src("plane")} /></div>
           </div>
           <p className="sub" style={{ marginTop:"18px", maxWidth:"660px" }}>Put yourself in any setting, or hand over your raw footage — Chelgy makes it cinematic. Because looking expensive is what earns trust, and trust is what grows the business.</p>
         </div>
@@ -15331,7 +15432,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 3 FLYERS */}
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
-        {hasMedia(media,"flyerBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><img src={src("flyerBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"flyerBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" /></>)}
         <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
           <img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" />
         </div>
@@ -15352,7 +15453,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 4 SOCIAL */}
       <section className={cls("panel dark", i === 4)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
-        {hasMedia(media,"socialBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><img src={src("socialBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"socialBg") && (<><div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" /></>)}
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
           <div className="float" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}>
             <img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" />
@@ -15374,7 +15475,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 5 GROWTH */}
       <section className={cls("panel dark", i === 5)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(130% 90% at 50% 10%, #171210 0%, var(--ink) 60%)" }} />
-        {hasMedia(media,"growthBg") && (<><div className="full" style={{ filter:"brightness(.45)" }}><img src={src("growthBg")} alt="" /></div><div className="scrim" /></>)}
+        {hasMedia(media,"growthBg") && (<><div className="full" style={{ filter:"brightness(.45)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" /></>)}
         <div className="growth">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{ marginTop:"22px", fontSize:"clamp(42px,12vw,68px)" }}><span className="ln">Rank</span><span className="ln">higher on</span><span className="ln"><span className="it">Google</span>.</span></h1>
@@ -15395,7 +15496,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 6 ADS */}
       <section className={cls("panel", i === 6)}>
-        <div className="full" style={{ filter:"brightness(.55)" }}><img src={src("campaign")} alt="" /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.55)" }}><MediaFill url={src("campaign")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
           <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
@@ -15416,7 +15517,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 7 CLOSING */}
       <section className={cls("panel", i === 7)}>
-        <div className="full" style={{ filter:"brightness(.6)" }}><img src={src("closing")} alt="" /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.6)" }}><MediaFill url={src("closing")} /></div><div className="scrim" />
         <div className="content" style={{ paddingBottom:"170px" }}>
           <div className="eyebrow"><span className="rule" />Welcome</div>
           <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
