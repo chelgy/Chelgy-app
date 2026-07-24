@@ -4806,7 +4806,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // api/studio-music.js changes.
   const [alsoShorts,setAlsoShorts] = useState(false);  // edit mode: also cut viral clips in the same run
   const [grade,setGrade]           = useState("wolf");    // "wolf" | "luxury"
-  const [footage,setFootage]       = useState("sony");   // "sony" | "canon" | "standard" | "none"
+  // Defaults to "standard", NOT "sony". A log profile is the minority case, and
+  // picking it wrongly is destructive rather than merely unhelpful: normal footage
+  // run through an S-Log3 conversion comes back washed out and wrong. The safe
+  // option has to be the one you get by not choosing.
+  const [footage,setFootage]       = useState("standard");   // "standard" | "sony" | "canon" | "none"
   const [orient,setOrient]         = useState("portrait");
   const [videoFile,setVideoFile]   = useState(null);
   const [videoPreview,setVideoPreview] = useState("");
@@ -4870,10 +4874,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // owner shooting a normal profile will pick anything that says "Sony" simply
   // because that's their camera — and get double-converted, wrecked footage.
   const FOOTAGE_TYPES = [
+    { id:"standard", label:"Normal picture profile",   note:"Your footage already looks normal — phone, or a camera not set to log (including a Sony or Canon in a standard profile). The film look is applied directly." },
     { id:"sony",     label:"Shot flat — Sony S-Log3",  note:"Your footage looks washed out and grey straight off the card, and your Sony was set to S-Log3 (a7S III, FX3, etc). We convert it properly, then apply the film look." },
     { id:"canon",    label:"Shot flat — Canon C-Log",  note:"Your footage looks washed out and grey straight off the card, and your Canon was set to C-Log2 or C-Log3 (R5 II, R6, C70). We convert it properly, then apply the film look." },
-    { id:"standard", label:"Normal picture profile",   note:"Your footage already looks normal — phone, or a camera not set to log (including a Sony or Canon in a standard profile). The film look is applied directly." },
-    { id:"none",     label:"No colour",                note:"Leave my colour exactly as I shot it — just cut, caption and title." },
+    { id:"none",     label:"Don't colour my footage",                note:"Leave my colour exactly as I shot it — just cut, caption and title." },
   ];
 
   function pickVideo(e){
