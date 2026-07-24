@@ -5470,7 +5470,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // titles off → no opening title, scene cards or showcase labels. Everything
       // else (the cut, grade, music, b-roll, narration) is unaffected.
       const wordsForRender    = showCaptions ? taggedWords : [];
-      const titleForRender    = showTitles ? (plan.title||"") : "";
+      const titleForRender    = (TITLES_ENABLED && showTitles) ? (plan.title||"") : "";
       const chaptersForRender = showTitles ? chapterCues : [];
       const showcaseForRender = showTitles ? (showcaseLabels||[]) : [];
       const started = await studioFfmpeg(
@@ -5647,7 +5647,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
             <strong>Title &amp; cards</strong>
             <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-              The opening title, scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut{music!=="off"?", music":""} and grade are unaffected.
+              Scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut{music!=="off"?", music":""} and grade are unaffected.
             </span>
           </span>
         </label>
@@ -7991,6 +7991,13 @@ const ADMIN_PASSWORD = "chelochelo1";
 // suggest cues and the render server can still composite them, but nothing is
 // generated and nothing is sent. One line to bring the whole feature back.
 const BROLL_ENABLED = false;
+
+// Opening titles are off. Not stripped — the planner still writes one and the
+// renderer still knows how to set it, rule and all. Flip to true and it returns.
+// Deliberately separate from the showTitles checkbox, which also governs scene
+// cards and product labels: turning that off to lose the title would have taken
+// those with it.
+const TITLES_ENABLED = false;
 
 const CREDIT_COSTS = {
   image: 120,      // Standard — Nano Banana (Gemini 2.5 Flash Image) ~$0.039
