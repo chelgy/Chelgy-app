@@ -141,8 +141,30 @@ async function createPod(n) {
 // refusing to create pods once the account can't fund them.
 export async function ensurePods(demand, reason) {
   if (!KEY) return { ok: false, skipped: "no RUNPOD_API_KEY" };
-  const create = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
-  if (!create) return { ok: true, created: 0 };
+  const want = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
+  if (!want) return { ok: true, created: 0, running: 0 };
+
+  // Count the fleet BEFORE creating anything. Without this the function creates
+  // `demand` pods on every call no matter how many are already up and idle, so a
+  // handful of edits leaves a handful of machines billing by the hour. This is what
+  // "bring the fleet up to desired, never past the cap" in the header requires, and
+  // it is what makes the `running` figure the handler returns mean anything.
+  let running = 0;
+  try {
+    running = (await listOurPods()).length;
+  } catch (e) {
+    // Fail CLOSED. If we cannot count, we cannot know whether creating is safe, and
+    // the two failure modes are not symmetrical: not creating costs a slower render,
+    // creating blind costs $0.40/hr per stranded pod for as long as nobody notices.
+    console.error("[scale] " + reason + ": could not list pods, refusing to create — " + (e && e.message));
+    return { ok: false, created: 0, running: 0, error: "could not count running pods" };
+  }
+
+  const create = Math.max(0, want - running);
+  if (!create) {
+    console.log("[scale] " + reason + ": " + running + " pod(s) already up, wanted " + want + " — creating none");
+    return { ok: true, created: 0, running };
+  }
 
   let created = 0, fundingStop = false;
   for (let i = 0; i < create; i++) {
@@ -164,8 +186,61 @@ export async function ensurePods(demand, reason) {
       break;
     }
   }
-  console.log("[scale] " + reason + ": wanted " + create + ", created " + created + (fundingStop ? " (funding-limited)" : ""));
-  return { ok: true, created, fundingLimited: fundingStop };
+  console.log("[scale] " + reason + ": " + running + " up, wanted " + want + ", created " + created + (fundingStop ? " (funding-limited)" : ""));
+  return { ok: true, created, running: running + created, fundingLimited: fundingStop };
+}
+
+// ── Backstop: terminate pods that have outlived their own lifetime cap ─────────
+//
+// Workers are handed RUNPOD_MAX_LIFETIME_MINUTES and are supposed to retire
+// themselves. On 23 July they did not: pods created at 08:21 were still billing at
+// 19:24, when RunPod support killed them because the balance was gone. Self-
+// termination cannot be the only defence, because every way it fails costs money
+// silently — a worker with a revoked key, a crashed process, or an image built
+// without the retirement code all look identical from the outside: a healthy pod
+// that bills $0.40/hr forever.
+//
+// This is NOT the "scale down" the header rules out. It never touches a pod that
+// could still be working: the threshold is the worker's own lifetime cap plus a
+// grace period longer than a chunk lease, so anything it removes is, by the
+// worker's own definition, already overdue.
+//
+// Age comes from the timestamp we bake into the pod name at creation, not from
+// RunPod's response shape — one less thing to break under an API change.
+const MAX_LIFETIME_MIN = Number(process.env.RUNPOD_MAX_LIFETIME_MINUTES || 60);
+const REAP_GRACE_MIN   = Number(process.env.RUNPOD_REAP_GRACE_MINUTES || 15);
+
+function podAgeMinutes(pod) {
+  const m = String((pod && pod.name) || "").match(/^chelgy-auto-(\d{10,})-/);
+  if (!m) return null;                       // not one of ours, or an older naming scheme
+  const ms = Number(m[1]);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return (Date.now() - ms) / 60000;
+}
+
+export async function reapStalePods() {
+  if (!KEY) return { ok: false, skipped: "no RUNPOD_API_KEY" };
+  const cutoff = MAX_LIFETIME_MIN + REAP_GRACE_MIN;
+  let pods;
+  try { pods = await listOurPods(); }
+  catch (e) { console.error("[reap] could not list pods: " + (e && e.message)); return { ok: false }; }
+
+  let killed = 0;
+  for (const p of pods) {
+    const age = podAgeMinutes(p);
+    if (age === null || age < cutoff) continue;
+    const id = p && (p.id || p.podId);
+    if (!id) continue;
+    try {
+      await rp("/pods/" + id, { method: "DELETE" });
+      killed++;
+      console.warn("[reap] terminated " + id + " (" + p.name + ") — alive " + Math.round(age) + " min, cap " + cutoff);
+    } catch (e) {
+      console.error("[reap] could not terminate " + id + ": " + (e && e.message));
+    }
+  }
+  if (killed) console.warn("[reap] removed " + killed + " overdue pod(s)");
+  return { ok: true, killed, checked: pods.length };
 }
 
 async function getUserId(token) {
@@ -190,6 +265,11 @@ export default async function handler(req, res) {
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please log in again." });
 
+    // Sweep overdue pods before adding any. This endpoint is hit at the start of
+    // every edit, which makes it the most reliable heartbeat available without
+    // adding a cron — and it means a stranded pod is cleaned up by the next render
+    // rather than by a support ticket.
+    reapStalePods().catch(() => {});
     const out = await ensurePods(1, "warm-up at planning");
     // Never fatal. A warm-up that fails means a slower render, not a broken one —
     // the render step will start pods itself when it knows the chunk count.
