@@ -129,7 +129,7 @@ export default async function handler(req, res) {
         const r = await fetch(RS_URL + "/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
-          body: JSON.stringify({ sourceUrl: src, uploadPath, activity: wantActivity, duration })
+          body: JSON.stringify({ sourceUrl: src, uploadPath, activity: wantActivity, duration, userId })
         });
         const d = await r.json();
         if (!r.ok || !d || !d.jobId)
@@ -150,14 +150,20 @@ export default async function handler(req, res) {
       // job; if not, fall through to the old in-memory endpoint.
       try {
         const q = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(jid) +
-                              "&select=status,progress,output_url,error,stage", {
+                              "&select=status,progress,output_url,error,stage,edl", {
           headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC }
         });
         const rows = await q.json();
         if (Array.isArray(rows) && rows[0]) {
           const j = rows[0];
           if (j.status === "done" && j.output_url)
-            return res.status(200).json({ status: "done", url: j.output_url, progress: 100 });
+            return res.status(200).json({
+              status: "done", url: j.output_url, progress: 100,
+              // Audio jobs carry their activity track on the job row. Renders have no
+              // activity and this is simply null for them, which is what the caller
+              // already expects.
+              activity: (j.edl && j.edl.activity) || null
+            });
           if (j.status === "error") {
             const job = await lookupJob("ff:" + jid);
             if (job && job.user_id === userId && job.cost) {
