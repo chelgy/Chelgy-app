@@ -169,7 +169,9 @@ export async function ensurePods(demand, reason) {
   let created = 0, fundingStop = false;
   for (let i = 0; i < create; i++) {
     try {
-      await createPod(i);
+      // Offset by the running count, as the pre-79C8E372 version did, so a batch
+      // started while others are alive can't reuse a name suffix.
+      await createPod(running + i);
       created++;
     } catch (e) {
       // The expected way this ends at scale is the balance running dry: RunPod
