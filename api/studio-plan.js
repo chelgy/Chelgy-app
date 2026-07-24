@@ -333,10 +333,27 @@ export default async function handler(req, res) {
       .filter(k => k.e - k.s >= 0.8)
       .sort((a, b) => a.s - b.s);
     const mergeGap = style === "vlog" ? 4.0 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "cinematic" ? 0.4 : 0.3; // vlogs bridge visual moments; tutorials breathe; cinematic and talking-head cut tight
+    // A gap between two kept ranges means one of two completely different things,
+    // and merging on time alone treated them identically:
+    //
+    //   SILENT gap — the person paused, walked, showed something. Bridge it. That is
+    //                what mergeGap is for, and why a vlog's is as high as 4s.
+    //   SPOKEN gap — the planner deliberately cut something: a filler word, a false
+    //                start, a repeated take. Bridging it puts the mistake BACK in.
+    //
+    // On a vlog that meant every cut shorter than four seconds was re-inserted, which
+    // is nearly every false start there is. The prompt asks for them to be removed in
+    // every style; this was quietly undoing the work. A gap is now only bridged when
+    // no words fall inside it.
+    const gapHasSpeech = (from, to) =>
+      words.some(w => {
+        const ws = Number(w && w.s);
+        return Number.isFinite(ws) && ws >= from - 0.02 && ws < to + 0.02;
+      });
     const merged = [];
     for (const k of keep) {
       const last = merged[merged.length - 1];
-      if (last && k.s - last.e < mergeGap) last.e = Math.max(last.e, k.e);
+      if (last && k.s - last.e < mergeGap && !gapHasSpeech(last.e, k.s)) last.e = Math.max(last.e, k.e);
       else merged.push({ ...k });
     }
     if (!merged.length) merged.push({ s: 0, e: Math.max(1, duration) }); // fallback: keep everything
