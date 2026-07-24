@@ -135,7 +135,12 @@ function workerEnv() {
     SUPABASE_SERVICE_ROLE_KEY: SB_SVC,
     BUCKET,
     NVIDIA_DRIVER_CAPABILITIES: "all",   // load-bearing: the Vulkan ICD workaround needs driver access
-    RUNPOD_API_KEY: KEY,                 // so the worker can terminate ITSELF when idle
+    // NOT named RUNPOD_API_KEY. RunPod mints a scoped key per pod and injects it
+    // under that exact name, which silently overwrote ours — and a pod-scoped key
+    // is not permitted to delete pods, so every self-terminate came back 403 while
+    // the machine kept billing. Our own name cannot be clobbered.
+    CHELGY_RUNPOD_KEY: KEY,
+    RUNPOD_API_KEY: KEY,                 // kept for older worker images; harmless if overwritten
     RUNPOD_IDLE_MINUTES: String(process.env.RUNPOD_IDLE_MINUTES || 3),
     RUNPOD_MAX_LIFETIME_MINUTES: String(process.env.RUNPOD_MAX_LIFETIME_MINUTES || 60)
   };
