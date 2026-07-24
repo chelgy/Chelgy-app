@@ -134,6 +134,18 @@ export default async function handler(req, res) {
         const d = await r.json();
         if (!r.ok || !d || !d.jobId)
           return res.status(502).json({ error: (d && d.error) || "Couldn't read the audio from that video." });
+        // The render server queued this for a pod rather than doing it itself, so a
+        // worker has to exist. This is EARLIER than the planning warm-up — which is
+        // the point: audio is the first step, so the pod is up and warm by the time
+        // the render needs it, instead of the job waiting on a machine nobody started.
+        if (d.queued) {
+          try {
+            const { ensurePods } = await import("./render-scale.js");
+            await ensurePods(1, "audio job queued");
+          } catch (e) {
+            console.error("[audio] could not start a worker: " + ((e && e.message) || e));
+          }
+        }
         return res.status(200).json({ id: "ff:" + d.jobId });
       } catch {
         return res.status(502).json({ error: "Couldn't reach the render engine." });
