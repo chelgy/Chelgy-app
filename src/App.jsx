@@ -690,7 +690,7 @@ async function loadLibrary(user){
     if(!user || !user.id) return [];
     const tok = await freshToken();
     if(!tok) return [];
-    const res = await fetch(SUPABASE_URL + "/rest/v1/media_library?select=*&user_id=eq." + user.id + "&order=created_at.desc", {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/media_library?select=*&user_id=eq." + user.id + "&order=created_at.desc&limit=200", {
       headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok }
     });
     if(!res.ok) return [];
@@ -2355,7 +2355,7 @@ function MyLeadsOutreach({ useCredits=()=>true, credits=0, onBalance=()=>{}, onT
     try{
       if(!(user&&user.id)){ setLoading(false); return; }
       const tok=await freshToken();
-      const res=await fetch(SUPABASE_URL+"/rest/v1/leads?select=*&user_id=eq."+user.id+"&order=created_at.desc",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const res=await fetch(SUPABASE_URL+"/rest/v1/leads?select=*&user_id=eq."+user.id+"&order=created_at.desc&limit=500",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
       const rows=await res.json().catch(()=>[]);
       setLeads(Array.isArray(rows)?rows:[]);
     }catch(e){ setErr("Couldn't load your leads. Please refresh and try again."); }
@@ -3210,7 +3210,7 @@ async function loadAppSettings(){
   try { const res = await fetch(SUPABASE_URL+"/rest/v1/app_settings?select=key,value", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); const o={}; (Array.isArray(rows)?rows:[]).forEach(r=>{ o[r.key]=r.value; }); return o; } catch { return {}; }
 }
 async function loadShowcaseItems(){
-  try { const res = await fetch(SUPABASE_URL+"/rest/v1/showcase_items?select=*&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); return Array.isArray(rows)?rows:[]; } catch { return []; }
+  try { const res = await fetch(SUPABASE_URL+"/rest/v1/showcase_items?select=*&order=created_at.desc&limit=60", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); const rows = await res.json(); return Array.isArray(rows)?rows:[]; } catch { return []; }
 }
 function ytId(url){ const m=String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/); return m?m[1]:null; }
 function vimeoId(url){ const m=String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/); return m?m[1]:null; }
@@ -6323,7 +6323,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   async function loadMyDomains(){
     try{
       const tok=await freshToken(); if(!tok) return;
-      const res=await fetch(SUPABASE_URL+"/rest/v1/domains?select=*&order=expires_at.asc",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const res=await fetch(SUPABASE_URL+"/rest/v1/domains?select=*&order=expires_at.asc&limit=500",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
       const rows=await res.json().catch(()=>[]);
       setMyDomains(Array.isArray(rows)?rows:[]);
     }catch(e){}
@@ -8262,7 +8262,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{ await fetch("/api/community-reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"resolve",id,password:ADMIN_PASSWORD})}); }catch(e){}
   }
   async function loadPortfolio(){
-    try{ const r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_items?select=*&order=created_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}}); const rows=await r.json(); if(Array.isArray(rows)) setPortfolioItems(rows); }catch(e){}
+    try{ const r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_items?select=*&order=created_at.desc&limit=60",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}}); const rows=await r.json(); if(Array.isArray(rows)) setPortfolioItems(rows); }catch(e){}
     setPortfolioLoaded(true);
   }
   function onPfFile(e){ const f=e.target&&e.target.files&&e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ setPfData({url:rd.result, mime:f.type||"", name:f.name||"file"}); }; rd.readAsDataURL(f); }
@@ -15804,7 +15804,30 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
     }
   }
   // Persist task progress
-  useEffect(()=>{ lsSet("chelgy_tasks", bigTasks); if(user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { tasks: bigTasks }); },[bigTasks]);
+  // Debounced writes can be lost if the tab closes inside the debounce window, so
+  // flush the pending values on pagehide. localStorage already has them, but another
+  // device would otherwise read a stale row.
+  const pendingSaveRef = useRef({ tasks:null, advisor:null });
+  useEffect(()=>{ pendingSaveRef.current.tasks = bigTasks; },[bigTasks]);
+  useEffect(()=>{
+    const flush=()=>{
+      if(!(user && user.access_token && user.id)) return;
+      const p=pendingSaveRef.current, body={};
+      if(Array.isArray(p.tasks)) body.tasks=p.tasks;
+      if(Array.isArray(p.advisor) && p.advisor.length) body.advisor=p.advisor.slice(-40);
+      if(Object.keys(body).length) patchMyMember(user.access_token, user.id, body);
+    };
+    try{ window.addEventListener("pagehide", flush); }catch(e){}
+    return ()=>{ try{ window.removeEventListener("pagehide", flush); }catch(e){} };
+  },[user]);
+  // Local write stays immediate; the DB write is debounced. Ticking five things off
+  // a roadmap used to fire five full-array PATCHes.
+  useEffect(()=>{
+    lsSet("chelgy_tasks", bigTasks);
+    if(!(user && user.access_token && user.id)) return;
+    const t=setTimeout(()=>{ patchMyMember(user.access_token, user.id, { tasks: bigTasks }); }, 1500);
+    return ()=>clearTimeout(t);
+  },[bigTasks]);
   useEffect(()=>{ lsSet("chelgy_daily_done", dailyDone); },[dailyDone]);
   useEffect(()=>{ lsSet("chelgy_completions", completions); },[completions]);
   function logCompletion(delta){ const day=todayStr(); setCompletions(c=>{ const n={...c}; n[day]=Math.max(0,(n[day]||0)+delta); return n; }); }
@@ -15871,7 +15894,7 @@ Return ONLY a JSON array — no markdown, no code fences, no preamble. Each item
   async function loadJournal(){
     const tok = await freshToken(); if(!tok || !user || !user.id) return;
     try {
-      const res = await fetch(SUPABASE_URL+"/rest/v1/journal_entries?select=*&user_id=eq."+user.id+"&order=entry_date.desc,id.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const res = await fetch(SUPABASE_URL+"/rest/v1/journal_entries?select=*&user_id=eq."+user.id+"&order=entry_date.desc,id.desc&limit=200", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
       const rows = await res.json();
       if(!Array.isArray(rows)) return;
       setJournalEntries(rows);
@@ -15912,23 +15935,62 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     loadJournal();
   }
   // ─── Forum / community: real data from Supabase (seed posts stay as decoration) ──
+  const FORUM_PAGE = 25;
+  // Fetch one page of posts, then ONLY the comments belonging to those posts.
+  // Previously this pulled forum_posts?select=* and forum_comments?select=* with
+  // no bound at all, and filtered by category in the browser.
+  async function fetchForumPage(offset){
+    const marketerSpace = isTeamSpace && marketerStatus==="approved";
+    const audFilter = marketerSpace ? "&audience=eq.marketer" : "&or=(audience.eq.consumer,audience.is.null)";
+    const catFilter = forumCat==="all" ? "" : "&category=eq."+encodeURIComponent(forumCat);
+    const res = await fetch(SUPABASE_URL+"/rest/v1/forum_posts?select=*"+audFilter+catFilter
+      +"&order=created_at.desc&limit="+FORUM_PAGE+"&offset="+offset,
+      { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+    const rows = await res.json();
+    if(!Array.isArray(rows) || !rows.length) return { real:[], more:false };
+    // Comments scoped to just this page of posts.
+    let comments=[];
+    try {
+      const ids = rows.map(r=>r.id).filter(x=>x!==undefined && x!==null);
+      if(ids.length){
+        const cr = await fetch(SUPABASE_URL+"/rest/v1/forum_comments?select=*&post_id=in.("+ids.join(",")+")&order=created_at.asc",
+          { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+        comments = await cr.json();
+      }
+    } catch(e){}
+    const byPost = {};
+    if(Array.isArray(comments)) comments.forEach(c=>{ (byPost[c.post_id]=byPost[c.post_id]||[]).push({ author:c.author_name, text:c.body, time:relTime(c.created_at), cid:c.id }); });
+    const real = rows.map(r=>({ id:"db-"+r.id, dbId:r.id, real:true, cat:r.category, author:r.author_name, avatar:(r.author_name||"M")[0], time:relTime(r.created_at), pinned:false, title:r.title, body:r.body, replies:byPost[r.id]||[], upvotes:r.upvotes||0 }));
+    return { real, more: rows.length===FORUM_PAGE };
+  }
   async function loadForum(){
     if(forumLoaded) return; setForumLoaded(true);
     loadBlocks();
     try {
       const marketerSpace = isTeamSpace && marketerStatus==="approved";
-      const audFilter = marketerSpace ? "&audience=eq.marketer" : "&or=(audience.eq.consumer,audience.is.null)";
-      const res = await fetch(SUPABASE_URL+"/rest/v1/forum_posts?select=*"+audFilter+"&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
-      const rows = await res.json();
       const seeds = marketerSpace ? MARKETER_SEED_POSTS : SEED_POSTS;
-      if(!Array.isArray(rows)||!rows.length){ setForumPosts(seeds); return; }
-      let comments=[];
-      try { const cr = await fetch(SUPABASE_URL+"/rest/v1/forum_comments?select=*&order=created_at.asc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } }); comments = await cr.json(); } catch(e){}
-      const byPost = {};
-      if(Array.isArray(comments)) comments.forEach(c=>{ (byPost[c.post_id]=byPost[c.post_id]||[]).push({ author:c.author_name, text:c.body, time:relTime(c.created_at), cid:c.id }); });
-      const real = rows.map(r=>({ id:"db-"+r.id, dbId:r.id, real:true, cat:r.category, author:r.author_name, avatar:(r.author_name||"M")[0], time:relTime(r.created_at), pinned:false, title:r.title, body:r.body, upvotes:r.upvotes||0, replies: byPost[r.id]||[] }));
+      const { real, more } = await fetchForumPage(0);
+      setForumOffset(real.length); setForumHasMore(more);
+      if(!real.length){ setForumPosts(seeds); return; }
       setForumPosts([...real, ...seeds]);
     } catch(e){}
+  }
+  // Append the next page, keeping the seed posts pinned to the end.
+  async function loadMoreForum(){
+    if(forumLoadingMore || !forumHasMore) return;
+    setForumLoadingMore(true);
+    try {
+      const { real, more } = await fetchForumPage(forumOffset);
+      setForumHasMore(more);
+      setForumOffset(o=>o+real.length);
+      if(real.length) setForumPosts(ps=>{
+        const seen=new Set(ps.map(p=>p.id));
+        const add=real.filter(p=>!seen.has(p.id));
+        const seeds=ps.filter(p=>!p.real); const mine=ps.filter(p=>p.real);
+        return [...mine, ...add, ...seeds];
+      });
+    } catch(e){}
+    setForumLoadingMore(false);
   }
   async function loadBlocks(){
     try{ const tok=await freshToken(); if(!tok||!user||!user.id) return;
@@ -15952,7 +16014,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   }
   async function loadMembers(){
     try {
-      const res = await fetch(SUPABASE_URL+"/rest/v1/public_members?select=*", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
+      const res = await fetch(SUPABASE_URL+"/rest/v1/public_members?select=*&order=created_at.desc&limit=60", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY } });
       const rows = await res.json();
       if(Array.isArray(rows)) setRealMembers(rows.filter(r=>r.name&&String(r.name).trim()).map(r=>({ id:r.user_id, name:r.name, avatar:(r.name||"M")[0], business:r.business||"", bio:r.bio||"", type:"Entrepreneur", badges:["Member"] })));
     } catch(e){}
@@ -15960,7 +16022,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   async function loadServerNotifications(){
     const tok = await freshToken(); if(!tok||!user) return;
     try {
-      const res = await fetch(SUPABASE_URL+"/rest/v1/notifications?select=id,text,created_at&read=eq.false&order=created_at.desc", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
+      const res = await fetch(SUPABASE_URL+"/rest/v1/notifications?select=id,text,created_at&read=eq.false&order=created_at.desc&limit=50", { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
       const rows = await res.json();
       if(Array.isArray(rows)&&rows.length){
         rows.slice(0,10).reverse().forEach(n=>pushNotif(n.text, n.created_at?new Date(n.created_at).getTime():undefined));
@@ -16061,9 +16123,34 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   // Forum state
   const [forumPosts, setForumPosts] = useState(isTeamSpace ? MARKETER_SEED_POSTS : SEED_POSTS);
   const [forumLoaded, setForumLoaded] = useState(false);
+  // Forum paging. Without these the forum fetched EVERY post and EVERY comment in
+  // the product on each visit — tens of MB once the community is real.
+  const [forumOffset, setForumOffset] = useState(0);
+  const [forumHasMore, setForumHasMore] = useState(false);
+  const [forumLoadingMore, setForumLoadingMore] = useState(false);
   const [blockedNames, setBlockedNames] = useState(()=>new Set());
   const [realMembers, setRealMembers] = useState([]);
   const [forumCat, setForumCat] = useState("all");
+  // Category is now filtered by the QUERY, not in the browser, so switching
+  // category has to refetch page 0 rather than just re-render a cached list.
+  const forumCatRef = useRef(forumCat);
+  useEffect(()=>{
+    if(forumCatRef.current===forumCat) return;
+    forumCatRef.current=forumCat;
+    if(!forumLoaded) return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const marketerSpace = isTeamSpace && marketerStatus==="approved";
+        const seeds = marketerSpace ? MARKETER_SEED_POSTS : SEED_POSTS;
+        const { real, more } = await fetchForumPage(0);
+        if(cancelled) return;
+        setForumOffset(real.length); setForumHasMore(more);
+        setForumPosts(real.length ? [...real, ...seeds] : seeds);
+      }catch(e){}
+    })();
+    return ()=>{ cancelled=true; };
+  },[forumCat]);
   const [forumReply, setForumReply] = useState("");
   const [forumReplyName, setForumReplyName] = useState("");
   const [showNewPost, setShowNewPost] = useState(false);
@@ -16671,7 +16758,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   };
   async function loadSalesDeals(){
     try{ const tok=await freshToken(); if(!tok||!user||!user.id){ setDealsLoaded(true); return; }
-      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_deals?select=*&rep_id=eq."+user.id+"&order=closed_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
+      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_deals?select=*&rep_id=eq."+user.id+"&order=closed_at.desc&limit=200",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
       const rows=await r.json(); if(Array.isArray(rows)) setSalesDeals(rows);
     }catch(e){}
     setDealsLoaded(true);
@@ -16695,7 +16782,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
   function leadDue(ld){ if(!ld||!ld.follow_up) return false; if(ld.status==="Closed"||ld.status==="Not now") return false; return ld.follow_up <= new Date().toISOString().slice(0,10); }
   async function loadSalesLeads(){
     try{ const tok=await freshToken(); if(!tok||!user||!user.id){ setLeadsLoaded(true); return; }
-      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_leads?select=*&rep_id=eq."+user.id+"&order=created_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
+      const r=await fetch(SUPABASE_URL+"/rest/v1/sales_leads?select=*&rep_id=eq."+user.id+"&order=created_at.desc&limit=200",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+tok}});
       const rows=await r.json(); if(Array.isArray(rows)){ setSalesLeads(rows); const t=new Date().toISOString().slice(0,10); const due=rows.filter(x=>x.follow_up && x.follow_up<=t && x.status!=="Closed" && x.status!=="Not now").length; if(due>0 && typeof pushNotif==="function") pushNotif(due+" follow-up"+(due>1?"s":"")+" due \u2014 check your Logs."); }
     }catch(e){}
     setLeadsLoaded(true);
@@ -16740,7 +16827,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     w.document.write(doc); w.document.close();
   }
   async function loadPortfolio(){
-    try{ const r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_items?select=*&order=created_at.desc",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}}); const rows=await r.json(); if(Array.isArray(rows)) setPortfolioItems(rows); }catch(e){}
+    try{ const r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_items?select=*&order=created_at.desc&limit=60",{headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY}}); const rows=await r.json(); if(Array.isArray(rows)) setPortfolioItems(rows); }catch(e){}
     setPortfolioLoaded(true);
   }
   function openPricingSheet(){
@@ -17095,7 +17182,12 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
     setAdvisorMsgs(m=>[...m, { role:"advisor", content:ans }]);
     setAiLoading(false);
   };
-  useEffect(()=>{ if(advisorMsgs.length && user && user.access_token && user.id) patchMyMember(user.access_token, user.id, { advisor: advisorMsgs.slice(-40) }); },[advisorMsgs]);
+  useEffect(()=>{ pendingSaveRef.current.advisor = advisorMsgs; },[advisorMsgs]);
+  useEffect(()=>{
+    if(!(advisorMsgs.length && user && user.access_token && user.id)) return;
+    const t=setTimeout(()=>{ patchMyMember(user.access_token, user.id, { advisor: advisorMsgs.slice(-40) }); }, 1500);
+    return ()=>clearTimeout(t);
+  },[advisorMsgs]);
 
   const addComment = (postId) => {
     if (!commentText.trim()||!commentName.trim()) return;
@@ -19441,6 +19533,13 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                     </div>
                   </div>
                 ))}
+                {forumHasMore && (
+                  <div style={{background:B.white,padding:"14px 18px",textAlign:"center"}}>
+                    <button onClick={loadMoreForum} disabled={forumLoadingMore} style={{background:"none",border:"none",cursor:forumLoadingMore?"default":"pointer",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.14em",textTransform:"uppercase",color:forumLoadingMore?B.mid:B.charcoal}}>
+                      {forumLoadingMore ? "Loading…" : "Load more posts"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
