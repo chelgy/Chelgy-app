@@ -87,10 +87,34 @@ async function rp(path, init) {
 
 // What's already up. Counted from RunPod itself rather than from anything we store,
 // because a cached count is a count that can be wrong in the expensive direction.
-async function listOurPods() {
+// Short-lived cache. ensurePods() and reapStalePods() both need this list and both
+// run on the same request; without the cache that is two GET /pods per edit, racing
+// each other, and a rate-limit on either one used to starve the render of pods.
+let _podCache = { at: 0, pods: null };
+const POD_CACHE_MS = 5000;
+
+async function listOurPodsRaw() {
   const pods = await rp("/pods", { method: "GET" });
   const arr = Array.isArray(pods) ? pods : (pods && pods.data) || [];
   return arr.filter(p => String((p && p.name) || "").startsWith(POD_PREFIX));
+}
+
+async function listOurPods() {
+  if (_podCache.pods && Date.now() - _podCache.at < POD_CACHE_MS) return _podCache.pods;
+  // One retry. A single blip on this call should never decide whether a paying
+  // customer's render gets machines.
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const pods = await listOurPodsRaw();
+      _podCache = { at: Date.now(), pods };
+      return pods;
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 0) await new Promise(r => setTimeout(r, 600));
+    }
+  }
+  throw lastErr;
 }
 
 // The credentials a worker needs, passed at creation.
@@ -153,11 +177,14 @@ export async function ensurePods(demand, reason) {
   try {
     running = (await listOurPods()).length;
   } catch (e) {
-    // Fail CLOSED. If we cannot count, we cannot know whether creating is safe, and
-    // the two failure modes are not symmetrical: not creating costs a slower render,
-    // creating blind costs $0.40/hr per stranded pod for as long as nobody notices.
-    console.error("[scale] " + reason + ": could not list pods, refusing to create — " + (e && e.message));
-    return { ok: false, created: 0, running: 0, error: "could not count running pods" };
+    // Counting failed even after a retry. Creating BLIND risks pods piling up; creating
+    // NOTHING strands a paying customer's render on whatever is already up — which is
+    // what happened after the first version of this fix. Split the difference: make one
+    // pod so the job progresses, and say so loudly. The reaper and the worker's own idle
+    // shutdown both still apply, so a single extra pod cannot become a stranded fleet.
+    console.error("[scale] " + reason + ": could not list pods after retry (" + ((e && e.message) || e) + ") — creating 1 to keep the render moving");
+    try { await createPod(0); return { ok: true, created: 1, running: 1, degraded: true }; }
+    catch (e2) { return { ok: false, created: 0, running: 0, error: "could not count or create" }; }
   }
 
   const create = Math.max(0, want - running);
