@@ -1,4 +1,10 @@
-// Chelgy AI Video Editor — STEP 4: poll a Creatomate render.
+// Chelgy AI Video Editor — STEP 4: poll a render.
+//
+// Two engines, one response shape. Viral clips now render on the Chelgy render
+// server ("ff:" ids, state in the render_jobs table); older Creatomate jobs ("cm:")
+// still poll Creatomate so anything already in flight finishes normally. Both are
+// translated into the completed/processing/failed shape the frontend already speaks,
+// so nothing in the app had to change.
 // Mirrors /api/video-result's shape so the frontend's pollVideo can reuse it.
 // On a failed render, the job's credits are refunded automatically (the job row
 // is deleted after refunding so repeated polls can't double-refund).
@@ -6,6 +12,7 @@
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 
 async function refundJob(fullId) {
   try {
@@ -34,6 +41,35 @@ export default async function handler(req, res) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const fullId = String(body.id || "");
+
+    // ── Chelgy render server job ────────────────────────────────────────────────
+    // State lives in Postgres, so there is no render server in the polling path.
+    if (/^ff:/.test(fullId)) {
+      const jid = fullId.replace(/^ff:/, "").trim();
+      if (!jid) return res.status(400).json({ error: "Missing id" });
+      try {
+        const q = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(jid) +
+                              "&select=status,output_url,error", {
+          headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC }
+        });
+        const rows = await q.json();
+        const j = Array.isArray(rows) && rows[0];
+        // No row yet: the plan call has returned but the row may not be visible for a
+        // moment. Keep polling rather than reporting a failure that would refund a
+        // render still on its way.
+        if (!j) return res.status(200).json({ status: "processing" });
+        if (j.status === "done" && j.output_url) return res.status(200).json({ status: "completed", output: j.output_url });
+        if (j.status === "error") {
+          await refundJob(fullId);
+          return res.status(200).json({ status: "failed" });
+        }
+        return res.status(200).json({ status: "processing" });
+      } catch {
+        return res.status(200).json({ status: "processing" }); // transient — keep polling
+      }
+    }
+
+    // ── Legacy Creatomate job ───────────────────────────────────────────────────
     const rid = fullId.replace(/^cm:/, "").trim();
     if (!rid) return res.status(400).json({ error: "Missing id" });
 

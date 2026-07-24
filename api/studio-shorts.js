@@ -6,7 +6,14 @@
 // One flat charge covers the planning AND all clip renders. Each render is
 // recorded with its share of the cost so a failed clip auto-refunds its share
 // via /api/studio-status.
-// Env: GEMINI_API_KEY, CREATOMATE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+// RENDERED BY THE CHELGY RENDER SERVER, NOT CREATOMATE.
+// Clips used to go to Creatomate, which meant a second captioning system: Montserrat
+// with a 1.4vmin black stroke, ~19% larger type, and a colour overlay standing in for
+// the grade. The main edit uses Caveline with no outline and a real 3D LUT. They could
+// never match by tuning, because they were different renderers. A clip is just a
+// one-segment edit, so it now goes through the same /plan pipeline and inherits the
+// title, the rule under it, the caption style and the LUT automatically.
+// Env: GEMINI_API_KEY, RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 export const maxDuration = 60;
 
@@ -14,6 +21,8 @@ const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const SHORTS_COST = 1500; // flat — up to 3 viral clips from one video
+const RS_URL = (process.env.RENDER_SERVER_URL || "").trim().replace(/\/+$/, "");
+const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 
 async function getUserId(token) {
   if (!token) return null;
@@ -62,23 +71,9 @@ async function logCost(id, userId, model, duration, credits, estUsd) {
     });
   } catch {}
 }
-function gradeFor(grade, look) {
-  const t = (look && look.temperature) || "neutral";
-  const x = (look && look.exposure) || "balanced";
-  if (grade === "luxury") {
-    let a = x === "dark" ? 0.16 : x === "bright" ? 0.08 : 0.12;
-    if (t === "warm") a = Math.max(0.05, a - 0.04);
-    const filt = x === "dark" ? "brighten" : "contrast";
-    const val = x === "dark" ? "14%" : "16%";
-    return { color_filter: filt, color_filter_value: val, color_overlay: "rgba(255,247,235," + a.toFixed(2) + ")" };
-  }
-  let a = t === "cool" ? 0.18 : t === "warm" ? 0.09 : 0.14;
-  if (x === "dark") a = Math.max(0.07, a - 0.04);
-  if (x === "bright") a = Math.min(0.20, a + 0.02);
-  const contrast = x === "dark" ? 16 : 24;
-  return { color_filter: "contrast", color_filter_value: contrast + "%", color_overlay: "rgba(255,183,92," + a.toFixed(2) + ")" };
-}
-
+// gradeFor() used to translate the grade into Creatomate colour filters — a wash
+// approximating the look. The render server applies the actual LUT chain, so there is
+// nothing left to approximate and the function is gone.
 
 // ── Resilient Gemini call: retries the primary model, and if it's shedding load
 // (503/429, or an overloaded/high-demand message returned even inside a 200),
@@ -129,8 +124,7 @@ export default async function handler(req, res) {
     if (!words.length) return res.status(400).json({ error: "Missing transcript." });
 
     const GKEY = (process.env.GEMINI_API_KEY || "").trim();
-    const CM = (process.env.CREATOMATE_API_KEY || "").trim();
-    if (!GKEY || !CM) return res.status(500).json({ error: "The clip maker is not configured yet." });
+    if (!GKEY || !RS_URL || !RS_SECRET) return res.status(500).json({ error: "The clip maker is not configured yet." });
 
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
     const userId = await getUserId(token);
@@ -186,46 +180,60 @@ export default async function handler(req, res) {
       exposure: ["dark","balanced","bright"].includes(L.exposure) ? L.exposure : "balanced"
     };
 
-    // ── Render each clip: vertical, hook on top, karaoke captions, grade ──
+    // ── Render each clip through the SAME engine as the main edit ──
+    // One clip = one segment. Everything else — captions, the title treatment, the
+    // rule under it, the LUT chain — comes from the shared renderer, so clips cannot
+    // drift from the main video again.
     const perClipCost = Math.floor(SHORTS_COST / clips.length);
     const ids = [];
     const hooks = [];
     for (const c of clips) {
       const d = Math.round((c.e - c.s) * 100) / 100;
-      const gp = gradeFor(grade, c.look || look); // per-clip grade from its colorist read
-      const elements = [
-        { type: "video", track: 1, name: "clip", time: 0, source: url, trim_start: c.s, trim_duration: d, fit: "cover", color_filter: gp.color_filter, color_filter_value: gp.color_filter_value, color_overlay: gp.color_overlay },
-        { type: "text", track: 2, time: 0, duration: d,
-          transcript_source: "clip", transcript_effect: "highlight", transcript_maximum_length: 14,
-          y: "80%", width: "82%", height: "30%", x_alignment: "50%", y_alignment: "50%",
-          fill_color: "#ffffff", stroke_color: "#000000", stroke_width: "1.4 vmin",
-          font_family: "Montserrat", font_weight: 700, font_size: "7.6 vmin" },
-        // (grade applied on the clip pixels above)
-      ];
-      if (c.hook) {
-        elements.push({
-          type: "text", track: 4, time: 0, duration: Math.min(3.2, d),
-          text: c.hook,
-          y: "14%", width: "88%", height: "20%", x_alignment: "50%", y_alignment: "50%",
-          fill_color: "#ffffff",
-          background_color: "rgba(17,17,17,0.62)", background_x_padding: "30%", background_y_padding: "16%", background_border_radius: "18%",
-          font_family: "Montserrat", font_weight: 800, font_size: "6.4 vmin"
+      const uploadPath = userId + "/clip-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp4";
+      let started = null;
+      try {
+        const r = await fetch(RS_URL + "/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
+          body: JSON.stringify({
+            userId, creditsCharged: perClipCost,
+            edl: {
+              sources: [url],
+              segments: [{ s: c.s, e: c.e }],
+              // The FULL transcript, exactly as the main edit sends it — the renderer
+              // windows the words to the kept segment itself. Pre-trimming here would
+              // duplicate that logic and is how the two would drift apart again.
+              words,
+              // The hook becomes the title, so it gets the Caveline display treatment
+              // rather than Creatomate's boxed text.
+              title: c.hook || "",
+              orientation: "portrait",
+              fps: 30,
+              size: { w: 1080, h: 1920 },
+              // Clips have no per-clip camera info, so no log conversion — just the
+              // film look. Same shape the main edit sends.
+              grade: { footage: "standard", look: grade, clipFootage: [] },
+              chapters: [], broll: [], transitions: [], music: null, showcase: [], narration: null,
+              captionStyle: {},
+              uploadPath
+            }
+          })
         });
+        const dj = await r.json().catch(() => ({}));
+        if (r.ok && dj && dj.jobId) started = dj.jobId;
+        else console.error("[shorts] plan rejected a clip: " + ((dj && dj.error) || r.status));
+      } catch (e) {
+        console.error("[shorts] could not reach the render engine: " + ((e && e.message) || e));
       }
-      const cr = await fetch("https://api.creatomate.com/v2/renders", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + CM, "Content-Type": "application/json" },
-        body: JSON.stringify({ output_format: "mp4", width: 1080, height: 1920, frame_rate: 30, elements })
-      });
-      const cdata = await cr.json();
-      const render = Array.isArray(cdata) ? cdata[0] : cdata;
-      const rid = cr.ok && render && render.id;
-      if (rid) {
-        ids.push("cm:" + rid);
+      if (started) {
+        const id = "ff:" + started;
+        ids.push(id);
         hooks.push(c.hook || "");
-        await recordVideoJob("cm:" + rid, userId, perClipCost);
-        const estUsd = Math.round((0.03 + 0.12 * (d / 60)) * 10000) / 10000;
-        await logCost("cm:" + rid, userId, "creatomate-short-" + grade, d, perClipCost, estUsd);
+        await recordVideoJob(id, userId, perClipCost);
+        // Real pod cost, not Creatomate's per-render price. ~$0.40/hr across the pods
+        // a short clip spreads over; deliberately a slight over-estimate.
+        const estUsd = Math.round((0.02 + 0.10 * (d / 60)) * 10000) / 10000;
+        await logCost(id, userId, "chelgy-render-short-" + grade, d, perClipCost, estUsd);
       }
     }
     if (!ids.length) {
