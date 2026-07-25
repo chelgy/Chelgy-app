@@ -2837,6 +2837,13 @@ function onboardingSrc(media, key, baseUrl){
   return baseUrl ? baseUrl + "/" + f : f;
 }
 
+// The stored focal point for a slot, if the admin set one. Slots are stored as
+// { full: url, focus: "x% y%" }, so this simply reads the focus alongside the url.
+function onboardingFocus(media, key){
+  const e = media && media[key];
+  return (e && typeof e === "object" && (e.focus || "").trim()) || "";
+}
+
 // True only when an admin has actually set this slot. onboardingSrc() falls back to
 // a bucket filename that may not exist, so "is there a URL" is the wrong question —
 // this asks "did someone choose an image", which is what decides whether an optional
@@ -2855,14 +2862,18 @@ function hasMedia(media, key){
 //
 // muted + playsInline are load-bearing on iOS: without both, Safari refuses to
 // autoplay and the panel shows a black rectangle with a play button on it.
-function MediaFill({ url, className, style }){
+function MediaFill({ url, className, style, focus }){
   const u = String(url || "");
   const isVideo = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(u);
+  // focus is a stored "x% y%" from the admin FocalPicker. object-fit:cover crops to
+  // fill, and object-position decides WHICH part survives the crop — so a wide photo
+  // in a tall panel can be aimed at the subject instead of defaulting to the middle.
+  const st = focus ? { ...(style||{}), objectPosition: focus } : style;
   if(isVideo) return (
-    <video src={u} className={className} style={style}
+    <video src={u} className={className} style={st}
            autoPlay muted loop playsInline preload="metadata" />
   );
-  return <img src={u} className={className} style={style} alt="" />;
+  return <img src={u} className={className} style={st} alt="" />;
 }
 
 // A bucket-backed tile that removes its own wrapper if the file is missing.
@@ -3088,10 +3099,16 @@ const HEADER_SLOTS = [
   ["social2",     "Panel 5 · Social — tile 3"],
   ["campaign",    "Panel 7 · Ad Campaigns — background"],
 ];
+// ONE source of truth for imagery: the onboarding slots.
+//
+// The header used to support its own per-slot overrides (headerMedia), falling back
+// to onboarding when blank. In practice both surfaces show the same photographs, so
+// two places to edit them was pure friction — upload once in Tour Imagery and it
+// appears in the header too. headerMedia is deliberately ignored rather than deleted,
+// so any values already saved stay in the database and nothing is destroyed; if
+// per-surface overrides are ever wanted again, restoring the old lookup is a
+// three-line change.
 function headerSrc(headerMedia, onbMedia, key, baseUrl){
-  const e = headerMedia && headerMedia[key];
-  const u = (typeof e === "string" ? e : (e && e.full) || "").trim();
-  if (u) return u;
   return onboardingSrc(onbMedia, key, baseUrl);
 }
 
@@ -3119,6 +3136,8 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
   const startX = useRef(0);
   const n = HEADER_PANELS.length;
   const src = (k) => headerSrc(media, fallbackMedia, k, baseUrl);
+  // Focus comes from the same onboarding slot the image does.
+  const foc = (k) => onboardingFocus(fallbackMedia, k);
 
   useEffect(()=>{
     try{
@@ -3240,7 +3259,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 0 OPENING */}
       <section className={cls("panel", i===0)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} focus={foc("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole brand,</span><span className="ln">in one place.</span></h1>
@@ -3258,7 +3277,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 1 WEBSITE */}
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} focus={foc("websiteBg")} /></div><div className="scrim" />
         <div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}><img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{maxWidth:"64%"}}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
@@ -3276,7 +3295,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 2 FAKE IT STUDIO & THE EDITOR */}
       <section className={cls("panel", i===2)}>
-        <div className="full" style={{filter:"brightness(.42)"}}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
+        <div className="full" style={{filter:"brightness(.42)"}}><MediaFill url={src("redBlonde")} focus={foc("redBlonde")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video, into a <span className="it">film</span>.</div>
@@ -3293,7 +3312,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 3 FLYERS & BRANDING */}
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} focus={foc("flyerBg")} /></div><div className="scrim" />
         <div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}><img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"46%"}}>
           <div className="eyebrow" style={{justifyContent:"flex-end"}}><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
@@ -3312,7 +3331,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 4 SOCIAL */}
       <section className={cls("panel", i===4)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} focus={foc("socialBg")} /></div><div className="scrim" />
         <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
           <div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}><img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
           <div className="float f2" style={{width:"clamp(70px,11vw,184px)",height:"clamp(134px,21vw,352px)",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}><img src={src("social1")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
@@ -3328,7 +3347,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 5 GROWTH */}
       <section className={cls("panel", i===5)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(130% 95% at 50% 12%, #171210 0%, var(--ink) 60%)"}} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} focus={foc("growthBg")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{fontSize:"clamp(22px,6vw,32px)"}}><span className="ln">Rank higher on <span className="it">Google</span>.</span></h1>
@@ -3349,7 +3368,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 6 ADS */}
       <section className={cls("panel", i===6)}>
-        <div className="full" style={{filter:"brightness(.5)"}}><MediaFill url={src("campaign")} /></div><div className="scrim" />
+        <div className="full" style={{filter:"brightness(.5)"}}><MediaFill url={src("campaign")} focus={foc("campaign")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
           <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
@@ -8510,7 +8529,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } if(s&&s.lut_media){ try{ const raw=typeof s.lut_media==="string"?JSON.parse(s.lut_media):s.lut_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setLutMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; const full=(typeof v==="string")?v:((v&&v.full)||""); const focus=(v&&typeof v==="object"&&v.focus)||""; norm[k]= focus ? {full,focus} : {full}; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } if(s&&s.lut_media){ try{ const raw=typeof s.lut_media==="string"?JSON.parse(s.lut_media):s.lut_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setLutMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -8544,7 +8563,9 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
     try{
       const tok=await freshToken();
       const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
-      const clean={}; Object.keys(onbMediaForm||{}).forEach(k=>{ const full=((onbMediaForm[k]||{}).full||"").trim(); if(full) clean[k]={full}; });
+      // Keep the focal point alongside the url — building {full} alone silently
+      // discarded it, so a dragged focus was lost the moment you hit save.
+      const clean={}; Object.keys(onbMediaForm||{}).forEach(k=>{ const e=onbMediaForm[k]||{}; const full=(e.full||"").trim(); if(!full) return; const focus=(e.focus||"").trim(); clean[k]= focus ? {full,focus} : {full}; });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"onboarding_media",value:JSON.stringify(clean)})});
       setOnbMediaSaved(true); setTimeout(()=>setOnbMediaSaved(false),2500);
     }catch(e){}
@@ -9455,7 +9476,21 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                     <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:"#9C9C9C",marginBottom:8}}>Default: {file}</div>
                     <MediaUploadButton folder="onboarding" name={k} accept="image/*,video/*" onDone={(u)=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
                     <input value={(onbMediaForm[k]&&onbMediaForm[k].full)||""} onChange={e=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="https://... (or use Upload file above)" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
-                    {(()=>{ const u=((onbMediaForm[k]&&onbMediaForm[k].full)||"").trim(); if(!u) return null; return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><MediaFill url={u} style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} /></div>; })()}
+                    {(()=>{
+                      const u=((onbMediaForm[k]&&onbMediaForm[k].full)||"").trim(); if(!u) return null;
+                      const isVid=/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(u);
+                      // Full-bleed BACKGROUNDS get the draggable focal point: a wide photo
+                      // cropped into a tall panel needs to be aimed, or the subject is lost.
+                      // Tiles are small and already framed, so they keep the plain preview.
+                      const isBg = /(Bg$|^beauty$|^redBlonde$|^closing$|^campaign$)/.test(k);
+                      if(isBg && !isVid) return (
+                        <div style={{marginTop:8}}>
+                          <FocalPicker url={u} value={(onbMediaForm[k]&&onbMediaForm[k].focus)||"50% 50%"}
+                            onChange={v=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:v}}))} height={150} />
+                        </div>
+                      );
+                      return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><MediaFill url={u} style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} focus={(onbMediaForm[k]&&onbMediaForm[k].focus)||""} /></div>;
+                    })()}
                   </div>
                 ))}
               </div>
@@ -9483,34 +9518,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
               </div>
               <button onClick={saveLutMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{lutMediaSaved?"Saved ✓":"Save Grade Thumbnails"}</button>
             </div>
-            <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
-              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Header Slideshow Images</div>
-              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>The same tour runs across the top of every page, but it crops <strong>wide</strong> instead of tall — so a photo that looks right in the full-screen tour often loses its head and feet up here. Set a wider alternative for any slot that needs one. <strong>Leave a slot blank and it just uses the onboarding image</strong>, so you only have to override the ones that actually look wrong. Landscape shots with the subject near the middle work best. After you Save, hard-refresh.</p>
-              <div style={{maxHeight:420,overflowY:"auto",marginBottom:16,paddingRight:4}}>
-                {HEADER_SLOTS.map(([k,label])=>{
-                  const own=((hdrMediaForm[k]||{}).full||"").trim();
-                  const inherited=((onbMediaForm[k]||{}).full||"").trim();
-                  const eff=own||inherited;
-                  return (
-                  <div key={k} style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EEEA"}}>
-                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,marginBottom:6}}>
-                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",color:B.charcoal}}>{label}</div>
-                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700,flexShrink:0,color:own?"#B8955A":"#9C9C9C"}}>{own?"Header-only":(inherited?"Using onboarding":"Using default")}</div>
-                    </div>
-                    <MediaUploadButton folder="header" name={k} accept="image/*" onDone={(u)=>setHdrMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:u}}))} />
-                    <input value={own} onChange={e=>setHdrMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:e.target.value}}))} placeholder="Blank = use the onboarding image" style={{width:"100%",padding:"9px 12px",border:"1px solid #E8E6E1",outline:"none",fontSize:14,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white}} />
-                    {own && <button onClick={()=>setHdrMediaForm(f=>({...f,[k]:{...(f[k]||{}),full:""}}))} style={{background:"none",border:"none",padding:"6px 0 0",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.1em",fontWeight:700,textTransform:"uppercase",color:"#6B6B6B",cursor:"pointer",textDecoration:"underline"}}>Clear — go back to the onboarding image</button>}
-                    {eff && <div style={{marginTop:8}}>
-                      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>How it crops in the header</div>
-                      <div style={{border:"1px solid #E8E6E1",background:"#000",lineHeight:0,height:96,overflow:"hidden"}}>
-                        <img src={eff} alt="preview" style={{width:"100%",height:96,objectFit:"cover",objectPosition:"center center",display:"block"}} onError={e=>{e.target.style.display="none";}} />
-                      </div>
-                    </div>}
-                  </div>
-                ); })}
-              </div>
-              <button onClick={saveHdrMedia} style={{background:"#111",color:"#fff",border:"none",padding:"10px 18px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",textTransform:"uppercase"}}>{hdrMediaSaved?"Saved ✓":"Save Header Images"}</button>
-            </div>
+            {/* Header Imagery section removed: the header now reads the same slots as the tour, so there is only one place to upload. */}
             <div style={{background:B.white,border:"1px solid #E8E6E1",padding:"24px",marginBottom:12}}>
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:"#6B6B6B",letterSpacing:"0.14em",marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Hero Images</div>
               <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#6B6B6B",margin:"0 0 16px",lineHeight:1.6}}>Paste an image URL to change the main background photos. Leave blank to keep the built-in default. Tip: you can make one in your Image Creator and paste its link here.</p>
@@ -15193,6 +15201,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   // admin panel). An admin-set URL wins; otherwise we fall back to the original
   // file in sites/onboarding/, so an empty setting behaves exactly as before.
   const src = (k) => onboardingSrc(media, k, baseUrl);
+  const foc = (k) => onboardingFocus(media, k);
 
   // Per-panel auto-advance durations (seconds). 99 = last panel, no auto-advance.
   const DUR = [8, 10, 11, 10, 10, 11, 10, 99];
@@ -15382,7 +15391,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 0 OPENING */}
       <section className={cls("panel", i === 0)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} focus={foc("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole</span><span className="ln">brand,</span><span className="ln">in one place.</span></h1>
@@ -15400,7 +15409,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 1 WEBSITE */}
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} focus={foc("websiteBg")} /></div><div className="scrim" />
         <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{ paddingBottom:"40px", maxWidth:"62%" }}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
@@ -15418,7 +15427,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 2 PHOTO/VIDEO → FILM */}
       <section className={cls("panel", i === 2)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("redBlonde")} focus={foc("redBlonde")} /></div><div className="scrim" />
         <div className="triptych">
           <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
@@ -15438,7 +15447,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 3 FLYERS */}
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} focus={foc("flyerBg")} /></div><div className="scrim" />
         <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
@@ -15457,7 +15466,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 4 SOCIAL */}
       <section className={cls("panel dark", i === 4)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} focus={foc("socialBg")} /></div><div className="scrim" />
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
           <div className="float" style={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
           <div className="float f2" style={{ width:"clamp(124px,12vw,162px)", height:"clamp(236px,23vw,308px)", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}><img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
@@ -15473,7 +15482,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 5 GROWTH */}
       <section className={cls("panel dark", i === 5)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(130% 90% at 50% 10%, #171210 0%, var(--ink) 60%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} focus={foc("growthBg")} /></div><div className="scrim" />
         <div className="growth">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{ marginTop:"22px", fontSize:"clamp(42px,12vw,68px)" }}><span className="ln">Rank</span><span className="ln">higher on</span><span className="ln"><span className="it">Google</span>.</span></h1>
@@ -15494,7 +15503,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 6 ADS */}
       <section className={cls("panel", i === 6)}>
-        <div className="full" style={{ filter:"brightness(.55)" }}><MediaFill url={src("campaign")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.55)" }}><MediaFill url={src("campaign")} focus={foc("campaign")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
           <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
@@ -15515,7 +15524,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 7 CLOSING */}
       <section className={cls("panel", i === 7)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("closing")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("closing")} focus={foc("closing")} /></div><div className="scrim" />
         <div className="content" style={{ paddingBottom:"170px" }}>
           <div className="eyebrow"><span className="rule" />Welcome</div>
           <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
