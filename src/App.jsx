@@ -3222,7 +3222,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 0 OPENING */}
       <section className={cls("panel", i===0)}>
-        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("beauty")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole brand,</span><span className="ln">in one place.</span></h1>
@@ -3240,7 +3240,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 1 WEBSITE */}
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
         {hasMedia(media,"websiteDeck") && (<div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
         </div>)}
@@ -3260,7 +3260,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
 
       {/* 2 FAKE IT STUDIO & THE EDITOR */}
       <section className={cls("panel", i===2)}>
-        <div className="full" style={{filter:"brightness(.3)"}}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
+        <div className="full" style={{filter:"brightness(.42)"}}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video, into a <span className="it">film</span>.</div>
@@ -3277,7 +3277,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 3 FLYERS & BRANDING */}
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
-        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
         {hasMedia(media,"flyerDeck") && (<div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
         </div>)}
@@ -3298,7 +3298,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 4 SOCIAL */}
       <section className={cls("panel", i===4)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
-        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
         <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
           {hasMedia(media,"social3") && (<div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
             <img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" />
@@ -3320,7 +3320,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 5 GROWTH */}
       <section className={cls("panel", i===5)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(130% 95% at 50% 12%, #171210 0%, var(--ink) 60%)"}} />
-        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{fontSize:"clamp(22px,6vw,32px)"}}><span className="ln">Rank higher on <span className="it">Google</span>.</span></h1>
