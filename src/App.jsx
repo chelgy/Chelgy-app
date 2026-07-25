@@ -15352,7 +15352,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
     /* Copy sits over photography on half these panels. A phone shows less of the
        image, so the light parts land under the text more often — the scrim has to
        work harder than it does on a wide screen. */
-    .cgOnb .scrim{ background:linear-gradient(180deg,rgba(10,7,5,.55) 0%,rgba(10,7,5,.35) 30%,rgba(10,7,5,.72) 62%,rgba(10,7,5,.97) 100%); }
+    .cgOnb .scrim{ background:linear-gradient(180deg,rgba(10,7,5,.40) 0%,rgba(10,7,5,.22) 30%,rgba(10,7,5,.55) 62%,rgba(10,7,5,.85) 100%); }
     .cgOnb .row{ max-width:100%; gap:10px; }
     .cgOnb .dots{ bottom:88px; }
   }
@@ -15382,7 +15382,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 0 OPENING */}
       <section className={cls("panel", i === 0)}>
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("beauty")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole</span><span className="ln">brand,</span><span className="ln">in one place.</span></h1>
@@ -15400,7 +15400,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 1 WEBSITE */}
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
         <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{ paddingBottom:"40px", maxWidth:"62%" }}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
@@ -15418,7 +15418,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 2 PHOTO/VIDEO → FILM */}
       <section className={cls("panel", i === 2)}>
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("redBlonde")} /></div><div className="scrim" />
         <div className="triptych">
           <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
@@ -15438,7 +15438,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 3 FLYERS */}
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
         <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
@@ -15457,11 +15457,11 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 4 SOCIAL */}
       <section className={cls("panel dark", i === 4)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
-          <div className="float" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
-          <div className="float f2" style={{ width:"124px", height:"236px", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}><img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
-          <div className="float f3" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social2")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float" style={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float f2" style={{ width:"clamp(124px,12vw,162px)", height:"clamp(236px,23vw,308px)", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}><img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float f3" style={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social2")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         </div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
@@ -15473,7 +15473,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 5 GROWTH */}
       <section className={cls("panel dark", i === 5)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(130% 90% at 50% 10%, #171210 0%, var(--ink) 60%)" }} />
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
         <div className="growth">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{ marginTop:"22px", fontSize:"clamp(42px,12vw,68px)" }}><span className="ln">Rank</span><span className="ln">higher on</span><span className="ln"><span className="it">Google</span>.</span></h1>
@@ -15515,7 +15515,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 7 CLOSING */}
       <section className={cls("panel", i === 7)}>
-        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("closing")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("closing")} /></div><div className="scrim" />
         <div className="content" style={{ paddingBottom:"170px" }}>
           <div className="eyebrow"><span className="rule" />Welcome</div>
           <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
