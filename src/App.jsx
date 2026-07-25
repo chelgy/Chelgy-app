@@ -2838,10 +2838,19 @@ function onboardingSrc(media, key, baseUrl){
 }
 
 // The stored focal point for a slot, if the admin set one. Slots are stored as
-// { full: url, focus: "x% y%" }, so this simply reads the focus alongside the url.
-function onboardingFocus(media, key){
+// { full: url, focus: "x% y%", focusM: "x% y%" }, so this reads the focus alongside
+// the url. `mobile` picks the phone-specific point when one has been set.
+//
+// Two points are needed because the crop is completely different: a wide photo in a
+// short desktop panel loses a little top and bottom, while the same photo in a tall
+// phone panel loses most of the LEFT AND RIGHT. A single point cannot be right for
+// both, so focusM overrides focus on narrow screens and falls back to it when unset.
+function onboardingFocus(media, key, mobile){
   const e = media && media[key];
-  return (e && typeof e === "object" && (e.focus || "").trim()) || "";
+  if(!(e && typeof e === "object")) return "";
+  const m = (e.focusM || "").trim();
+  if(mobile && m) return m;
+  return (e.focus || "").trim();
 }
 
 // True only when an admin has actually set this slot. onboardingSrc() falls back to
@@ -8529,7 +8538,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
   useEffect(()=>{ if(view==="marketers") loadMarketers(); },[view]);
   useEffect(()=>{ if(view==="inquiries") loadInquiries(); },[view]);
   useEffect(()=>{ if(view==="deliverables") loadDeliverables(); },[view]);
-  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; const full=(typeof v==="string")?v:((v&&v.full)||""); const focus=(v&&typeof v==="object"&&v.focus)||""; norm[k]= focus ? {full,focus} : {full}; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } if(s&&s.lut_media){ try{ const raw=typeof s.lut_media==="string"?JSON.parse(s.lut_media):s.lut_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setLutMediaForm(norm); }catch(e){} } }); },[]);
+  useEffect(()=>{ loadAppSettings().then(s=>{ setHeroForm({ hero_image:(s&&s.hero_image)||"", home_hero:(s&&s.home_hero)||"" }); if(s&&s.tool_media){ try{ const raw=typeof s.tool_media==="string"?JSON.parse(s.tool_media):s.tool_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]=(typeof v==="string")?{thumb:v,full:v}:{thumb:(v&&v.thumb)||"",full:(v&&v.full)||""}; }); setToolMediaForm(norm); }catch(e){} } if(s&&s.page_media){ try{ const raw=typeof s.page_media==="string"?JSON.parse(s.page_media):s.page_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ norm[k]={slides:pageSlides(raw[k])}; }); setPageMediaForm(norm); }catch(e){} } if(s&&s.onboarding_media){ try{ const raw=typeof s.onboarding_media==="string"?JSON.parse(s.onboarding_media):s.onboarding_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; const full=(typeof v==="string")?v:((v&&v.full)||""); const isObj=v&&typeof v==="object"; const row={full}; const fo=(isObj&&v.focus)||""; const fm=(isObj&&v.focusM)||""; if(fo) row.focus=fo; if(fm) row.focusM=fm; norm[k]=row; }); setOnbMediaForm(norm); }catch(e){} } if(s&&s.header_media){ try{ const raw=typeof s.header_media==="string"?JSON.parse(s.header_media):s.header_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setHdrMediaForm(norm); }catch(e){} } if(s&&s.lut_media){ try{ const raw=typeof s.lut_media==="string"?JSON.parse(s.lut_media):s.lut_media; const norm={}; Object.keys(raw||{}).forEach(k=>{ const v=raw[k]; norm[k]={full:(typeof v==="string")?v:((v&&v.full)||"")}; }); setLutMediaForm(norm); }catch(e){} } }); },[]);
   async function saveToolMedia(){
     setDbLoading(true);
     try{
@@ -8565,7 +8574,7 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
       const hdr={ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) };
       // Keep the focal point alongside the url — building {full} alone silently
       // discarded it, so a dragged focus was lost the moment you hit save.
-      const clean={}; Object.keys(onbMediaForm||{}).forEach(k=>{ const e=onbMediaForm[k]||{}; const full=(e.full||"").trim(); if(!full) return; const focus=(e.focus||"").trim(); clean[k]= focus ? {full,focus} : {full}; });
+      const clean={}; Object.keys(onbMediaForm||{}).forEach(k=>{ const e=onbMediaForm[k]||{}; const full=(e.full||"").trim(); if(!full) return; const focus=(e.focus||"").trim(); const focusM=(e.focusM||"").trim(); const row={full}; if(focus) row.focus=focus; if(focusM) row.focusM=focusM; clean[k]=row; });
       await fetch("/api/admin",{method:"POST",headers:hdr,body:JSON.stringify({action:"settings-set",key:"onboarding_media",value:JSON.stringify(clean)})});
       setOnbMediaSaved(true); setTimeout(()=>setOnbMediaSaved(false),2500);
     }catch(e){}
@@ -9485,8 +9494,23 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                       const isBg = /(Bg$|^beauty$|^redBlonde$|^closing$|^campaign$)/.test(k);
                       if(isBg && !isVid) return (
                         <div style={{marginTop:8}}>
+                          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>Desktop crop</div>
                           <FocalPicker url={u} value={(onbMediaForm[k]&&onbMediaForm[k].focus)||"50% 50%"}
                             onChange={v=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:v}}))} height={150} />
+                          {/* A phone shows a TALL slice of the same photo, so most of the left
+                              and right is cropped away — a separate point is the only way to
+                              aim it. The frame below is deliberately narrow so what you see
+                              here is what the phone will actually show. Leave it untouched to
+                              reuse the desktop point. */}
+                          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginTop:10,marginBottom:4}}>Mobile crop (onboarding)</div>
+                          <div style={{maxWidth:132}}>
+                            <FocalPicker url={u} value={(onbMediaForm[k]&&onbMediaForm[k].focusM)||(onbMediaForm[k]&&onbMediaForm[k].focus)||"50% 50%"}
+                              onChange={v=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focusM:v}}))} height={228} />
+                          </div>
+                          {((onbMediaForm[k]&&onbMediaForm[k].focusM)||"").trim() && (
+                            <button onClick={()=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focusM:""}}))}
+                              style={{background:"none",border:"none",padding:"2px 0",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,color:"#9C6B4F",cursor:"pointer",textDecoration:"underline"}}>Reset mobile to match desktop</button>
+                          )}
                         </div>
                       );
                       return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><MediaFill url={u} style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} focus={(onbMediaForm[k]&&onbMediaForm[k].focus)||""} /></div>;
@@ -15200,8 +15224,22 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
   // Image slots live in ONBOARDING_SLOTS (single source of truth, shared with the
   // admin panel). An admin-set URL wins; otherwise we fall back to the original
   // file in sites/onboarding/, so an empty setting behaves exactly as before.
+  // Narrow-screen flag, matching the 520px breakpoint the mobile stylesheet uses so
+  // the JS crop and the CSS layout agree on what "mobile" means. Live-updates on
+  // rotate/resize; the addListener fallbacks are for older WebKit.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(()=>{
+    try{
+      const mq = window.matchMedia("(max-width: 520px)");
+      setNarrow(!!mq.matches);
+      const h=(e)=>setNarrow(!!e.matches);
+      mq.addEventListener ? mq.addEventListener("change",h) : mq.addListener(h);
+      return ()=>{ mq.removeEventListener ? mq.removeEventListener("change",h) : mq.removeListener(h); };
+    }catch(_){ }
+  },[]);
+
   const src = (k) => onboardingSrc(media, k, baseUrl);
-  const foc = (k) => onboardingFocus(media, k);
+  const foc = (k) => onboardingFocus(media, k, narrow);
 
   // Per-panel auto-advance durations (seconds). 99 = last panel, no auto-advance.
   const DUR = [8, 10, 11, 10, 10, 11, 10, 99];
