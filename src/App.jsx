@@ -3240,7 +3240,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 1 WEBSITE */}
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
-        {hasMedia(media,"websiteBg") && (<><div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
         {hasMedia(media,"websiteDeck") && (<div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
         </div>)}
@@ -3277,7 +3277,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 3 FLYERS & BRANDING */}
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
-        {hasMedia(media,"flyerBg") && (<><div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
         {hasMedia(media,"flyerDeck") && (<div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
           <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
         </div>)}
@@ -3298,7 +3298,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 4 SOCIAL */}
       <section className={cls("panel", i===4)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
-        {hasMedia(media,"socialBg") && (<><div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
         <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
           {hasMedia(media,"social3") && (<div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
             <img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" />
@@ -3320,7 +3320,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       {/* 5 GROWTH */}
       <section className={cls("panel", i===5)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(130% 95% at 50% 12%, #171210 0%, var(--ink) 60%)"}} />
-        {hasMedia(media,"growthBg") && (<><div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.3)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
         <div className="content mid">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{fontSize:"clamp(22px,6vw,32px)"}}><span className="ln">Rank higher on <span className="it">Google</span>.</span></h1>
@@ -15392,7 +15392,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 1 WEBSITE */}
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
-        {hasMedia(media,"websiteBg") && (<><div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
         {hasMedia(media,"websiteDeck") && (<div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
           <img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" />
         </div>)}
@@ -15432,7 +15432,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 3 FLYERS */}
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
-        {hasMedia(media,"flyerBg") && (<><div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
         {hasMedia(media,"flyerDeck") && (<div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
           <img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" />
         </div>)}
@@ -15453,7 +15453,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 4 SOCIAL */}
       <section className={cls("panel dark", i === 4)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
-        {hasMedia(media,"socialBg") && (<><div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
           {hasMedia(media,"social3") && (<div className="float" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}>
             <img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" />
@@ -15475,7 +15475,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 5 GROWTH */}
       <section className={cls("panel dark", i === 5)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(130% 90% at 50% 10%, #171210 0%, var(--ink) 60%)" }} />
-        {hasMedia(media,"growthBg") && (<><div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" /></>)}
+        <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("growthBg")} /></div><div className="scrim" />
         <div className="growth">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{ marginTop:"22px", fontSize:"clamp(42px,12vw,68px)" }}><span className="ln">Rank</span><span className="ln">higher on</span><span className="ln"><span className="it">Google</span>.</span></h1>
