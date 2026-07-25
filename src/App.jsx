@@ -2865,6 +2865,24 @@ function MediaFill({ url, className, style }){
   return <img src={u} className={className} style={style} alt="" />;
 }
 
+// A bucket-backed tile that removes its own wrapper if the file is missing.
+//
+// Tiles are uploaded straight to the storage bucket. Rendering them unconditionally
+// is right — the bucket is the source of truth — but a slot whose file was deleted
+// would otherwise show a broken-image icon. On load error this drops the whole
+// wrapper (border, shadow and all), so deleting a file in Supabase cleanly removes
+// its tile with no code change and nothing broken left behind.
+function BucketTile({ url, imgStyle, wrapClassName, wrapStyle }){
+  const [ok, setOk] = useState(true);
+  useEffect(() => { setOk(true); }, [url]);   // a re-uploaded file gets another try
+  if(!ok || !url) return null;
+  return (
+    <div className={wrapClassName} style={wrapStyle}>
+      <img src={url} alt="" style={imgStyle} onError={() => setOk(false)} />
+    </div>
+  );
+}
+
 // Read a picked File into a data URL so it can go through uploadSiteImage().
 function fileToDataUrl(file){
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("read failed")); r.readAsDataURL(file); });
@@ -3227,10 +3245,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole brand,</span><span className="ln">in one place.</span></h1>
           <p className="sub">Websites, campaigns, photoshoots and film — all made to look like you spent a fortune. You didn't.</p>
-          {(hasMedia(media,"openTile1")||hasMedia(media,"openTile2")||hasMedia(media,"openTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["openTile1","openTile2","openTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["openTile1","openTile2","openTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -3241,17 +3259,15 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
-        {hasMedia(media,"websiteDeck") && (<div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
-          <img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" />
-        </div>)}
+        <div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}><img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{maxWidth:"64%"}}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
           <h1 className="display"><span className="ln">Luxury sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>From a few business details — a complete, published luxury website. With its own AI imagery and an SEO blog.</p>
-          {(hasMedia(media,"websiteTile1")||hasMedia(media,"websiteTile2")||hasMedia(media,"websiteTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"14px" }}>
-              {["websiteTile1","websiteTile2","websiteTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["websiteTile1","websiteTile2","websiteTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -3265,9 +3281,9 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
           <div className="eyebrow"><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video, into a <span className="it">film</span>.</div>
           <div className="row float">
-            {hasMedia(media,"before") && (<div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" /></div>)}
+            <div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
             <div className="arrow">becomes</div>
-            {hasMedia(media,"redModel") && (<div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" /></div>)}
+            <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
             <div className="arrow">then moves</div>
             {hasMedia(media,"plane") && (<div className="shot"><span className="tag">Video</span><img src={src("plane")} alt="" /></div>)}
           </div>
@@ -3278,17 +3294,15 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
-        {hasMedia(media,"flyerDeck") && (<div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}>
-          <img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" />
-        </div>)}
+        <div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}><img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"46%"}}>
           <div className="eyebrow" style={{justifyContent:"flex-end"}}><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
           <h1 className="display"><span className="ln">Flyers, branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
           <p className="sub" style={{maxWidth:"100%"}}>Launch promos, service menus, product shots, brand kits — cohesive and luxury-looking, every time.</p>
-          {(hasMedia(media,"flyerTile1")||hasMedia(media,"flyerTile2")||hasMedia(media,"flyerTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"14px" }}>
-              {["flyerTile1","flyerTile2","flyerTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["flyerTile1","flyerTile2","flyerTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -3300,15 +3314,9 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
         <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
-          {hasMedia(media,"social3") && (<div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
-            <img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" />
-          </div>)}
-          {hasMedia(media,"social1") && (<div className="float f2" style={{width:"clamp(70px,11vw,184px)",height:"clamp(134px,21vw,352px)",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}>
-            <img src={src("social1")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
-          </div>)}
-          {hasMedia(media,"social2") && (<div className="float f3" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}>
-            <img src={src("social2")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" />
-          </div>)}
+          <div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}><img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float f2" style={{width:"clamp(70px,11vw,184px)",height:"clamp(134px,21vw,352px)",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}><img src={src("social1")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float f3" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}><img src={src("social2")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         </div>
         <div className="content mid" style={{maxWidth:"54%"}}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
@@ -3329,10 +3337,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
             <div className="r"><span className="k">Fund</span><span className="v">Real grants you might qualify for, searched from across the web.</span></div>
             <div className="r"><span className="k">Audit</span><span className="v">See exactly what to fix, and how you rank against competitors.</span></div>
           </div>
-          {(hasMedia(media,"growthTile1")||hasMedia(media,"growthTile2")||hasMedia(media,"growthTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"14px" }}>
-              {["growthTile1","growthTile2","growthTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["growthTile1","growthTile2","growthTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -3349,10 +3357,10 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
             <li>Ad copy and creative direction, done for you</li>
             <li>Audience targeting and budget, mapped out</li>
             <li>Built for Facebook, Instagram and TikTok</li>
-          {(hasMedia(media,"campTile1")||hasMedia(media,"campTile2")||hasMedia(media,"campTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["campTile1","campTile2","campTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["campTile1","campTile2","campTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -15379,10 +15387,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole</span><span className="ln">brand,</span><span className="ln">in one place.</span></h1>
           <p className="sub">Websites, campaigns, photoshoots and film — all made to look like you spent a fortune. You didn't.</p>
-          {(hasMedia(media,"openTile1")||hasMedia(media,"openTile2")||hasMedia(media,"openTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["openTile1","openTile2","openTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["openTile1","openTile2","openTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -15393,17 +15401,15 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
         <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("websiteBg")} /></div><div className="scrim" />
-        {hasMedia(media,"websiteDeck") && (<div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
-          <img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" />
-        </div>)}
+        <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{ paddingBottom:"40px", maxWidth:"62%" }}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
           <h1 className="display" style={{ fontSize:"clamp(40px,11vw,64px)" }}><span className="ln">Luxury</span><span className="ln">sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
           <p className="sub" style={{ maxWidth:"100%" }}>From a few business details — a complete, published luxury website. With its own AI imagery and an SEO blog.</p>
-          {(hasMedia(media,"websiteTile1")||hasMedia(media,"websiteTile2")||hasMedia(media,"websiteTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["websiteTile1","websiteTile2","websiteTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["websiteTile1","websiteTile2","websiteTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -15417,9 +15423,9 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
           <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
           <div className="row float">
-            {hasMedia(media,"before") && (<div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" /></div>)}
+            <div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
             <div className="arrow">becomes</div>
-            {hasMedia(media,"redModel") && (<div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" /></div>)}
+            <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
           </div>
           <div className="row float f2" style={{ marginTop:"14px", justifyContent:"flex-end" }}>
             <div className="arrow">then moves</div>
@@ -15433,17 +15439,15 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
         <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("flyerBg")} /></div><div className="scrim" />
-        {hasMedia(media,"flyerDeck") && (<div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}>
-          <img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" />
-        </div>)}
+        <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
           <h1 className="display"><span className="ln">Flyers,</span><span className="ln">branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
           <p className="sub">Launch promos, service menus, product shots, brand kits — cohesive and luxury-looking, every time.</p>
-          {(hasMedia(media,"flyerTile1")||hasMedia(media,"flyerTile2")||hasMedia(media,"flyerTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["flyerTile1","flyerTile2","flyerTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["flyerTile1","flyerTile2","flyerTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -15455,15 +15459,9 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
         <div className="full" style={{ filter:"brightness(.32)" }}><MediaFill url={src("socialBg")} /></div><div className="scrim" />
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
-          {hasMedia(media,"social3") && (<div className="float" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}>
-            <img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" />
-          </div>)}
-          {hasMedia(media,"social1") && (<div className="float f2" style={{ width:"124px", height:"236px", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}>
-            <img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
-          </div>)}
-          {hasMedia(media,"social2") && (<div className="float f3" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}>
-            <img src={src("social2")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
-          </div>)}
+          <div className="float" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float f2" style={{ width:"124px", height:"236px", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}><img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <div className="float f3" style={{ width:"104px", height:"208px", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social2")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         </div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
@@ -15482,10 +15480,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
           <div className="grid">
             <div className="r"><span className="k">SEO</span><span className="v">Real, white-hat backlinks, directories and press to climb Google — the outreach written for you. Never bought links.</span></div>
             <div className="r"><span className="k">Fund</span><span className="v">Real grants you might qualify for, searched from across the web.</span></div>
-        {(hasMedia(media,"growthTile1")||hasMedia(media,"growthTile2")||hasMedia(media,"growthTile3")) && (
+        {(true) && (
           <div className="row float" style={{ marginTop:"22px" }}>
-            {["growthTile1","growthTile2","growthTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-              <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+            {["growthTile1","growthTile2","growthTile3"].map(k=>(
+              <BucketTile key={k} wrapClassName="shot" url={src(k)} />
             ))}
           </div>
         )}
@@ -15505,10 +15503,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
             <li>Audience targeting and budget, mapped out</li>
             <li>Built for Facebook, Instagram and TikTok</li>
           </ul>
-          {(hasMedia(media,"campTile1")||hasMedia(media,"campTile2")||hasMedia(media,"campTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["campTile1","campTile2","campTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["campTile1","campTile2","campTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
@@ -15522,10 +15520,10 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
           <div className="eyebrow"><span className="rule" />Welcome</div>
           <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
         </div>
-          {(hasMedia(media,"closeTile1")||hasMedia(media,"closeTile2")||hasMedia(media,"closeTile3")) && (
+          {(true) && (
             <div className="row float" style={{ marginTop:"22px" }}>
-              {["closeTile1","closeTile2","closeTile3"].filter(k=>hasMedia(media,k)).map(k=>(
-                <div key={k} className="shot"><img src={src(k)} alt="" /></div>
+              {["closeTile1","closeTile2","closeTile3"].map(k=>(
+                <BucketTile key={k} wrapClassName="shot" url={src(k)} />
               ))}
             </div>
           )}
