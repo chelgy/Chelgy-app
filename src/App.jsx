@@ -3344,7 +3344,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
             <div className="arrow">becomes</div>
             <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
             <div className="arrow">then moves</div>
-            {hasMedia(media,"plane") && (<div className="shot"><span className="tag">Video</span><img src={src("plane")} alt="" /></div>)}
+            <div className={"shot" + (/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(src("plane"))) ? " playing" : " vid")}><span className="tag">Video</span><MediaFill url={src("plane")} /></div>
           </div>
         </div>
       </section>
