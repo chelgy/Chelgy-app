@@ -745,7 +745,7 @@ async function generateVideo(prompt, image, opts) {
     const res = await fetch("/api/video", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p", duration: (opts&&opts.duration)||5, audio: opts&&opts.audio!==false, tool: (opts&&opts.tool)||"video" })
+      body: JSON.stringify({ prompt, image, orientation: (opts&&opts.orientation)||"landscape", quality: (opts&&opts.quality)||"480p", duration: intSeconds(opts&&opts.duration, 5), audio: opts&&opts.audio!==false, tool: (opts&&opts.tool)||"video" })
     });
     return await res.json(); // { id, balance } or { error }
   } catch { return { error: "Couldn't reach the video service." }; }
@@ -983,13 +983,22 @@ async function deleteSiteObject(path){
     await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, { method: "DELETE", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token } });
   }catch(e){}
 }
+// Duration must reach the video API as an INTEGER. A <select> always hands back a
+// string, so a value that skipped its Number() wrapper anywhere upstream arrived as
+// "10" and the API rejected the whole request ("must be an integer, got string").
+// Coercing at the request boundary means no future caller can reintroduce it.
+function intSeconds(v, fallback){
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 async function generateVideoEdit(prompt, videoUrl, referenceImages, resolution, duration){
   try{
     const token = await freshToken();
     const res = await fetch("/api/video-edit", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-      body: JSON.stringify({ prompt, video: videoUrl, reference_images: referenceImages || [], resolution: resolution || "720p", duration: duration || 5 })
+      body: JSON.stringify({ prompt, video: videoUrl, reference_images: referenceImages || [], resolution: resolution || "720p", duration: intSeconds(duration, 5) })
     });
     return await res.json(); // { id, balance } or { error }
   } catch { return { error: "Couldn't reach the video-edit service." }; }
