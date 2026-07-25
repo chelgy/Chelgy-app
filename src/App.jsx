@@ -2862,6 +2862,21 @@ function hasMedia(media, key){
   return !!(typeof e === "string" ? e : (e && e.full) || "").trim();
 }
 
+// The "-mobile" sibling of an image URL: beauty.jpg -> beauty-mobile.jpg.
+//
+// Phones crop a wide photo into a tall panel and lose most of the left and right.
+// Rather than aim the same file, a separately CROPPED file can simply be dropped in
+// the bucket next to the original — upload beauty-mobile.jpg and phones use it, skip
+// it and phones keep using beauty.jpg. Works for admin-set URLs too, since this only
+// rewrites the filename portion. Query strings and hashes are preserved.
+function mobileVariant(url){
+  const u = String(url || "");
+  if(!u) return "";
+  const m = u.match(/^([^?#]*?)(\.[A-Za-z0-9]+)([?#].*)?$/);
+  if(!m) return "";
+  return m[1] + "-mobile" + m[2] + (m[3] || "");
+}
+
 // A background slot that accepts a VIDEO as readily as a still.
 //
 // Every onboarding and header background used a bare <img>, so pasting a video URL
@@ -2871,18 +2886,25 @@ function hasMedia(media, key){
 //
 // muted + playsInline are load-bearing on iOS: without both, Safari refuses to
 // autoplay and the panel shows a black rectangle with a play button on it.
-function MediaFill({ url, className, style, focus }){
-  const u = String(url || "");
+function MediaFill({ url, className, style, focus, fallbackUrl }){
+  // When a fallbackUrl is given, `url` is tried first and we drop to the fallback if
+  // it 404s. That is what makes the optional "-mobile" crop work with no admin step:
+  // the file either exists and wins, or it doesn't and the original is used.
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [url, fallbackUrl]);
+  const chosen = (failed && fallbackUrl) ? fallbackUrl : url;
+  const onErr = (fallbackUrl && !failed) ? (() => setFailed(true)) : undefined;
+  const u = String(chosen || "");
   const isVideo = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(u);
   // focus is a stored "x% y%" from the admin FocalPicker. object-fit:cover crops to
   // fill, and object-position decides WHICH part survives the crop — so a wide photo
   // in a tall panel can be aimed at the subject instead of defaulting to the middle.
   const st = focus ? { ...(style||{}), objectPosition: focus } : style;
   if(isVideo) return (
-    <video src={u} className={className} style={st}
+    <video src={u} className={className} style={st} onError={onErr}
            autoPlay muted loop playsInline preload="metadata" />
   );
-  return <img src={u} className={className} style={st} alt="" />;
+  return <img src={u} className={className} style={st} alt="" onError={onErr} />;
 }
 
 // A bucket-backed tile that removes its own wrapper if the file is missing.
@@ -9497,21 +9519,12 @@ function AdminDashboard({ onExit, strategies, setStrategies, weeklyPosts, setWee
                           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginBottom:4}}>Desktop crop</div>
                           <FocalPicker url={u} value={(onbMediaForm[k]&&onbMediaForm[k].focus)||"50% 50%"}
                             onChange={v=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focus:v}}))} height={150} />
-                          {/* A phone shows a TALL slice of the same photo, so most of the left
-                              and right is cropped away — a separate point is the only way to
-                              aim it. The frame below is deliberately narrow so what you see
-                              here is what the phone will actually show. Leave it untouched to
-                              reuse the desktop point. */}
-                          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,fontWeight:700,letterSpacing:"0.1em",color:"#6B6B6B",textTransform:"uppercase",marginTop:10,marginBottom:4}}>Mobile crop (onboarding)</div>
-                          <div style={{maxWidth:132}}>
-                            <FocalPicker url={u} value={(onbMediaForm[k]&&onbMediaForm[k].focusM)||(onbMediaForm[k]&&onbMediaForm[k].focus)||"50% 50%"}
-                              onChange={v=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focusM:v}}))} height={228} />
+                          {/* The mobile crop is handled by uploading a separately cropped
+                              "-mobile" file next to the original in the bucket (e.g.
+                              beauty-mobile.jpg) — simpler than aiming the same photo, and
+                              it needs no admin step. Skip the file and phones just use the
+                              image above. */}
                           </div>
-                          {((onbMediaForm[k]&&onbMediaForm[k].focusM)||"").trim() && (
-                            <button onClick={()=>setOnbMediaForm(f=>({...f,[k]:{...(f[k]||{}),focusM:""}}))}
-                              style={{background:"none",border:"none",padding:"2px 0",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,color:"#9C6B4F",cursor:"pointer",textDecoration:"underline"}}>Reset mobile to match desktop</button>
-                          )}
-                        </div>
                       );
                       return <div style={{marginTop:8,border:"1px solid #E8E6E1",background:"#000",lineHeight:0,maxHeight:150,overflow:"hidden"}}><MediaFill url={u} style={{width:"100%",maxHeight:150,objectFit:"cover",display:"block"}} focus={(onbMediaForm[k]&&onbMediaForm[k].focus)||""} /></div>;
                     })()}
@@ -15429,7 +15442,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 0 OPENING */}
       <section className={cls("panel", i === 0)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("beauty")} focus={foc("beauty")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("beauty")) || src("beauty")) : src("beauty")} fallbackUrl={src("beauty")} focus={foc("beauty")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="rule" />Your AI Marketing House</div>
           <h1 className="display"><span className="ln">Your whole</span><span className="ln">brand,</span><span className="ln">in one place.</span></h1>
@@ -15447,7 +15460,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 1 WEBSITE */}
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} focus={foc("websiteBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("websiteBg")) || src("websiteBg")) : src("websiteBg")} fallbackUrl={src("websiteBg")} focus={foc("websiteBg")} /></div><div className="scrim" />
         <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content mid" style={{ paddingBottom:"40px", maxWidth:"62%" }}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
@@ -15465,7 +15478,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 2 PHOTO/VIDEO → FILM */}
       <section className={cls("panel", i === 2)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("redBlonde")} focus={foc("redBlonde")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("redBlonde")) || src("redBlonde")) : src("redBlonde")} fallbackUrl={src("redBlonde")} focus={foc("redBlonde")} /></div><div className="scrim" />
         <div className="triptych">
           <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
@@ -15485,7 +15498,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 3 FLYERS */}
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} focus={foc("flyerBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("flyerBg")) || src("flyerBg")) : src("flyerBg")} fallbackUrl={src("flyerBg")} focus={foc("flyerBg")} /></div><div className="scrim" />
         <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
@@ -15504,7 +15517,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 4 SOCIAL */}
       <section className={cls("panel dark", i === 4)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} focus={foc("socialBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("socialBg")) || src("socialBg")) : src("socialBg")} fallbackUrl={src("socialBg")} focus={foc("socialBg")} /></div><div className="scrim" />
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
           <div className="float" style={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
           <div className="float f2" style={{ width:"clamp(124px,12vw,162px)", height:"clamp(236px,23vw,308px)", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}><img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
@@ -15520,7 +15533,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       {/* 5 GROWTH */}
       <section className={cls("panel dark", i === 5)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(130% 90% at 50% 10%, #171210 0%, var(--ink) 60%)" }} />
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("growthBg")} focus={foc("growthBg")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("growthBg")) || src("growthBg")) : src("growthBg")} fallbackUrl={src("growthBg")} focus={foc("growthBg")} /></div><div className="scrim" />
         <div className="growth">
           <div className="eyebrow"><span className="num">05</span><span className="rule" />SEO · Backlinks · Grants</div>
           <h1 className="display" style={{ marginTop:"22px", fontSize:"clamp(42px,12vw,68px)" }}><span className="ln">Rank</span><span className="ln">higher on</span><span className="ln"><span className="it">Google</span>.</span></h1>
@@ -15541,7 +15554,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 6 ADS */}
       <section className={cls("panel", i === 6)}>
-        <div className="full" style={{ filter:"brightness(.55)" }}><MediaFill url={src("campaign")} focus={foc("campaign")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.55)" }}><MediaFill url={narrow ? (mobileVariant(src("campaign")) || src("campaign")) : src("campaign")} fallbackUrl={src("campaign")} focus={foc("campaign")} /></div><div className="scrim" />
         <div className="content">
           <div className="eyebrow"><span className="num">06</span><span className="rule" />Ad Campaigns</div>
           <h1 className="display"><span className="ln">Campaigns</span><span className="ln">that <span className="it">convert</span>.</span></h1>
@@ -15562,7 +15575,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
 
       {/* 7 CLOSING */}
       <section className={cls("panel", i === 7)}>
-        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("closing")} focus={foc("closing")} /></div><div className="scrim" />
+        <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("closing")) || src("closing")) : src("closing")} fallbackUrl={src("closing")} focus={foc("closing")} /></div><div className="scrim" />
         <div className="content" style={{ paddingBottom:"170px" }}>
           <div className="eyebrow"><span className="rule" />Welcome</div>
           <h1 className="display"><span className="ln">Let's make</span><span className="ln">your brand</span><span className="ln it" style={{ fontSize:".9em" }}>unforgettable.</span></h1>
