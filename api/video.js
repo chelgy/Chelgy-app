@@ -242,15 +242,21 @@ export default async function handler(req, res) {
 
     let modelPath, input;
     if (quality.indexOf("seedance") === 0) {
-      // Seedance 2.0 (native audio included; duration is a string). Resolution is
-      // chosen by the tier: seedance480 → 480p, 720 → 720p, 1080 → 1080p, else 4k.
+      // Seedance 2.0 (native audio included). Resolution is chosen by the tier:
+      // seedance480 -> 480p, 720 -> 720p, 1080 -> 1080p, else 4k.
+      //
+      // duration is sent as a NUMBER. It used to be String(duration) because the
+      // Seedance endpoint wanted a string; WaveSpeed has since tightened validation
+      // and now rejects that outright ("must be an integer, got string \"10\""),
+      // which is why every Seedance tool broke at once while Kling, Veo and the
+      // transitions — which always sent a number — kept working.
       const seedRes = quality === "seedance480" ? "480p" : quality === "seedance720" ? "720p" : quality === "seedance1080" ? "1080p" : "4k";
       if (imageUrl) {
         modelPath = "bytedance/seedance-2.0/image-to-video";
-        input = { prompt, image: imageUrl, resolution: seedRes, aspect_ratio: ASPECTS[orientation], duration: String(duration) };
+        input = { prompt, image: imageUrl, resolution: seedRes, aspect_ratio: ASPECTS[orientation], duration };
       } else {
         modelPath = "bytedance/seedance-2.0/text-to-video";
-        input = { prompt, resolution: seedRes, aspect_ratio: ASPECTS[orientation], duration: String(duration) };
+        input = { prompt, resolution: seedRes, aspect_ratio: ASPECTS[orientation], duration };
       }
     } else if (quality === "kling4k") {
       // 4K Ultra — Kling 3.0 4K (sound included, doesn't change price)
