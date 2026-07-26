@@ -2923,13 +2923,33 @@ function MediaFill({ url, className, style, focus, fallbackUrl }){
 // would otherwise show a broken-image icon. On load error this drops the whole
 // wrapper (border, shadow and all), so deleting a file in Supabase cleanly removes
 // its tile with no code change and nothing broken left behind.
-function BucketTile({ url, imgStyle, wrapClassName, wrapStyle }){
-  const [ok, setOk] = useState(true);
-  useEffect(() => { setOk(true); }, [url]);   // a re-uploaded file gets another try
-  if(!ok || !url) return null;
+function BucketTile({ url, imgStyle, wrapClassName, wrapStyle, children }){
+  // Three states, and the reason for each:
+  //
+  // "loading" — the wrapper is in the DOM but display:none, so no empty bordered box
+  //   flashes while the image is in flight. A display:none image still downloads, so
+  //   this costs nothing. Earlier the wrapper rendered immediately and you saw hollow
+  //   boxes on any slot that was slow or empty.
+  //
+  // "ok"     — revealed only once the image has actually decoded.
+  //
+  // "failed" — nothing rendered. Deliberately RESET whenever `url` changes, which is
+  //   the important part: onbMedia starts empty, so every tile is first asked for its
+  //   bucket-fallback URL and then re-asked for the admin URL a moment later. The old
+  //   code hid the wrapper by mutating parentNode.style directly, which React never
+  //   undid — so a tile whose FIRST url 404'd stayed invisible even after the correct
+  //   url arrived and loaded. Since the header panels never unmount, that was
+  //   permanent for the life of the page, and whether it happened came down to
+  //   network timing. That is what made the tiles appear only "when they felt like it".
+  const [state, setState] = useState("loading");
+  useEffect(() => { setState("loading"); }, [url]);
+  if(!url || state === "failed") return null;
+  const hidden = state !== "ok" ? { display:"none" } : null;
   return (
-    <div className={wrapClassName} style={wrapStyle}>
-      <img src={url} alt="" style={imgStyle} onError={() => setOk(false)} />
+    <div className={wrapClassName} style={{ ...(wrapStyle||{}), ...hidden }}>
+      {children}
+      <img src={url} alt="" style={imgStyle}
+           onLoad={() => setState("ok")} onError={() => setState("failed")} />
     </div>
   );
 }
@@ -3318,7 +3338,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       <section className={cls("panel", i===1)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 78% 30%, #120d0a 0%, #050403 62%)"}} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("websiteBg")} focus={foc("websiteBg")} /></div><div className="scrim" />
-        <div className="float vc" style={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}><img src={src("websiteDeck")} style={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+        <BucketTile wrapClassName="float vc" wrapStyle={{position:"absolute",right:"clamp(-18px,-1.4vw,4px)",top:"50%",zIndex:10,width:"clamp(150px,13vw,230px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}} url={src("websiteDeck")} imgStyle={{width:"100%",display:"block",filter:"brightness(.92) contrast(1.02)"}} />
         <div className="content mid" style={{maxWidth:"64%"}}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
           <h1 className="display"><span className="ln">Luxury sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
@@ -3340,9 +3360,9 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
           <div className="eyebrow"><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video, into a <span className="it">film</span>.</div>
           <div className="row float">
-            <div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+            <BucketTile wrapClassName="shot" url={src("before")}><span className="tag">Your photo</span></BucketTile>
             <div className="arrow">becomes</div>
-            <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+            <BucketTile wrapClassName="shot" url={src("redModel")}><span className="tag">Chelgy</span></BucketTile>
             <div className="arrow">then moves</div>
             <div className={"shot" + (/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(src("plane"))) ? " playing" : " vid")}><span className="tag">Video</span><MediaFill url={src("plane")} /></div>
           </div>
@@ -3353,7 +3373,7 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
       <section className={cls("panel", i===3)}>
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 90% at 22% 30%, #120d0a 0%, #050403 62%)"}} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("flyerBg")} focus={foc("flyerBg")} /></div><div className="scrim" />
-        <div className="float vc" style={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}}><img src={src("flyerDeck")} style={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+        <BucketTile wrapClassName="float vc" wrapStyle={{position:"absolute",left:"clamp(-16px,-1.2vw,4px)",top:"50%",zIndex:10,width:"clamp(140px,12.5vw,220px)",maxHeight:"76%",overflow:"hidden",boxShadow:"0 26px 60px rgba(0,0,0,.7)",border:"1px solid var(--line)"}} url={src("flyerDeck")} imgStyle={{width:"100%",display:"block",filter:"brightness(.9) contrast(1.03)"}} />
         <div className="content mid" style={{alignItems:"flex-end",textAlign:"right",paddingLeft:"46%"}}>
           <div className="eyebrow" style={{justifyContent:"flex-end"}}><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
           <h1 className="display"><span className="ln">Flyers, branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
@@ -3373,9 +3393,9 @@ function HeaderTour({ media, fallbackMedia, baseUrl, onGo, B, paused=false, hold
         <div style={{position:"absolute",inset:0,background:"radial-gradient(120% 95% at 66% 32%, #120d0a 0%, #050403 62%)"}} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={src("socialBg")} focus={foc("socialBg")} /></div><div className="scrim" />
         <div style={{position:"absolute",right:"clamp(12px,2.5vw,54px)",top:"50%",transform:"translateY(-50%)",zIndex:10,display:"flex",gap:"clamp(6px,.9vw,16px)",alignItems:"center"}}>
-          <div className="float" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}><img src={src("social3")} style={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
-          <div className="float f2" style={{width:"clamp(70px,11vw,184px)",height:"clamp(134px,21vw,352px)",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}}><img src={src("social1")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
-          <div className="float f3" style={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}}><img src={src("social2")} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <BucketTile wrapClassName="float" wrapStyle={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}} url={src("social3")} imgStyle={{width:"100%",height:"100%",objectFit:"cover",filter:"brightness(.95)"}} />
+          <BucketTile wrapClassName="float f2" wrapStyle={{width:"clamp(70px,11vw,184px)",height:"clamp(134px,21vw,352px)",overflow:"hidden",border:"1px solid var(--line)",boxShadow:"0 20px 48px rgba(0,0,0,.7)"}} url={src("social1")} imgStyle={{width:"100%",height:"100%",objectFit:"cover"}} />
+          <BucketTile wrapClassName="float f3" wrapStyle={{width:"clamp(58px,9vw,152px)",height:"clamp(116px,18vw,304px)",overflow:"hidden",border:"1px solid var(--line)",marginTop:"clamp(18px,2.6vw,44px)",boxShadow:"0 16px 40px rgba(0,0,0,.6)"}} url={src("social2")} imgStyle={{width:"100%",height:"100%",objectFit:"cover"}} />
         </div>
         <div className="content mid" style={{maxWidth:"54%"}}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
@@ -15490,7 +15510,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       <section className={cls("panel dark", i === 1)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 72% 24%, #120d0a 0%, #050403 62%)" }} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("websiteBg")) || src("websiteBg")) : src("websiteBg")} fallbackUrl={src("websiteBg")} focus={foc("websiteBg")} /></div><div className="scrim" />
-        <div className="float" style={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("websiteDeck")} style={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+        <BucketTile wrapClassName="float" wrapStyle={{ position:"absolute", right:"-34px", top:"104px", zIndex:10, width:"270px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }} url={src("websiteDeck")} imgStyle={{ width:"100%", display:"block", filter:"brightness(.92) contrast(1.02)" }} />
         <div className="content mid" style={{ paddingBottom:"40px", maxWidth:"62%" }}>
           <div className="eyebrow"><span className="num">01</span><span className="rule" />Website Builder</div>
           <h1 className="display" style={{ fontSize:"clamp(40px,11vw,64px)" }}><span className="ln">Luxury</span><span className="ln">sites,</span><span className="ln"><span className="it">built</span> for you.</span></h1>
@@ -15512,9 +15532,9 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
           <div className="eyebrow" style={{ marginBottom:"18px" }}><span className="num">02</span><span className="rule" />Fake It Studio &amp; The Editor</div>
           <div className="lead">A photo or video,<br />into a <span className="it">film</span>.</div>
           <div className="row float">
-            <div className="shot"><span className="tag">Your photo</span><img src={src("before")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+            <BucketTile wrapClassName="shot" url={src("before")}><span className="tag">Your photo</span></BucketTile>
             <div className="arrow">becomes</div>
-            <div className="shot"><span className="tag">Chelgy</span><img src={src("redModel")} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+            <BucketTile wrapClassName="shot" url={src("redModel")}><span className="tag">Chelgy</span></BucketTile>
           </div>
           <div className="row float f2" style={{ marginTop:"14px", justifyContent:"flex-end" }}>
             <div className="arrow">then moves</div>
@@ -15528,7 +15548,7 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
       <section className={cls("panel dark", i === 3)}>
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 80% at 28% 26%, #120d0a 0%, #050403 62%)" }} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("flyerBg")) || src("flyerBg")) : src("flyerBg")} fallbackUrl={src("flyerBg")} focus={foc("flyerBg")} /></div><div className="scrim" />
-        <div className="float" style={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }}><img src={src("flyerDeck")} style={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+        <BucketTile wrapClassName="float" wrapStyle={{ position:"absolute", left:"-28px", top:"96px", zIndex:10, width:"250px", boxShadow:"0 40px 90px rgba(0,0,0,.7)", border:"1px solid var(--line)" }} url={src("flyerDeck")} imgStyle={{ width:"100%", display:"block", filter:"brightness(.9) contrast(1.03)" }} />
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">03</span><span className="rule" />Flyers &amp; Branding</div>
           <h1 className="display"><span className="ln">Flyers,</span><span className="ln">branding</span><span className="ln">&amp; AI <span className="it">visuals</span>.</span></h1>
@@ -15548,9 +15568,9 @@ function ChelgyOnboarding({ baseUrl, logoUrl, onDone, ctaLabel, media }) {
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 90% at 62% 28%, #120d0a 0%, #050403 62%)" }} />
         <div className="full" style={{ filter:"brightness(.42)" }}><MediaFill url={narrow ? (mobileVariant(src("socialBg")) || src("socialBg")) : src("socialBg")} fallbackUrl={src("socialBg")} focus={foc("socialBg")} /></div><div className="scrim" />
         <div style={{ position:"absolute", right:"16px", top:"118px", zIndex:10, display:"flex", gap:"10px", alignItems:"flex-start" }}>
-          <div className="float" style={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social3")} style={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
-          <div className="float f2" style={{ width:"clamp(124px,12vw,162px)", height:"clamp(236px,23vw,308px)", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }}><img src={src("social1")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
-          <div className="float f3" style={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }}><img src={src("social2")} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" onError={e=>{ if(e.target.parentNode) e.target.parentNode.style.display="none"; }} /></div>
+          <BucketTile wrapClassName="float" wrapStyle={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }} url={src("social3")} imgStyle={{ width:"100%", height:"100%", objectFit:"cover", filter:"brightness(.95)" }} />
+          <BucketTile wrapClassName="float f2" wrapStyle={{ width:"clamp(124px,12vw,162px)", height:"clamp(236px,23vw,308px)", overflow:"hidden", border:"1px solid var(--line)", boxShadow:"0 30px 70px rgba(0,0,0,.7)" }} url={src("social1")} imgStyle={{ width:"100%", height:"100%", objectFit:"cover" }} />
+          <BucketTile wrapClassName="float f3" wrapStyle={{ width:"clamp(104px,10vw,136px)", height:"clamp(208px,20vw,272px)", overflow:"hidden", border:"1px solid var(--line)", marginTop:"30px", boxShadow:"0 24px 60px rgba(0,0,0,.6)" }} url={src("social2")} imgStyle={{ width:"100%", height:"100%", objectFit:"cover" }} />
         </div>
         <div className="content" style={{ paddingBottom:"128px" }}>
           <div className="eyebrow"><span className="num">04</span><span className="rule" />Social Media</div>
