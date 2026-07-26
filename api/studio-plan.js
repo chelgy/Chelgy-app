@@ -271,7 +271,7 @@ export default async function handler(req, res) {
       "- exposure: is it dark, balanced, or bright?\n" +
       "(The render will adapt the cinematic grade to this so the look is applied correctly instead of blindly.)\n\n" +
       "Respond with ONLY this JSON, nothing else:\n" +
-      ((style === "cinematic" || style === "process")
+      ((style === "cinematic" || style === "process" || style === "tutorial")
         ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : style !== "talkinghead"
         ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
@@ -391,12 +391,12 @@ export default async function handler(req, res) {
 
     // Sanitize b-roll (cinematic only): valid times, real prompts, max 4.
     let broll = [];
-    if ((style === "cinematic" || style === "process") && Array.isArray(plan.broll)) {
+    if ((style === "cinematic" || style === "process" || style === "tutorial") && Array.isArray(plan.broll)) {
       broll = plan.broll
         .map(b => ({ s: Math.max(0, Number(b.s) || 0), prompt: String(b.prompt || "").trim().slice(0, 300) }))
         .filter(b => b.prompt && b.s < (duration || 1e9))
         .sort((a, b) => a.s - b.s)
-        .slice(0, style === "process" ? 3 : 4);
+        .slice(0, style === "process" ? 3 : style === "tutorial" ? 2 : 4);
     }
 
     // The music brief. Free to ask for on every style — the model is already reading

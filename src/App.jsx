@@ -5042,6 +5042,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // option has to be the one you get by not choosing.
   const [footage,setFootage]       = useState("standard");   // "standard" | "sony" | "canon" | "none"
   const [orient,setOrient]         = useState("portrait");
+  // Set true the moment the person picks an orientation themselves, so the auto-detect
+  // below never overrules a deliberate choice — someone may well shoot landscape and
+  // want a portrait crop for Reels.
+  const [orientPicked,setOrientPicked] = useState(false);
   const [videoFile,setVideoFile]   = useState(null);
   const [videoPreview,setVideoPreview] = useState("");
   const [videoDur,setVideoDur]     = useState(0);
@@ -5077,8 +5081,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // Only cinematic and process ever generate b-roll, and the planner is capped at 4
   // stills, so that is the ceiling quoted. Fewer cues means fewer images and the
   // charge is per image at generation time, so this is an upper bound, not a promise.
-  const canBroll = (style==="cinematic"||style==="process");
-  const BROLL_EST = CREDIT_COSTS.editorBroll * (canBroll && useBroll ? 4 : 0);
+  const canBroll = (style==="cinematic"||style==="process"||style==="tutorial");
+  // Tutorial is capped at 2 stills server-side, the others at 4 (process 3), so the
+  // ceiling quoted has to match or the estimate overstates a tutorial by half.
+  const brollCap = style==="tutorial" ? 2 : style==="process" ? 3 : 4;
+  const BROLL_EST = CREDIT_COSTS.editorBroll * (canBroll && useBroll ? brollCap : 0);
   const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST + MUSIC_EST + BROLL_EST;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
@@ -5135,9 +5142,15 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       try{
         const u = URL.createObjectURL(file);
         const v = document.createElement("video"); v.preload = "metadata";
-        const bail = setTimeout(()=>resolve({ url:u, dur:0 }), 15000);
-        v.onloadedmetadata = ()=>{ clearTimeout(bail); resolve({ url:u, dur: Math.round((v.duration||0)*100)/100 }); };
-        v.onerror = ()=>{ clearTimeout(bail); resolve({ url:u, dur:0 }); };
+        const bail = setTimeout(()=>resolve({ url:u, dur:0, w:0, h:0 }), 15000);
+        // The frame size comes free with the metadata we're already waiting for, and it
+        // lets the output orientation match the footage instead of always defaulting to
+        // portrait — shooting landscape and rendering portrait crops the sides off.
+        v.onloadedmetadata = ()=>{ clearTimeout(bail); resolve({
+          url:u, dur: Math.round((v.duration||0)*100)/100,
+          w: v.videoWidth||0, h: v.videoHeight||0
+        }); };
+        v.onerror = ()=>{ clearTimeout(bail); resolve({ url:u, dur:0, w:0, h:0 }); };
         v.src = u;
       }catch(_){ resolve({ url:"", dur:0 }); }
     });
@@ -5166,14 +5179,27 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       added.push({
         id: (f.name||"clip") + ":" + f.size + ":" + (f.lastModified||0) + ":" + Math.random().toString(36).slice(2,7),
         file: f, name: f.name || "clip.mp4", size: f.size || 0,
-        dur: meta.dur, preview: meta.url,
+        dur: meta.dur, preview: meta.url, w: meta.w||0, h: meta.h||0,
         footage: footage                      // seeded from the current global pick
       });
     }
     setClips(prev => {
       // Don't add the same file twice if she picks the folder again.
       const seen = new Set(prev.map(c => c.name + ":" + c.size));
-      return prev.concat(added.filter(c => !seen.has(c.name + ":" + c.size)));
+      const next = prev.concat(added.filter(c => !seen.has(c.name + ":" + c.size)));
+      // Match the output to the footage, using the FIRST clip that reported a real
+      // frame size — that's the one whose framing the edit follows. Only ever on the
+      // first import, and never once the person has chosen for themselves.
+      if(!orientPicked && !prev.length){
+        const lead = next.find(c => c.w > 0 && c.h > 0);
+        if(lead){
+          // Only ever portrait or landscape: those are the two the Shape picker offers
+          // and the two the renderer sizes for, so a square-ish clip stays on the
+          // portrait default rather than setting a value nothing can display.
+          setOrient(lead.w / lead.h > 1.05 ? "landscape" : "portrait");
+        }
+      }
+      return next;
     });
     setClipsBusy(false);
   }
@@ -5670,7 +5696,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       // ── 3c. B-roll stills ──
       const brollShots = [];
-      if(useBroll && (style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
+      if(useBroll && canBroll && Array.isArray(plan.broll) && plan.broll.length){
         setStage("Creating your b-roll images…");
         for(const b of plan.broll.slice(0,4)){
           const p = pointToClip(Number(b && b.s)||0, offsets);
@@ -5841,7 +5867,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         {[["portrait","Portrait (9:16)"],["landscape","Landscape (16:9)"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setOrient(v)} style={{padding:"9px 16px",border:"1px solid "+(orient===v?B.charcoal:B.stone),background:orient===v?B.inkBlock:B.white,color:orient===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
+          <button key={v} onClick={()=>{ setOrient(v); setOrientPicked(true); }} style={{padding:"9px 16px",border:"1px solid "+(orient===v?B.charcoal:B.stone),background:orient===v?B.inkBlock:B.white,color:orient===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
         ))}
       </div>
 
@@ -5899,7 +5925,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
             <strong>AI b-roll stills</strong>
             <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-              Up to 4 generated images cut in over your voice, charged {CREDIT_COSTS.editorBroll.toLocaleString()} credits each. Best for mood and texture — generated imagery struggles with specific real places, so leave it off if your video names somewhere recognisable.
+              Up to {brollCap} generated image{brollCap===1?"":"s"} cut in over your voice, charged {CREDIT_COSTS.editorBroll.toLocaleString()} credits each. Best for mood and texture — generated imagery struggles with specific real places, so leave it off if your video names somewhere recognisable.
             </span>
           </span>
         </label>
