@@ -5939,7 +5939,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       {music==="score" && (<>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"10px 0 8px"}}>Style of score</p>
         <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-          {[["auto","Match my video"],["classical","Classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"]].map(([v,l])=>(
+          {[["auto","Match my video"],["classical","Classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"],["hiphop","Hip-hop"],["pop","Pop"],["afrobeats","Afro beats"],["dreampop","Dream pop"]].map(([v,l])=>(
             <button key={v} onClick={()=>setMusicGenre(v)} style={{padding:"8px 14px",border:"1px solid "+(musicGenre===v?B.charcoal:B.stone),background:musicGenre===v?B.inkBlock:B.white,color:musicGenre===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
