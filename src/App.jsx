@@ -5059,6 +5059,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [busy,setBusy]             = useState(false);
   const [stage,setStage]           = useState("");
   const [err,setErr]               = useState("");
+  // Non-fatal advisory — the edit still succeeds, but something about it is worth
+  // telling the person. Separate from err so it does not read as a failure.
+  const [notice,setNotice]         = useState("");
   const [url,setUrl]               = useState("");
   const [outTitle,setOutTitle]     = useState("");
 
@@ -5580,12 +5583,21 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       } else {
         plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote);
       }
+      setNotice("");
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){
         setErr((plan && plan.error) || "Couldn't plan the edit. Please try again.");
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
       }
       setOutTitle(plan.title||"");
+
+      // The planner reads up to ~85 minutes of transcript. Beyond that it plans from
+      // what it saw and the tail is genuinely absent from the edit — so say so rather
+      // than let someone go looking for an ending that was never included.
+      if(plan.truncated){
+        const mins = Math.round((plan.wordsSeen||0)/140);
+        setNotice("This video is longer than the editor can plan in one pass, so the edit covers roughly the first "+mins+" minutes. Split the footage into parts to include the rest.");
+      }
 
       // Everything the render half needs, gathered into one object. Passed forward
       // rather than left as closure variables so the render can run LATER — after the
@@ -6014,6 +6026,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </p>
 
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+      {notice && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12,paddingLeft:10,borderLeft:"2px solid "+B.stone}}>{notice}</p>}
 
       <Btn dark full disabled={busy} onClick={run}>
         {busy ? "EDITING YOUR VIDEO…" : (reviewCuts ? "PLAN MY EDIT · "+COST.toLocaleString()+" CREDITS" : "EDIT MY VIDEO · "+COST.toLocaleString()+" CREDITS")}

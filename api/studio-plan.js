@@ -27,7 +27,12 @@
 // Env: ANTHROPIC_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
 //      optional: PLANNER_ENGINE ("claude" | "gemini"), PLANNER_MODEL
 
-export const maxDuration = 60;
+// 300s, up from 60. The planner now reads up to ~85 minutes of transcript, and a long
+// read plus a long JSON answer can comfortably exceed a minute — at which point Vercel
+// kills the function and the customer loses an edit they already waited through an
+// upload and a transcription for. 300 is the Vercel Pro ceiling; on Hobby the maximum
+// is 60 and the build will reject this, in which case put it back and lower WORD_LIMIT.
+export const maxDuration = 300;
 
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
@@ -179,7 +184,24 @@ export default async function handler(req, res) {
     if (!userId) return res.status(401).json({ error: "Please log in again." });
 
     // Compact word list: "word|start|end" per line (caps prompt size on long videos).
-    const lines = words.slice(0, 4000).map(w => w.w + "|" + w.s + "|" + w.e).join("\n");
+    // How much of the transcript the planner is allowed to see.
+    //
+    // This was 4000, which is only ~29 minutes of speech — and it truncated SILENTLY,
+    // so a 45-minute upload was planned from its first 29 minutes and the rest simply
+    // never appeared in the edit. The input was never the real constraint: 4000 words
+    // is ~28K tokens against a context window of roughly a million.
+    //
+    // 12000 (~85 minutes) is the compromise, and the limits it respects are the ones
+    // further down, not the context window:
+    //   · the function timeout (maxDuration above) — a bigger transcript takes longer
+    //     to read and answer, and a killed function loses the whole edit,
+    //   · the OUTPUT budget — a long video means more keep ranges to write out.
+    // Raise it further only alongside those two.
+    const WORD_LIMIT = 12000;
+    const truncated = words.length > WORD_LIMIT;
+    if (truncated)
+      console.warn("[plan] transcript truncated: " + words.length + " words, planning from the first " + WORD_LIMIT + " (~" + Math.round(WORD_LIMIT/140) + " min). The tail will not appear in the edit.");
+    const lines = words.slice(0, WORD_LIMIT).map(w => w.w + "|" + w.s + "|" + w.e).join("\n");
 
     const editorRole = style === "vlog"
       ? "You are a professional video editor AND colorist cutting a VLOG (real-world, day-in-the-life footage where the person talks while moving through places)."
@@ -289,7 +311,11 @@ export default async function handler(req, res) {
     // differs. That is what makes the two comparable instead of two pipelines.
     const runGemini = () => callGemini(GKEY, {
       contents: [{ parts }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+      // maxOutputTokens was never set, so this ran on the model default. A long video
+      // produces a lot of keep ranges, and a truncated response is unparseable JSON —
+      // which surfaces as "couldn't produce a valid plan" rather than as a length
+      // problem. Set explicitly so the ceiling is visible and matches Claude's 8000.
+      generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 8192 }
     });
     const runClaude = () => {
       const content = [];
@@ -408,7 +434,7 @@ export default async function handler(req, res) {
     };
 
     console.log("[plan] " + style + " planned by " + plannedBy + " — " + merged.length + " segment(s), " + outSeconds + "s");
-    return res.status(200).json({ keep: merged, title, chapters, broll, music, look, outSeconds, plannedBy });
+    return res.status(200).json({ keep: merged, title, chapters, broll, music, look, outSeconds, plannedBy, truncated, wordsSeen: Math.min(words.length, WORD_LIMIT), wordsTotal: words.length });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
