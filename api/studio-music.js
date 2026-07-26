@@ -112,7 +112,16 @@ const GENRES = {
   acoustic:   "Acoustic underscore. Fingerpicked guitar, light upright bass, brushed percussion. Warm, organic and easy, golden-hour feeling. Around 90 BPM.",
   lofi:       "Lo-fi underscore. Soft dusty drums, mellow electric piano, warm vinyl texture and gentle tape wobble. Relaxed and unpressured. Around 82 BPM.",
   electronic: "Modern electronic underscore. Clean synth arpeggios, soft sub bass, crisp minimal percussion. Sleek and forward-moving without being aggressive. Around 100 BPM.",
-  jazz:       "Jazz underscore. Brushed drums, walking upright bass, muted trumpet or soft rhodes, relaxed swing. Late-evening and effortless. Around 88 BPM."
+  jazz:       "Jazz underscore. Brushed drums, walking upright bass, muted trumpet or soft rhodes, relaxed swing. Late-evening and effortless. Around 88 BPM.",
+  // The four below are vocal-led genres in the wild, and HOUSE_STYLE forbids vocals.
+  // So each is written as the INSTRUMENTAL that defines the genre — the drums, the
+  // bass, the texture — never "sounds like a pop song", which would fight the
+  // negative prompt and come back as a vague bed. Dream pop especially: its signature
+  // is a hazy vocal, so the brief has to carry that character in the guitars instead.
+  hiphop:     "Hip-hop underscore. Boom-bap drums with a soft swing, warm rounded sub bass, muted piano chords and dusty sampled texture, light vinyl crackle. Confident and head-nodding without ever getting busy. Around 88 BPM.",
+  pop:        "Modern pop underscore. Bright synth chords, clean plucked lead line, tight programmed drums and a rounded bass. Polished and upbeat, radio-clean but held back so it sits under a voice. Around 104 BPM.",
+  afrobeats:  "Afrobeats underscore. Rolling log-drum pattern, shaker and rim percussion, warm rounded bass, bright plucked guitar figures and soft marimba. Sunlit and rhythmic, danceable but restrained. Around 104 BPM.",
+  dreampop:   "Dream pop underscore. Reverb-drenched electric guitar with slow chorus and tremolo, hazy analogue synth pads, soft brushed drums set far back in the mix. Washed-out, nostalgic and weightless. Around 92 BPM."
 };
 const GENRE_IDS = Object.keys(GENRES);
 
