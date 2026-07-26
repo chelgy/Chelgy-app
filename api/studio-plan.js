@@ -257,10 +257,12 @@ export default async function handler(req, res) {
         "You ALSO have an ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 is nothing moving; 7-9 is a lot of motion.\n" +
         "- Silence is NOT automatically dead air. A quiet stretch with activity 4 or above is the person DOING something — cooking, training, showing, making — and in this kind of video that is the most valuable footage there is. KEEP it.\n" +
         "- When the speech ANNOUNCES an action — 'I'm going to the gym', 'let me show you', 'watch this', 'now we cook' — KEEP the footage that follows even if nobody talks over it. The announcement is a promise the edit has to deliver on; cutting to the next sentence breaks it.\n" +
-        "- Only cut silence where activity is 0-1 for more than ~2s. That is genuinely nothing happening.\n" +
+        "- The bands, so there is no grey area: 0-1 is nothing happening; 2-3 is incidental movement (a hand shifting, the camera drifting) and is NOT action; 4 and above is the person genuinely doing something.\n" +
+        "- CUT silence in the 0-3 band by the normal pacing rules. Only 4 and above is protected. Incidental movement is still dead air.\n" +
         "- NEVER cut a segment just because activity is low while the person IS talking. Speech is proof the moment matters.\n" +
         "- COMPRESS rather than delete repetitive action: 40 seconds of the same motion at activity 6 can become 8-10 seconds and move on.\n" +
-        "- Where a pacing rule above says to cut silence or dead air by DURATION, read it as applying only to silence with activity 0-1. Silence with real motion is content, not slack, however long it runs.\n\n";
+        "- Where a pacing rule above says to cut silence or dead air by DURATION, read it as applying to silence with activity 0-3. Silence at 4 or above is content, not slack, however long it runs.\n" +
+        "- None of this changes how SPEECH is treated. Filler words, hesitation, false starts and repeated takes are cut exactly as instructed above regardless of what the activity track says — a high number during an 'um' does not save it.\n\n";
 
     // Belt and braces: if the track never arrived, do not run the process rules.
     // They instruct the model to cut silence with low activity, and with no track to
