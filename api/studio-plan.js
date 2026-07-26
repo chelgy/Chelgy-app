@@ -238,7 +238,7 @@ export default async function handler(req, res) {
         "- KEEP: talking, on the usual terms — cut filler, false starts, repeated takes.\n" +
         "- CUT: silence where activity is 0-1 for more than ~2s. Nothing is happening and nobody is talking.\n" +
         "- NEVER cut a segment just because activity is low while the person is TALKING. Speech is proof that something is happening even when the picture is still — a locked-off camera on someone explaining a step is exactly what this style is for. Talking is only ever cut on the usual grounds: filler words, false starts, a repeated take.\n" +
-        "- When the speech ANNOUNCES an action ('let me show you', 'now we cook', 'watch this'), KEEP the footage that follows even if nobody is talking over it.\n" +
+        "- Spoken context beats the number, and it points in all three directions: 'let me show you' / 'now we cook' protects what FOLLOWS; 'here we go' protects what SURROUNDS; 'that took two hours' / 'so that's done' protects what came BEFORE, because the words arrive after the work. That last one is the easiest to miss.\n" +
         "- COMPRESS, don't delete, repetitive work. Thirty seconds of continuous chopping at activity 6 does not need to survive whole — keep 6-10 seconds of it and move on. The viewer needs to see that it happened, not watch all of it.\n" +
         "- Never cut mid-word. Start keeps ~0.15s before the first word, end ~0.3s after the last.\n" +
         "- Merge keeps less than 1.5s apart. No kept segment shorter than 1s.\n" +
@@ -256,7 +256,12 @@ export default async function handler(req, res) {
         "\nTHE ACTIVITY TRACK — THESE RULES OVERRIDE THE PACING RULES ABOVE WHERE THEY CONFLICT:\n" +
         "You ALSO have an ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 is nothing moving; 7-9 is a lot of motion.\n" +
         "- Silence is NOT automatically dead air. A quiet stretch with activity 4 or above is the person DOING something — cooking, training, showing, making — and in this kind of video that is the most valuable footage there is. KEEP it.\n" +
-        "- When the speech ANNOUNCES an action — 'I'm going to the gym', 'let me show you', 'watch this', 'now we cook' — KEEP the footage that follows even if nobody talks over it. The announcement is a promise the edit has to deliver on; cutting to the next sentence breaks it.\n" +
+        "- SPOKEN CONTEXT BEATS THE NUMBER. When the speech names an activity, the silent footage next to it IS that activity, and the words tell you what you are looking at. Keep it even at moderate activity, because you know what it is.\n" +
+        "  Look in all three directions, not just forwards:\n" +
+        "  · BEFORE it happens — 'I'm about to sit down and eat', 'I'm going to the gym', 'let me show you' -> keep what FOLLOWS.\n" +
+        "  · AS it happens — 'here we go', 'watch this', 'okay so I'm just mixing this in' -> keep what SURROUNDS it.\n" +
+        "  · AFTER it happened — 'I just finished running', 'that took me two hours', 'so that's done' -> keep what came BEFORE, because that footage is the thing being talked about. This is the one most easily missed: the words arrive after the action.\n" +
+        "  An announcement is a promise the edit has to deliver on. Cutting straight from 'I'm about to eat' to the next sentence breaks it, and so does cutting the run that 'I just finished running' refers to.\n" +
         "- The bands, so there is no grey area: 0-1 is nothing happening; 2-3 is incidental movement (a hand shifting, the camera drifting) and is NOT action; 4 and above is the person genuinely doing something.\n" +
         "- CUT silence in the 0-3 band by the normal pacing rules. Only 4 and above is protected. Incidental movement is still dead air.\n" +
         "- NEVER cut a segment just because activity is low while the person IS talking. Speech is proof the moment matters.\n" +

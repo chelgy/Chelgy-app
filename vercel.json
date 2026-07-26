@@ -2,8 +2,20 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [{"source": "/(.*)", "destination": "/index.html"}],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
   "crons": [
-    { "path": "/api/domain-reminders", "schedule": "0 14 * * *" }
+    {
+      "path": "/api/domain-reminders",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/retention",
+      "schedule": "0 4 * * *"
+    }
   ]
 }
