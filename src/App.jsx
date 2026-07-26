@@ -1877,26 +1877,45 @@ async function uploadSiteFile(file, path) {
     const token = await freshToken();
     if (!token)
       return { error: "You're not signed in with your Chelgy account. The ?admin shortcut opens the panel but doesn't create a session — log in normally, then reopen admin." };
-    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: "Bearer " + token,
-        "x-upsert": "true",
-        "Content-Type": file.type || "application/octet-stream"
-      },
+
+    // Two steps, because the bucket's insert policy only lets a member write into a
+    // folder named after their own user id. Admin media lives in shared folders
+    // (onboarding/, luts/, hero/ ...), so a browser upload is refused outright with
+    // "new row violates row-level security policy".
+    //
+    // Step 1: ask our own /api/admin to authorise this exact path. It already verifies
+    // the caller is an admin and holds the service-role key, so it can mint a signed
+    // upload URL without any policy being loosened.
+    let auth = null;
+    try {
+      const r = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ action: "media-sign", path })
+      });
+      auth = await r.json().catch(() => null);
+      if (!r.ok || !auth || !auth.uploadUrl)
+        return { error: (auth && auth.error) || ("Couldn't authorise the upload (" + r.status + ").") };
+    } catch (e) {
+      return { error: "Couldn't reach the server to authorise the upload." };
+    }
+
+    // Step 2: send the file straight to Supabase with that signed URL. It never passes
+    // through Vercel, so the 4.5MB function body limit doesn't apply — which is what
+    // makes video possible at all.
+    const up = await fetch(auth.uploadUrl, {
+      method: "PUT",
+      headers: { "x-upsert": "true", "Content-Type": file.type || "application/octet-stream" },
       body: file
     });
-    if (res.ok) return { url: SUPABASE_URL + "/storage/v1/object/public/sites/" + path };
+    if (up.ok) return { url: auth.publicUrl };
 
     const mb = (file.size / (1024 * 1024)).toFixed(1);
     let detail = "";
-    try { const d = await res.json(); detail = (d && (d.message || d.error)) || ""; } catch {}
-    if (res.status === 413)
+    try { const d = await up.json(); detail = (d && (d.message || d.error)) || ""; } catch {}
+    if (up.status === 413)
       return { error: "That file is too large for the bucket (" + mb + "MB). Raise the size limit on the sites bucket in Supabase, or compress the video." };
-    if (res.status === 403 || res.status === 401)
-      return { error: "The bucket refused the upload for this account (" + res.status + "). Check the sites bucket's upload policy in Supabase." + (detail ? " " + detail : "") };
-    return { error: "Upload failed (" + res.status + ", " + mb + "MB)." + (detail ? " " + detail : "") };
+    return { error: "Upload failed (" + up.status + ", " + mb + "MB)." + (detail ? " " + detail : "") };
   } catch (e) {
     return { error: "Couldn't upload that file: " + ((e && e.message) || "unknown error") };
   }

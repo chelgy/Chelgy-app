@@ -2,7 +2,7 @@
 // Verifies the caller's login, confirms members.is_admin = true for them,
 // then performs the requested action with the service-role key.
 //
-// Actions: list-members, delete-post, delete-comment
+// Actions: list-members, delete-post, delete-comment, media-sign, ...
 // Env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
@@ -124,6 +124,45 @@ export default async function handler(req, res) {
       });
       return res.status(200).json({ ok: true });
     }
+    // ── media-sign: authorise an admin upload into a SHARED bucket folder ──
+    //
+    // The sites bucket's insert policy only allows a member to write into a folder
+    // named after their own user id, which is right for customer footage but blocks
+    // admin media (onboarding/, luts/, hero/ ...) outright — "new row violates
+    // row-level security policy".
+    //
+    // Rather than loosen that policy, this mints a short-lived signed upload URL with
+    // the service role. The browser then PUTs the file straight to Supabase using that
+    // URL, so:
+    //   · RLS is bypassed only for a single path this endpoint has already approved,
+    //   · no member gains any new write access to shared folders,
+    //   · the file never passes through Vercel, so the 4.5MB function body limit
+    //     doesn't apply — which matters for video.
+    if (action === "media-sign") {
+      const path = String(body.path || "").trim();
+      // Allow-list, not sanitisation: an exact folder from the known set, then one
+      // plain filename. No slashes, no "..", nothing that could escape the folder.
+      if (!/^(onboarding|luts|hero|page-banners|tool-media|admin-media|app)\/[A-Za-z0-9._-]{1,120}$/.test(path))
+        return res.status(400).json({ error: "That isn't an allowed media path." });
+      let d = null;
+      try {
+        const r = await fetch(SB_URL + "/storage/v1/object/upload/sign/sites/" + path, {
+          method: "POST",
+          headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        d = await r.json().catch(() => null);
+        if (!r.ok || !d || !d.url)
+          return res.status(502).json({ error: (d && (d.message || d.error)) || "Couldn't authorise that upload." });
+      } catch (e) {
+        return res.status(502).json({ error: "Storage unreachable: " + ((e && e.message) || "unknown") });
+      }
+      return res.status(200).json({
+        uploadUrl: SB_URL + "/storage/v1" + d.url,
+        publicUrl: SB_URL + "/storage/v1/object/public/sites/" + path
+      });
+    }
+
     return res.status(400).json({ error: "Unknown action" });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
