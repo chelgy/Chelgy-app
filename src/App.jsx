@@ -19253,7 +19253,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       {/* ── SCROLLABLE CONTENT ── */}
       <main ref={scrollRef} onScroll={handleScroll} style={{flex:1,overflowY:"auto",paddingBottom:"calc("+(BOT_H+16)+"px + env(safe-area-inset-bottom,0px))"}}>
           {(()=>{
-          const show=["home","learn","community","profile"].includes(tab)||(tab==="tools"&&subTab==="hub");
+          // The header now rides along inside individual tools too, not just the hub —
+          // it used to be gated on subTab==="hub", so opening any tool made it vanish.
+          const show=["home","learn","community","profile","tools"].includes(tab);
           if(!show) return null;
           // Hold whatever is up there still while anything is open on top of it.
           const busy=!!(showNotifs||showNewPost||showCredits||showPaywall||showPlan||showIntake||selectedStrategy||selectedPost||selectedForumPost);
