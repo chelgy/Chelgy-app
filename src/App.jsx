@@ -2966,16 +2966,14 @@ function MediaFill({ url, className, style, focus, fallbackUrl }){
 // wrapper (border, shadow and all), so deleting a file in Supabase cleanly removes
 // its tile with no code change and nothing broken left behind.
 function BucketTile({ url, imgStyle, wrapClassName, wrapStyle, children }){
-  // Three states, and the reason for each:
+  // Three states:
   //
-  // "loading" — the wrapper is in the DOM but display:none, so no empty bordered box
-  //   flashes while the image is in flight. A display:none image still downloads, so
-  //   this costs nothing. Earlier the wrapper rendered immediately and you saw hollow
-  //   boxes on any slot that was slow or empty.
+  // "loading" — rendered and in the layout, but with no border, shadow or caption, so
+  //   nothing hollow is visible while the image is in flight.
   //
-  // "ok"     — revealed only once the image has actually decoded.
+  // "ok"      — the full framed tile, once the image has actually decoded.
   //
-  // "failed" — nothing rendered. Deliberately RESET whenever `url` changes, which is
+  // "failed"  — nothing rendered. Deliberately RESET whenever `url` changes, which is
   //   the important part: onbMedia starts empty, so every tile is first asked for its
   //   bucket-fallback URL and then re-asked for the admin URL a moment later. The old
   //   code hid the wrapper by mutating parentNode.style directly, which React never
@@ -2986,11 +2984,28 @@ function BucketTile({ url, imgStyle, wrapClassName, wrapStyle, children }){
   const [state, setState] = useState("loading");
   useEffect(() => { setState("loading"); }, [url]);
   if(!url || state === "failed") return null;
-  const hidden = state !== "ok" ? { display:"none" } : null;
+  // While loading, the wrapper MUST stay in the layout. These tiles are opacity:0 by
+  // default and only become visible through a one-shot CSS animation that fires when
+  // their panel gains .active — an earlier version used display:none here, so the
+  // element missed that window entirely and then sat at its base opacity:0 forever.
+  // That took out most of the tiles.
+  //
+  // So instead of hiding the element, only its visible FRAME is suppressed: no border,
+  // shadow or background until the image is there. An <img alt=""> with nothing loaded
+  // draws nothing, so there is no hollow box either way, and the animation is untouched.
+  const bare = state !== "ok"
+    ? { border:"1px solid transparent", boxShadow:"none", background:"transparent" }
+    : null;
   return (
-    <div className={wrapClassName} style={{ ...(wrapStyle||{}), ...hidden }}>
-      {children}
+    <div className={wrapClassName} style={{ ...(wrapStyle||{}), ...bare }}>
+      {/* children is the little corner label ("Your photo", "Video"). Held back until
+          the image is there, otherwise a caption floats over an empty frame. */}
+      {state === "ok" ? children : null}
       <img src={url} alt="" style={imgStyle}
+           // A cached image can finish decoding before React attaches onLoad, in which
+           // case that event never fires and the tile would stay frameless forever.
+           // The ref checks .complete on mount and settles the state immediately.
+           ref={(el) => { if(el && el.complete && el.naturalWidth > 0) setState("ok"); }}
            onLoad={() => setState("ok")} onError={() => setState("failed")} />
     </div>
   );
