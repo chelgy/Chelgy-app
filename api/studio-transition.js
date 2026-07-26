@@ -33,6 +33,19 @@ const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const RS_URL  = (process.env.RENDER_SERVER_URL || "").trim().replace(/\/+$/, "");
 const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 
+// Seedance 2.0 generates audio natively and there is NO on/off parameter — the
+// PROMPT is the only control (same as Veo; see video.js). So the sound is steered
+// here, in words.
+//
+// Phrased as what to INCLUDE rather than what to avoid. Generative models comply
+// poorly with bare prohibitions — "no music" frequently produces music — but follow
+// a positive description well, so the wanted sound is listed first and concretely
+// and the exclusions ride along at the end as a short tail.
+const AUDIO_DIRECTION =
+  " Audio: natural on-location sound only — room tone, footsteps, cloth and movement, " +
+  "handling and surface noise, and any traffic or weather actually visible in frame. " +
+  "Sound effects only. No music, no score, no singing, no speech, no voiceover.";
+
 const TAIL_SECONDS = 2;    // how much of the outgoing shot Seedance continues from
 const MIN_DURATION = 4;    // Seedance clamps the new segment to 4-15s
 const MAX_DURATION = 8;
@@ -229,6 +242,8 @@ export default async function handler(req, res) {
     // A generic continuation is far better than no transition, but it's a fallback,
     // not the plan — the whole point is that the model looked at both frames.
     if (!prompt) prompt = "The camera continues moving forward through the scene in one smooth take, arriving at a new view of the same place.";
+    // Every bridge gets the same sound instruction, generated brief or fallback.
+    prompt = prompt + AUDIO_DIRECTION;
 
     const cost = Math.round((EXTEND_RATE[resolution] || EXTEND_RATE["1080p"]) * duration);
     const paid = await spend(token, cost, "video-editor:transition:" + resolution + ":" + duration + "s");
