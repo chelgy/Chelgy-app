@@ -1157,9 +1157,15 @@ function snapKeepToWords(keep, words){
   for(const r of (keep||[])){
     const s = Math.max(0, Number(r.s)||0), e = Number(r.e)||0;
     if(!(e > s)) continue;
-    // 0.05 tolerance matches the review timeline, so both paths agree on which
-    // words belong to a range.
-    const inside = ws.filter(w => Number(w.s) >= s - 0.05 && Number(w.s) < e + 0.05);
+    // The two bounds are NOT symmetric, and that is deliberate. A forward tolerance
+    // on the END claimed the very word the planner had just cut: a filler removal
+    // ends the range exactly where the filler begins, so "start within 0.05s of the
+    // end" matched it every time, `last` became the cut word, and the range grew to
+    // cover it. Every one-word cut came back and every two-word cut left its first
+    // word stranded as a fragment — the doubled words and unfinished sentences.
+    // The end is now exclusive by a hair; the start keeps its tolerance, which only
+    // ever pulls in a word the range already covers.
+    const inside = ws.filter(w => Number(w.s) >= s - 0.05 && Number(w.s) < e - 0.02);
     if(!inside.length){ out.push({ s, e }); continue; }   // silent stretch — keep verbatim
     const first = inside[0], last = inside[inside.length-1];
     out.push({
