@@ -41,6 +41,17 @@ const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 // poorly with bare prohibitions — "no music" frequently produces music — but follow
 // a positive description well, so the wanted sound is listed first and concretely
 // and the exclusions ride along at the end as a short tail.
+// Held to one sentence on purpose. The Fake It work established that stacking identity
+// instructions makes likeness WORSE — the model starts reinterpreting the face instead
+// of leaving it alone. Short and plain outperforms a detailed lock.
+// Continuity, not prohibition. An earlier version listed things not to do ("no smile,
+// no looking at camera") which is wrong: if the person is ALREADY smiling or already
+// looking at the lens, forbidding it forces the very change we're trying to prevent.
+// The instruction is simply that the expression they have is the expression they keep.
+const SUBJECT_DIRECTION =
+  " Anyone in frame keeps the exact facial expression they already have; they may move" +
+  " and walk naturally, but their expression does not change.";
+
 const AUDIO_DIRECTION =
   " Audio: natural on-location sound only — room tone, footsteps, cloth and movement, " +
   "handling and surface noise, and any traffic or weather actually visible in frame. " +
@@ -137,6 +148,7 @@ async function bridgeBrief(GKEY, fromImg, toImg) {
     "Rules:\n" +
     "- 25 words maximum, one sentence, present tense.\n" +
     "- Describe CAMERA MOVEMENT and what passes through frame. No story, no dialogue, no people appearing who are not already there.\n" +
+    "- A person in frame may keep walking or moving as they already are — that continuity is good. Do not describe their FACE or expression at all, in any direction. Naming an expression is what makes the model re-animate the face, and a changed expression on a real person looks uncanny.\n" +
     "- Do NOT describe colour grading, film stock, or a 'cinematic look'. The grade is applied afterwards.\n" +
     "- No text, captions or titles in the shot.\n\n" +
     "Respond with ONLY the sentence.";
@@ -243,7 +255,7 @@ export default async function handler(req, res) {
     // not the plan — the whole point is that the model looked at both frames.
     if (!prompt) prompt = "The camera continues moving forward through the scene in one smooth take, arriving at a new view of the same place.";
     // Every bridge gets the same sound instruction, generated brief or fallback.
-    prompt = prompt + AUDIO_DIRECTION;
+    prompt = prompt + SUBJECT_DIRECTION + AUDIO_DIRECTION;
 
     const cost = Math.round((EXTEND_RATE[resolution] || EXTEND_RATE["1080p"]) * duration);
     const paid = await spend(token, cost, "video-editor:transition:" + resolution + ":" + duration + "s");
