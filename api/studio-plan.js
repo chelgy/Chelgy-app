@@ -238,18 +238,38 @@ export default async function handler(req, res) {
         "- KEEP: talking, on the usual terms — cut filler, false starts, repeated takes.\n" +
         "- CUT: silence where activity is 0-1 for more than ~2s. Nothing is happening and nobody is talking.\n" +
         "- NEVER cut a segment just because activity is low while the person is TALKING. Speech is proof that something is happening even when the picture is still — a locked-off camera on someone explaining a step is exactly what this style is for. Talking is only ever cut on the usual grounds: filler words, false starts, a repeated take.\n" +
+        "- When the speech ANNOUNCES an action ('let me show you', 'now we cook', 'watch this'), KEEP the footage that follows even if nobody is talking over it.\n" +
         "- COMPRESS, don't delete, repetitive work. Thirty seconds of continuous chopping at activity 6 does not need to survive whole — keep 6-10 seconds of it and move on. The viewer needs to see that it happened, not watch all of it.\n" +
         "- Never cut mid-word. Start keeps ~0.15s before the first word, end ~0.3s after the last.\n" +
         "- Merge keeps less than 1.5s apart. No kept segment shorter than 1s.\n" +
         "- ALSO identify 2-6 SCENE INTROS at real stage changes in the process — 'Prepping The Base', 'Into The Oven', 'The Messy Part', 'Finishing Touches'. 2-5 words, title case. NEVER the word Chapter. Give each start time in seconds on the ORIGINAL timeline.\n" +
         "- ALSO identify 0-3 B-ROLL moments where a full-screen photograph would help — an ingredient, a finished result, a tool being referenced. Same neutral photographic brief as always, no grading language.\n";
 
+    // The same two-track thinking as processRules, condensed, for styles that keep
+    // their own character but should still respect what the FOOTAGE shows. Prepended
+    // rather than replacing, so a vlog stays a vlog.
+    //
+    // This exists because a gym-and-cooking vlog came back as nothing but talking: the
+    // activity track was only ever wired to "process", so every other style judged the
+    // edit on speech alone and threw away the doing.
+    const activityPreamble =
+        "You ALSO have an ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 is nothing moving; 7-9 is a lot of motion.\n" +
+        "- Silence is NOT automatically dead air. A quiet stretch with activity 4 or above is the person DOING something — cooking, training, showing, making — and in this kind of video that is the most valuable footage there is. KEEP it.\n" +
+        "- When the speech ANNOUNCES an action — 'I'm going to the gym', 'let me show you', 'watch this', 'now we cook' — KEEP the footage that follows even if nobody talks over it. The announcement is a promise the edit has to deliver on; cutting to the next sentence breaks it.\n" +
+        "- Only cut silence where activity is 0-1 for more than ~2s. That is genuinely nothing happening.\n" +
+        "- NEVER cut a segment just because activity is low while the person IS talking. Speech is proof the moment matters.\n" +
+        "- COMPRESS rather than delete repetitive action: 40 seconds of the same motion at activity 6 can become 8-10 seconds and move on.\n\n";
+
     // Belt and braces: if the track never arrived, do not run the process rules.
     // They instruct the model to cut silence with low activity, and with no track to
     // read that becomes "cut all silence" — which is the whole video in a cooking or
     // cleaning edit. Fall back to vlog behaviour, which protects quiet moments.
-    const processUsable = style === "process" && activity && activity.length;
-    const cutRules = processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
+    const haveActivity = !!(activity && activity.length);
+    const processUsable = style === "process" && haveActivity;
+    // vlog and cinematic keep their own rules but gain the motion reading on top.
+    const activityOn = haveActivity && (style === "vlog" || style === "cinematic");
+    const cutRules = (activityOn ? activityPreamble : "") +
+      (processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
          "- IMPORTANT: in a vlog, silence is NOT automatically dead air — quiet gaps under ~4 seconds are usually the person showing something, walking, or letting a moment breathe. KEEP those (extend the surrounding kept segment across them) unless they clearly drag.\n" +
          "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), and only truly long dead air (over ~4-5s of nothing).\n" +
@@ -262,7 +282,7 @@ export default async function handler(req, res) {
          "- Close the GAPS between kept phrases hard. The single most common complaint is too much silence between breaths and sentences; leave only a natural beat, not a held pause. When someone finishes a sentence and there's a gap before the next, tighten it right up.\n" +
          "- Never cut mid-word, but cut CLOSE: start each kept segment ~0.08s before its first word and end ~0.12s after its last word. A short tail keeps it clean without leaving trailing silence.\n" +
          "- Merge keeps less than 0.3s apart into one segment. No kept segment shorter than 1s.\n" +
-         "- Be decisive: a tight talking-head cut usually keeps 65-85% of a well-delivered video, less if it's rambly. When in doubt between leaving a pause and cutting it, CUT it.\n");
+         "- Be decisive: a tight talking-head cut usually keeps 65-85% of a well-delivered video, less if it's rambly. When in doubt between leaving a pause and cutting it, CUT it.\n"));
 
     const prompt =
       editorRole + "\n" +

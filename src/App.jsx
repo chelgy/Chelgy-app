@@ -5394,7 +5394,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const perClipActivity = [];
       // Only Process reads the picture. Every other style cuts from speech alone and
       // must not pay for a video decode it will never look at.
-      const wantsActivity = style==="process";
+      // Extract the motion track for vlog and cinematic too, not just process. Without
+      // it those styles judge the edit on speech alone — which is how a gym-and-cooking
+      // vlog came back as nothing but talking, with every bit of the doing cut out.
+      // It costs one extra ffmpeg output on a decode that already happens, not a second
+      // pass, but it does mean these styles now always extract rather than sometimes.
+      const wantsActivity = ["process","vlog","cinematic"].includes(style);
       // Showcase finds products by SIGHT, not sound — it needs no transcript at all,
       // so it skips the whole listen/transcribe loop below. A jewelry or OOTD video
       // is silent by design; running speech detection on it and rejecting it for
@@ -5455,7 +5460,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // silently produces a completely different edit from the one that was asked
       // for. Stop here and say so — nothing has been charged yet, because the render
       // charge and the b-roll images both come later.
-      if(wantsActivity && !haveActivity){
+      // Only PROCESS genuinely can't proceed without the motion track — its rules cut
+      // silence by activity, so with no track it would treat every working shot as dead
+      // air. For vlog and cinematic the track is an enhancement: if it's missing they
+      // fall back to their speech-based rules, which is exactly how they behaved before.
+      if(style==="process" && !haveActivity){
         setErr("We couldn't measure the movement in your footage, and the Process style needs it — without it we'd cut every silent working shot as if it were dead air. Nothing has been charged. If this keeps happening, the render engine may not be up to date.");
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
@@ -5463,7 +5472,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       if(!visionOnly && !heardAnything && !(wantsActivity && haveActivity)){
         setErr(extractionFailed
           ? "We couldn't pull the audio out of " + (many ? "your clips" : "your video") + ", so there was nothing to transcribe. This is on our side, not your footage — the render engine may be restarting. Nothing has been charged; please try again in a minute."
-          : wantsActivity
+          : style==="process"
           ? "Couldn't read " + (many ? "those clips." : "that video.") + " We heard no speech and couldn't measure any movement either, so there's nothing to cut on."
           : "Couldn't hear any speech in " + (many ? "any of those clips." : "that video.") + " The editor cuts based on what you say, so it needs audio.");
         for(const p of cleanup) await deleteSiteObject(p);
