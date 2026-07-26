@@ -1860,6 +1860,48 @@ async function uploadSiteImage(dataUrl, path) {
   } catch (e) { return null; }
 }
 
+// Upload a File straight to the bucket, and say WHY if it fails.
+//
+// uploadSiteImage() above takes a base64 data URL, which is fine for photos but a bad
+// deal for video: fileToDataUrl inflates the file ~33%, then atob rebuilds it and a
+// per-byte loop copies it into a typed array. On a 30MB clip that is three copies in
+// memory and can simply throw — which surfaced as "upload failed" with no clue why.
+// Here the File is its own body, so there is no conversion at all.
+//
+// It also returns a REASON. uploadSiteImage returns null for five different problems
+// (unreadable file, no session, rejected POST, exception) and the caller could only
+// guess, so a size or permission failure was reported as a login problem.
+async function uploadSiteFile(file, path) {
+  try {
+    if (!file) return { error: "No file selected." };
+    const token = await freshToken();
+    if (!token)
+      return { error: "You're not signed in with your Chelgy account. The ?admin shortcut opens the panel but doesn't create a session — log in normally, then reopen admin." };
+    const res = await fetch(SUPABASE_URL + "/storage/v1/object/sites/" + path, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: "Bearer " + token,
+        "x-upsert": "true",
+        "Content-Type": file.type || "application/octet-stream"
+      },
+      body: file
+    });
+    if (res.ok) return { url: SUPABASE_URL + "/storage/v1/object/public/sites/" + path };
+
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    let detail = "";
+    try { const d = await res.json(); detail = (d && (d.message || d.error)) || ""; } catch {}
+    if (res.status === 413)
+      return { error: "That file is too large for the bucket (" + mb + "MB). Raise the size limit on the sites bucket in Supabase, or compress the video." };
+    if (res.status === 403 || res.status === 401)
+      return { error: "The bucket refused the upload for this account (" + res.status + "). Check the sites bucket's upload policy in Supabase." + (detail ? " " + detail : "") };
+    return { error: "Upload failed (" + res.status + ", " + mb + "MB)." + (detail ? " " + detail : "") };
+  } catch (e) {
+    return { error: "Couldn't upload that file: " + ((e && e.message) || "unknown error") };
+  }
+}
+
 // ─── SVG ICONS (line art, no fill) ───────────────────────────────────────────
 const Icons = {
   Home: () => (
@@ -2954,7 +2996,9 @@ function BucketTile({ url, imgStyle, wrapClassName, wrapStyle, children }){
   );
 }
 
-// Read a picked File into a data URL so it can go through uploadSiteImage().
+// Read a picked File into a data URL. Currently unused — MediaUploadButton now
+// posts the File itself via uploadSiteFile() — but kept for any caller that
+// needs a base64 payload rather than a blob.
 function fileToDataUrl(file){
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("read failed")); r.readAsDataURL(file); });
 }
@@ -2971,15 +3015,16 @@ function MediaUploadButton({ folder, name, onDone, accept="image/*,video/*" }){
     if(!f) return;
     setErr(""); setBusy(true);
     try{
-      const dataUrl=await fileToDataUrl(f);
       const ext=((f.name||"").match(/\.([a-zA-Z0-9]+)$/)||[null,"jpg"])[1].toLowerCase();
       const safe=String(name||"file").replace(/[^a-zA-Z0-9_-]/g,"")||"file";
-      const url=await uploadSiteImage(dataUrl, (folder||"admin-media")+"/"+safe+"."+ext);
+      // Direct file upload — no base64 round-trip, which is what made large videos
+      // fail, and it reports the real reason instead of guessing at the session.
+      const r=await uploadSiteFile(f, (folder||"admin-media")+"/"+safe+"."+ext);
       // Cache-buster: the bucket upserts over the same path, so without this the
-      // browser and CDN keep serving the old picture after a swap.
-      if(url) onDone(url+"?v="+Date.now());
-      else setErr("Upload failed. Sign in with your admin account (the ?admin shortcut alone has no session token), then try again.");
-    }catch(_){ setErr("Couldn't read that file."); }
+      // browser and CDN keep serving the old file after a swap.
+      if(r && r.url) onDone(r.url+"?v="+Date.now());
+      else setErr((r && r.error) || "Upload failed.");
+    }catch(e){ setErr("Couldn't read that file: "+((e&&e.message)||"unknown error")); }
     setBusy(false);
   };
   return (
