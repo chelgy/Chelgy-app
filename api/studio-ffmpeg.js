@@ -241,6 +241,9 @@ export default async function handler(req, res) {
     const keep = Array.isArray(body.keep) ? body.keep : [];
     const words = Array.isArray(body.words) ? body.words : [];
     const title = typeof body.title === "string" ? body.title.slice(0, 120) : "";
+    // The second title line. Set in a different face from the type label, so it travels
+    // as its own field rather than being split out of one string downstream.
+    const subtitle = typeof body.subtitle === "string" ? body.subtitle.slice(0, 120) : "";
     const orientation = body.orientation === "landscape" ? "landscape" : "portrait";
     const style = ["vlog", "tutorial", "cinematic"].includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
@@ -338,7 +341,7 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             userId, creditsCharged: cost,
             edl: {
-              sources: urls, segments: keep, words, title, orientation,
+              sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
               grade: { footage, look, clipFootage },
               chapters, broll, transitions, music, showcase, narration,
@@ -381,7 +384,7 @@ export default async function handler(req, res) {
           sourceUrl: urls[0],
           segments: keep,
           words,
-          title,
+          title, subtitle,
           orientation,
           uploadPath,
           grade: { footage, look, clipFootage },

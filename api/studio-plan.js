@@ -329,12 +329,16 @@ export default async function handler(req, res) {
       "- temperature: is the footage's white balance warm, neutral, or cool?\n" +
       "- exposure: is it dark, balanced, or bright?\n" +
       "(The render will adapt the cinematic grade to this so the look is applied correctly instead of blindly.)\n\n" +
+      "THE TITLE IS TWO LINES, and they do different jobs:\n" +
+      "- \"title\": the video TYPE, as a label. 2-4 words, no punctuation. 'DAILY VLOG', 'MIAMI TRIP', 'STUDIO DAY', 'GRWM'. It is set in a heavy display face and always shown in capitals, so keep it short — a long one shrinks to fit and loses its impact.\n" +
+      "- \"subtitle\": what this particular video is ABOUT, in the person's own register. 3-8 words, sentence case, no full stop. 'life as an entrepreneur', 'the day everything went wrong', 'how I actually plan my week'.\n" +
+      "Together they read as a label over a line: DAILY VLOG / life as an entrepreneur. Do not repeat the type inside the subtitle.\n\n" +
       "Respond with ONLY this JSON, nothing else:\n" +
       ((style === "cinematic" || style === "process" || style === "tutorial")
-        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
+        ? '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","chapters":[{"s":number,"label":"string"}],"broll":[{"s":number,"prompt":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : style !== "talkinghead"
-        ? '{"keep":[{"s":number,"e":number}],"title":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
-        : '{"keep":[{"s":number,"e":number}],"title":"string","music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
+        ? '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
+        : '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
       "TRANSCRIPT:\n" + lines;
 
     const parts = [];
@@ -471,7 +475,10 @@ export default async function handler(req, res) {
     };
 
     console.log("[plan] " + style + " planned by " + plannedBy + " — " + merged.length + " segment(s), " + outSeconds + "s");
-    return res.status(200).json({ keep: merged, title, chapters, broll, music, look, outSeconds, plannedBy, truncated, wordsSeen: Math.min(words.length, WORD_LIMIT), wordsTotal: words.length });
+    // Same treatment as the title: trimmed, length-capped, and never allowed to be
+    // the string "null" or similar rubbish the model sometimes emits.
+    const subtitle = String((plan.subtitle == null ? "" : plan.subtitle)).trim().slice(0, 120);
+    return res.status(200).json({ keep: merged, title, subtitle, chapters, broll, music, look, outSeconds, plannedBy, truncated, wordsSeen: Math.min(words.length, WORD_LIMIT), wordsTotal: words.length });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }

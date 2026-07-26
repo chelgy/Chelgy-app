@@ -1223,7 +1223,7 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1231,7 +1231,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       method:"POST",
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
-        action:"start", urls: list, url: list[0], keep, title, orientation, rawDuration,
+        action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
         style, footage, look, words, clipFootage: clipFootage || [],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
@@ -5031,6 +5031,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // subtitles; titles = the opening title, scene cards and showcase product labels.
   const [showCaptions,setShowCaptions] = useState(true);
   const [showTitles,setShowTitles]     = useState(true);
+  // Optional title override. Empty means "let the planner name it".
+  const [userTitle,setUserTitle]       = useState("");
+  const [userSubtitle,setUserSubtitle] = useState("");
   // B-roll is OFF by default and always opt-in. The generated stills are a stylistic
   // extra rather than part of the edit, so the customer chooses and pays per image.
   const [useBroll,setUseBroll]         = useState(false);
@@ -5796,13 +5799,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // titles off → no opening title, scene cards or showcase labels. Everything
       // else (the cut, grade, music, b-roll, narration) is unaffected.
       const wordsForRender    = showCaptions ? taggedWords : [];
-      const titleForRender    = (TITLES_ENABLED && showTitles) ? (plan.title||"") : "";
+      // The person's own wording always beats the planner's. Leave the fields empty and
+      // the planner fills them in; type something and that is what renders.
+      const titleForRender    = showTitles ? ((userTitle||"").trim() || (plan.title||"")) : "";
+      const subtitleForRender = showTitles ? ((userSubtitle||"").trim() || (plan.subtitle||"")) : "";
       const chaptersForRender = showTitles ? chapterCues : [];
       const showcaseForRender = showTitles ? (showcaseLabels||[]) : [];
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
         style, footage, grade, wordsForRender, clipFootages,
-        chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null
+        chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null,
+        subtitleForRender
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -5989,10 +5996,27 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
             <strong>Title &amp; cards</strong>
             <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
-              Scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut{music!=="off"?", music":""} and grade are unaffected.
+              The opening title and scene cards{style==="showcase"?" and product labels":""}. Turn this and captions off when your footage speaks for itself — the cut{music!=="off"?", music":""} and grade are unaffected.
             </span>
           </span>
         </label>
+
+        {/* Title override. Both optional — blank means the planner names it from what
+            you actually said, which is usually good enough and one less thing to do. */}
+        {showTitles && (
+        <div style={{padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Title <span style={{fontWeight:400,letterSpacing:"0.04em",textTransform:"none",color:B.mid}}>— leave blank and Chelgy writes it</span></p>
+          <input value={userTitle} disabled={busy} onChange={e=>setUserTitle(e.target.value.slice(0,40))}
+            placeholder="DAILY VLOG"
+            style={{width:"100%",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,boxSizing:"border-box",marginBottom:8}} />
+          <input value={userSubtitle} disabled={busy} onChange={e=>setUserSubtitle(e.target.value.slice(0,90))}
+            placeholder="life as an entrepreneur"
+            style={{width:"100%",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,boxSizing:"border-box"}} />
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"8px 0 0"}}>
+            The first line is the video type and always renders in capitals. The second says what it's about.
+          </p>
+        </div>
+        )}
 
         {/* B-roll: opt-in, and described honestly. Generated stills are good at mood
             and texture and poor at specific real places, so the copy says so rather
@@ -8354,7 +8378,9 @@ const ADMIN_PASSWORD = "chelochelo1";
 // Deliberately separate from the showTitles checkbox, which also governs scene
 // cards and product labels: turning that off to lose the title would have taken
 // those with it.
-const TITLES_ENABLED = false;
+// TITLES_ENABLED is gone. Titles were switched off pending a better typeface; they now
+// set in Monoton over Amore and are governed by the showTitles checkbox like the rest of
+// the on-screen text.
 
 // Mirrors MAX_OUT_SECONDS in api/studio-ffmpeg.js. Kept here only to warn EARLY, before
 // a long upload — the server is still the one that enforces it. If you change one,
