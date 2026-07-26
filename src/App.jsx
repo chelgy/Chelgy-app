@@ -4925,6 +4925,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // subtitles; titles = the opening title, scene cards and showcase product labels.
   const [showCaptions,setShowCaptions] = useState(true);
   const [showTitles,setShowTitles]     = useState(true);
+  // B-roll is OFF by default and always opt-in. The generated stills are a stylistic
+  // extra rather than part of the edit, so the customer chooses and pays per image.
+  const [useBroll,setUseBroll]         = useState(false);
   const [pendingReview,setPendingReview] = useState(null);
   const [scCopied,setScCopied]     = useState(false);
   const [shClips,setShClips]       = useState([]);   // [{url, hook}]
@@ -4978,7 +4981,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // a full video decode on every clip that the speech-only styles never pay for.
   const BASE_COST = (style==="cinematic"||style==="process") ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
   const MUSIC_EST = music==="off" ? 0 : CREDIT_COSTS.musicScore;
-  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST + MUSIC_EST;
+  // Only cinematic and process ever generate b-roll, and the planner is capped at 4
+  // stills, so that is the ceiling quoted. Fewer cues means fewer images and the
+  // charge is per image at generation time, so this is an upper bound, not a promise.
+  const canBroll = (style==="cinematic"||style==="process");
+  const BROLL_EST = CREDIT_COSTS.editorBroll * (canBroll && useBroll ? 4 : 0);
+  const COST = BASE_COST + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip + TRANSITION_EST + MUSIC_EST + BROLL_EST;
   const STYLES = [
     { id:"talkinghead", label:"Talking-head", note:"You, talking straight to camera. Cuts the ums, dead air and bad takes; adds captions, a cinematic grade and a title.", ready:true },
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
@@ -5569,7 +5577,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       // ── 3c. B-roll stills ──
       const brollShots = [];
-      if(BROLL_ENABLED && (style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
+      if(useBroll && (style==="cinematic"||style==="process") && Array.isArray(plan.broll) && plan.broll.length){
         setStage("Creating your b-roll images…");
         for(const b of plan.broll.slice(0,4)){
           const p = pointToClip(Number(b && b.s)||0, offsets);
@@ -5788,6 +5796,21 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             </span>
           </span>
         </label>
+
+        {/* B-roll: opt-in, and described honestly. Generated stills are good at mood
+            and texture and poor at specific real places, so the copy says so rather
+            than letting the result be the surprise. */}
+        {canBroll && (
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+          <input type="checkbox" checked={useBroll} disabled={busy} onChange={e=>setUseBroll(e.target.checked)} style={{marginTop:2}} />
+          <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5}}>
+            <strong>AI b-roll stills</strong>
+            <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:3}}>
+              Up to 4 generated images cut in over your voice, charged {CREDIT_COSTS.editorBroll.toLocaleString()} credits each. Best for mood and texture — generated imagery struggles with specific real places, so leave it off if your video names somewhere recognisable.
+            </span>
+          </span>
+        </label>
+        )}
 
       </div>
 
@@ -8124,10 +8147,9 @@ function ReviewPrompt({ onClose, onReview }) {
 const ADMIN_PASSWORD = "chelochelo1";
 
 // ─── CREDIT SYSTEM ────────────────────────────────────────────────────────────
-// Master switch for the generated b-roll stills. false = the planner may still
-// suggest cues and the render server can still composite them, but nothing is
-// generated and nothing is sent. One line to bring the whole feature back.
-const BROLL_ENABLED = false;
+// B-roll stills are now a per-edit customer choice (the `useBroll` toggle in the
+// editor) rather than a build-time flag, and are charged per image via
+// CREDIT_COSTS.editorBroll. The old BROLL_ENABLED constant is gone with it.
 
 // Opening titles are off. Not stripped — the planner still writes one and the
 // renderer still knows how to set it, rule and all. Flip to true and it returns.
@@ -8183,6 +8205,11 @@ const CREDIT_COSTS = {
                          // 1000 over editorQuick still covers the kinetic cut and
                          // the scene cards, which is what Cinematic actually is now.
   editorProxyMin: 250,   // AI Video Editor — large-footage optimize, per raw minute (real ~$0.12/min)
+  editorBroll: 320,      // AI Video Editor — ONE generated b-roll still, charged per
+                         // image only when the customer opts in. A set is capped at 4,
+                         // so a full set adds ~1,280 on top of the base. Priced off the
+                         // ~120 credits of Gemini each one really costs, at the same
+                         // rough 2x markup used elsewhere.
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
   // One AI transition: a 4-second Seedance video-extend bridge shot at 1080p.
   // Video-extend is billed per second of the NEW segment at $0.60/s at 1080p, so
