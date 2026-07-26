@@ -253,12 +253,14 @@ export default async function handler(req, res) {
     // activity track was only ever wired to "process", so every other style judged the
     // edit on speech alone and threw away the doing.
     const activityPreamble =
+        "\nTHE ACTIVITY TRACK — THESE RULES OVERRIDE THE PACING RULES ABOVE WHERE THEY CONFLICT:\n" +
         "You ALSO have an ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 is nothing moving; 7-9 is a lot of motion.\n" +
         "- Silence is NOT automatically dead air. A quiet stretch with activity 4 or above is the person DOING something — cooking, training, showing, making — and in this kind of video that is the most valuable footage there is. KEEP it.\n" +
         "- When the speech ANNOUNCES an action — 'I'm going to the gym', 'let me show you', 'watch this', 'now we cook' — KEEP the footage that follows even if nobody talks over it. The announcement is a promise the edit has to deliver on; cutting to the next sentence breaks it.\n" +
         "- Only cut silence where activity is 0-1 for more than ~2s. That is genuinely nothing happening.\n" +
         "- NEVER cut a segment just because activity is low while the person IS talking. Speech is proof the moment matters.\n" +
-        "- COMPRESS rather than delete repetitive action: 40 seconds of the same motion at activity 6 can become 8-10 seconds and move on.\n\n";
+        "- COMPRESS rather than delete repetitive action: 40 seconds of the same motion at activity 6 can become 8-10 seconds and move on.\n" +
+        "- Where a pacing rule above says to cut silence or dead air by DURATION, read it as applying only to silence with activity 0-1. Silence with real motion is content, not slack, however long it runs.\n\n";
 
     // Belt and braces: if the track never arrived, do not run the process rules.
     // They instruct the model to cut silence with low activity, and with no track to
@@ -268,7 +270,14 @@ export default async function handler(req, res) {
     const processUsable = style === "process" && haveActivity;
     // vlog and cinematic keep their own rules but gain the motion reading on top.
     const activityOn = haveActivity && (style === "vlog" || style === "cinematic");
-    const cutRules = (activityOn ? activityPreamble : "") +
+    // The activity rules go AFTER the style rules, not before.
+    //
+    // Prepending them didn't work: cinematic's own rules say "cut hard... dead air over
+    // ~1.5s... anything that slows momentum", and a later instruction in a prompt tends
+    // to beat an earlier one. So the track arrived, was described, and was then
+    // overruled a paragraph later — a gym-and-cooking edit still came back as talking
+    // heads. Last word plus an explicit statement of precedence.
+    const cutRules =
       (processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
          "- IMPORTANT: in a vlog, silence is NOT automatically dead air — quiet gaps under ~4 seconds are usually the person showing something, walking, or letting a moment breathe. KEEP those (extend the surrounding kept segment across them) unless they clearly drag.\n" +
@@ -282,7 +291,8 @@ export default async function handler(req, res) {
          "- Close the GAPS between kept phrases hard. The single most common complaint is too much silence between breaths and sentences; leave only a natural beat, not a held pause. When someone finishes a sentence and there's a gap before the next, tighten it right up.\n" +
          "- Never cut mid-word, but cut CLOSE: start each kept segment ~0.08s before its first word and end ~0.12s after its last word. A short tail keeps it clean without leaving trailing silence.\n" +
          "- Merge keeps less than 0.3s apart into one segment. No kept segment shorter than 1s.\n" +
-         "- Be decisive: a tight talking-head cut usually keeps 65-85% of a well-delivered video, less if it's rambly. When in doubt between leaving a pause and cutting it, CUT it.\n"));
+         "- Be decisive: a tight talking-head cut usually keeps 65-85% of a well-delivered video, less if it's rambly. When in doubt between leaving a pause and cutting it, CUT it.\n"))
+      + (activityOn ? activityPreamble : "");
 
     const prompt =
       editorRole + "\n" +
