@@ -4219,7 +4219,7 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   const [vSource,setVSource] = useState("result");          // "result" = animate the restaged photo · "upload" = animate one of my photos
   const [vPhotoIdx,setVPhotoIdx] = useState(0);
   const [vScene,setVScene]   = useState("");
-  const [vTier,setVTier]     = useState("veolite");
+  const [vTier,setVTier]     = useState("seedance720");  // was "veolite", a tier no longer offered
   const [vDur,setVDur]       = useState("5");
   const [vOrient,setVOrient] = useState("portrait");
   const [vAudio,setVAudio]   = useState(true);
@@ -4334,13 +4334,12 @@ function Restage({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=(
   // Video tool and UGC Studio. The server charges and returns the new balance;
   // we reflect it via onBalance and refund locally if the render doesn't finish.
   const V_TIERS = [
-    { id:"omni",       label:"Omni Flash",        note:"Google's newest — near-Seedance quality for a fraction of the price. Up to 10s, 720p." },
-    { id:"veolite",    label:"Veo 3.1 Lite",      note:"Fast and affordable, with sound — great for most clips." },
-    { id:"veo",        label:"Veo 3.1 Cinematic", note:"Top-tier realism and the richest audio. Save it for your hero clip." },
-    { id:"seedance480",  label:"Seedance 2.0 · 480p",  note:"Fastest and cheapest Seedance, with native sound." },
-    { id:"seedance720",  label:"Seedance 2.0 · 720p",  note:"HD Seedance with native sound." },
-    { id:"seedance1080", label:"Seedance 2.0 · 1080p", note:"Full-HD Seedance with native sound." },
-    { id:"seedance4k",   label:"Seedance 2.0 · 4K",    note:"Highest fidelity, true 4K with native sound. Slowest and priciest." },
+    // Quality tiers only. See the note on VIDEO_MODELS for why the other engines
+    // were retired from the UI.
+    { id:"seedance480",  label:"480p Standard", note:"Fastest and cheapest, with sound." },
+    { id:"seedance720",  label:"720p HD",       note:"HD with sound. The sweet spot for most clips." },
+    { id:"seedance1080", label:"1080p Full HD", note:"Full-HD with sound." },
+    { id:"seedance4k",   label:"4K Ultra",      note:"Highest fidelity, true 4K with sound. Slowest and priciest." },
   ];
   function vPerSec(){
     if(vTier==="veo") return vAudio ? CREDIT_COSTS.veoSec : CREDIT_COSTS.veoSecSilent;
@@ -4589,7 +4588,10 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
   const [refs,setRefs]             = useState([]);  // shrunk reference-image data URLs
   const [prompt,setPrompt]         = useState("");
   const [resolution,setResolution] = useState("720p");
-  const [engine,setEngine]         = useState("seedance"); // "seedance" (premium 1080p) | "omni" (budget 720p, cheaper)
+  // Fixed at "seedance" — the picker was removed when the other engines were retired
+  // from the UI. The "omni" branches below are unreachable but kept intact so the
+  // engine can be reinstated by restoring the picker alone.
+  const [engine,setEngine]         = useState("seedance");
   const [consent,setConsent]       = useState(false);
   const [busy,setBusy]             = useState(false);
   const [status,setStatus]         = useState("");
@@ -4698,17 +4700,9 @@ function VideoEdit({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse
         placeholder="Keep me, my hair, outfit and movements exactly the same — just change the environment around me to the reference setting."
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,resize:"vertical",boxSizing:"border-box",marginBottom:16}} />
 
-      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Engine</p>
-      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-        {[["seedance","Seedance · premium"],["omni","Omni Flash · budget"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{ setEngine(v); setErr(""); }} style={{padding:"9px 16px",border:"1px solid "+(engine===v?B.charcoal:B.stone),background:engine===v?B.inkBlock:B.white,color:engine===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
-        {engine==="omni"
-          ? "Google's Omni Flash — near-Seedance quality for about half the price. 720p, up to 10 seconds. Great value for most edits."
-          : "Seedance 2.0 — top quality, up to 1080p and 15 seconds. The premium option."}
-      </p>
+      {/* The engine picker is gone: only one video engine is offered now, so there
+          is nothing to choose between. `engine` stays at its "seedance" default,
+          which keeps the resolution block below and the cost maths unchanged. */}
 
       {engine==="seedance" && (<>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Resolution</p>
@@ -7084,7 +7078,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     setLibSaveMsg(r.ok?"✓ Saved to your Library":("Couldn't save: "+(r.error||"error")));
     setTimeout(()=>setLibSaveMsg(""),4000);
   }
-  const [vOrient,setVOrient]=useState("portrait");const [vQuality,setVQuality]=useState("480p");const [vDuration,setVDuration]=useState("5");const [vAudio,setVAudio]=useState(true);
+  const [vOrient,setVOrient]=useState("portrait");const [vQuality,setVQuality]=useState("seedance720");const [vDuration,setVDuration]=useState("5");const [vAudio,setVAudio]=useState(true);
   const [voText,setVoText]=useState("");const [voVoice,setVoVoice]=useState("JBFqnCBsd6RMkjVDRZzb");const [voUrl,setVoUrl]=useState("");const [voLoad,setVoLoad]=useState(false);const [voErr,setVoErr]=useState("");
   const [bStage,setBStage]=useState(null);const [bNiche,setBNiche]=useState("");const [bName,setBName]=useState("");
   const [bQ,setBQ]=useState("");const [bA,setBA]=useState("");const [bLoad,setBLoad]=useState(false);
@@ -7769,7 +7763,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           </div>}
           {vType==="generate"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:14}}>
             <Fl label="Orientation"><Ss value={vOrient} onChange={e=>setVOrient(e.target.value)}><option value="portrait">Portrait (9:16)</option><option value="landscape">Landscape (16:9)</option>{vQuality!=="veo"&&<option value="square">Square (1:1)</option>}</Ss></Fl>
-            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="480p">Standard — fast & economical</option><option value="720p">HD 720p — sharper</option><option value="1080p">Premium 1080p — cinematic</option><option value="omni">Omni Flash · Google — near-Seedance, way cheaper (up to 10s)</option><option value="veo">Cinematic Pro · Veo 3.1 — Hollywood-grade</option><option value="kling4k">4K Ultra · Kling 3.0 — true 4K cinematic</option><option value="seedance480">Seedance 2.0 · 480p — fast &amp; economical</option><option value="seedance720">Seedance 2.0 · 720p — HD</option><option value="seedance1080">Seedance 2.0 · 1080p — Full HD</option><option value="seedance4k">Seedance 2.0 · 4K — max detail, multi-shot</option></Ss></Fl>
+            <Fl label="Quality"><Ss value={vQuality} onChange={e=>{const q=e.target.value;setVQuality(q);const opts=durOptionsFor(q);if(!opts.includes(Number(vDuration)))setVDuration(String(opts[0]));if(q==="veo"&&vOrient==="square")setVOrient("landscape");}}><option value="seedance480">480p — fast &amp; economical</option><option value="seedance720">720p — HD</option><option value="seedance1080">1080p — Full HD</option><option value="seedance4k">4K — maximum detail</option></Ss></Fl>
             <Fl label="Length"><Ss value={vDuration} onChange={e=>setVDuration(e.target.value)}>{durOptionsFor(vQuality).map(s=><option key={s} value={String(s)}>{s} seconds</option>)}</Ss></Fl>
           </div>}
           {/* Audio is always native on the Gemini API — no toggle; Cinematic clips always include sound and are charged the audio rate. */}
@@ -14152,15 +14146,15 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   ];
 
   // Image-to-video model options (reuse the app's existing /api/video pipeline).
-  const VIDEO_MODELS = [
-    { id:"480p",       label:"Standard — fast & economical" },
-    { id:"720p",       label:"HD 720p — sharper" },
-    { id:"1080p",      label:"Premium 1080p — cinematic" },
-    { id:"kling4k",    label:"4K Ultra · Kling 3.0" },
-    { id:"seedance480",  label:"Seedance 2.0 · 480p — fast & economical" },
-    { id:"seedance720",  label:"Seedance 2.0 · 720p — HD" },
-    { id:"seedance1080", label:"Seedance 2.0 · 1080p — Full HD" },
-    { id:"seedance4k",   label:"Seedance 2.0 · 4K — best product fidelity" },
+  // One engine, four quality tiers. The other models (WAN, Veo, Kling, Omni) were
+// retired from the UI after testing showed only this one was consistently reliable;
+// the server still understands their ids, so nothing in flight breaks. Labels are
+// deliberately quality-only — the customer is buying a resolution, not a model name.
+const VIDEO_MODELS = [
+    { id:"seedance480",  label:"480p — fast & economical" },
+    { id:"seedance720",  label:"720p — HD" },
+    { id:"seedance1080", label:"1080p — Full HD" },
+    { id:"seedance4k",   label:"4K — maximum detail" },
   ];
   const DEFAULT_MOTION = "Bring this product photo to life with a smooth, subtle cinematic camera move — a slow push-in or gentle rotation — soft studio lighting and a premium commercial feel. Keep the product perfectly accurate and in sharp focus. No text or captions.";
 
@@ -14321,7 +14315,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
   async function animate(shot) {
     const v = videos[shot.id] || {};
     if (v.loading) return;
-    const q = v.quality || "480p";
+    const q = v.quality || "seedance720";
     const dur = Number(v.duration || 5);
     const orient = v.orient || aspectToOrient(shot.aspect);
     const vc = vidCostFor(q, dur);
@@ -14487,7 +14481,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
                     <Label>Motion &amp; direction</Label>
                     <textarea value={v.prompt !== undefined ? v.prompt : DEFAULT_MOTION} onChange={e => setVid(shot.id, { prompt: e.target.value })} rows={3} style={{ ...inpStyle, resize: "vertical", lineHeight: 1.6 }} />
                     <Label>Model &amp; quality</Label>
-                    <select value={v.quality || "480p"} onChange={e => setVid(shot.id, { quality: e.target.value })} style={selStyle}>
+                    <select value={v.quality || "seedance720"} onChange={e => setVid(shot.id, { quality: e.target.value })} style={selStyle}>
                       {VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                     </select>
                     <Label>Length</Label>
@@ -14502,9 +14496,9 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
                       <option value="square">Square (1:1)</option>
                     </select>
                     <Btn dark disabled={v.loading} onClick={() => animate(shot)}>
-                      {v.loading ? "GENERATING VIDEO..." : ("GENERATE VIDEO (" + vidCostFor(v.quality || "480p", v.duration || 5).toLocaleString() + " credits)")}
+                      {v.loading ? "GENERATING VIDEO..." : ("GENERATE VIDEO (" + vidCostFor(v.quality || "seedance720", v.duration || 5).toLocaleString() + " credits)")}
                     </Btn>
-                    <CostNote cost={vidCostFor(v.quality || "480p", v.duration || 5)} />
+                    <CostNote cost={vidCostFor(v.quality || "seedance720", v.duration || 5)} />
                     {v.loading && v.status && <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "16px", textAlign: "center", fontFamily: "Jost,Helvetica,Arial,sans-serif", fontSize: 12, color: B.mid, letterSpacing: "0.02em", lineHeight: 1.6, marginTop: 12 }}>{v.status}</div>}
                     {v.err && !v.loading && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", padding: "12px 16px", fontFamily: "Jost,Helvetica,Arial,sans-serif", fontSize: 12, color: B.red, marginTop: 12 }}>{v.err}</div>}
                     {v.url && !v.loading && (
@@ -14780,15 +14774,14 @@ function UGCVideoMaker({ startImg, useCredits, onBalance, onToolUse, user }) {
   const [refFrame, setRefFrame] = useState(null);
   const [refBusy, setRefBusy] = useState(false);
   useEffect(()=>{ if(startImg) setPhoto(startImg); }, [startImg]);
-  const [vmodel, setVmodel] = useState("veolite");   // default to the affordable tier
+  const [vmodel, setVmodel] = useState("seedance720");   // 720p: the sweet spot. "veolite" was retired from the UI.
   const UGC_MODELS = [
-    { id:"omni",       label:"Omni Flash \u2014 near-Seedance, way cheaper", flat:CREDIT_COSTS.omniClip,   note:"Google's newest. Up to 10s, 720p." },
-    { id:"veolite",    label:"Veo 3.1 Lite \u2014 fast & affordable",      per:CREDIT_COSTS.veoLiteSec,  note:"Great for volume. Most UGC looks great here." },
-    { id:"seedance480",  label:"Seedance 2.0 \u2014 480p, fast & cheap",   per:CREDIT_COSTS.seedance480Sec,  note:"Cheapest Seedance. Great for volume." },
-    { id:"seedance720",  label:"Seedance 2.0 \u2014 720p HD",             per:CREDIT_COSTS.seedance720Sec,  note:"HD detail at a lower cost." },
-    { id:"seedance1080", label:"Seedance 2.0 \u2014 1080p Full HD",       per:CREDIT_COSTS.seedance1080Sec, note:"Full-HD product detail." },
-    { id:"seedance4k",   label:"Seedance 2.0 \u2014 4K, best product detail", per:CREDIT_COSTS.seedanceSec, note:"Highest fidelity for product shots. Slowest & priciest." },
-    { id:"veo",        label:"Veo 3.1 Cinematic \u2014 hero shots",         per:CREDIT_COSTS.veoSec,      note:"Top-tier realism. Use for your best clip." },
+    // Quality tiers only — see the note on VIDEO_MODELS about why the other engines
+    // were retired from the UI.
+    { id:"seedance480",  label:"480p — fast & economical", per:CREDIT_COSTS.seedance480Sec,  note:"Cheapest tier. Great for volume." },
+    { id:"seedance720",  label:"720p — HD",               per:CREDIT_COSTS.seedance720Sec,  note:"HD detail at a lower cost." },
+    { id:"seedance1080", label:"1080p — Full HD",         per:CREDIT_COSTS.seedance1080Sec, note:"Full-HD product detail." },
+    { id:"seedance4k",   label:"4K — maximum detail",     per:CREDIT_COSTS.seedanceSec,     note:"Highest fidelity. Slowest and priciest." },
   ];
   function curModel(){ return UGC_MODELS.find(m=>m.id===vmodel) || UGC_MODELS[0]; }
   const DUR = [5, 10, 15];
