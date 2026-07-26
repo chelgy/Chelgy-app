@@ -19,6 +19,8 @@
 // the JSON contract and every sanitising rule below are shared, so the two engines
 // are genuinely comparable rather than two different pipelines.
 //
+// PLANNER_FALLBACK=off pins the planner to PLANNER_ENGINE alone — without it, a
+// failure on the chosen engine is retried on the other one.
 // The response reports which engine actually planned the edit, so a fallback is
 // visible rather than silent.
 //
@@ -305,11 +307,18 @@ export default async function handler(req, res) {
     let plannedBy = engine;
     let g = engine === "claude" && AKEY ? await runClaude() : await runGemini();
 
-    // Fall back rather than fail. A customer who has waited through an upload and a
-    // transcription should not lose the edit because one provider is having a bad
-    // ten minutes. Which engine actually ran is reported back, so a fallback shows up
-    // instead of quietly changing how the edits look.
-    if (!g.ok) {
+    // Fall back rather than fail — but only to an engine that is actually wanted.
+    //
+    // The original intent was that a customer who has waited through an upload and a
+    // transcription shouldn't lose the edit because one provider is having a bad ten
+    // minutes. The catch: the fallback ran regardless of PLANNER_ENGINE, so setting
+    // that to "gemini" only changed which engine went FIRST. A Gemini failure still
+    // produced a Claude-planned edit, silently and with different cut behaviour.
+    //
+    // PLANNER_FALLBACK=off disables the second attempt entirely: one engine, and a
+    // clean error if it fails, rather than an edit planned by something you turned off.
+    const fallbackOff = (process.env.PLANNER_FALLBACK || "").trim().toLowerCase() === "off";
+    if (!g.ok && !fallbackOff) {
       const other = plannedBy === "claude" ? "gemini" : "claude";
       const canFallBack = other === "gemini" ? !!GKEY : !!AKEY;
       if (canFallBack) {
@@ -317,6 +326,8 @@ export default async function handler(req, res) {
         g = other === "gemini" ? await runGemini() : await runClaude();
         if (g.ok) plannedBy = other;
       }
+    } else if (!g.ok) {
+      console.warn("[plan] " + plannedBy + " failed (" + g.error + ") — fallback disabled, not retrying on the other engine");
     }
     if (!g.ok) {
       return res.status(502).json({ error: g.error });
