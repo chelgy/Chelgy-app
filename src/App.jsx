@@ -4988,6 +4988,19 @@ function EditReview({ review, onCancel, onRender }){
 // Deepgram transcript → Gemini edit plan → Creatomate render.
 // ============================================================================
 function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{}, lutMedia={} }){
+  // Generated transitions, kept for the life of this screen.
+  //
+  // A bridge shot is deterministic — same two clips, same cut point, same settings
+  // produce the same result — but it is also the single most expensive thing the tool
+  // buys, several dollars of real money per transition against a few cents for
+  // everything else. Without this, someone who hits Generate again after a failure pays
+  // for all of them a second time, and so do we. A run of retries could spend a
+  // hundred dollars of real cost in an afternoon while the membership fee stays the
+  // same, which is the version of this that doesn't survive a million customers.
+  //
+  // A ref rather than state on purpose: reusing a cached bridge must not trigger a
+  // re-render, and it should survive every re-render in between.
+  const transitionCache = useRef(new Map());
   const [style,setStyle]           = useState("talkinghead");
   const [mode,setMode]             = useState("edit");     // "edit" = I have footage · "script" = write my script first
   const [scTopic,setScTopic]       = useState("");
@@ -5697,6 +5710,21 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         for(let nn=0; nn<points.length; nn++){
           const p = points[nn];
           const a = segs[p.after], b = segs[p.after+1];
+          // Identify this bridge by the FOOTAGE and the cut, not by clip index — so
+          // reordering the timeline doesn't invalidate a shot we already paid for.
+          const fp = (ci) => (clips[ci] ? (clips[ci].name + ":" + clips[ci].size) : String(ci));
+          const trKey = fp(a.clip) + "@" + Number(a.e||0).toFixed(2) + ">>" +
+                        fp(b.clip) + "@" + Number(b.s||0).toFixed(2) + "|" +
+                        TRANSITION_RES + "|" + TRANSITION_SECONDS;
+          const cached = transitionCache.current.get(trKey);
+          if(cached){
+            // Reuses the shot already generated for this exact cut. No boundary read,
+            // no generation, no charge — for the customer or for us.
+            transitionClips.push({ after: p.after, trim: cached.trim, url: cached.url });
+            setStage("Transition " + (nn+1) + " of " + points.length + " — reusing the one already made…");
+            continue;
+          }
+
           setStage("Building transition " + (nn+1) + " of " + points.length + " — reading the cut…");
           try{
             const bd = await studioTransition("boundary", {
@@ -5720,6 +5748,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
               "Building transition " + (nn+1) + " of " + points.length + " — " + pct + "%…"));
             if(!url) throw new Error("That transition didn't come back.");
             transitionClips.push({ after: p.after, trim: gen.trimStart || 0, url });
+            // Remember it, so a retry of this edit costs nothing.
+            transitionCache.current.set(trKey, { trim: gen.trimStart || 0, url });
           } catch(e){
             console.warn("transition " + (nn+1) + " skipped:", e && e.message);
           }
@@ -5810,6 +5840,22 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setBusy(false); setStage(""); return;
       }
       setUrl(out);
+      // Save it to the Library automatically, not on a button.
+      //
+      // The finished render lives permanently at renders/<job>/final.mp4 and nothing
+      // deletes it, but until it's in media_library the customer has no way to find it
+      // again — click away before downloading and it's gone as far as they know. An
+      // edit takes minutes and real credits, so losing it to a stray tap is the wrong
+      // failure. Product Studio and UGC already do this; the editor was the gap.
+      //
+      // Failure here is deliberately silent: the video is on screen and downloadable,
+      // so a library write that didn't land is not worth an error message over.
+      try{
+        const label = (outTitle && outTitle.trim())
+          ? outTitle.trim()
+          : (STYLES.find(s=>s.id===style)?.label || "Video") + " — " + new Date().toLocaleDateString();
+        await saveToLibrary(user, "video", label, out);
+      }catch(_){ }
       track("tool_used",{tool:"video_editor",style,grade,clips:doneClips.length,sources:n}); onToolUse("video_editor", COST);
     }catch(e){
       for(const p of cleanup) await deleteSiteObject(p);
@@ -19831,7 +19877,10 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
             <div style={{paddingTop:28,maxWidth:1100,margin:"0 auto",paddingLeft:20,paddingRight:20}}>
               <div style={{width:24,height:1,background:B.gold,marginBottom:16}} />
               <h2 style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:24,fontWeight:400,margin:"0 0 6px",color:B.charcoal}}>My Library</h2>
-              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,margin:"0 0 20px",lineHeight:1.6}}>Everything you've saved — logos, flyers, images and videos — all in one place. Tap ♥ Save to Library on any creation to keep it here.</p>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,margin:"0 0 20px",lineHeight:1.6}}>Everything you've saved — logos, flyers, images and videos — all in one place. Videos you edit are saved here automatically; tap ♥ Save to Library on anything else to keep it.</p>
+              {/* Say the window plainly. Deleting a customer's video is only acceptable
+                  if they were told, in the place they'd look for it, before it happens. */}
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,margin:"-12px 0 20px",lineHeight:1.6,paddingLeft:10,borderLeft:"2px solid "+B.stone}}>Images stay in your Library indefinitely. <strong>Finished videos are kept for 60 days</strong> — download anything you want to keep permanently.</p>
               <button onClick={refreshLibrary} style={{background:"none",border:"1px solid "+B.stone,padding:"7px 14px",fontSize:9,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:"pointer",color:B.mid,textTransform:"uppercase",marginBottom:20}}>↻ Refresh</button>
               {libLoading?(
                 <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"40px",textAlign:"center",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid}}>Loading your library...</div>
