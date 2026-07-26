@@ -5190,6 +5190,17 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Don't add the same file twice if she picks the folder again.
       const seen = new Set(prev.map(c => c.name + ":" + c.size));
       const next = prev.concat(added.filter(c => !seen.has(c.name + ":" + c.size)));
+      // A finished edit can never be LONGER than the footage it came from, so if the
+      // total source comfortably fits the render ceiling there is nothing to warn
+      // about. If it doesn't, say so now — before a 346MB upload and a transcription
+      // that ends in "too long". Only a warning, never a block: a 41-minute source
+      // often cuts down to well under the limit.
+      const srcTotal = next.reduce((t,c)=>t+(Number(c.dur)||0),0);
+      if(srcTotal > MAX_EDIT_SECONDS){
+        setNotice("Your footage is about "+Math.round(srcTotal/60)+" minutes. The longest finished edit we can render in one pass is "+
+                  Math.round(MAX_EDIT_SECONDS/60)+" minutes — a tight cut may well come in under that, but if it doesn't you'll be asked to split the footage. Nothing is charged either way.");
+      }
+
       // Match the output to the footage, using the FIRST clip that reported a real
       // frame size — that's the one whose framing the edit follows. Only ever on the
       // first import, and never once the person has chosen for themselves.
@@ -8298,6 +8309,11 @@ const ADMIN_PASSWORD = "chelochelo1";
 // cards and product labels: turning that off to lose the title would have taken
 // those with it.
 const TITLES_ENABLED = false;
+
+// Mirrors MAX_OUT_SECONDS in api/studio-ffmpeg.js. Kept here only to warn EARLY, before
+// a long upload — the server is still the one that enforces it. If you change one,
+// change the other.
+const MAX_EDIT_SECONDS = 2700;
 
 const CREDIT_COSTS = {
   image: 120,      // Standard — Nano Banana (Gemini 2.5 Flash Image) ~$0.039

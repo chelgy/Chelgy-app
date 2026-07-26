@@ -35,7 +35,19 @@ const PER_CLIP_COST = 250;   // each clip past the first — must match CREDIT_C
 // the edit still runs. Rolling it into the render charge would mean one number
 // covering two purchases with two different failure modes.
 const MAX_CLIPS = 40;        // sanity bound; the real limit is upload time
-const MAX_OUT_SECONDS = 900;
+// 2700s = 45 minutes of FINISHED edit (not source). Was 900 — fifteen minutes — which
+// had become the binding limit on the whole tool: the planner now reads ~85 minutes of
+// transcript, so a 41-minute vlog was being transcribed and planned and only then told
+// it was too long.
+//
+// The weak link at this length is the audio track, not the video. Chunks render in
+// parallel across the pod fleet and the join is a copy, but the audio is built piece by
+// piece, each one its own remote seek into the source — so a long edit means hundreds of
+// them in sequence. That path now retries and fails loudly instead of silently
+// substituting silence, which is what makes raising this defensible at all. If long
+// edits start erroring on audio, the fix is downloading each clip once rather than
+// lowering this back.
+const MAX_OUT_SECONDS = 2700;
 
 async function getUserId(token) {
   if (!token) return null;
@@ -297,7 +309,10 @@ export default async function handler(req, res) {
 
     const outSeconds = keep.reduce((a, k) => a + Math.max(0, (Number(k.e) || 0) - (Number(k.s) || 0)), 0);
     if (outSeconds < 1) return res.status(400).json({ error: "The edit came out too short." });
-    if (outSeconds > MAX_OUT_SECONDS) return res.status(400).json({ error: "That edit is longer than we support right now." });
+    if (outSeconds > MAX_OUT_SECONDS) return res.status(400).json({
+      error: "This edit would come out at " + Math.round(outSeconds / 60) + " minutes, and the longest we can render in one pass is " +
+             Math.round(MAX_OUT_SECONDS / 60) + ". Split the footage into parts and edit them separately. You haven't been charged."
+    });
 
     // Cost scales with clip count: every extra clip is its own audio extraction,
     // its own transcription and its own set of cuts on the render box. This MUST
