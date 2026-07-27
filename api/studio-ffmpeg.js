@@ -11,7 +11,7 @@
 //   status: { id }
 //
 // footage: "sony" | "canon" | "standard" | "none"   (which LUT chain to run)
-// look:    "wolf" | "luxury"                         (which film-look LUT)
+// look:    one of LOOKS below                       (which film-look LUT)
 //
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET,
 //               SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
@@ -247,7 +247,13 @@ export default async function handler(req, res) {
     const orientation = body.orientation === "landscape" ? "landscape" : "portrait";
     const style = ["vlog", "tutorial", "cinematic"].includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
-    const look = body.look === "luxury" ? "luxury" : "wolf";
+    // Every look the render server has a .cube for. This list MUST stay in step with
+    // LOOK_FILES in the render server's render.js — it was left at just wolf/luxury
+    // when the grade system went from two looks to nine, so the seven newer ids were
+    // silently rewritten to "wolf" here and never reached the render box at all. The
+    // customer picked Editorial and got Golden Hour, with no error anywhere.
+    const LOOKS = ["wolf", "luxury", "kodak6", "kodak7", "movie3", "movie5", "screen2", "screen3", "timeless"];
+    const look = LOOKS.includes(body.look) ? body.look : "wolf";
     const rawDuration = Number(body.rawDuration) || 0;
 
     // Scene cards and b-roll cues. Both arrive as { clip, s, ... } clip-local, the

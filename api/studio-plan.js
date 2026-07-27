@@ -150,6 +150,74 @@ async function callClaude(AKEY, { system, content }) {
   return { ok: false, error: lastErr };
 }
 
+// ── The activity track, in a form a model can actually USE ───────────────────
+//
+// This used to be handed over as one comma-separated digit per second — six hundred
+// of them for a ten-minute video, with no timestamps anywhere, prefixed only by
+// "second 0 first". To act on it the model had to COUNT COMMAS to work out which
+// second a value belonged to, which language models are famously unreliable at.
+//
+// Meanwhile every word in the transcript arrives with an exact start and end. So the
+// only thing the planner could anchor a keep range to with any confidence was SPEECH
+// — and silent footage (eating, walking, driving, showing something) fell out of
+// every edit no matter how firmly the rules below insisted on keeping it. The rules
+// were never the problem; they described a judgement the model had no way to locate
+// in time.
+//
+// Run-length encoded into labelled spans, "keep 41-78s" becomes something it can read
+// straight off a line instead of deducing. Same data, same measurement — addressable.
+//
+// -1 means UNMEASURED, not idle. See the note where it is emitted below.
+function activitySpans(activity) {
+  const raw = (Array.isArray(activity) ? activity : []).map((v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return -1;
+    return n < 0 ? -1 : Math.min(9, Math.round(n));
+  });
+  if (!raw.length) return "";
+
+  // Median-of-3 smoothing. One flickering second is measurement noise rather than a
+  // change in what is happening, and without this the encoding shatters into hundreds
+  // of one-second spans — no more readable than the digits were. Unmeasured seconds
+  // are never smoothed into or out of, so a gap stays exactly as wide as it really is.
+  const sm = raw.map((v, i) => {
+    if (v < 0) return -1;
+    const w = [raw[i - 1], v, raw[i + 1]].filter((x) => typeof x === "number" && x >= 0).sort((x, y) => x - y);
+    return w.length ? w[Math.floor(w.length / 2)] : v;
+  });
+
+  const band = (v) =>
+    v < 0 ? "UNMEASURED" :
+    v <= 1 ? "still" :
+    v <= 3 ? "incidental" :
+    v <= 6 ? "ACTION" : "STRONG ACTION";
+
+  const rows = [];
+  let start = 0;
+  for (let i = 1; i <= sm.length; i++) {
+    if (i === sm.length || band(sm[i]) !== band(sm[start])) {
+      const slice = raw.slice(start, i).filter((v) => v >= 0);
+      const peak = slice.length ? Math.max(...slice) : -1;
+      const b = band(sm[start]);
+      const last = rows[rows.length - 1];
+      // Absorb sub-2s slivers into the run before them — at one value per second a
+      // single-second dip is not a real change of state. Never absorb across an
+      // UNMEASURED boundary: that distinction is the whole point of the sentinel.
+      if (last && i - start < 2 && last.band !== "UNMEASURED" && b !== "UNMEASURED") {
+        last.e = i;
+        last.peak = Math.max(last.peak, peak);
+      } else {
+        rows.push({ s: start, e: i, band: b, peak });
+      }
+      start = i;
+    }
+  }
+
+  return rows
+    .map((r) => r.s + "-" + r.e + "s: " + r.band + (r.peak >= 0 ? " (peak " + r.peak + ")" : ""))
+    .join("\n");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -230,7 +298,7 @@ export default async function handler(req, res) {
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
         "- The TRANSCRIPT below, as usual. This is the stronger of the two signals: if someone is talking, that moment matters.\n" +
-        "- An ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 means genuinely nothing is moving — an empty counter, an abandoned tripod, someone out of frame. 4-6 is a person working within a fixed shot: hands chopping, wiping, folding, assembling. 7-9 is large movement — the camera moving, or something carried across the frame: hands working, something being assembled, chopped, wiped, folded, poured.\n" +
+        "- An ACTIVITY TRACK: how much of the picture is moving, measured from the footage itself, given above as timestamped spans with a peak value of 0 to 9. still means genuinely nothing is moving — an empty counter, an abandoned tripod, someone out of frame. ACTION (4-6) is a person working within a fixed shot: hands chopping, wiping, folding, assembling. STRONG ACTION (7-9) is large movement — the camera moving, or something carried across the frame. The span times are on the same timeline as the word timings, so an ACTION span is a keep range you can quote directly. UNMEASURED means the read failed for that stretch, NOT that nothing happened — keep those unless speech says otherwise.\n" +
         "\n" +
         "THE RULE THAT MATTERS: silence is NOT dead air in this video. A silent stretch with HIGH activity is the most valuable footage there is — it is the actual work being done, and it must be KEPT even though nobody is speaking over it. A silent stretch with activity at or near 0 is genuinely dead and should go.\n" +
         "\n" +
@@ -254,7 +322,9 @@ export default async function handler(req, res) {
     // edit on speech alone and threw away the doing.
     const activityPreamble =
         "\nTHE ACTIVITY TRACK — THESE RULES OVERRIDE THE PACING RULES ABOVE WHERE THEY CONFLICT:\n" +
-        "You ALSO have an ACTIVITY TRACK: one number per second of the video, 0 to 9, measured from the footage itself. 0 is nothing moving; 7-9 is a lot of motion.\n" +
+        "You ALSO have an ACTIVITY TRACK: how much of the picture is moving, measured from the footage itself, given above as timestamped spans with a peak value of 0 to 9. still/incidental are low; ACTION and STRONG ACTION are the person genuinely doing something.\n" +
+        "- Those span times are on the same timeline as the word timings, so an ACTION span is a keep range you can quote directly. Do not go looking for words to justify it — the span IS the justification.\n" +
+        "- UNMEASURED means the motion read failed for that stretch of footage. It does NOT mean nothing happened there. Judge those spans on speech and context alone and lean towards KEEPING them; never cut footage merely because it is unmeasured.\n" +
         "- Silence is NOT automatically dead air. A quiet stretch with activity 4 or above is the person DOING something — cooking, training, showing, making — and in this kind of video that is the most valuable footage there is. KEEP it.\n" +
         "- SPOKEN CONTEXT BEATS THE NUMBER. When the speech names an activity, the silent footage next to it IS that activity, and the words tell you what you are looking at. Keep it even at moderate activity, because you know what it is.\n" +
         "  Look in all three directions, not just forwards:\n" +
@@ -312,8 +382,13 @@ export default async function handler(req, res) {
       "Below is the transcript as word|startSeconds|endSeconds lines. Total length: " + duration + "s.\n" +
       (frame ? "A still frame from the footage is attached — use it ONLY for the color analysis below.\n" : "") +
       (activity && activity.length
-        ? ("\nACTIVITY TRACK — one value per second, second 0 first, 0 = nothing moving, 9 = a lot:\n" +
-           activity.join(",") + "\n")
+        ? ("\nACTIVITY TRACK — measured from the footage itself, one reading per second, " +
+           "collapsed into spans. Times are seconds on the ORIGINAL timeline, the same " +
+           "scale as the word timings above, so you can quote them directly in `keep`.\n" +
+           "Bands: still = nothing moving · incidental = a hand shifting or the camera " +
+           "drifting · ACTION = the person genuinely doing something · STRONG ACTION = a lot " +
+           "of movement. `peak` is the highest reading inside that span, 0-9.\n" +
+           activitySpans(activity) + "\n")
         : "") +
       "\n" + cutRules +
       "- Segments must be in chronological order, non-overlapping, within 0.." + duration + ".\n\n" +

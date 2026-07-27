@@ -5537,17 +5537,22 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const offsets = clipOffsets(clips);
       const globalWords = mergeClipWords(perClipWords, offsets);
       // The activity track onto the same global timeline the planner reads. One value
-      // per second, clips end to end, gaps left as 0 — a clip we couldn't measure
-      // reads as "nothing happening", which is the safe way to be wrong: the planner
-      // falls back to the transcript for that stretch instead of keeping dead footage.
-      // ONLY when we genuinely measured something. An array of zeros is not "no
-      // data" to the planner — it reads as "nothing happened for eleven minutes",
-      // and the rules say to cut that. An 11-minute cooking video came back as 17
-      // seconds of the finished dish because of exactly this. Missing data must look
-      // missing.
+      // per second, clips end to end.
+      //
+      // Unmeasured seconds are -1, NOT 0, and the difference is the whole point. An
+      // array of zeros is not "no data" to the planner — 0 means "measured, and
+      // nothing was moving", which the rules tell it to cut. So a clip whose motion
+      // read failed used to arrive as an unbroken run of zeros and get deleted from
+      // the edit wholesale: an 11-minute cooking video came back as 17 seconds of the
+      // finished dish. Note `haveActivity` is a .some(), so one failed clip among
+      // several does not turn the track off — it just quietly condemned that clip.
+      //
+      // -1 is rendered to the planner as UNMEASURED with instructions to judge that
+      // stretch on speech and keep it unless the words say otherwise. Missing data
+      // has to LOOK missing.
       const globalActivity = (wantsActivity && haveActivity) ? (()=>{
         const total = Math.max(1, Math.ceil(totalDur));
-        const out = new Array(total).fill(0);
+        const out = new Array(total).fill(-1);
         for(let ci=0; ci<perClipActivity.length; ci++){
           const arr = perClipActivity[ci];
           if(!Array.isArray(arr)) continue;
