@@ -24,7 +24,9 @@
 
 export const maxDuration = 120;
 
-export const config = { api: { bodyParser: { sizeLimit: "25mb" } } }; // 24 small frames
+// No bodyParser config: these are plain Vercel Node functions, not Next.js routes, so
+// `export const config = { api: { bodyParser } }` would be silently ignored. The real
+// ceiling is Vercel's request limit — 24 frames at 512px/q0.6 land near 1MB, well under.
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
@@ -124,6 +126,7 @@ export default async function handler(req, res) {
                   : "- This is a WIDE thumbnail. Favour frames that hold up cropped to 16:9.\n") +
         "\nAvoid: motion blur, the back of someone's head, transition frames, anything where the main subject is cut off at the edge, and near-identical frames — the three should be genuinely DIFFERENT moments, not three from the same two seconds.\n" +
         "\nFor each pick also write a headline: at most 6 words, title case, no full stop, no emoji, no ALL CAPS, no clickbait phrasing like 'you won't believe'. It should read like a magazine cover line — confident and specific. If the video has a title, draw on it rather than restating it word for word.\n" +
+        "\nKeep 'why' to a handful of words — it is a note to the person, not an essay.\n" +
         "\nAlso write one short 'space' value per pick saying where the headline should sit: \"lower\" if the bottom of the frame is clear, \"upper\" if the top is clearer.\n" +
         "\nRespond with ONLY this JSON, nothing else:\n" +
         '{"picks":[{"t":number,"headline":"string","space":"lower|upper","why":"string"}]}'
@@ -131,14 +134,26 @@ export default async function handler(req, res) {
 
     const out = await callGemini(GKEY, {
       contents: [{ parts }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.4, maxOutputTokens: 1024 }
+      // 1024 was too tight. Current Gemini models can spend output budget on reasoning
+      // before they emit anything, so a ceiling sized to the visible answer gets hit
+      // mid-object and returns JSON that ends in the middle of a string — which reads
+      // downstream as "the model declined" when it actually just ran out of room.
+      generationConfig: { responseMimeType: "application/json", temperature: 0.4, maxOutputTokens: 4096 }
     });
     if (!out.ok) return res.status(502).json({ error: out.error });
 
     let parsed = null;
-    try { parsed = JSON.parse(String(out.text).replace(/```json|```/g, "").trim()); } catch {}
+    try { parsed = JSON.parse(String(out.text).replace(/```json|```/g, "").trim()); } catch (e) {
+      // Logged, not swallowed. The usual cause is a response truncated by
+      // maxOutputTokens mid-object, which produces unparseable JSON and is otherwise
+      // indistinguishable from the model simply declining. Seeing the tail tells them
+      // apart instantly.
+      console.error("[thumbnail] unparseable model output (" + String(out.text || "").length +
+                    " chars), tail: " + String(out.text || "").slice(-200));
+    }
     if (!parsed || !Array.isArray(parsed.picks)) {
-      return res.status(502).json({ error: "Couldn't choose a thumbnail from that video. Try again." });
+      console.error("[thumbnail] no picks in model output; falling back to spread frames");
+      parsed = { picks: [] };
     }
 
     // Snap each returned time back to a frame we actually sampled. The model reads the
@@ -172,7 +187,30 @@ export default async function handler(req, res) {
       .filter(Boolean)
       .slice(0, 3);
 
-    if (!picks.length) return res.status(502).json({ error: "Couldn't choose a thumbnail from that video. Try again." });
+    // If the model gave nothing usable, DON'T fail — fall back to three frames spread
+    // across the video and let the person write their own line.
+    //
+    // A hard failure here is the wrong trade. The picking is a nicety; the pipeline
+    // underneath (full-resolution extraction, restaging, typesetting) works perfectly
+    // well on any frame, and the copy is editable for free by design. Sending back
+    // "try again" throws away a working thumbnail because the nice-to-have part of the
+    // job was declined — and the person has already been charged for the set.
+    if (!picks.length) {
+      const spread = [0.25, 0.55, 0.8]
+        .map((f) => times[Math.min(times.length - 1, Math.max(0, Math.round((times.length - 1) * f)))])
+        .filter((t, i, a) => a.indexOf(t) === i);
+      return res.status(200).json({
+        picks: spread.map((t) => ({
+          t,
+          lead: title ? "A look at" : "",
+          hero: title ? title.split(/\s+/).slice(0, 2).join(" ").toUpperCase().slice(0, 18) : "STORY",
+          sub: "",
+          space: "lower",
+          why: "Chosen by position — edit the words to suit"
+        })),
+        fallback: true
+      });
+    }
 
     return res.status(200).json({ picks });
   } catch (e) {
