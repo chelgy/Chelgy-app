@@ -49,6 +49,7 @@ const CA_NAV_LABELS = {
   "tools/manager": "Business Manager",
   "tools/video": "AI Video Studio",
   "tools/videoeditor": "AI Video Editor",
+  "tools/thumbnail": "Thumbnail Studio",
   "tools/getfeatured": "Podcasts",
   "tools/presspitch": "Press",
   "tools/restage": "Fake It",
@@ -134,7 +135,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -6356,6 +6357,488 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // ============================================================================
 // GET FEATURED — find podcasts in your niche, and pitch them properly.
 // ============================================================================
+// ─── THUMBNAILS: PULL ONE FRAME AT FULL RESOLUTION ───────────────────────────
+// sampleVideoFrames above deliberately runs small and lossy — it exists so a model
+// can CHOOSE a moment, and 512px at quality 0.6 is plenty for that. It is not enough
+// to build a thumbnail from. Once a moment is chosen this re-reads that exact second
+// from the source at native size.
+//
+// crossOrigin is set because the video may be a finished render on Supabase rather
+// than a local file. Without it the canvas is tainted and toDataURL throws a security
+// error instead of returning pixels — which looks like a broken feature rather than a
+// CORS setting. A locally chosen file is same-origin and unaffected either way.
+async function extractFrameAt(url, t, maxW){
+  return new Promise((resolve, reject)=>{
+    const v = document.createElement("video");
+    v.crossOrigin = "anonymous";
+    v.preload = "auto"; v.muted = true; v.playsInline = true;
+    const bail = setTimeout(()=>reject(new Error("Timed out reading that moment.")), 25000);
+    const done = (fn)=>{ clearTimeout(bail); fn(); };
+    v.onloadedmetadata = ()=>{
+      try{ v.currentTime = Math.max(0, Math.min(Number(t)||0, (v.duration||1) - 0.05)); }
+      catch(_){ done(()=>reject(new Error("Couldn't seek that video."))); }
+    };
+    v.onseeked = ()=>{
+      try{
+        const nw = v.videoWidth||1280, nh = v.videoHeight||720;
+        const w = Math.min(maxW||1600, nw);
+        const h = Math.round(w * nh / nw);
+        const c = document.createElement("canvas"); c.width=w; c.height=h;
+        c.getContext("2d").drawImage(v,0,0,w,h);
+        done(()=>resolve(c.toDataURL("image/jpeg", 0.92)));
+      }catch(e){
+        done(()=>reject(new Error("This video won't allow frames to be read in the browser.")));
+      }
+    };
+    v.onerror = ()=>done(()=>reject(new Error("Couldn't open that video.")));
+    v.src = url;
+  });
+}
+
+// ─── THUMBNAILS: SET THE TYPE OVER THE PICTURE ───────────────────────────────
+// The single most important decision in this feature. Image models render text badly
+// and always will — malformed letters, invented words, broken kerning — and a
+// premium thumbnail is the worst possible place for it to show. So the model never
+// draws a word: it picks the moment and writes the copy, and the type is set here in
+// real fonts on a canvas. Editing a headline afterwards is free, because nothing has
+// to be regenerated — it just redraws.
+//
+// THE LOOK IS DIDONE, AND THAT IS THE WHOLE POINT.
+// This was first built in Outfit, the app's geometric sans, and it looked like clean
+// software rather than a magazine. Vogue, Porter, Harper's and the rest all sit on a
+// Didone — extreme contrast between hairline thins and heavy thicks — and swapping
+// the typeface does more for the feel than any amount of layout work. Bodoni Moda is
+// the closest true Didone on Google Fonts and was already in this codebase for one of
+// the site themes.
+//
+// The other borrowed conventions:
+//  · The line SPLITS. A small italic lead-in, then one enormous hero word. "All in
+//    the" then DETAILS. The violence of that size jump is what reads as editorial;
+//    one evenly-sized headline never will.
+//  · The hero word is tracked out in caps. Tracking is drawn per character rather
+//    than with ctx.letterSpacing, which is too new to rely on in every browser.
+//  · Barely any scrim. Real covers have none at all — but they are art-directed and a
+//    frame grabbed out of a vlog is not, so there is a light gradient as insurance.
+//    Much lighter than a caption bar: it should read as a photograph with type on it.
+let _edFontPromise = null;
+function ensureEditorialFont(){
+  if(_edFontPromise) return _edFontPromise;
+  _edFontPromise = (async ()=>{
+    try{
+      if(!document.getElementById("cg-bodoni")){
+        const l = document.createElement("link");
+        l.id = "cg-bodoni"; l.rel = "stylesheet";
+        l.href = "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400;1,6..96,500&display=swap";
+        document.head.appendChild(l);
+      }
+      // A font declared in CSS but never used in the DOM is not downloaded, so
+      // document.fonts.ready alone would resolve without it and the canvas would
+      // silently fall back to Georgia. Each weight and style has to be asked for.
+      if(document.fonts && document.fonts.load){
+        await Promise.all([
+          document.fonts.load("400 96px 'Bodoni Moda'"),
+          document.fonts.load("500 96px 'Bodoni Moda'"),
+          document.fonts.load("italic 400 96px 'Bodoni Moda'")
+        ]);
+      }
+      if(document.fonts && document.fonts.ready) await document.fonts.ready;
+    }catch(_){}
+  })();
+  return _edFontPromise;
+}
+const ED_SERIF = "'Bodoni Moda', Didot, 'Playfair Display', Georgia, serif";
+
+function wrapLines(ctx, text, maxW, maxLines){
+  const words = String(text||"").split(/\s+/).filter(Boolean);
+  const lines = []; let line = "";
+  for(const w of words){
+    const test = line ? line + " " + w : w;
+    if(ctx.measureText(test).width <= maxW || !line) line = test;
+    else { lines.push(line); line = w; if(lines.length >= maxLines) break; }
+  }
+  if(line && lines.length < maxLines) lines.push(line);
+  return lines;
+}
+// Letter-spacing drawn by hand. ctx.letterSpacing exists but is recent enough that
+// relying on it would give some people tracked caps and others a tight mess.
+function trackedWidth(ctx, text, track){
+  let w = 0;
+  for(const ch of String(text)) w += ctx.measureText(ch).width + track;
+  return w - track;
+}
+function drawTracked(ctx, text, x, y, track){
+  let cx = x;
+  for(const ch of String(text)){
+    ctx.fillText(ch, cx, y);
+    cx += ctx.measureText(ch).width + track;
+  }
+}
+async function composeThumbnail(baseSrc, o){
+  const opt = o || {};
+  await ensureEditorialFont();
+  const img = await new Promise((res,rej)=>{
+    const i = new Image(); i.crossOrigin = "anonymous";
+    i.onload = ()=>res(i); i.onerror = ()=>rej(new Error("Couldn't load that image."));
+    i.src = baseSrc;
+  });
+  const W = Math.max(320, Math.round(opt.width || 1280));
+  const H = Math.max(320, Math.round(opt.height || 720));
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d");
+
+  // Cover-fit, centred: never letterbox a thumbnail. A black bar reads as a mistake.
+  const s = Math.max(W / img.width, H / img.height);
+  const dw = img.width * s, dh = img.height * s;
+  g.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+
+  const upper = opt.space === "upper";
+  const centered = opt.layout !== "left";
+  const base = Math.min(W, H);
+  const pad = Math.round(W * 0.06);
+  const maxW = W - pad * 2;
+
+  // Insurance, not a caption bar. Tops out well below half opacity so the frame still
+  // reads as a photograph.
+  const grad = upper
+    ? g.createLinearGradient(0, 0, 0, H * 0.55)
+    : g.createLinearGradient(0, H * 0.45, 0, H);
+  grad.addColorStop(upper ? 0 : 0, upper ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)");
+  grad.addColorStop(1, upper ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.44)");
+  g.fillStyle = grad;
+  g.fillRect(0, upper ? 0 : H * 0.45, W, H * 0.55);
+
+  const lead = String(opt.lead || "").trim();
+  const hero = String(opt.hero || "").trim().toUpperCase();
+  const sub  = String(opt.sub  || "").trim();
+
+  const leadSize = Math.round(base * (opt.aspect === "9:16" ? 0.052 : 0.062));
+  let heroSize   = Math.round(base * (opt.aspect === "9:16" ? 0.105 : 0.135));
+  const subSize  = Math.round(base * 0.026);
+  const track    = () => heroSize * 0.075;
+
+  // Shrink the hero until it fits on at most two lines. Losing size is always better
+  // than losing words off the end of a cover line.
+  const heroFont = (px)=> "500 " + px + "px " + ED_SERIF;
+  g.font = heroFont(heroSize);
+  let heroLines = wrapLines(g, hero, maxW - track(), 2);
+  let guard = 0;
+  while(guard++ < 30){
+    g.font = heroFont(heroSize);
+    heroLines = wrapLines(g, hero, maxW - track(), 2);
+    const widest = heroLines.reduce((m,l)=>Math.max(m, trackedWidth(g, l, track())), 0);
+    if(widest <= maxW && heroLines.length <= 2) break;
+    if(heroSize <= base * 0.055) break;
+    heroSize = Math.round(heroSize * 0.93);
+  }
+
+  // Then GROW it to fill the measure. This is the step that separates a cover from
+  // text-on-a-photo: on a real magazine the hero word spans nearly the full width,
+  // and a short word like DETAILS left at its default size sits at about 40% of the
+  // measure and reads as a caption. Scaling to the measure means the word is as large
+  // as the frame allows regardless of how many letters it happens to have — which is
+  // exactly what a picture editor would do by hand.
+  if(heroLines.length === 1 && hero){
+    g.font = heroFont(heroSize);
+    const w = trackedWidth(g, heroLines[0], track());
+    if(w > 0){
+      const target = maxW * 0.94;
+      // Capped against the short edge so one short word on a tall frame doesn't
+      // become a wall of letters.
+      const ceiling = Math.round(base * (opt.aspect === "9:16" ? 0.20 : 0.26));
+      const grown = Math.min(ceiling, Math.round(heroSize * (target / w)));
+      if(grown > heroSize){
+        heroSize = grown;
+        g.font = heroFont(heroSize);
+        // Re-check: growing can push it past the measure once tracking is re-applied.
+        let g2 = 0;
+        while(trackedWidth(g, heroLines[0], track()) > maxW && g2++ < 20){
+          heroSize = Math.round(heroSize * 0.97);
+          g.font = heroFont(heroSize);
+        }
+      }
+    }
+  }
+
+  const heroLH = Math.round(heroSize * 1.0);
+  const leadGap = lead ? Math.round(leadSize * 1.25) : 0;
+  const subGap  = sub ? Math.round(subSize * 2.6) : 0;
+  const blockH = leadGap + heroLines.length * heroLH + subGap;
+
+  let y = upper ? pad + leadSize : H - pad - blockH + leadGap + heroSize * 0.86;
+  if(!upper) y = H - pad - (heroLines.length - 1) * heroLH - subGap - Math.round(heroSize * 0.08);
+  const startY = upper ? pad + leadGap + heroSize * 0.86 : y;
+
+  g.textBaseline = "alphabetic";
+  g.shadowColor = "rgba(0,0,0,0.42)";
+  g.shadowBlur = Math.round(base * 0.022);
+  g.shadowOffsetY = Math.round(base * 0.003);
+  g.fillStyle = "#FFFFFF";
+
+  // Lead-in: italic, small, sitting directly on top of the hero word.
+  if(lead){
+    g.font = "italic 400 " + leadSize + "px " + ED_SERIF;
+    const lw = g.measureText(lead).width;
+    const lx = centered ? Math.round((W - lw) / 2) : pad;
+    g.fillText(lead, lx, startY - heroSize * 0.86 - Math.round(leadSize * 0.35));
+  }
+
+  // Hero: caps, tracked, as large as it will go.
+  g.font = heroFont(heroSize);
+  let hy = startY;
+  for(const ln of heroLines){
+    const w = trackedWidth(g, ln, track());
+    const x = centered ? Math.round((W - w) / 2) : pad;
+    drawTracked(g, ln, x, hy, track());
+    hy += heroLH;
+  }
+
+  // Sub: one quiet line, the way a cover carries a standfirst.
+  if(sub){
+    g.font = "400 " + subSize + "px Jost, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+    const sw = trackedWidth(g, sub, subSize * 0.04);
+    const sx = centered ? Math.round((W - sw) / 2) : pad;
+    drawTracked(g, sub, sx, hy - heroLH + Math.round(subSize * 2.5), subSize * 0.04);
+  }
+
+  g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
+  return c.toDataURL("image/jpeg", 0.92);
+}
+
+// ─── THUMBNAIL STUDIO ────────────────────────────────────────────────────────
+// Three magazine-style thumbnails from a video: one built on a real moment out of the
+// footage, two restaged through the Fake It engine so the same person appears in an
+// editorial setup that was never filmed.
+//
+// Deliberately NOT welded to the editor. It takes any video file, so it works for
+// someone who cut their video somewhere else entirely — which is most people. The
+// editor simply hands it a finished render when you come from that direction.
+function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null, prefill=null, onPrefillDone=()=>{} }){
+  const [file, setFile] = useState(null);
+  const [vurl, setVurl] = useState("");
+  const [vname, setVname] = useState("");
+  const [dur, setDur] = useState(0);
+  const [aspect, setAspect] = useState("16:9");
+  const [topic, setTopic] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState("");
+  const [err, setErr] = useState("");
+  const [shots, setShots] = useState([]);   // [{base, out, headline, kicker, space, kind, t}]
+  const [sel, setSel] = useState(0);
+  const objUrl = useRef("");
+
+  const COST = CREDIT_COSTS.editorThumbnails;
+  const dims = aspect === "9:16" ? { w:1080, h:1920 } : { w:1280, h:720 };
+
+  useEffect(()=>{ ensureEditorialFont(); }, []);
+  useEffect(()=>()=>{ try{ if(objUrl.current) URL.revokeObjectURL(objUrl.current); }catch(_){} }, []);
+
+  // Arriving from the editor with a finished render. The URL is remote rather than a
+  // local file, which is why extractFrameAt sets crossOrigin.
+  useEffect(()=>{
+    if(!prefill || prefill.tool !== "thumbnail") return;
+    const d = prefill.data || {};
+    if(d.videoUrl){
+      setVurl(d.videoUrl); setVname(d.name || "your video");
+      setDur(Number(d.dur)||0);
+      if(d.aspect) setAspect(d.aspect === "9:16" ? "9:16" : "16:9");
+      if(d.title) setTopic(String(d.title).slice(0,300));
+    }
+    onPrefillDone();
+  }, [prefill]);
+
+  async function pick(f){
+    if(!f) return;
+    setErr(""); setShots([]);
+    try{ if(objUrl.current) URL.revokeObjectURL(objUrl.current); }catch(_){}
+    const u = URL.createObjectURL(f);
+    objUrl.current = u;
+    setFile(f); setVurl(u); setVname(f.name || "your video");
+    // Read the real dimensions rather than asking — the aspect of the thumbnail should
+    // match the video without anyone having to think about it.
+    try{
+      const meta = await new Promise((res,rej)=>{
+        const v = document.createElement("video");
+        v.preload = "metadata"; v.muted = true;
+        v.onloadedmetadata = ()=>res({ d:v.duration||0, w:v.videoWidth||0, h:v.videoHeight||0 });
+        v.onerror = ()=>rej(new Error("meta"));
+        v.src = u;
+      });
+      setDur(meta.d);
+      setAspect(meta.h > meta.w ? "9:16" : "16:9");
+    }catch(_){ setErr("Couldn't read that video. Try an MP4 or MOV."); }
+  }
+
+  async function make(){
+    if(!vurl){ setErr("Choose a video first."); return; }
+    if(credits < COST){ onBuyCredits(); return; }
+    if(!useCredits("editorThumbnails")) return;
+    setBusy(true); setErr(""); setShots([]); setSel(0);
+    try{
+      setStage("Watching your video for the strongest moments…");
+      const frames = await sampleVideoFrames(vurl, dur || 60, 24);
+      if(frames.length < 2) throw new Error("Couldn't read enough of that video.");
+
+      const tok = await freshToken();
+      const r = await fetch("/api/studio-thumbnail", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({ frames, aspect, topic: topic.trim(), title: topic.trim() })
+      });
+      const d = await r.json();
+      if(!r.ok || !d || !Array.isArray(d.picks) || !d.picks.length) throw new Error((d&&d.error) || "Couldn't choose a thumbnail.");
+
+      // The first pick becomes the real-moment thumbnail. The other two get restaged.
+      // Order matters: the authentic one lands first so it's the default, and so you
+      // can see whether the footage alone was already enough.
+      const built = [];
+      for(let i=0; i<d.picks.length && i<3; i++){
+        const p = d.picks[i];
+        setStage("Pulling the frame at " + p.t + "s at full size…");
+        let base;
+        try{ base = await extractFrameAt(vurl, p.t, aspect==="9:16" ? 1080 : 1600); }
+        catch(e){ if(!built.length) throw e; continue; }
+
+        let out = base, kind = "real";
+        if(i > 0){
+          setStage("Restaging moment " + (i+1) + " as an editorial shot…");
+          try{
+            const m = base.match(/^data:(.*?);base64,(.*)$/);
+            const rr = await fetch("/api/fakeit-restage", {
+              method:"POST",
+              headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+              body: JSON.stringify({
+                mode:"editorial",
+                preset: i === 1 ? "editorial" : "luxury",
+                consent: true,
+                // Short and soft on purpose. The Fake It work established that
+                // over-instructing on identity makes the likeness WORSE, so this
+                // describes the setting and leaves the person alone.
+                scene: "magazine cover portrait, considered light, generous negative space",
+                aspectRatio: aspect,
+                quality: "hd",
+                photos: [{ mimeType: (m && m[1]) || "image/jpeg", data: (m && m[2]) || "" }]
+              })
+            });
+            const rd = await rr.json();
+            if(rr.ok && rd && rd.image){ out = rd.image; kind = "restaged"; }
+          }catch(_){ /* a failed restage falls back to the real frame, never to nothing */ }
+        }
+
+        setStage("Setting the type…");
+        // Alternating the layout across the three so you get a real choice rather than
+        // the same composition three times: centred reads like Porter, left like Vogue.
+        const layout = i === 1 ? "left" : "centered";
+        const copy = { lead: p.lead||"", hero: p.hero||"", sub: p.sub||"", space: p.space, layout };
+        let composed = out;
+        try{ composed = await composeThumbnail(out, { width:dims.w, height:dims.h, aspect, ...copy }); }
+        catch(_){}
+        built.push({ base: out, out: composed, ...copy, kind, t: p.t, why: p.why });
+        setShots(built.slice());
+      }
+      if(!built.length) throw new Error("Couldn't build a thumbnail from that video.");
+      try{ onToolUse && onToolUse("thumbnail"); }catch(_){}
+      setStage("");
+    }catch(e){
+      setErr((e && e.message) || "Something went wrong. Your credits were refunded.");
+      setStage("");
+    }
+    setBusy(false);
+  }
+
+  // Editing the headline redraws the canvas. No model call, no charge — the whole
+  // point of setting the type locally instead of asking a model to draw it.
+  async function retype(i, patch){
+    const next = shots.slice();
+    next[i] = { ...next[i], ...patch };
+    try{
+      next[i].out = await composeThumbnail(next[i].base, {
+        width:dims.w, height:dims.h, aspect,
+        lead:next[i].lead, hero:next[i].hero, sub:next[i].sub, space:next[i].space, layout:next[i].layout
+      });
+    }catch(_){}
+    setShots(next);
+  }
+
+  const cur = shots[sel];
+
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Thumbnail Studio</h2>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 18px",lineHeight:1.6}}>
+        Three magazine-style thumbnails from any video — one from a real moment in your footage, two restaged as editorial shots. Headlines are editable and cost nothing to change.
+      </p>
+
+      <label style={{display:"block",border:"1px dashed "+B.stone,padding:"18px 16px",cursor:busy?"default":"pointer",background:B.white,marginBottom:12}}>
+        <input type="file" accept="video/*" disabled={busy} onChange={e=>pick(e.target.files&&e.target.files[0])} style={{display:"none"}} />
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:vurl?B.charcoal:B.mid}}>
+          {vurl ? (vname + (dur ? " · " + Math.round(dur) + "s · " + aspect : "")) : "Choose a video"}
+        </div>
+      </label>
+
+      <input value={topic} onChange={e=>setTopic(e.target.value)} disabled={busy}
+        placeholder="What's the video about? (optional — sharpens the headlines)"
+        style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"10px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:12}} />
+
+      <button onClick={make} disabled={busy||!vurl}
+        style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"12px 22px",border:"1px solid "+B.charcoal,background:(busy||!vurl)?B.white:B.inkBlock,color:(busy||!vurl)?B.mid:B.inkText,cursor:(busy||!vurl)?"default":"pointer"}}>
+        {busy ? "Working…" : "Create 3 thumbnails · " + COST.toLocaleString() + " credits"}
+      </button>
+
+      {stage && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:12}}>{stage}</p>}
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#8B2F2F",marginTop:12}}>{err}</p>}
+
+      {shots.length>0 && (
+        <div style={{marginTop:22}}>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+            {shots.map((s,i)=>(
+              <button key={i} onClick={()=>setSel(i)}
+                style={{padding:0,border:"2px solid "+(sel===i?B.charcoal:"transparent"),background:"none",cursor:"pointer",lineHeight:0}}>
+                <img src={s.out} alt={"Option "+(i+1)} style={{width:aspect==="9:16"?68:120,display:"block"}} />
+              </button>
+            ))}
+          </div>
+
+          {cur && (
+            <div>
+              <img src={cur.out} alt="Thumbnail" style={{width:"100%",maxWidth:aspect==="9:16"?320:640,display:"block",border:"1px solid "+B.stone}} />
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"8px 0 12px"}}>
+                {cur.kind==="restaged" ? "Restaged editorial" : "Real moment"} · from {cur.t}s{cur.why ? " · " + cur.why : ""}
+              </p>
+
+              <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                <input value={cur.lead} onChange={e=>retype(sel,{lead:e.target.value})}
+                  placeholder="Lead-in — e.g. All in the"
+                  style={{flex:1,minWidth:140,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
+                <input value={cur.hero} onChange={e=>retype(sel,{hero:e.target.value})}
+                  placeholder="Hero word — e.g. DETAILS"
+                  style={{flex:1,minWidth:140,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
+              </div>
+              <input value={cur.sub} onChange={e=>retype(sel,{sub:e.target.value})}
+                placeholder="Line underneath (optional)"
+                style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"8px 10px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:10}} />
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+                <button onClick={()=>retype(sel,{space:cur.space==="lower"?"upper":"lower"})}
+                  style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.06em",textTransform:"uppercase",padding:"8px 14px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,cursor:"pointer"}}>
+                  Text {cur.space==="lower"?"top":"bottom"}
+                </button>
+                <button onClick={()=>retype(sel,{layout:cur.layout==="left"?"centered":"left"})}
+                  style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.06em",textTransform:"uppercase",padding:"8px 14px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,cursor:"pointer"}}>
+                  {cur.layout==="left"?"Centered":"Left aligned"}
+                </button>
+              </div>
+
+              <button onClick={()=>downloadPic(cur.out, "chelgy-thumbnail-"+(sel+1)+".jpg")}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"11px 20px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>
+                Download
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
   const dur = Math.max(1, Number(durationSec) || 1);
   // ~every 2s on short videos; auto-widen so we never exceed maxFrames.
@@ -8128,6 +8611,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
+      {tool==="thumbnail"&&<ThumbnailStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} prefill={prefill} onPrefillDone={onPrefillDone} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -8518,6 +9002,12 @@ const CREDIT_COSTS = {
   editorQuick: 2000,    // AI Video Editor — talking-head Quick Edit, flat (real ~$0.30-0.60, generous margin buffer for a new pipeline)
   editorScript: 100,    // AI Video Editor — write-my-script-first (one LLM call)
   editorShorts: 1500,   // AI Video Editor — viral clips pack (up to 3 vertical clips from one video)
+  editorThumbnails: 900, // Thumbnail Studio — flat for the SET of three, not per option.
+                        // The three cost wildly different amounts to produce: the real-moment
+                        // one is a vision call on 24 tiny frames plus browser canvas work and is
+                        // near-free, the other two are HD image generations. Charging per option
+                        // would mean defending why identically-priced things aren't identical.
+                        // One action, one charge — and 2x imageHD already carries the markup.
   musicScore: 600,      // AI Video Editor — original cinematic score, FLAT per score.
                         // Flat, not per-minute, because Lyria is billed per clip
                         // (~$0.08) regardless of length — the track is looped to fill
@@ -8621,7 +9111,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -8684,7 +9174,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Thumbnails",tool:"thumbnail"}, {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
