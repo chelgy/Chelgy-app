@@ -5727,9 +5727,18 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           // Identify this bridge by the FOOTAGE and the cut, not by clip index — so
           // reordering the timeline doesn't invalidate a shot we already paid for.
           const fp = (ci) => (clips[ci] ? (clips[ci].name + ":" + clips[ci].size) : String(ci));
+          // The footage type is part of the identity of a bridge, not just an input to
+          // it: the boundary frames are converted from camera log before generation, so
+          // the same cut shot in S-Log3 and shot standard produce genuinely different
+          // shots. Without this in the key, changing the footage setting and re-rendering
+          // silently reuses the bridge built under the old one — you fix the setting and
+          // nothing appears to change.
+          const outFt = clipFootages[a.clip] || footage;
+          const inFt  = clipFootages[b.clip] || footage;
           const trKey = fp(a.clip) + "@" + Number(a.e||0).toFixed(2) + ">>" +
                         fp(b.clip) + "@" + Number(b.s||0).toFixed(2) + "|" +
-                        TRANSITION_RES + "|" + TRANSITION_SECONDS;
+                        TRANSITION_RES + "|" + TRANSITION_SECONDS + "|" +
+                        outFt + ">" + inFt;
           const cached = transitionCache.current.get(trKey);
           if(cached){
             // Reuses the shot already generated for this exact cut. No boundary read,
@@ -5742,8 +5751,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           setStage("Building transition " + (nn+1) + " of " + points.length + " — reading the cut…");
           try{
             const bd = await studioTransition("boundary", {
-              outUrl: uploaded[a.clip].url, outEnd: a.e,
-              inUrl:  uploaded[b.clip].url, inStart: b.s
+              outUrl: uploaded[a.clip].url, outEnd: a.e, outFootage: outFt,
+              inUrl:  uploaded[b.clip].url, inStart: b.s, inFootage: inFt
             });
             if(!bd || bd.error || !bd.id) throw new Error(bd && bd.error);
             const frames = await pollBoundary(bd.id);

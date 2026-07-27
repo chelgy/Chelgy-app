@@ -196,6 +196,14 @@ export default async function handler(req, res) {
       if (!/^https?:\/\//.test(outUrl) || !/^https?:\/\//.test(inUrl))
         return res.status(400).json({ error: "Missing clip URLs for that transition." });
       const prefix = userId + "/tr-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
+      // What each end of the cut was shot in, so the render server can convert camera
+      // log to Rec.709 before these frames reach the model. Without this the bridge is
+      // generated from washed-out log and comes back washed out — the render never
+      // applies a log conversion to an insert, by design. Validated rather than trusted:
+      // it picks which LUT runs on the render box.
+      const FOOTAGE = ["sony", "canon", "standard", "none"];
+      const outFootage = FOOTAGE.includes(body.outFootage) ? body.outFootage : "standard";
+      const inFootage = FOOTAGE.includes(body.inFootage) ? body.inFootage : "standard";
       try {
         const r = await fetch(RS_URL + "/boundary", {
           method: "POST",
@@ -204,6 +212,7 @@ export default async function handler(req, res) {
             outUrl, inUrl,
             outEnd: Number(body.outEnd) || 0,
             inStart: Number(body.inStart) || 0,
+            outFootage, inFootage,
             tail: TAIL_SECONDS,
             uploadPrefix: prefix
           })
