@@ -94,7 +94,7 @@ Four tabs across the bottom:
 • Product Studio — the dedicated product-photography tool. Upload a product once, drop it into premium studio scenes (Clean E-Commerce, Marble Luxe, Warm Editorial, Studio Gradient, Natural Light, Lifestyle Flatlay, or On a Model), and generate on-brand shots that keep the product accurate. You can also add a model, outfit and environment to stage a full scene around the product. Any shot can then be animated into a short product video (5–10 sec). This is the BEST tool for product photos and product videos — recommend it whenever someone wants to photograph or promote a product.
 • Enhance Photo & Headshots — upload a photo of a person and turn it into a polished professional headshot or portrait, keeping their real face. They pick a style (headshot, corporate/LinkedIn, full-length, editorial, outdoor) plus optional outfit and background. The best tool for professional headshots or glowing up a personal photo.
 • AI Video Studio — generates finished marketing videos right inside Chelgy from a script or prompt, with quality tiers up to 4K. Members watch, download, and save them to their Library — no outside apps.
-• AI Video Editor — the member films it themselves, uploads the raw clips, and Chelgy edits the whole thing: cuts the ums, dead air and bad takes, adds animated captions, a cinematic colour grade and a title. Styles for talking-head, vlog, tutorial, process and product showcase, plus an optional voiceover, an original score, and a director's note to steer the cut. Use this whenever they ALREADY have footage — the AI Video Studio is for when they have none.
+• AI Video Editor — the member films it themselves, uploads the raw clips, and Chelgy edits the whole thing: cuts the ums, dead air and bad takes, adds animated captions, a cinematic color grade and a title. Styles for talking-head, vlog, tutorial, process and product showcase, plus an optional voiceover, an original score, and a director's note to steer the cut. Use this whenever they ALREADY have footage — the AI Video Studio is for when they have none.
 • UGC Studio — build a consistent UGC creator (the same person across every shot), then bring any shot to life as a short video. Great for authentic, creator-style content.
 • Viral Video Generator — enter your business, get viral video ideas, the best format, a hook, a full script, caption, and hashtags.
 • Ad Campaign Builder — ad copy, creative direction, audience targeting, and budget for Facebook, Instagram, and TikTok.
@@ -136,7 +136,7 @@ When it would help the member get somewhere, you may add ONE navigation tag on i
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
 Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
-Examples: if they have ALREADY FILMED something and want it cut, captioned and colour-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
+Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
 
 ═══ STYLE RULES ═══
@@ -1579,7 +1579,7 @@ function applyTheme(dark){
   for (const k in src) B[k] = src[k];
 }
 // Gold accent — used ONLY on dark/black blocks & buttons (light UI stays black/white/grey)
-// Was #B8955A. The tan read as a third brand colour against a site that is
+// Was #B8955A. The tan read as a third brand color against a site that is
 // otherwise ink-and-cream, and it fought the photography. Now a soft off-white:
 // it works as a label on the dark blocks AND as a button fill, provided the text
 // ON that fill flips to B.inkBlock — which is dark in BOTH themes. B.creamText
@@ -3879,7 +3879,7 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Beauty</h3>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        Close on you — skin, light and one gorgeous setting. From tight beauty portraits to full-body statements, each look carries its own framing, lighting and colour.
+        Close on you — skin, light and one gorgeous setting. From tight beauty portraits to full-body statements, each look carries its own framing, lighting and color.
       </p>
 
       <input type="file" accept="image/*" onChange={pick} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,marginBottom:10,display:"block"}} />
@@ -3897,7 +3897,7 @@ function Beauty({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Anything to add? (optional)</p>
       <input value={extra} onChange={e=>setExtra(e.target.value)} placeholder="hair slicked back, gold hoops"
         style={{width:"100%",padding:11,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,marginBottom:6,boxSizing:"border-box"}} />
-      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,margin:"0 0 18px"}}>The framing, light and colour come from the look. Your face, outfit and body come from your photo.</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,margin:"0 0 18px"}}>The framing, light and color come from the look. Your face, outfit and body come from your photo.</p>
 
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Shape</p>
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
@@ -3993,7 +3993,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>High Fashion</h3>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        Editorial locations with the lighting and colour grading to match. Your face, your pose, your outfit — dropped into a magazine shoot.
+        Editorial locations with the lighting and color grading to match. Your face, your pose, your outfit — dropped into a magazine shoot.
       </p>
 
       <input type="file" accept="image/*" onChange={pick} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,marginBottom:10,display:"block"}} />
@@ -4055,7 +4055,7 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
 
 /* ═══════════════════════════════════════════════════════════════════════════
    STYLE MATCH — image 1 is you, image 2 is the look. Copies image 2's location,
-   light, colour grade, grain and framing onto you.
+   light, color grade, grain and framing onto you.
    Runs on /api/fakeit-restage with mode:"stylematch".
    ═══════════════════════════════════════════════════════════════════════════ */
 function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
@@ -4093,13 +4093,13 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     setBusy(true);
     try{
       // Style Match runs on GPT Image now, not Gemini. Chelsea found GPT copies a
-      // reference photo's placement, sun direction and colour grade onto her far
+      // reference photo's placement, sun direction and color grade onto her far
       // better than Gemini did. This is her exact proven prompt wording.
       // ORDER MATTERS: image 1 = HER, image 2 = the style reference.
       const prompt =
         "Take the FIRST photo (this is me) and create an image of ME that looks like the SECOND photo (the style reference).\n\n" +
         "Match the lighting on me to the second photo - make the sun and light hit my face and body the same way it hits the person in the second photo, from the same direction, with the same hardness and the same shadows.\n" +
-        "Match the colour grading exactly to the second photo - the same palette, contrast, saturation, warmth and film tone.\n" +
+        "Match the color grading exactly to the second photo - the same palette, contrast, saturation, warmth and film tone.\n" +
         "Match the location, setting, camera angle, framing and overall mood of the second photo.\n\n" +
         "CRITICAL: keep my face and hair EXACTLY like mine from the first photo - not merely my likeness, but ME, the exact same person. Do not copy or blend in the face, hair or body of the person in the second photo; their appearance is irrelevant. The only person in the result is me, from the first photo." +
         (extra.trim() ? "\n\nAlso: " + extra.trim() : "");
@@ -4139,7 +4139,7 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     <div style={{maxWidth:760,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Style Match</h3>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        Found a photo with a look you love? Upload it. We'll put you into its world — same location, same lighting, same colour grading, same grain.
+        Found a photo with a look you love? Upload it. We'll put you into its world — same location, same lighting, same color grading, same grain.
       </p>
 
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:18}}>
@@ -4147,13 +4147,13 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
               hint="A clear photo of you. Your face, pose and outfit are kept exactly."
               photo={me} onPick={e=>pick(e,"me")} onClear={()=>setMe(null)} />
         <Slot label="Image 2 · The look"
-              hint="The photo whose location, light and colour you want. Anyone in it is ignored."
+              hint="The photo whose location, light and color you want. Anyone in it is ignored."
               photo={style} onPick={e=>pick(e,"style")} onClear={()=>setStyle(null)} />
       </div>
 
       <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:12,marginBottom:18}}>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.7,margin:0}}>
-          <strong style={{color:B.charcoal}}>Only the look is copied.</strong> The person in image 2 is ignored entirely — their face, body and clothes have no effect. We take the place, the light, the colour grading, the grain and the framing, and nothing else. Use images you have the right to use; the result is yours, but the reference isn't.
+          <strong style={{color:B.charcoal}}>Only the look is copied.</strong> The person in image 2 is ignored entirely — their face, body and clothes have no effect. We take the place, the light, the color grading, the grain and the framing, and nothing else. Use images you have the right to use; the result is yours, but the reference isn't.
         </p>
       </div>
 
@@ -5134,7 +5134,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"screen2",  label:"High Key",      note:"The boldest look — lifts and sharpens everything. Bright, high-contrast, scroll-stopping." },
     { id:"screen3",  label:"Editorial",     note:"Cool teal shadows with real contrast. Fashion-editorial, high-end." },
     { id:"timeless", label:"Timeless",      note:"Reds eased back for a cool, muted, understated finish. Quiet and expensive." },
-  ];  // What the footage was SHOT IN — decides which colour-space conversion runs
+  ];  // What the footage was SHOT IN — decides which color-space conversion runs
   // before the film look. Log footage MUST be converted or the grade is wrong.
   //
   // These are deliberately labelled by picture profile, not by brand. A Sony
@@ -5144,7 +5144,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"standard", label:"Normal picture profile",   note:"Your footage already looks normal — phone, or a camera not set to log (including a Sony or Canon in a standard profile). The film look is applied directly." },
     { id:"sony",     label:"Shot flat — Sony S-Log3",  note:"Your footage looks washed out and grey straight off the card, and your Sony was set to S-Log3 (a7S III, FX3, etc). We convert it properly, then apply the film look." },
     { id:"canon",    label:"Shot flat — Canon C-Log",  note:"Your footage looks washed out and grey straight off the card, and your Canon was set to C-Log2 or C-Log3 (R5 II, R6, C70). We convert it properly, then apply the film look." },
-    { id:"none",     label:"Don't colour my footage",                note:"Leave my colour exactly as I shot it — just cut, caption and title." },
+    { id:"none",     label:"Don't color my footage",                note:"Leave my color exactly as I shot it — just cut, caption and title." },
   ];
 
   function pickVideo(e){
@@ -6954,7 +6954,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)||"editorial-porcelain"]||THEME_IMG_STYLE["editorial-porcelain"];
       const desc=(pr.name||"the product")+(pr.note?(" — "+pr.note):"");
       const isApparel=/(dress|outfit|apparel|cloth|shirt|jacket|suit|pants|skirt|wear|garment|gown|top|jeans|shoe|coat|blazer|denim|knit)/i.test(desc);
-      const prompt="Re-create this as professional, editorial product photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the real product true to the uploaded photo — same item, colours and details; if a person is shown, preserve their likeness. Set and light it to match this mood and palette: "+themeStyle+" No text, no words, no logos.";
+      const prompt="Re-create this as professional, editorial product photography of "+desc+". "+(isApparel?"Show it worn by a professional model in a beautifully styled studio setting, elegant pose, soft luxury lighting.":"Present it in a clean, minimal luxury studio setting with soft professional lighting and tasteful styling.")+" High-end, magazine quality. Keep the real product true to the uploaded photo — same item, colors and details; if a person is shown, preserve their likeness. Set and light it to match this mood and palette: "+themeStyle+" No text, no words, no logos.";
       const r=await generateGeminiImage(prompt, src, "1:1", "standard");
       if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,image:{url:u}}:x)); }
     }catch(e){ setWmErr("Couldn't enhance that image — please try again."); }
@@ -7118,7 +7118,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     try{
       setWmEditNote("");
       const cur = JSON.stringify(wmExisting.data);
-      const prompt = "You are the content editor for a published luxury website stored as JSON. You may change ONLY text and structure: headlines, paragraphs, the About text, offerings (names, notes, prices), the testimonial, contact details, navigation labels — and you may add, remove, or reorder sections. You CANNOT change colours, fonts, the theme, layout/spacing, or images; those are handled by separate controls in this editor. If the owner asks for a colour/font/theme change, do NOT modify the site — instead tell them to use the \"Theme\" controls. If they ask to change or add a photo, tell them to use \"Add or replace a photo\". CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY. Keep the upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nRespond with ONLY this JSON object (no markdown): {\"site\": <the complete website JSON, edited if you could apply the request, otherwise unchanged>, \"note\": <one short friendly sentence: what you changed, or if you couldn't, which control to use>}";
+      const prompt = "You are the content editor for a published luxury website stored as JSON. You may change ONLY text and structure: headlines, paragraphs, the About text, offerings (names, notes, prices), the testimonial, contact details, navigation labels — and you may add, remove, or reorder sections. You CANNOT change colors, fonts, the theme, layout/spacing, or images; those are handled by separate controls in this editor. If the owner asks for a color/font/theme change, do NOT modify the site — instead tell them to use the \"Theme\" controls. If they ask to change or add a photo, tell them to use \"Add or replace a photo\". CRITICAL: preserve every existing \"image\":{\"url\":\"...\"} value EXACTLY. Keep the upscale, restrained editorial voice.\n\nOWNER'S REQUEST: "+wmEdit.trim()+"\n\nCURRENT WEBSITE JSON:\n"+cur+"\n\nRespond with ONLY this JSON object (no markdown): {\"site\": <the complete website JSON, edited if you could apply the request, otherwise unchanged>, \"note\": <one short friendly sentence: what you changed, or if you couldn't, which control to use>}";
       const raw = await callClaude(prompt, 12000);
       let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1);
@@ -7129,7 +7129,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       if(wmExisting.data&&wmExisting.data.custom) updated.custom = wmExisting.data.custom;
       const changed = JSON.stringify(updated) !== JSON.stringify(wmExisting.data);
       if(!changed){
-        setWmEditNote(note || "I didn't change anything for that. Colours, fonts and theme are under \"Theme\" above; photos are under \"Add or replace a photo\" below.");
+        setWmEditNote(note || "I didn't change anything for that. Colors, fonts and theme are under \"Theme\" above; photos are under \"Add or replace a photo\" below.");
         setWmEditLoad(false); return;
       }
       const tok=await freshToken(); if(!tok) throw new Error("Your session expired — please log in again.");
@@ -7362,7 +7362,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     if(iUploads.length) p+=" Use the "+(iUploads.length>1?"uploaded reference photos":"uploaded reference photo")+" as the basis — keep the real product/subject accurate and build the design around "+(iUploads.length>1?"them":"it")+".";
     p+=" Make it professional, modern, sharp, well-composed and ready to use.";
     p+=" Do not add any watermark, signature, or AI/tool attribution text or logo (such as 'generated by' text) anywhere in the image.";
-    if(iType==="flyer") p+=" Make it look distinctly LUXURY and high-end: elegant, refined typography with a clear type hierarchy; a sophisticated, restrained colour palette (deep neutrals, cream, ivory, charcoal, with at most one tasteful accent such as muted gold or a single brand colour); generous white space; a balanced, editorial layout like a premium magazine spread or upscale boutique brand; subtle premium texture and detailing; and an expensive, minimal, tasteful feel. Absolutely avoid clutter, clip-art, busy backgrounds, garish colours, or a cheap stock-photo look.";
+    if(iType==="flyer") p+=" Make it look distinctly LUXURY and high-end: elegant, refined typography with a clear type hierarchy; a sophisticated, restrained color palette (deep neutrals, cream, ivory, charcoal, with at most one tasteful accent such as muted gold or a single brand color); generous white space; a balanced, editorial layout like a premium magazine spread or upscale boutique brand; subtle premium texture and detailing; and an expensive, minimal, tasteful feel. Absolutely avoid clutter, clip-art, busy backgrounds, garish colors, or a cheap stock-photo look.";
     if(["ad","social","banner","product"].includes(iType)){ p+=" Shot and designed as high-end, editorial magazine-quality work: premium tasteful styling, soft professional lighting, refined composition, elevated luxury brand aesthetic, crisp and clean. Avoid a cheap stock-photo look."; if(THEME_IMG_STYLE[iStyle]) p+=" Mood and palette: "+THEME_IMG_STYLE[iStyle]+"."; }
     if(iType==="logo") p+=" Present the logo isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no card, no scene).";
     if(iTransparent && iType!=="logo") p+=" Present the subject isolated on a FULLY TRANSPARENT background (PNG with alpha — no background, no backdrop, no scene, a clean cut-out).";
@@ -7595,7 +7595,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {[["fog","Fog"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"],["sable","Sable"],["missive","Missive"],["linen","Linen"],["umber","Umber"],["willow","Willow"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.inkBlock:B.white,color:cur?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{label}</button>;})}
             </div>
-            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch your theme anytime — each one changes the whole look, fonts, and colours.</div>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch your theme anytime — each one changes the whole look, fonts, and colors.</div>
           </div>
 
           </div>}
@@ -7669,7 +7669,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           {edTab==="refine"&&<div>
           <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Refine it — just tell Chelgy</div>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>This chat changes your <strong>words &amp; sections</strong> — headline, story, products &amp; services, prices, contact, and adding, removing, or reordering sections. For example: "Make the headline punchier," "Add a service called Consultation for $150," "Change my hours to Mon–Fri," "Remove the testimonial."</p>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>To change <strong>colours &amp; fonts</strong>, switch your <strong>Theme</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 12px"}}>To change <strong>colors &amp; fonts</strong>, switch your <strong>Theme</strong> above. For <strong>photos</strong>, use <strong>Add or replace a photo</strong> below.</p>
           <textarea value={wmEdit} onChange={e=>setWmEdit(e.target.value)} placeholder="What would you like to change?" rows={3} style={{width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,outline:"none",fontSize:15,fontFamily:"Jost,Helvetica,Arial,sans-serif",boxSizing:"border-box",background:B.white,marginBottom:12,resize:"vertical",lineHeight:1.5}} />
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
             <Btn dark disabled={wmEditLoad} onClick={applyEdit}>{wmEditLoad?"Updating…":"Apply Change"}</Btn>
@@ -13742,7 +13742,7 @@ function ProductPhotoSet({ onBalance }) {
     const out = [];
     for (let i = 0; i < ANGLES.length; i++) {
       setProg("Creating " + ANGLES[i][0] + " (" + (i + 1) + "/4)…");
-      const p = "Using the uploaded product image as the reference, generate " + ANGLES[i][1] + ". Keep the exact same product, colours and design. Professional e-commerce product photography, clean seamless studio background, soft even lighting, sharp detail." + (desc.trim() ? " The product is: " + desc.trim() + "." : "");
+      const p = "Using the uploaded product image as the reference, generate " + ANGLES[i][1] + ". Keep the exact same product, colors and design. Professional e-commerce product photography, clean seamless studio background, soft even lighting, sharp detail." + (desc.trim() ? " The product is: " + desc.trim() + "." : "");
       try {
         const r = await generateGeminiImage(p, ref, "1:1", "standard");
         if (r && r.image) { out.push({ label: ANGLES[i][0], url: r.image }); setShots([...out]); if (typeof r.balance === "number" && onBalance) onBalance(r.balance); }
@@ -13837,7 +13837,7 @@ function PhotoCatalog({ onBalance }) {
       setProg("Creating image " + (i + 1) + " of " + n + "…");
       const lux = " Shot as high-end, editorial magazine-quality photography: premium tasteful styling, soft professional lighting, refined composition, elevated luxury brand aesthetic, crisp and clean, no text or logos.";
       const paletteDir = THEME_IMG_STYLE[style] ? (" Mood and palette: " + THEME_IMG_STYLE[style] + ".") : "";
-      const p = prompt.trim() + lux + paletteDir + " Part of a cohesive set with a consistent style, lighting and colour palette across every image. This is image " + (i + 1) + " of " + n + " — a distinct composition within the same series.";
+      const p = prompt.trim() + lux + paletteDir + " Part of a cohesive set with a consistent style, lighting and color palette across every image. This is image " + (i + 1) + " of " + n + " — a distinct composition within the same series.";
       let ok = false;
       for (let attempt = 0; attempt < 2 && !ok; attempt++) {
         try {
@@ -14384,7 +14384,7 @@ function ProductStudio({ onBalance, useCredits, onToolUse, user, credits }) {
     { id:"ecom",     label:"Clean E-Commerce", desc:"Place the product on a seamless pure-white studio background, evenly and softly lit with gentle contact shadows — a crisp catalogue-ready packshot." },
     { id:"marble",   label:"Marble Luxe",      desc:"Set the product on a polished white marble surface in soft natural window light, with subtle elegant reflections and a refined luxury feel." },
     { id:"editorial",label:"Warm Editorial",   desc:"Style the product in a warm editorial scene — soft golden light, cream and beige tones, a few tasteful props, magazine-quality art direction." },
-    { id:"gradient", label:"Studio Gradient",  desc:"Photograph the product against a smooth modern studio gradient backdrop with dramatic directional lighting and one bold tasteful accent colour." },
+    { id:"gradient", label:"Studio Gradient",  desc:"Photograph the product against a smooth modern studio gradient backdrop with dramatic directional lighting and one bold tasteful accent color." },
     { id:"outdoor",  label:"Natural Light",    desc:"Shoot the product outdoors in soft natural daylight on an organic surface such as stone, wood or greenery — fresh, airy and premium." },
     { id:"flatlay",  label:"Lifestyle Flatlay",desc:"Compose an overhead flat-lay on a textured surface with complementary props arranged tastefully around the product — balanced and stylish." },
     { id:"model",    label:"On a Model",       desc:"Show the product being held or worn naturally by a realistic, stylish human model in a flattering lifestyle setting. Keep the product clearly visible and perfectly accurate; the person looks natural, premium and aspirational." },
@@ -14446,7 +14446,7 @@ const VIDEO_MODELS = [
   function buildPrompt() {
     const s = STUDIOS.find(x => x.id === studio) || STUDIOS[0];
     let p = "Create a premium, high-end commercial product photograph of the product shown in the uploaded reference photo" + (products.length > 1 ? "s" : "") + ". ";
-    p += "CRITICAL: keep the product itself perfectly accurate to the reference — identical shape, colour, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign or alter the product. ";
+    p += "CRITICAL: keep the product itself perfectly accurate to the reference — identical shape, color, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign or alter the product. ";
     if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
     if (model.trim()) p += "Include a realistic, attractive human model: " + model.trim() + ". The model naturally holds, wears or uses the product so it stays the clear hero of the shot, looking premium and aspirational. ";
     if (outfit.trim()) p += "Style the model in: " + outfit.trim() + ". ";
@@ -14497,7 +14497,7 @@ const VIDEO_MODELS = [
     setErr(""); setLoading(true); setProg("Enhancing your product photo... (4–8 seconds)");
     try {
       let p = "Enhance the product shown in the uploaded photo" + (products.length > 1 ? "s" : "") + " into a clean, professional, high-end product photograph. ";
-      p += "CRITICAL: keep the product itself perfectly accurate — identical shape, colour, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign the product. ";
+      p += "CRITICAL: keep the product itself perfectly accurate — identical shape, color, materials, proportions, and any label text, logo or branding must stay correct, sharp and legible. Do not redesign the product. ";
       p += "Just make it look professional: remove background clutter and distractions, place it on a clean tasteful studio backdrop, add soft realistic studio lighting with natural shadows and reflections, fix any blur or poor lighting, and make it crisp, bright and premium. ";
       if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
       if (extra.trim()) p += extra.trim() + " ";
@@ -14523,7 +14523,7 @@ const VIDEO_MODELS = [
     for (let i = 0; i < ANGLES.length; i++) {
       setProg("Creating " + ANGLES[i][0] + " view (" + (i + 1) + " of 4)…");
       let p = "Using the uploaded reference photo" + (products.length > 1 ? "s" : "") + " of the product, generate " + ANGLES[i][1] + ". ";
-      p += "CRITICAL: keep the exact same product — identical shape, colour, materials, proportions and any label text, logo or branding, sharp and legible. Do not redesign it. ";
+      p += "CRITICAL: keep the exact same product — identical shape, color, materials, proportions and any label text, logo or branding, sharp and legible. Do not redesign it. ";
       p += "Professional e-commerce product photography, clean seamless studio background, soft even lighting, sharp detail, premium feel. ";
       if (productName.trim()) p += "The product is: " + productName.trim() + ". ";
       if (extra.trim()) p += extra.trim() + " ";
