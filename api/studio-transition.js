@@ -48,9 +48,19 @@ const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 // no looking at camera") which is wrong: if the person is ALREADY smiling or already
 // looking at the lens, forbidding it forces the very change we're trying to prevent.
 // The instruction is simply that the expression they have is the expression they keep.
+//
+// It also used to say "they may move and walk naturally". That was meant as
+// permission and the model read it as an instruction: bridges came back with the
+// subject walking in shots where she was standing still. Movement continuity does
+// not need to be asked for here — this is video-EXTEND, so the tail clip already
+// carries whatever motion is really happening and the model continues it. Naming an
+// action in the prompt only ever ADDS one. So this string now speaks to the face and
+// nothing else. (The shot-brief rules in bridgeBrief() are deliberately left alone:
+// that one says "as they already are", which anchors to real motion instead of
+// inviting new motion, and it was behaving.)
 const SUBJECT_DIRECTION =
-  " Anyone in frame keeps the exact facial expression they already have; they may move" +
-  " and walk naturally, but their expression does not change.";
+  " Anyone in frame keeps the exact facial expression they already have;" +
+  " their expression does not change.";
 
 const AUDIO_DIRECTION =
   " Audio: natural on-location sound only — room tone, footsteps, cloth and movement, " +
