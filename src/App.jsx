@@ -6378,31 +6378,45 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // error instead of returning pixels — which looks like a broken feature rather than a
 // CORS setting. A locally chosen file is same-origin and unaffected either way.
 async function extractFrameAt(url, t, maxW){
-  return new Promise((resolve, reject)=>{
-    const v = document.createElement("video");
-    v.crossOrigin = "anonymous";
-    v.preload = "auto"; v.muted = true; v.playsInline = true;
-    const bail = setTimeout(()=>reject(new Error("Timed out reading that moment.")), 25000);
-    const done = (fn)=>{ clearTimeout(bail); fn(); };
-    v.onloadedmetadata = ()=>{
+  const v = document.createElement("video");
+  v.crossOrigin = "anonymous";
+  v.preload = "auto"; v.muted = true; v.playsInline = true;
+  try{
+    // loadeddata rather than loadedmetadata — see afterFramePresented above. Metadata
+    // gives dimensions; it does not give a picture.
+    await new Promise((res, rej)=>{
+      const bail = setTimeout(()=>rej(new Error("Timed out opening that video.")), 25000);
+      v.onloadeddata = ()=>{ clearTimeout(bail); res(); };
+      v.onerror = ()=>{ clearTimeout(bail); rej(new Error("Couldn't open that video.")); };
+      v.src = url;
+    });
+    await new Promise((res)=>{
+      const done = ()=>res();
+      v.onseeked = done;
+      setTimeout(done, 8000);
       try{ v.currentTime = Math.max(0, Math.min(Number(t)||0, (v.duration||1) - 0.05)); }
-      catch(_){ done(()=>reject(new Error("Couldn't seek that video."))); }
-    };
-    v.onseeked = ()=>{
-      try{
-        const nw = v.videoWidth||1280, nh = v.videoHeight||720;
-        const w = Math.min(maxW||1600, nw);
-        const h = Math.round(w * nh / nw);
-        const c = document.createElement("canvas"); c.width=w; c.height=h;
-        c.getContext("2d").drawImage(v,0,0,w,h);
-        done(()=>resolve(c.toDataURL("image/jpeg", 0.92)));
-      }catch(e){
-        done(()=>reject(new Error("This video won't allow frames to be read in the browser.")));
-      }
-    };
-    v.onerror = ()=>done(()=>reject(new Error("Couldn't open that video.")));
-    v.src = url;
-  });
+      catch(_){ done(); }
+    });
+    await afterFramePresented(v, 220);
+
+    const nw = v.videoWidth||1280, nh = v.videoHeight||720;
+    const w = Math.min(maxW||1600, nw);
+    const h = Math.max(1, Math.round(w * nh / nw));
+    const c = document.createElement("canvas"); c.width=w; c.height=h;
+    c.getContext("2d").drawImage(v,0,0,w,h);
+    if(canvasLooksBlank(c)){
+      // Safari especially will hand back an empty buffer on the first draw after a
+      // seek. Nudge it and try once more before shipping a black thumbnail.
+      await afterFramePresented(v, 500);
+      c.getContext("2d").drawImage(v,0,0,w,h);
+    }
+    let data;
+    try{ data = c.toDataURL("image/jpeg", 0.92); }
+    catch(_){ throw new Error("This video won't allow frames to be read in the browser."); }
+    return data;
+  } finally {
+    try{ v.src = ""; v.load(); }catch(_){}
+  }
 }
 
 // ─── THUMBNAILS: SET THE TYPE OVER THE PICTURE ───────────────────────────────
@@ -6687,6 +6701,21 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
       setStage("Watching your video for the strongest moments…");
       const frames = await sampleVideoFrames(vurl, dur || 60, 24);
       if(frames.length < 2) throw new Error("Couldn't read enough of that video.");
+      // If every sampled frame came back blank, the browser never decoded anything and
+      // going further just produces black thumbnails and a confused model. Say so here
+      // rather than charging on and delivering three black rectangles.
+      const anyLit = await (async ()=>{
+        for(const f of frames.slice(0, 8)){
+          try{
+            const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=f.data; });
+            const c = document.createElement("canvas"); c.width=im.width; c.height=im.height;
+            c.getContext("2d").drawImage(im,0,0);
+            if(!canvasLooksBlank(c)) return true;
+          }catch(_){}
+        }
+        return false;
+      })();
+      if(!anyLit) throw new Error("This browser couldn't read the picture out of that video. Safari is the usual culprit — try Chrome, or re-save the video as an MP4 (H.264).");
 
       const tok = await freshToken();
       const r = await fetch("/api/studio-thumbnail", {
@@ -6852,6 +6881,40 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   );
 }
 
+// ─── WAIT FOR A FRAME TO ACTUALLY EXIST BEFORE COPYING IT ────────────────────
+// `onseeked` means "the seek finished", NOT "there is a decoded picture ready to
+// draw". Chrome usually has one anyway; Safari very often does not, and drawImage
+// then copies an empty buffer — which is how a whole set of thumbnails comes back
+// pure black with no error anywhere. The sampled frames go black too, so the model
+// that picks the best moment is handed 24 blank images and reasonably gives up.
+//
+// requestVideoFrameCallback fires when a frame is genuinely presented, which is the
+// real signal. It isn't everywhere, so there's a timeout behind it.
+function afterFramePresented(v, ms){
+  return new Promise((resolve)=>{
+    let done = false;
+    const finish = ()=>{ if(!done){ done = true; resolve(); } };
+    try{
+      if(typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(()=>finish());
+    }catch(_){}
+    setTimeout(finish, ms || 160);
+  });
+}
+// Belt and braces: sample a handful of pixels and report whether anything is there.
+// A genuinely black frame in the footage is rare, and drawing it twice costs nothing,
+// so it's better to retry a real black frame than to ship a blank one.
+function canvasLooksBlank(c){
+  try{
+    const g = c.getContext("2d", { willReadFrequently: true });
+    const pts = [[0.5,0.5],[0.25,0.35],[0.75,0.35],[0.35,0.7],[0.65,0.7]];
+    for(const [fx,fy] of pts){
+      const d = g.getImageData(Math.floor(c.width*fx), Math.floor(c.height*fy), 1, 1).data;
+      if(d[0] > 8 || d[1] > 8 || d[2] > 8) return false;
+    }
+    return true;
+  }catch(_){ return false; }   // tainted canvas — not our problem to solve here
+}
+
 async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
   const dur = Math.max(1, Number(durationSec) || 1);
   // ~every 2s on short videos; auto-widen so we never exceed maxFrames.
@@ -6860,31 +6923,42 @@ async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
   for (let t = 0.5; t < dur - 0.2 && times.length < maxFrames; t += step) times.push(Math.round(t * 10) / 10);
   if (!times.length) times.push(Math.min(1, dur / 2));
 
-  return new Promise((resolve)=>{
-    const out = [];
-    try{
-      const v = document.createElement("video");
-      v.preload = "auto"; v.muted = true; v.playsInline = true;
-      let i = 0;
-      const bail = setTimeout(()=>resolve(out), 60000);
-      const seekNext = ()=>{
-        if (i >= times.length) { clearTimeout(bail); resolve(out); return; }
-        try{ v.currentTime = times[i]; }catch(_){ clearTimeout(bail); resolve(out); }
-      };
-      v.onloadedmetadata = seekNext;
-      v.onseeked = ()=>{
-        try{
-          const w = 512, h = Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9));
-          const c = document.createElement("canvas"); c.width=w; c.height=h;
-          c.getContext("2d").drawImage(v,0,0,w,h);
-          out.push({ t: times[i], data: c.toDataURL("image/jpeg",0.6) });
-        }catch(_){}
-        i++; seekNext();
-      };
-      v.onerror = ()=>{ clearTimeout(bail); resolve(out); };
+  const v = document.createElement("video");
+  v.preload = "auto"; v.muted = true; v.playsInline = true;
+  v.crossOrigin = "anonymous";
+  const out = [];
+  try{
+    // loadeddata, not loadedmetadata: metadata means dimensions are known, and there
+    // is still nothing decoded to draw.
+    await new Promise((res, rej)=>{
+      const bail = setTimeout(()=>rej(new Error("load timeout")), 30000);
+      v.onloadeddata = ()=>{ clearTimeout(bail); res(); };
+      v.onerror = ()=>{ clearTimeout(bail); rej(new Error("load error")); };
       v.src = objectUrl;
-    }catch(_){ resolve(out); }
-  });
+    });
+    const w = 512, h = Math.max(1, Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9)));
+    for(const t of times){
+      try{
+        await new Promise((res)=>{
+          const done = ()=>res();
+          v.onseeked = done;
+          setTimeout(done, 4000);
+          try{ v.currentTime = t; }catch(_){ done(); }
+        });
+        await afterFramePresented(v, 160);
+        const c = document.createElement("canvas"); c.width=w; c.height=h;
+        c.getContext("2d").drawImage(v,0,0,w,h);
+        if(canvasLooksBlank(c)){
+          // One more go with a longer wait before accepting a blank frame.
+          await afterFramePresented(v, 400);
+          c.getContext("2d").drawImage(v,0,0,w,h);
+        }
+        out.push({ t, data: c.toDataURL("image/jpeg",0.6) });
+      }catch(_){}
+    }
+  }catch(_){}
+  try{ v.src = ""; v.load(); }catch(_){}
+  return out;
 }
 
 // on already-warm or underexposed footage.
