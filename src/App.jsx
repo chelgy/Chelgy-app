@@ -4915,14 +4915,20 @@ function EditReview({ review, onCancel, onRender }){
       if (last && t.s - last.e < 0.28) last.e = Math.max(last.e, t.e);
       else merged.push({ s: t.s, e: t.e });
     }
-    // A breath either side so words aren't clipped mid-syllable, then re-merge in
-    // case the padding closed a gap.
-    const padded = [];
-    for (const r of merged.map(r => ({ s: Math.max(0, r.s - 0.08), e: r.e + 0.12 }))) {
-      const last = padded[padded.length-1];
-      if (last && r.s - last.e < 0.05) last.e = Math.max(last.e, r.e);
-      else padded.push(r);
-    }
+    // A breath either side — but through the SAME snapper the non-review path uses.
+    //
+    // This used to pad here by hand: `s - 0.08, e + 0.12`, unclamped. Identical
+    // numbers to snapKeepToWords, but missing the clamp that function was fixed to
+    // include — so the breath reached straight into whichever word sat next door.
+    // 0.08s back from a word lands inside the word before it; 0.12s forward lands
+    // inside the word after. You hear the tail of a word that was cut and the head of
+    // the next one: half-said words and sentences that stop mid-air.
+    //
+    // The fix went into snapKeepToWords and never reached this copy, so the direct
+    // render path was clean while anything going through review was not. One snapper
+    // now, not two — the same code cannot drift from itself.
+    if (!merged.length) return;
+    const padded = snapKeepToWords(merged, words);
     if (!padded.length) return;
     onRender(padded);
   };
@@ -5696,7 +5702,11 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // decide the final cut before anything is rendered. Off → straight to render,
       // the original one-tap flow, untouched.
       if(reviewCuts){
-        setPendingReview({ ctx, keep: plan.keep });
+        // Snapped BEFORE review, not after. The review screen rebuilds its ranges from
+        // the words it is shown, so handing it raw planner output meant the boundaries
+        // it started from were the model's arbitrary seconds rather than real word
+        // edges — and any stretch left untouched carried those straight to the render.
+        setPendingReview({ ctx, keep: snapKeepToWords(plan.keep, globalWords) });
         setBusy(false);
         setStage("");
         return;
@@ -6238,7 +6248,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <EditReview
           review={pendingReview}
           onCancel={()=>{ setPendingReview(null); }}
-          onRender={(editedKeep)=>{ renderFromPlan(pendingReview.ctx, editedKeep); }}
+          onRender={(editedKeep)=>{ renderFromPlan(pendingReview.ctx, snapKeepToWords(editedKeep, (pendingReview.ctx&&pendingReview.ctx.globalWords)||[])); }}
         />
       )}
 
@@ -6686,6 +6696,9 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
       });
       const d = await r.json();
       if(!r.ok || !d || !Array.isArray(d.picks) || !d.picks.length) throw new Error((d&&d.error) || "Couldn't choose a thumbnail.");
+      // The picker declined but the pipeline still works — say so plainly rather than
+      // letting them wonder why the words are generic.
+      if(d.fallback) setErr("Couldn't read the best moments in that video, so these are spread across it. The words are yours to change.");
 
       // The first pick becomes the real-moment thumbnail. The other two get restaged.
       // Order matters: the authentic one lands first so it's the default, and so you
