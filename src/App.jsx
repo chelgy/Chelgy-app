@@ -1051,11 +1051,11 @@ async function studioTranscribe(url){
     return await res.json(); // { transcript, words, duration } or { error }
   } catch { return { error: "Couldn't reach the transcription service." }; }
 }
-async function studioPlan(words, duration, frame, style, activity, note){
+async function studioPlan(words, duration, frame, style, activity, note, brollClips){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null, note: note||"" }) });
-    return await res.json(); // { keep, title, look, outSeconds } or { error }
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null, note: note||"", brollClips: brollClips||[] }) });
+    return await res.json(); // { keep, title, look, outSeconds, brollPlace } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
 // Our own render engine (Render.com + ffmpeg + real 3D LUTs). Applies the real
@@ -5107,6 +5107,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // stills, so that is the ceiling quoted. Fewer cues means fewer images and the
   // charge is per image at generation time, so this is an upper bound, not a promise.
   const canBroll = (style==="cinematic"||style==="process"||style==="tutorial");
+  // YOUR OWN b-roll, as opposed to the generated stills above. Offered on the styles
+  // that are footage-driven in the first place: if you shot a day, you shot things you
+  // want SHOWN as well as things you said. Talking-head and tutorial are excluded on
+  // purpose — those are one locked-off shot of someone speaking, which is exactly the
+  // case a generated still is for.
+  const canOwnBroll = (style==="vlog"||style==="cinematic"||style==="process");
+  const brollClips = canOwnBroll ? clips.map((c,i)=>({ i, label:(c.label||"").trim(), dur:Number(c.dur)||0, role:c.role||"main" })).filter(c=>c.role==="broll") : [];
   // Tutorial is capped at 2 stills server-side, the others at 4 (process 3), so the
   // ceiling quoted has to match or the estimate overstates a tutorial by half.
   const brollCap = style==="tutorial" ? 2 : style==="process" ? 3 : 4;
@@ -5205,7 +5212,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         id: (f.name||"clip") + ":" + f.size + ":" + (f.lastModified||0) + ":" + Math.random().toString(36).slice(2,7),
         file: f, name: f.name || "clip.mp4", size: f.size || 0,
         dur: meta.dur, preview: meta.url, w: meta.w||0, h: meta.h||0,
-        footage: footage                      // seeded from the current global pick
+        footage: footage,                     // seeded from the current global pick
+        // "main" is the story: the clips with you talking, cut on the transcript.
+        // "broll" is footage you shot to SHOW something — the restaurant, the food,
+        // the drive. It is never cut on speech (there usually isn't any), it is placed
+        // by what you label it, and the label is the only thing the planner has to go
+        // on. A b-roll clip with no label is still usable, just placed more loosely.
+        role: "main",
+        label: ""
       });
     }
     setClips(prev => {
@@ -5258,6 +5272,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   }
   function setClipFootage(id, val){
     setClips(prev => prev.map(c => c.id === id ? { ...c, footage: val } : c));
+  }
+  function setClipRole(id, val){
+    // Switching back to main drops the label rather than keeping it around invisibly —
+    // a stale label on a main clip would be sent to the planner and quietly steer the cut.
+    setClips(prev => prev.map(c => c.id === id ? { ...c, role: val, label: val === "broll" ? (c.label||"") : "" } : c));
+  }
+  function setClipLabel(id, val){
+    setClips(prev => prev.map(c => c.id === id ? { ...c, label: String(val).slice(0, 80) } : c));
   }
   // "All shot on this" — the common case is one camera all day, so make that one
   // click instead of twenty.
@@ -5535,7 +5557,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       setStage(style==="showcase" ? "Getting your footage ready…" : "Planning the edit — finding the ums, dead air and best takes…");
       const offsets = clipOffsets(clips);
-      const globalWords = mergeClipWords(perClipWords, offsets);
+      // A b-roll clip contributes NO words to the cut. Whatever ambient talk happens to
+      // be on it — a waiter, someone at the next table, you saying "ooh" — is not the
+      // story and must not become a keep decision. Stripping the words here rather than
+      // asking the planner to ignore them means it cannot go wrong: the planner never
+      // sees a word that belongs to footage it isn't cutting. The clip still gets placed,
+      // just by its LABEL rather than by anything anyone said on it.
+      const wordsForPlan = perClipWords.map((w,ci)=> (clips[ci] && clips[ci].role==="broll") ? [] : w);
+      const globalWords = mergeClipWords(wordsForPlan, offsets);
       // The activity track onto the same global timeline the planner reads. One value
       // per second, clips end to end.
       //
@@ -5628,7 +5657,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         // Hand a plan-shaped object downstream so renderFromPlan treats it like any edit.
         plan = { keep: merged, title: "", chapters: [], broll: [], music: {}, look: { temperature:"neutral", exposure:"balanced" }, showcase: showcaseLabels };
       } else {
-        plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote);
+        // The b-roll manifest: which clips are footage-to-show, what they contain, and
+        // how long each one is. The planner never sees these clips, only their labels —
+        // which is the whole point. Matching "the food arriving" against a transcript
+        // where you say "okay this just came out" is a language problem, and that is
+        // the one thing the model is genuinely reliable at.
+        plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote,
+                                brollClips.map(b=>({ clip:b.i, label:b.label, dur:b.dur })));
       }
       setNotice("");
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){
@@ -5651,7 +5686,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // person has reviewed and adjusted the cut — from a fresh call.
       const ctx = {
         plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
-        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage})),
+        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage, role:c.role||"main", label:c.label||"", dur:Number(c.dur)||0})),
         userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
         alsoShorts, showcaseLabels, narrationUrl
       };
@@ -5696,6 +5731,43 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setErr("The edit came out empty. Try again, or remove any clips that are mostly silence.");
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
+      }
+
+      // ── Your own b-roll, spliced into the timeline ──────────────────────────────
+      //
+      // This needs NO new render path. A segment is already {clip, s, e} and the render
+      // server resolves a source per segment, applies that clip's own log conversion and
+      // concatenates in order — so a b-roll placement is just another segment pointing at
+      // a different clip. Everything downstream (grade, scale, captions, concat) already
+      // works, which is why this feature is two files instead of four.
+      //
+      // The planner returns `at`: a second on the ORIGINAL timeline saying where in the
+      // story the clip belongs. Deliberately not an index into `keep` — one keep range can
+      // split into several segments when it crosses a clip boundary, so an index would
+      // drift. A time is stable under any amount of splitting, and stays meaningful after
+      // the person adjusts the cut in review.
+      const brollPlaced = [];
+      if(Array.isArray(plan.brollPlace) && plan.brollPlace.length){
+        const globalStartOf = (sg) => ((offsets[sg.clip] && offsets[sg.clip].start) || 0) + sg.s;
+        for(const p of plan.brollPlace){
+          const ci = Math.floor(Number(p && p.clip));
+          const meta = ctx.clips && ctx.clips[ci];
+          if(!meta || meta.role !== "broll") continue;    // unknown index, or a main clip — never splice one in twice
+          const s = Math.max(0, Number(p.s)||0);
+          const e = Math.min(Number(meta.dur)||0, Number(p.e)||0);
+          if(!(e - s >= 0.5)) continue;                                     // too short to read as a shot
+          const at = Number(p.at);
+          if(!Number.isFinite(at)) continue;
+          // Insert BEFORE the first kept segment that starts after this point in the
+          // original story. Past the end of everything → append.
+          let idx = segs.findIndex(sg => globalStartOf(sg) >= at);
+          if(idx < 0) idx = segs.length;
+          brollPlaced.push({ idx, seg: { clip: ci, s: Math.round(s*1000)/1000, e: Math.round(e*1000)/1000 } });
+        }
+        // Insert from the back so earlier indices stay valid as we go.
+        brollPlaced.sort((a,b)=>b.idx-a.idx);
+        for(const b of brollPlaced) segs.splice(b.idx, 0, b.seg);
+        if(brollPlaced.length) setNotice("Placed "+brollPlaced.length+" of your b-roll clip"+(brollPlaced.length>1?"s":"")+" into the edit.");
       }
 
       // Scene cards. The planner has been writing these on every vlog, tutorial and
@@ -6092,6 +6164,24 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
                     style={{marginTop:6,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"4px 6px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,maxWidth:"100%"}}>
                     {FOOTAGE_TYPES.filter(f=>f.id!=="none").map(f=>(<option key={f.id} value={f.id}>{f.label}</option>))}
                   </select>
+                )}
+                {canOwnBroll && (
+                  <div style={{marginTop:6,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                    {[["main","Main"],["broll","B-roll"]].map(pair=>{
+                      const on = (c.role||"main")===pair[0];
+                      return (
+                        <button key={pair[0]} onClick={()=>setClipRole(c.id, pair[0])} disabled={busy}
+                          style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",padding:"4px 10px",cursor:busy?"default":"pointer",border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.inkBlock:B.white,color:on?B.inkText:B.mid}}>
+                          {pair[1]}
+                        </button>
+                      );
+                    })}
+                    {(c.role||"main")==="broll" && (
+                      <input value={c.label||""} onChange={e=>setClipLabel(c.id, e.target.value)} disabled={busy}
+                        placeholder="what's in it — e.g. the food arriving"
+                        style={{flex:1,minWidth:150,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"4px 8px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
+                    )}
+                  </div>
                 )}
               </div>
               <div style={{display:"flex",gap:4,paddingTop:2}}>

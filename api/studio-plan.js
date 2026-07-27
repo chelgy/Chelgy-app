@@ -237,6 +237,19 @@ export default async function handler(req, res) {
     // wherever the two disagree. Capped like every other free-text field that reaches
     // a model — it's untrusted input steering a paid render.
     const directorNote = String(body.note || "").trim().slice(0, 1200);
+    // YOUR OWN b-roll: clips the person shot to SHOW something rather than to say
+    // something. They carry no transcript (their words are stripped client-side before
+    // the plan, deliberately), so the LABEL is the only thing describing them. Placing
+    // them is a language task — match "the food arriving" to the moment in the talking
+    // footage where that belongs — which is the one thing a model is dependable at.
+    const brollClips = (Array.isArray(body.brollClips) ? body.brollClips : [])
+      .map(b => ({
+        clip: Math.max(0, Math.floor(Number(b && b.clip) || 0)),
+        label: String((b && b.label) || "").trim().slice(0, 80),
+        dur: Math.max(0, Number(b && b.dur) || 0)
+      }))
+      .filter(b => b.dur > 0.5)
+      .slice(0, 20);
     // A process video can be almost entirely silent, so it is the one style that may
     // be planned with no transcript at all.
     if (!words.length && style !== "process") return res.status(400).json({ error: "Missing transcript." });
@@ -392,6 +405,17 @@ export default async function handler(req, res) {
         : "") +
       "\n" + cutRules +
       "- Segments must be in chronological order, non-overlapping, within 0.." + duration + ".\n\n" +
+      (brollClips.length
+        ? ("YOUR B-ROLL CLIPS — footage this person shot to SHOW something, not to say something:\n" +
+           brollClips.map(b => "  clip " + b.clip + " · " + Math.round(b.dur) + "s · \"" + (b.label || "(no label)") + "\"").join("\n") + "\n\n" +
+           "These are NOT in the transcript and are NOT part of `keep` — they are separate footage waiting to be placed. Return `brollPlace`: a list of where each one belongs, with:\n" +
+           "- clip: the clip number from the list above.\n" +
+           "- at: the second on the ORIGINAL timeline where it should cut in. Place it where the story ARRIVES at that thing — right after they announce it, mention it, or react to it. \"We finally got here\" is where the arrival shot goes; \"look at this\" is where the thing being looked at goes; \"that was so good\" means the footage belongs just BEFORE, because they are talking about something you have already shown.\n" +
+           "- s and e: which part of that clip to use, in seconds from ITS OWN start. This is the stylistic call and it is yours to make. A shot needs long enough to read and no longer — roughly 2-5s for a look at something, longer only when the footage genuinely develops (a dish being set down, a door opening onto a room). Take the strongest few seconds; you do not have to use a clip whole, and a 40s clip almost never earns 40s.\n" +
+           "- Order them the way the day happened: arriving before eating, eating before leaving.\n" +
+           "- Use each clip ONCE. Skip any that has no natural home rather than forcing it — a b-roll shot dropped somewhere arbitrary reads as a mistake.\n" +
+           "- A labelled clip is a promise the edit should keep. If they shot it and named it, they want it in.\n\n")
+        : "") +
       "Also write:\n" +
       "- title: a short punchy on-screen opening title for this video (max 6 words, no quotes, no emojis).\n" +
       "- music: a brief for an ORIGINAL INSTRUMENTAL SCORE to sit quietly under this person's voice for the whole video. " +
@@ -414,6 +438,11 @@ export default async function handler(req, res) {
         : style !== "talkinghead"
         ? '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
+      // Appended rather than folded into the shapes above so it travels with whichever
+      // style the person picked, instead of needing a fourth and fifth variant.
+      (brollClips.length
+        ? 'ALSO include this key in that same object: "brollPlace":[{"clip":number,"at":number,"s":number,"e":number}]\n\n'
+        : "") +
       "TRANSCRIPT:\n" + lines;
 
     const parts = [];
@@ -541,6 +570,34 @@ export default async function handler(req, res) {
         .slice(0, style === "process" ? 3 : style === "tutorial" ? 2 : 4);
     }
 
+    // Sanitize the person's OWN b-roll placements. Checked against the manifest that was
+    // actually sent, not merely for well-formedness: `clip` becomes a source index on the
+    // render box, so a hallucinated number must never survive. One placement per clip —
+    // the same shot appearing twice reads as a glitch, and the model does occasionally
+    // repeat a favourite. First placement wins.
+    let brollPlace = [];
+    if (brollClips.length && Array.isArray(plan.brollPlace)) {
+      const byClip = new Map(brollClips.map(b => [b.clip, b]));
+      const used = new Set();
+      brollPlace = plan.brollPlace
+        .map(p => {
+          const clip = Math.floor(Number(p && p.clip));
+          const src = byClip.get(clip);
+          if (!src || used.has(clip)) return null;
+          const s = Math.max(0, Number(p.s) || 0);
+          // Clamped to the clip's REAL duration. The model only knows the length we told
+          // it, and asking ffmpeg to seek past the end of a file yields an empty segment.
+          const e = Math.min(src.dur, Number(p.e) || 0);
+          const at = Number(p.at);
+          if (!(e - s >= 0.5) || !Number.isFinite(at) || at < 0) return null;
+          used.add(clip);
+          return { clip, at: Math.round(at * 100) / 100, s: Math.round(s * 100) / 100, e: Math.round(e * 100) / 100 };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.at - b.at)
+        .slice(0, 20);
+    }
+
     // The music brief. Free to ask for on every style — the model is already reading
     // the transcript, so this costs nothing extra and the app simply ignores it when
     // the customer left music switched off. Length-capped like every other model
@@ -553,7 +610,7 @@ export default async function handler(req, res) {
     // Same treatment as the title: trimmed, length-capped, and never allowed to be
     // the string "null" or similar rubbish the model sometimes emits.
     const subtitle = String((plan.subtitle == null ? "" : plan.subtitle)).trim().slice(0, 120);
-    return res.status(200).json({ keep: merged, title, subtitle, chapters, broll, music, look, outSeconds, plannedBy, truncated, wordsSeen: Math.min(words.length, WORD_LIMIT), wordsTotal: words.length });
+    return res.status(200).json({ keep: merged, title, subtitle, chapters, broll, brollPlace, music, look, outSeconds, plannedBy, truncated, wordsSeen: Math.min(words.length, WORD_LIMIT), wordsTotal: words.length });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
