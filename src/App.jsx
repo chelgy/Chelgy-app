@@ -135,7 +135,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -3209,6 +3209,14 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
 // One admin-uploadable sample frame per look, so members can SEE the grade
 // instead of reading a description. Keyed by the grade's wire id, which never
 // changes, so renaming a look in the picker never orphans its thumbnail.
+// Thumbnail Studio is BUILT but hidden. Turn this to true to bring it back — the
+// component, its endpoint, the credit cost, the route label and the render branch are
+// all still in place, so nothing needs rebuilding. Only the ways in are switched off:
+// the Thumbnails tab on the Video card, and the AI Advisor's ability to route people
+// there. A direct link to tools/thumbnail still works, which is deliberate — it stays
+// testable without being findable.
+const THUMBNAILS_ENABLED = false;
+
 const LUT_SLOTS = [
   ["wolf",     "Golden Hour"],
   ["luxury",   "Clean Luxury"],
@@ -9314,7 +9322,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Thumbnails",tool:"thumbnail"}, {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
