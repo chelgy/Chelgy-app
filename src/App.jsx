@@ -6496,6 +6496,31 @@ function ensureThumbFonts(){
         if(document.fonts && document.fonts.ready) await document.fonts.ready;
         setTimeout(()=>{ try{ probe.remove(); }catch(_){} }, 10000);
       }catch(_){}
+
+      // Now PROVE it, per font, instead of trusting that load() resolving means canvas
+      // can see the face. Measure the same string in the custom family and in a
+      // deliberately unlike fallback: if the two widths are identical to the pixel, the
+      // custom face is not being applied and canvas has quietly fallen through. This is
+      // the only check that can't be fooled — document.fonts.check() answers "can this
+      // be rendered", which is yes for any family name because fallback always exists.
+      try{
+        const probeCv = document.createElement("canvas").getContext("2d");
+        const SAMPLE = "Handgloves 123";
+        probeCv.font = "72px monospace";
+        const baseline = probeCv.measureText(SAMPLE).width;
+        const notApplied = [];
+        for(const [family, file] of TH_FONTS){
+          probeCv.font = "72px " + family + ", monospace";
+          if(Math.abs(probeCv.measureText(SAMPLE).width - baseline) < 0.5) notApplied.push(file);
+        }
+        if(notApplied.length){
+          console.error("[thumbnail] canvas is NOT using: " + notApplied.join(", ") +
+                        " — the file loaded but the face never reached the 2D context");
+          for(const f of notApplied) if(_thMissing.indexOf(f) === -1) _thMissing.push(f);
+        } else {
+          console.log("[thumbnail] all four brand fonts confirmed active on canvas");
+        }
+      }catch(_){}
     }catch(_){ /* falls back to system faces rather than failing the render */ }
   })();
   return _thFonts;
