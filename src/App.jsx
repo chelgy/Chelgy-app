@@ -6737,7 +6737,7 @@ const TH_TEMPLATES = [
   { id:"single",   label:"One photo",   photos:1, slots:"single"  },
   { id:"collage",  label:"Collage",     photos:3, slots:"collage" },
   { id:"triptych", label:"Triptych",    photos:3, slots:"single"  },
-  { id:"spread",   label:"Spread",      photos:2, slots:"single"  },
+  { id:"spread",   label:"Spread",      photos:3, slots:"single"  },
   { id:"montage",  label:"Montage",     photos:3, slots:"single"  }
 ];
 const thTpl = (id)=> TH_TEMPLATES.find(t=>t.id===id) || TH_TEMPLATES[0];
@@ -6953,6 +6953,31 @@ async function thRenderTriptych(o){
     { y:  H*0.00, h: H*1.10 },
     { y: -H*0.06, h: H*1.06 }
   ];
+
+  for(let i=0;i<3;i++){
+    const src = (o.photos||[])[i];
+    const x = Math.round(left + i*(pw+gut));
+    const y = Math.round(rows[i].y), ph = Math.round(rows[i].h);
+    if(!src) continue;
+    try{
+      // ALTERNATING fades, each deep enough to melt the rounded cap. Outer panels
+      // dissolve at the BOTTOM, the centre one at the TOP — that opposition is what
+      // makes the three interlock instead of reading as a row, since every panel is
+      // solid exactly where its neighbours are vanishing.
+      //
+      // The crop bias has to OPPOSE the fade or the subject dissolves: a panel fading
+      // at the bottom shows the top of its photo, and the centre shows its own lower half.
+      const fadeDeep = Math.round(Math.max(ph * 0.58, pw * 0.90));
+      const plate = thPlate(
+        await thLoad(src), pw, ph,
+        (i === 1 ? { top: fadeDeep } : { bottom: fadeDeep }),
+        pw/2,
+        (i === 1 ? 0.62 : 0.10)
+      );
+      g.drawImage(plate, x, y);
+    }catch(_){}
+  }
+
   thCoverType(g, W, H, S, o);
   return c.toDataURL("image/png");
 }
@@ -6970,19 +6995,34 @@ async function thRenderSpread(o){
   const g = c.getContext("2d");
   await thBackdrop(g, W, H, o.background || (o.photos||[])[1] || (o.photos||[])[0], o.background ? 0 : 0.46);
 
+  // Optional third picture, bleeding off the LEFT.
+  //
+  // Feathered on its right edge rather than cut, so it dissolves into the backdrop
+  // instead of ending in a line down the middle of the frame — and so the kicker,
+  // which sits over this side, still has something quiet to sit on.
+  if((o.photos||[])[2]){
+    try{
+      const lw = Math.round(W*0.42), lh = H;
+      const plate = thPlate(await thLoad(o.photos[2]), lw, lh, { right: Math.round(W*0.13) }, 0, 0.22);
+      g.drawImage(plate, 0, 0);
+    }catch(_){}
+  }
+
   // big picture, bleeding off the right
   const bigX = Math.round(W*0.56);
   if((o.photos||[])[0]){
     try{ thCover(g, await thLoad(o.photos[0]), bigX, 0, W - bigX, H); }catch(_){}
   } else { g.fillStyle="rgba(0,0,0,0.05)"; g.fillRect(bigX,0,W-bigX,H); }
 
-  // inset panel overlapping it
+  // Inset panel overlapping it. No white border — a keyline around a photograph reads
+  // as a slide deck, and it was fighting the bleed on either side of it. The drop
+  // shadow alone lifts it off the picture underneath, which is all it needed.
   const iw = Math.round(W*0.30), ih = Math.round(H*0.52);
   const ix = Math.round(W*0.38), iy = Math.round(H*0.44);
   if((o.photos||[])[1]){
     g.save();
-    g.shadowColor = "rgba(0,0,0,0.22)"; g.shadowBlur = Math.round(S*0.035); g.shadowOffsetY = Math.round(S*0.008);
-    g.fillStyle="#fff"; g.fillRect(ix-6, iy-6, iw+12, ih+12);
+    g.shadowColor = "rgba(0,0,0,0.38)"; g.shadowBlur = Math.round(S*0.045); g.shadowOffsetY = Math.round(S*0.010);
+    g.fillStyle = "rgba(0,0,0,0.9)"; g.fillRect(ix, iy, iw, ih);
     g.restore();
     try{ thCover(g, await thLoad(o.photos[1]), ix, iy, iw, ih); }catch(_){}
   }
@@ -7145,17 +7185,28 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   // returned on a transparent background, then composited over the type.
   async function makeCutout(){
     const src = photos[0]; if(!src) return;
-    if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
+    if(credits < CREDIT_COSTS.image){ onBuyCredits(); return; }
     setBusy(true); setErr(""); setStage("Cutting you out from the background…");
     try{
       const parts = await thForApi(src);
       const d = await generateOpenAIImage(
         "Return this exact photo of me with the background fully removed — just me, cut out, on a transparent background. Do not change my face, hair, body, clothing, pose or the lighting on me in any way. This is a cut-out, not a new photograph.",
-        [parts], aspect, "2K", "transparent"
+        // "standard", not "2K". Transparency isn't available on the model the higher
+        // quality tiers map to — the API answers "transparent background is not
+        // supported for this model" — and the logo generation elsewhere in this app
+        // passes "standard" for exactly the same reason. A cut-out is composited over a
+        // photo that is already full resolution, so the softer tier costs nothing
+        // visible here.
+        [parts], aspect, "standard", "transparent"
       );
       if(d && d.image) setCutout(await thAsDataUrl(d.image));
       if(typeof d?.balance === "number") onBalance(d.balance);
-    }catch(e){ setErr(thSay(e, "Couldn't cut that out.")); }
+    }catch(e){
+      const m = String((e && e.message) || "");
+      setErr(/transparent/i.test(m)
+        ? "Couldn't cut you out — the image service turned down the transparent background. The title will sit over the photo instead, which still works."
+        : thSay(e, "Couldn't cut that out."));
+    }
     setStage(""); setBusy(false);
   }
 
