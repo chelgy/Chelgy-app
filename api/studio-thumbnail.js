@@ -99,7 +99,7 @@ export default async function handler(req, res) {
 
     const template = body.template === "collage" ? "collage" : "single";
     const about = String(body.about || "").trim().slice(0, 600);
-    const brand = String(body.brand || "").trim().slice(0, 30);
+    const header = String(body.header || "").trim().slice(0, 22);
     if (!about) return res.status(400).json({ error: "Tell us what the video is about first." });
 
     const slots = SLOTS[template];
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
     const prompt =
       "You are writing the cover lines for a high-end fashion magazine, except the subject is a video.\n\n" +
       "THE VIDEO IS ABOUT: " + about + "\n" +
-      (brand ? "THE CREATOR'S NAME OR BRAND: " + brand + "\n" : "") +
+      (header ? "THE HEADER TITLE THEY WANT, USE IT VERBATIM AS THE MASTHEAD: " + header + "\n" : "") +
       "\nWrite one line for each slot below. The character limit for each is ABSOLUTE — the layout is fixed and anything longer is cut off, so a shorter line that fits always beats a better line that doesn't.\n\n" +
       slots.map(function (s) { return "- " + s[0] + " (max " + s[2] + " characters): " + s[1]; }).join("\n") +
       "\n\nHouse style:\n" +
@@ -115,8 +115,8 @@ export default async function handler(req, res) {
       "- No clickbait. Never 'you won't believe', 'this changed everything', 'the secret to'.\n" +
       "- No emoji, no hashtags, no exclamation marks, no full stops at the end of a line.\n" +
       "- Do not repeat the same word across two slots.\n" +
-      (brand ? "- The masthead should be the creator's name or brand if it fits the character limit.\n"
-             : "- The masthead should be one strong word drawn from the subject.\n") +
+      (header ? "- The masthead is GIVEN above. Reproduce it exactly, do not reword it, and write every other slot to sit around it.\n"
+              : "- The masthead should be one strong word drawn from the subject.\n") +
       "\nRespond with ONLY this JSON, nothing else:\n" +
       "{" + slots.map(function (s) { return '"' + s[0] + '":"string"'; }).join(",") + "}";
 
@@ -144,6 +144,9 @@ export default async function handler(req, res) {
         .replace(/[.!]+$/, "")
         .slice(0, s[2]);
     }
+    // A header the person typed is theirs. Written into the result rather than left to
+    // the model, which paraphrases a given string more often than you would expect.
+    if (header) copy.masthead = header;
     return res.status(200).json({ copy, template });
   } catch (e) {
     return res.status(500).json({ error: (e && e.message) || "Something went wrong writing the cover lines." });

@@ -6444,16 +6444,58 @@ const TH_FONTS = [
   ["ChelgyScript",  "CAVELINE.ttf"]           // the handwritten accent
 ];
 let _thFonts = null;
+let _thMissing = [];
 function ensureThumbFonts(){
   if(_thFonts) return _thFonts;
   _thFonts = (async ()=>{
     try{
-      await Promise.all(TH_FONTS.map(async ([family, file])=>{
-        if(document.fonts && document.fonts.check && document.fonts.check("16px '"+family+"'")) return;
-        const ff = new FontFace(family, "url('"+TH_FONT_BASE+file+"')");
-        await ff.load();
-        document.fonts.add(ff);
+      // NO document.fonts.check() guard here, and that is deliberate.
+      //
+      // check() answers "can this text be rendered?", not "is this family loaded?" —
+      // and the answer is yes for ANY family name, because the browser will happily
+      // fall back. Guarding on it meant all four fonts were skipped as already present
+      // and the covers rendered in Arial Black and Georgia. Loading is cheap, the whole
+      // function is memoised in _thFonts, and a FontFace that is already registered
+      // costs nothing to add again.
+      const loaded = await Promise.all(TH_FONTS.map(async ([family, file])=>{
+        try{
+          const ff = new FontFace(family, "url('"+TH_FONT_BASE+file+"')");
+          await ff.load();
+          document.fonts.add(ff);
+          return true;
+        }catch(e){
+          // A missing or misnamed file lands here. Say so loudly — the visible symptom
+          // is "the covers look generic", which points at the design rather than at a 404.
+          console.error("[thumbnail] font failed to load: " + TH_FONT_BASE + file + " — " + ((e && e.message) || e));
+          return false;
+        }
       }));
+      _thMissing = TH_FONTS.filter((f,i)=>!loaded[i]).map(f=>f[1]);
+      if(_thMissing.length) console.error("[thumbnail] missing brand fonts: " + _thMissing.join(", "));
+
+      // SAFARI: a FontFace that has loaded and been added to document.fonts is still
+      // not necessarily available to CANVAS. Safari only makes a face available to a
+      // 2D context once it has been used for real layout somewhere in the document —
+      // and when it hasn't, ctx.font silently falls through to the next name in the
+      // stack. The whole cover renders in Arial Black and Georgia with no error
+      // anywhere, which is exactly as hard to diagnose as it sounds. Chrome does not
+      // do this, so it looks like a Mac-only problem and gets blamed on the files.
+      //
+      // Laying each face out once in a hidden node fixes it. The node has to STAY for
+      // a moment — tearing it down immediately lets Safari drop the face again before
+      // the first draw.
+      try{
+        const probe = document.createElement("div");
+        probe.setAttribute("aria-hidden", "true");
+        // opacity, not visibility:hidden — a hidden element is laid out but may never be
+        // PAINTED, and painting is what actually makes Safari realise the face.
+        probe.style.cssText = "position:absolute;left:-9999px;top:0;opacity:0.01;white-space:nowrap;pointer-events:none;z-index:-1";
+        probe.innerHTML = TH_FONTS.map(f=>'<span style="font-family:\''+f[0]+'\';font-size:64px">Handgloves</span>').join("");
+        document.body.appendChild(probe);
+        void probe.offsetWidth;                                   // force layout NOW
+        if(document.fonts && document.fonts.ready) await document.fonts.ready;
+        setTimeout(()=>{ try{ probe.remove(); }catch(_){} }, 10000);
+      }catch(_){}
     }catch(_){ /* falls back to system faces rather than failing the render */ }
   })();
   return _thFonts;
@@ -6565,7 +6607,7 @@ async function thRenderSingle(o){
     }
   }
   g.shadowColor = "transparent"; g.shadowBlur = 0;
-  return c.toDataURL("image/jpeg", 0.93);
+  return c.toDataURL("image/png");
 }
 
 // ── TEMPLATE B · three-panel collage ─────────────────────────────────────────
@@ -6576,10 +6618,32 @@ async function thRenderCollage(o){
   const c = document.createElement("canvas"); c.width=W; c.height=H;
   const g = c.getContext("2d");
 
-  if(o.background){
-    try{ thCover(g, await thLoad(o.background), 0, 0, W, H); }
-    catch(_){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); }
-  } else { g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); }
+  // Background: an uploaded image if there is one, otherwise the CENTRE photo blown up
+  // and blurred behind everything.
+  //
+  // Flat grey was reading as a missing background rather than as a design choice, and
+  // it left the three panels floating on nothing. Blurring the middle picture gives the
+  // cover a colour palette drawn from the photographs themselves, so it always belongs —
+  // which is the trick every music player uses behind album art. Darkened afterwards so
+  // white type has something to sit on whatever the photo happens to be.
+  let bgDrawn = false;
+  const bgSrc = o.background || (o.photos||[])[1] || (o.photos||[])[0];
+  if(bgSrc){
+    try{
+      const bgImg = await thLoad(bgSrc);
+      g.save();
+      g.filter = "blur(" + Math.round(Math.min(W,H) * 0.055) + "px)";
+      // Overscaled so the blur doesn't drag transparent edges into the frame.
+      const over = Math.round(Math.min(W,H) * 0.14);
+      thCover(g, bgImg, -over, -over, W + over*2, H + over*2);
+      g.restore();
+      // Only dim an AUTO background. An uploaded one is a deliberate choice and is left
+      // as the person supplied it.
+      if(!o.background){ g.fillStyle = "rgba(18,16,14,0.34)"; g.fillRect(0,0,W,H); }
+      bgDrawn = true;
+    }catch(_){}
+  }
+  if(!bgDrawn){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); }
 
   // Panels run wide and long on purpose. Narrower and the grey around them reads as
   // unused space rather than as air; a cover wants the pictures to dominate and the
@@ -6609,7 +6673,12 @@ async function thRenderCollage(o){
   thCenter(g, o.masthead, Math.round(H*0.45), W, mSize*0.03);
   g.shadowColor = "transparent"; g.shadowBlur = 0;
 
-  const ink = "#141210";
+  // White throughout, with a shadow. Dark ink was chosen for a pale grey background;
+  // now that the background is usually a blurred photograph, white is the only colour
+  // that reads on all of them — and the shadow covers the case where that photo is
+  // bright.
+  const ink = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.45)"; g.shadowBlur = Math.round(S*0.020); g.shadowOffsetY = Math.round(S*0.002);
   const subF = (px)=> px + "px ChelgySub, Georgia, serif";
   const smF  = (px)=> px + "px ChelgySmall, Georgia, serif";
   const scF  = (px)=> px + "px ChelgyScript, Georgia, serif";
@@ -6623,8 +6692,12 @@ async function thRenderCollage(o){
   if(o.tl3){
     g.font = subF(s1);
     const bw = thWidth(g, o.tl3, 0) + Math.round(S*0.030);
-    g.fillStyle = ink;
+    // The bar stays dark whatever the type colour is — it exists to reverse the word
+    // out of a solid block, which only works against something solid.
+    const sc = g.shadowColor; g.shadowColor = "transparent";
+    g.fillStyle = "rgba(18,16,14,0.92)";
     g.fillRect(x0 - Math.round(S*0.012), y0 + Math.round(S*0.096), bw, Math.round(S*0.062));
+    g.shadowColor = sc;
     g.fillStyle = "#FFFFFF";
     g.fillText(o.tl3, x0, y0 + Math.round(S*0.102));
   }
@@ -6641,11 +6714,11 @@ async function thRenderCollage(o){
     thCenter(g, o.hero, Math.round(H*0.875), W, hSize*0.01);
     if(o.sub){
       const sf = Math.round(S*0.028);
-      g.font = smF(sf); g.fillStyle = "#3C3732";
+      g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.92)";
       thCenter(g, o.sub, Math.round(H*0.875) + hSize + Math.round(S*0.018), W, 0);
     }
   }
-  return c.toDataURL("image/jpeg", 0.93);
+  return c.toDataURL("image/png");
 }
 
 function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null }){
@@ -6655,7 +6728,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   const [cutout,setCutout]     = useState(null);
   const [background,setBackground] = useState(null);
   const [about,setAbout]       = useState("");
-  const [brand,setBrand]       = useState("");
+  const [header,setHeader]     = useState("");
   const [copy,setCopy]         = useState(null);
   const [out,setOut]           = useState("");
   const [busy,setBusy]         = useState(false);
@@ -6699,13 +6772,18 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
       const r = await fetch("/api/studio-thumbnail", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({ template, about: about.trim(), brand: brand.trim() })
+        body: JSON.stringify({ template, about: about.trim(), header: header.trim() })
       });
       const d = await r.json();
       if(!r.ok || !d || !d.copy) throw new Error((d&&d.error)||"Couldn't write the cover lines.");
       setCopy(d.copy);
       setStage("Setting the type…");
       await redraw(d.copy);
+      // A missing font is silent otherwise: the cover renders, just in the wrong face,
+      // and "it looks generic" points at the design rather than at a 404.
+      if(_thMissing && _thMissing.length){
+        setErr("These fonts didn't load, so parts of the cover fell back to a system face: " + _thMissing.join(", ") + ". Check they're in public/fonts with exactly those names.");
+      }
       try{ onToolUse && onToolUse("thumbnail"); }catch(_){}
       setStage("");
     }catch(e){ setErr((e&&e.message)||"Something went wrong."); setStage(""); }
@@ -6801,11 +6879,16 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
               {cutout ? "Behind head ✓" : "Put title behind head"}
             </Btn>
           )}
+          {template==="single" && photos[0] && !cutout && (
+            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>
+              ← tap that to make the title pass behind you
+            </span>
+          )}
         </div>
       )}
 
-      <input value={brand} onChange={e=>setBrand(e.target.value)} disabled={busy}
-        placeholder="Your name or brand (for the masthead)"
+      <input value={header} onChange={e=>setHeader(e.target.value)} disabled={busy}
+        placeholder="Header title — the big word across the cover"
         style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:8}} />
       <textarea value={about} onChange={e=>setAbout(e.target.value)} disabled={busy} rows={2}
         placeholder="What's the video about?"
@@ -6830,7 +6913,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
                 style={{flex:1,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"7px 10px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
             </div>
           ))}
-          <button onClick={()=>downloadPic(out, "chelgy-cover.jpg")}
+          <button onClick={()=>downloadPic(out, "chelgy-cover.png")}
             style={{marginTop:10,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"11px 20px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>
             Download
           </button>
