@@ -174,10 +174,26 @@ async function createPod(n) {
 // PER_JOB (the physics floor, not a spend limit). Every job gets the pods it needs;
 // the balance is what stops runaway spend, and RunPod enforces that itself by
 // refusing to create pods once the account can't fund them.
-export async function ensurePods(demand, reason) {
+//
+// opts.additive changes the question from "does the fleet have `demand` machines?"
+// to "does this job have `demand` machines OF ITS OWN?".
+//
+// The default is a FLEET TARGET, which is correct for a render: it knows its chunk
+// count, so `want - running` tops the fleet up to what that job needs. It is wrong
+// for anything that asks for a fixed number. Audio calls ensurePods(1), meaning
+// "the fleet should contain one pod" — so the second concurrent edit found one pod
+// already up, created nothing, and its chunk sat queued until the first edit's pod
+// happened to notice it. Two edits at once ran at half speed with no error anywhere,
+// which is exactly as confusing as it sounds.
+//
+// Additive still respects PER_JOB as a total ceiling, so this cannot run away: six
+// concurrent edits get six workers, the seventh waits. And workers retire themselves
+// on their idle timer, so an extra pod costs about a cent.
+export async function ensurePods(demand, reason, opts) {
   if (!KEY) return { ok: false, skipped: "no RUNPOD_API_KEY" };
   const want = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
   if (!want) return { ok: true, created: 0, running: 0 };
+  const additive = !!(opts && opts.additive);
 
   // Count the fleet BEFORE creating anything. Without this the function creates
   // `demand` pods on every call no matter how many are already up and idle, so a
@@ -198,9 +214,13 @@ export async function ensurePods(demand, reason) {
     catch (e2) { return { ok: false, created: 0, running: 0, error: "could not count or create" }; }
   }
 
-  const create = Math.max(0, want - running);
+  // Fleet target vs per-job target. Additive asks for `want` MORE machines than are
+  // already up, still ceilinged at PER_JOB so concurrency can't spiral.
+  const target = additive ? Math.min(PER_JOB, running + want) : want;
+  const create = Math.max(0, target - running);
   if (!create) {
-    console.log("[scale] " + reason + ": " + running + " pod(s) already up, wanted " + want + " — creating none");
+    console.log("[scale] " + reason + ": " + running + " pod(s) already up, wanted " +
+                (additive ? ("+" + want + " (ceiling " + PER_JOB + ")") : want) + " — creating none");
     return { ok: true, created: 0, running };
   }
 
@@ -310,7 +330,10 @@ export default async function handler(req, res) {
     // adding a cron — and it means a stranded pod is cleaned up by the next render
     // rather than by a support ticket.
     reapStalePods().catch(() => {});
-    const out = await ensurePods(1, "warm-up at planning");
+    // additive here too, and for the same reason: two people starting an edit within
+    // a few seconds of each other both warm up, and the second must not conclude that
+    // the first person's pod counts as its own.
+    const out = await ensurePods(1, "warm-up at planning", { additive: true });
     // Never fatal. A warm-up that fails means a slower render, not a broken one —
     // the render step will start pods itself when it knows the chunk count.
     return res.status(200).json({ ok: true, running: (out && out.running) || 0 });

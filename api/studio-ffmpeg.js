@@ -153,7 +153,11 @@ export default async function handler(req, res) {
         if (d.queued) {
           try {
             const { ensurePods } = await import("./render-scale.js");
-            await ensurePods(1, "audio job queued");
+            // additive: this job needs a worker OF ITS OWN. Without it, a second
+            // concurrent edit saw the first edit's pod, decided the fleet was already
+            // the right size, created nothing, and left its chunk queued with no
+            // machine polling for it.
+            await ensurePods(1, "audio job queued", { additive: true });
           } catch (e) {
             console.error("[audio] could not start a worker: " + ((e && e.message) || e));
           }
