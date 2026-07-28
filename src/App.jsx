@@ -5919,7 +5919,27 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     setClips(prev => prev.map(c => c.id === id ? { ...c, role: val, label: val === "broll" ? (c.label||"") : "" } : c));
   }
   function rotateClip(id){
-    setClips(prev => prev.map(c => c.id === id ? { ...c, rotate: (((Number(c.rotate)||0) + 90) % 360) } : c));
+    setClips(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, rotate: (((Number(c.rotate)||0) + 90) % 360) } : c);
+      // A quarter turn swaps width and height, so the shape of the finished video should
+      // follow. Someone rotating a clip that was recorded sideways is telling us it is
+      // really a portrait video — leaving the output on landscape then letterboxes the
+      // thing they just corrected.
+      //
+      // Same guard as the auto-detect on upload: a deliberate choice is never overruled.
+      // If they have set the Shape themselves, they may well want a portrait crop of
+      // landscape footage, and that is not ours to undo.
+      if(!orientPicked){
+        const lead = next.find(c => c.w > 0 && c.h > 0);
+        if(lead){
+          const turned = ((Number(lead.rotate)||0) % 180) !== 0;
+          const w = turned ? lead.h : lead.w;
+          const h = turned ? lead.w : lead.h;
+          setOrient(w / h > 1.05 ? "landscape" : "portrait");
+        }
+      }
+      return next;
+    });
   }
   function setClipLabel(id, val){
     setClips(prev => prev.map(c => c.id === id ? { ...c, label: String(val).slice(0, 80) } : c));
