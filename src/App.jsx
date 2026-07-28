@@ -6870,16 +6870,17 @@ async function thRenderTriptych(o){
   const g = c.getContext("2d");
   g.fillStyle = "#FFFFFF"; g.fillRect(0,0,W,H);
 
+  // Measured off the reference rather than guessed. The panels there span 98% of the
+  // width with essentially NO gutter — they touch — and run 61-73% of the height. An
+  // earlier version used 27.5% panels with a 2.2% gutter and it read as three small
+  // pictures floating on a page instead of one composition filling the frame.
   const wide = W > H * 1.2;
-  const pw = Math.round(W * (wide ? 0.235 : 0.275));
-  const gut = W * 0.022;
+  const pw  = Math.round(W * (wide ? 0.30 : 0.327));
+  const gut = W * 0.004;
   const left = (W - (pw*3 + gut*2)) / 2;
-  const top = H * (wide ? 0.30 : 0.235);
-  const rows = [
-    { y: top,               h: H * (wide ? 0.62 : 0.60) },
-    { y: top + H * 0.115,   h: H * (wide ? 0.66 : 0.66) },
-    { y: top - H * 0.010,   h: H * (wide ? 0.55 : 0.53) }
-  ];
+  const rows = wide
+    ? [ { y: H*0.185, h: H*0.72 }, { y: H*0.285, h: H*0.70 }, { y: H*0.165, h: H*0.66 } ]
+    : [ { y: H*0.133, h: H*0.673 }, { y: H*0.229, h: H*0.733 }, { y: H*0.119, h: H*0.614 } ];
   for(let i=0;i<3;i++){
     const src = (o.photos||[])[i];
     const x = Math.round(left + i*(pw+gut));
@@ -6889,23 +6890,23 @@ async function thRenderTriptych(o){
       // Fades into the page at the top, the way the reference does. The pill has no
       // hard upper edge at all — the picture simply stops existing, which is why those
       // panels feel printed rather than pasted on.
-      const plate = thPlate(await thLoad(src), pw, ph, { top: Math.round(ph*0.42) }, pw/2, 0.34);
+      const plate = thPlate(await thLoad(src), pw, ph, { top: Math.round(ph*0.30) }, pw/2, 0.38);
       g.drawImage(plate, x, y);
     }catch(_){}
   }
 
   g.textBaseline = "top"; g.fillStyle = "#141210";
   const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
-  const mSize = thFit(g, o.masthead, W*0.62, mastFont, Math.round(S*0.095), Math.round(S*0.040), 0.02);
+  const mSize = thFit(g, o.masthead, W*0.56, mastFont, Math.round(S*0.078), Math.round(S*0.034), 0.02);
   g.font = mastFont(mSize);
-  thCenter(g, o.masthead, Math.round(H*0.045), W, mSize*0.02);
+  thCenter(g, o.masthead, Math.round(H*0.022), W, mSize*0.02);
 
   const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
   const sf = Math.round(S*0.026);
   g.font = smF(sf); g.fillStyle = "#2A2622";
   const line = [o.kicker, o.sub].filter(Boolean).join(" — ");
-  if(line) thCenter(g, line, Math.round(H*0.045) + mSize + Math.round(S*0.020), W, 0);
-  if(o.kickerSub) thCenter(g, o.kickerSub, Math.round(H*0.045) + mSize + Math.round(S*0.020) + sf*1.4, W, 0);
+  if(line) thCenter(g, line, Math.round(H*0.022) + mSize + Math.round(S*0.014), W, 0);
+  if(o.kickerSub) thCenter(g, o.kickerSub, Math.round(H*0.022) + mSize + Math.round(S*0.014) + sf*1.35, W, 0);
   return c.toDataURL("image/png");
 }
 
