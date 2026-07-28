@@ -6552,6 +6552,35 @@ function thFit(g, txt, maxW, font, start, floor, track){
   }
   return size;
 }
+// Everything that leaves this tool must be a data: URL.
+//
+// The re-shoot and cut-out both do src.match(/^data:...base64,(.*)$/) and send group 2.
+// That is fine for a file the person picked, which is always a data URL — but what
+// comes BACK from image generation may be a hosted URL, and then the match returns null,
+// `data` is sent as an empty string, and the failure surfaces as an opaque WebKit
+// "the string did not match the expected pattern" rather than anything useful. Which is
+// exactly why it worked the first time and not the second.
+async function thAsDataUrl(src){
+  const str = String(src || "");
+  if(/^data:/i.test(str)) return str;
+  if(!str) throw new Error("There's no image to work from.");
+  const r = await fetch(str, { mode: "cors" });
+  if(!r.ok) throw new Error("Couldn't read that image back.");
+  const blob = await r.blob();
+  return await new Promise((res, rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>res(String(fr.result||""));
+    fr.onerror = ()=>rej(new Error("Couldn't read that image back."));
+    fr.readAsDataURL(blob);
+  });
+}
+// Split a data URL into the parts the image API wants, or say so plainly.
+function thParts(dataUrl){
+  const m = String(dataUrl||"").match(/^data:([^;]+);base64,(.+)$/);
+  if(!m) throw new Error("That image is in a format we can't send. Try re-uploading it.");
+  return { mimeType: m[1], data: m[2] };
+}
+
 function thLoad(src){
   return new Promise((res, rej)=>{
     const i = new Image(); i.crossOrigin = "anonymous";
@@ -6746,6 +6775,18 @@ async function thRenderCollage(o){
   return c.toDataURL("image/png");
 }
 
+// Browser exceptions are written for browser engineers. "The string did not match the
+// expected pattern" is a real WebKit message and it tells a customer nothing at all.
+function thSay(e, fallback){
+  const m = String((e && e.message) || "");
+  if(!m) return fallback;
+  if(/did not match the expected pattern|SyntaxError|InvalidCharacter/i.test(m))
+    return fallback + " That image was in a format we couldn't read — try re-uploading it as a JPG or PNG.";
+  if(/insecure|tainted|SecurityError/i.test(m))
+    return fallback + " The browser wouldn't let us read that image back. Re-upload it from your device.";
+  return m;
+}
+
 function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null }){
   const [template,setTemplate] = useState("single");
   const [aspect,setAspect]     = useState("4:5");
@@ -6822,16 +6863,18 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
     setBusy(true); setErr(""); setStage("Re-shooting photo "+(i+1)+"…");
     try{
-      const m = src.match(/^data:(.*?);base64,(.*)$/);
+      const parts = thParts(await thAsDataUrl(src));
       const prompt =
         "Take this photo of me and re-shoot it as a high-end fashion magazine photograph of ME.\n\n" +
         (scene.trim() ? ("Setting: " + scene.trim() + ".\n") : "Setting: a clean editorial studio with a plain seamless backdrop.\n") +
         "Light me deliberately, the way a magazine photographer would, with rich controlled colour grading.\n\n" +
         "CRITICAL: keep my face, hair and skin EXACTLY as they are in the photo — not merely my likeness, but ME, the same person. Do not slim, reshape, lighten or beautify anything. Do not invent a different face.";
-      const d = await generateOpenAIImage(prompt, [{ mimeType:(m&&m[1])||"image/jpeg", data:(m&&m[2])||"" }], aspect, "2K");
-      if(d && d.image){ setPhotos(p=>{ const n=p.slice(); n[i]=d.image; return n; }); setCutout(null); }
+      const d = await generateOpenAIImage(prompt, [parts], aspect, "2K");
+      // Normalised on the way IN, so state only ever holds data URLs and a second
+      // re-shoot of an already-re-shot photo behaves like the first.
+      if(d && d.image){ const norm = await thAsDataUrl(d.image); setPhotos(p=>{ const n=p.slice(); n[i]=norm; return n; }); setCutout(null); }
       if(typeof d?.balance === "number") onBalance(d.balance);
-    }catch(e){ setErr((e&&e.message)||"Couldn't re-shoot that photo."); }
+    }catch(e){ setErr(thSay(e, "Couldn't re-shoot that photo.")); }
     setStage(""); setBusy(false);
   }
 
@@ -6842,14 +6885,14 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
     setBusy(true); setErr(""); setStage("Cutting you out from the background…");
     try{
-      const m = src.match(/^data:(.*?);base64,(.*)$/);
+      const parts = thParts(await thAsDataUrl(src));
       const d = await generateOpenAIImage(
         "Return this exact photo of me with the background fully removed — just me, cut out, on a transparent background. Do not change my face, hair, body, clothing, pose or the lighting on me in any way. This is a cut-out, not a new photograph.",
-        [{ mimeType:(m&&m[1])||"image/jpeg", data:(m&&m[2])||"" }], aspect, "2K", "transparent"
+        [parts], aspect, "2K", "transparent"
       );
-      if(d && d.image) setCutout(d.image);
+      if(d && d.image) setCutout(await thAsDataUrl(d.image));
       if(typeof d?.balance === "number") onBalance(d.balance);
-    }catch(e){ setErr((e&&e.message)||"Couldn't cut that out."); }
+    }catch(e){ setErr(thSay(e, "Couldn't cut that out.")); }
     setStage(""); setBusy(false);
   }
 
