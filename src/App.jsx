@@ -4110,9 +4110,13 @@ function StyleMatch({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         "Match the lighting on me to the second photo - make the sun and light hit my face and body the same way it hits the person in the second photo, from the same direction, with the same hardness and the same shadows.\n" +
         "Match the color grading exactly to the second photo - the same palette, contrast, saturation, warmth and film tone.\n" +
         "Match the location, setting, camera angle, framing and overall mood of the second photo.\n\n" +
-        "Keep my OUTFIT exactly as it is in the first photo - the same garments, the same colours, the same cut, the same details. Do not swap, restyle or redesign what I am wearing, and do not dress me in anything the person in the second photo is wearing.\n" +
-        "My clothing should be RELIT, not replaced: let the second photo's light and colour grading fall across the outfit I already have, so it belongs in the new scene while remaining the same clothes.\n\n" +
-        "CRITICAL: keep my face, hair and outfit EXACTLY like mine from the first photo - not merely my likeness, but ME, the exact same person. Do not copy or blend in the face, hair, body or clothing of the person in the second photo; their appearance is irrelevant. The only person in the result is me, from the first photo." +
+        // Do NOT add outfit-preservation wording here. It was tried and reverted: telling
+        // the model to keep the garments exactly - same cut, same colours, same details -
+        // reads as an instruction to preserve PIXELS, and pixel-preservation fights the
+        // relighting and reposing that are the entire point of this tool. The lighting and
+        // the pose both came out wrong. Identity instruction helps GPT; garment
+        // instruction over-constrains it.
+        "CRITICAL: keep my face and hair EXACTLY like mine from the first photo - not merely my likeness, but ME, the exact same person. Do not copy or blend in the face, hair or body of the person in the second photo; their appearance is irrelevant. The only person in the result is me, from the first photo." +
         (extra.trim() ? "\n\nAlso: " + extra.trim() : "");
 
       // GPT quality: "2K" standard, "4K" high (openai-image.js maps + prices these).
