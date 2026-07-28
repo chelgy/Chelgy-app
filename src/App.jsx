@@ -6697,15 +6697,33 @@ function thPlate(img, w, h, feather, radius, bias){
   return cv;
 }
 
-// The blurred backdrop, shared by every layout that wants one.
+// The backdrop every layout sits on: the photograph smeared into pure colour.
+//
+// A gaussian blur alone still reads as "a blurry photo" — you can make out shapes, and
+// the eye keeps trying to resolve them, which competes with the panels in front. A
+// MOTION blur doesn't: dragging the image sideways destroys every edge and leaves only
+// the palette behind, which is what the reference does and why it recedes so completely.
+//
+// Canvas has no motion-blur filter, so it's built by hand — the image drawn many times
+// at stepped horizontal offsets, each at low alpha, over a heavy gaussian. Costs a few
+// milliseconds and looks like a long exposure of a passing train.
 async function thBackdrop(g, W, H, src, dim){
   if(!src){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); return false; }
   try{
     const img = await thLoad(src);
+    const over = Math.round(Math.min(W,H) * 0.22);
     g.save();
-    g.filter = "blur(" + Math.round(Math.min(W,H) * 0.055) + "px)";
-    const over = Math.round(Math.min(W,H) * 0.14);
+    g.filter = "blur(" + Math.round(Math.min(W,H) * 0.085) + "px)";
     thCover(g, img, -over, -over, W + over*2, H + over*2);
+    // The smear. Odd number of passes so the original position stays weighted.
+    const PASSES = 13, reach = W * 0.16;
+    g.globalAlpha = 0.16;
+    for(let k = 1; k <= PASSES; k++){
+      const dx = (k / PASSES) * reach;
+      thCover(g, img, -over + dx, -over, W + over*2, H + over*2);
+      thCover(g, img, -over - dx, -over, W + over*2, H + over*2);
+    }
+    g.globalAlpha = 1;
     g.restore();
     if(dim > 0){ g.fillStyle = "rgba(18,16,14," + dim + ")"; g.fillRect(0,0,W,H); }
     return true;
@@ -6797,32 +6815,10 @@ async function thRenderCollage(o){
   const c = document.createElement("canvas"); c.width=W; c.height=H;
   const g = c.getContext("2d");
 
-  // Background: an uploaded image if there is one, otherwise the CENTRE photo blown up
-  // and blurred behind everything.
-  //
-  // Flat grey was reading as a missing background rather than as a design choice, and
-  // it left the three panels floating on nothing. Blurring the middle picture gives the
-  // cover a colour palette drawn from the photographs themselves, so it always belongs —
-  // which is the trick every music player uses behind album art. Darkened afterwards so
-  // white type has something to sit on whatever the photo happens to be.
-  let bgDrawn = false;
-  const bgSrc = o.background || (o.photos||[])[1] || (o.photos||[])[0];
-  if(bgSrc){
-    try{
-      const bgImg = await thLoad(bgSrc);
-      g.save();
-      g.filter = "blur(" + Math.round(Math.min(W,H) * 0.055) + "px)";
-      // Overscaled so the blur doesn't drag transparent edges into the frame.
-      const over = Math.round(Math.min(W,H) * 0.14);
-      thCover(g, bgImg, -over, -over, W + over*2, H + over*2);
-      g.restore();
-      // Only dim an AUTO background. An uploaded one is a deliberate choice and is left
-      // as the person supplied it.
-      if(!o.background){ g.fillStyle = "rgba(18,16,14,0.34)"; g.fillRect(0,0,W,H); }
-      bgDrawn = true;
-    }catch(_){}
-  }
-  if(!bgDrawn){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); }
+  // Backdrop: an uploaded image if there is one, otherwise the CENTRE photo smeared
+  // into colour. Only the automatic one gets dimmed — an uploaded background is a
+  // deliberate choice and is left as supplied.
+  await thBackdrop(g, W, H, o.background || (o.photos||[])[1] || (o.photos||[])[0], o.background ? 0 : 0.34);
 
   // Panels run wide and long on purpose. Narrower and the grey around them reads as
   // unused space rather than as air; a cover wants the pictures to dominate and the
@@ -6913,59 +6909,35 @@ async function thRenderTriptych(o){
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
   const g = c.getContext("2d");
-  g.fillStyle = "#FFFFFF"; g.fillRect(0,0,W,H);
+  await thBackdrop(g, W, H, o.background || (o.photos||[])[1] || (o.photos||[])[0], o.background ? 0 : 0.42);
 
-  // Measured off the reference rather than guessed. The panels there span 98% of the
-  // width with essentially NO gutter — they touch — and run 61-73% of the height. An
-  // earlier version used 27.5% panels with a 2.2% gutter and it read as three small
-  // pictures floating on a page instead of one composition filling the frame.
+  // Wider and longer than before so the group fills the frame rather than sitting in
+  // it. On a wide canvas the panels also get taller, because a 16:9 frame gives them
+  // far less height to work with than a 4:5 one.
   const wide = W > H * 1.2;
-  const pw  = Math.round(W * (wide ? 0.30 : 0.327));
+  const pw  = Math.round(W * (wide ? 0.305 : 0.327));
   const gut = W * 0.004;
   const left = (W - (pw*3 + gut*2)) / 2;
   const rows = wide
-    ? [ { y: H*0.185, h: H*0.72 }, { y: H*0.285, h: H*0.70 }, { y: H*0.165, h: H*0.66 } ]
-    : [ { y: H*0.133, h: H*0.673 }, { y: H*0.229, h: H*0.733 }, { y: H*0.119, h: H*0.614 } ];
-  for(let i=0;i<3;i++){
-    const src = (o.photos||[])[i];
-    const x = Math.round(left + i*(pw+gut));
-    const y = Math.round(rows[i].y), ph = Math.round(rows[i].h);
-    if(!src){ g.fillStyle="rgba(0,0,0,0.05)"; thRoundPath(g,x,y,pw,ph,pw/2); g.fill(); continue; }
-    try{
-      // ALTERNATING fades, and each one takes out most of the panel it's on.
-      //
-      // Outer panels dissolve at the BOTTOM, the centre one at the TOP. That opposition
-      // is what makes the three interlock instead of reading as a row: every panel is
-      // solid exactly where its neighbours are vanishing, so the eye is passed along
-      // the group rather than stopping at three separate pictures. A single shared
-      // direction gave three parallel gradients and no relationship between them.
-      //
-      // The crop bias has to OPPOSE the fade or the subject dissolves. A panel fading
-      // at the bottom shows the top of its photo; the centre, fading at the top, shows
-      // the lower part of its own.
-      const fadeDeep = Math.round(ph * 0.46);
-      const plate = thPlate(
-        await thLoad(src), pw, ph,
-        (i === 1 ? { top: fadeDeep } : { bottom: fadeDeep }),
-        pw/2,
-        (i === 1 ? 0.62 : 0.10)
-      );
-      g.drawImage(plate, x, y);
-    }catch(_){}
-  }
-
-  g.textBaseline = "top"; g.fillStyle = "#141210";
+    ? [ { y: H*0.115, h: H*0.80 }, { y: H*0.195, h: H*0.79 }, { y: H*0.100, h: H*0.74 } ]
+    : [ { y: H*0.115, h: H*0.72 }, { y: H*0.205, h: H*0.775 }, { y: H*0.100, h: H*0.665 } ];
+  g.textBaseline = "top"; g.fillStyle = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022); g.shadowOffsetY = Math.round(S*0.003);
   const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
-  const mSize = thFit(g, o.masthead, W*0.56, mastFont, Math.round(S*0.078), Math.round(S*0.034), 0.02);
+  const mSize = thFit(g, o.masthead, W*0.74, mastFont, Math.round(S*0.115), Math.round(S*0.048), 0.02);
   g.font = mastFont(mSize);
-  thCenter(g, o.masthead, Math.round(H*0.022), W, mSize*0.02);
+  const mTop = Math.round(H*0.020);
+  thCenter(g, o.masthead, mTop, W, mSize*0.02);
 
+  // Sub lines sit UNDER the title, centred, in the order they read.
   const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
-  const sf = Math.round(S*0.026);
-  g.font = smF(sf); g.fillStyle = "#2A2622";
+  const sf = Math.round(S*0.032);
+  g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.94)";
+  let ty = mTop + mSize + Math.round(S*0.012);
   const line = [o.kicker, o.sub].filter(Boolean).join(" — ");
-  if(line) thCenter(g, line, Math.round(H*0.022) + mSize + Math.round(S*0.014), W, 0);
-  if(o.kickerSub) thCenter(g, o.kickerSub, Math.round(H*0.022) + mSize + Math.round(S*0.014) + sf*1.35, W, 0);
+  if(line){ thCenter(g, line, ty, W, 0); ty += sf*1.35; }
+  if(o.kickerSub) thCenter(g, o.kickerSub, ty, W, 0);
+  g.shadowColor = "transparent";
   return c.toDataURL("image/png");
 }
 
@@ -6980,7 +6952,7 @@ async function thRenderSpread(o){
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
   const g = c.getContext("2d");
-  g.fillStyle = "#F4F2EF"; g.fillRect(0,0,W,H);
+  await thBackdrop(g, W, H, o.background || (o.photos||[])[1] || (o.photos||[])[0], o.background ? 0 : 0.46);
 
   // big picture, bleeding off the right
   const bigX = Math.round(W*0.56);
@@ -7003,12 +6975,13 @@ async function thRenderSpread(o){
   const pad = Math.round(W*0.05);
   const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
   const mSize = thFit(g, o.masthead, W*0.34, mastFont, Math.round(S*0.20), Math.round(S*0.070), 0.02);
-  g.font = mastFont(mSize); g.fillStyle = "#141210";
+  g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022);
   thDraw(g, o.masthead, pad, Math.round(H*0.22), mSize*0.02);
 
   const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
   const sf = Math.round(S*0.024);
-  g.font = smF(sf); g.fillStyle = "#3C3732";
+  g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.92)";
   // the standfirst paragraph, wrapped to the column beside the masthead
   const words = String(o.sub||"").split(/\s+/).filter(Boolean);
   let ln = "", y = Math.round(H*0.075), maxW = W*0.30;
@@ -7043,7 +7016,7 @@ async function thRenderMontage(o){
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
   const g = c.getContext("2d");
-  g.fillStyle = "#FFFFFF"; g.fillRect(0,0,W,H);
+  await thBackdrop(g, W, H, o.background || (o.photos||[])[1] || (o.photos||[])[0], o.background ? 0 : 0.44);
 
   // Z-ORDER, back to front: third, second, first.
   //
@@ -7051,10 +7024,13 @@ async function thRenderMontage(o){
   // own right side covers photo 3. That reads as an interleave but it is plain layering —
   // 3, then 2, then 1 — and it only works because the overlaps are feathered, so each
   // seam dissolves instead of showing an edge.
+  // Spanning edge to edge and running tall. The earlier version left a margin all the
+  // way round, which made three crops float on a page; bleeding off both sides is what
+  // makes it read as one image rather than three.
   const plates = [
-    { i:2, x: W*0.52, y: H*0.10, w: W*0.44, h: H*0.50, f:{ left:W*0.10, bottom:H*0.08 } },
-    { i:1, x: W*0.26, y: H*0.30, w: W*0.48, h: H*0.46, f:{ left:W*0.12, right:W*0.10, top:H*0.06, bottom:H*0.06 } },
-    { i:0, x: W*0.05, y: H*0.16, w: W*0.46, h: H*0.56, f:{ right:W*0.11, bottom:H*0.07 } }
+    { i:2, x: W*0.50, y: H*0.055, w: W*0.52, h: H*0.66, f:{ left:W*0.12, bottom:H*0.10 } },
+    { i:1, x: W*0.22, y: H*0.190, w: W*0.56, h: H*0.62, f:{ left:W*0.13, right:W*0.11, top:H*0.07, bottom:H*0.07 } },
+    { i:0, x: W*-0.02, y: H*0.090, w: W*0.54, h: H*0.72, f:{ right:W*0.13, bottom:H*0.09 } }
   ];
   for(const p of plates){
     const src = (o.photos||[])[p.i];
@@ -7070,12 +7046,14 @@ async function thRenderMontage(o){
   g.textBaseline = "top";
   const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
   const mSize = thFit(g, o.masthead, W*0.52, mastFont, Math.round(S*0.085), Math.round(S*0.038), 0.02);
-  g.font = mastFont(mSize); g.fillStyle = "#141210";
-  thDraw(g, o.masthead, Math.round(W*0.05), Math.round(H*0.815), mSize*0.02);
+  g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022);
+  thDraw(g, o.masthead, Math.round(W*0.05), Math.round(H*0.845), mSize*0.02);
   const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
   const sf = Math.round(S*0.024);
-  g.font = smF(sf); g.fillStyle = "#3C3732";
-  if(o.sub) g.fillText(o.sub, Math.round(W*0.05), Math.round(H*0.815) + mSize + Math.round(S*0.016));
+  g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.92)";
+  if(o.sub) g.fillText(o.sub, Math.round(W*0.05), Math.round(H*0.845) + mSize + Math.round(S*0.014));
+  g.shadowColor = "transparent";
   return c.toDataURL("image/png");
 }
 
@@ -7232,7 +7210,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
               : <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>{nPhotos>1?("Photo "+(i+1)):"Choose a photo"}</span>}
           </label>
         ))}
-        {tpl.id==="collage" && (
+        {(
           <label style={{flex:"1 1 150px",border:"1px dashed "+B.stone,padding:"12px 10px",cursor:busy?"default":"pointer",background:B.white,textAlign:"center"}}>
             <input type="file" accept="image/*" disabled={busy} onChange={e=>readFile(e.target.files&&e.target.files[0], setBackground)} style={{display:"none"}} />
             {background
