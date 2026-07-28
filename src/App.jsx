@@ -7187,19 +7187,24 @@ async function thRenderTriptych(o){
     const y = Math.round(rows[i].y), ph = Math.round(rows[i].h);
     if(!src) continue;
     try{
-      // ALTERNATING fades, each deep enough to melt the rounded cap. Outer panels
-      // dissolve at the BOTTOM, the centre one at the TOP — that opposition is what
-      // makes the three interlock instead of reading as a row, since every panel is
-      // solid exactly where its neighbours are vanishing.
+      // Straight-sided panels, dissolving at BOTH ends.
       //
-      // The crop bias has to OPPOSE the fade or the subject dissolves: a panel fading
-      // at the bottom shows the top of its photo, and the centre shows its own lower half.
-      const fadeDeep = Math.round(Math.max(ph * 0.58, pw * 0.90));
+      // The pill shape went because it was fighting the full bleed: a rounded cap is a
+      // silhouette, and a silhouette only reads if there is a margin around it to read
+      // against. Once the panels ran edge to edge the curve just looked like a mistake
+      // in the fade. Square sides with the top and bottom vanishing leaves three bands
+      // of picture floating in the frame with no outline anywhere — which is the effect
+      // the ovals were reaching for and getting in the way of.
+      //
+      // Both fades are 28% of the panel, so 44% survives in the middle. The stagger
+      // moves that solid band up and down across the three, and that is now the only
+      // thing giving the group its rhythm.
+      const fadeEnd = Math.round(ph * 0.28);
       const plate = thPlate(
         await thLoad(src), pw, ph,
-        (i === 1 ? { top: fadeDeep } : { bottom: fadeDeep }),
-        pw/2,
-        (i === 1 ? 0.62 : 0.10)
+        { top: fadeEnd, bottom: fadeEnd },
+        0,
+        0.30
       );
       g.drawImage(plate, x, y);
     }catch(_){}
