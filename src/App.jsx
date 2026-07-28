@@ -4345,7 +4345,11 @@ function FilmRoom(){
           </div>
 
           <div style={{position:"relative",marginBottom:12}}>
-            <img src={compare ? src : (out||src)} alt="" style={{width:"100%",display:"block",border:"1px solid "+B.stone}} />
+            {/* The compare button below stays OUTSIDE this link, or pressing it would
+                fire the download. */}
+            <a href={out || src} download="chelgy-film.jpg" title="Click to save" style={{display:"block",lineHeight:0}}>
+              <img src={compare ? src : (out||src)} alt="" style={{width:"100%",display:"block",border:"1px solid "+B.stone,cursor:"pointer"}} />
+            </a>
             {busy && <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,0.6)",color:"#fff",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.08em",padding:"5px 10px"}}>WORKING…</div>}
             <button onMouseDown={()=>setCompare(true)} onMouseUp={()=>setCompare(false)} onMouseLeave={()=>setCompare(false)}
               onTouchStart={()=>setCompare(true)} onTouchEnd={()=>setCompare(false)}
@@ -4532,7 +4536,10 @@ function Backdrop({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=
 
       {image && (
         <div style={{marginBottom:18}}>
-          <img src={image} alt="" style={{width:"100%",border:"1px solid "+B.stone,display:"block"}} />
+          {/* Download link, not a bare img — see the note in Thumbnail Studio. */}
+          <a href={image} download="chelgy-backdrop.jpg" title="Click to save" style={{display:"block",lineHeight:0}}>
+            <img src={image} alt="" style={{width:"100%",border:"1px solid "+B.stone,display:"block",cursor:"pointer"}} />
+          </a>
           <button onClick={()=>downloadPic(image,"chelgy-backdrop.jpg")}
             style={{marginTop:10,background:B.white,color:B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer"}}>DOWNLOAD</button>
         </div>
@@ -7822,7 +7829,14 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
 
       {out && (
         <div style={{marginTop:20}}>
-          <img src={out} alt="Cover" style={{width:"100%",maxWidth:aspect==="16:9"?720:(aspect==="9:16"?320:460),display:"block",border:"1px solid "+B.stone}} />
+          {/* Wrapped in a download link. This is a data: URL — the whole image encoded
+              as text in the src — and Safari's right-click Save Image is unreliable on
+              those once they run to a few megabytes. As a link it offers "Download Linked
+              File" instead, which works, and a plain click saves it. */}
+          <a href={out} download="chelgy-cover.jpg" title="Click to save"
+             style={{display:"block",lineHeight:0,maxWidth:aspect==="16:9"?720:(aspect==="9:16"?320:460)}}>
+            <img src={out} alt="Cover" style={{width:"100%",display:"block",border:"1px solid "+B.stone,cursor:"pointer"}} />
+          </a>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"8px 0 12px"}}>Edit any line — it redraws instantly and costs nothing.</p>
           {SLOT_LABELS.map(([k,label])=>(
             <div key={k} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
