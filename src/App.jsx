@@ -6242,10 +6242,27 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         </div>
       )}
 
-      {clips.length>0 && <div style={{marginBottom:16}}>
-        <video src={clips[0].preview} controls playsInline style={{maxWidth:"100%",maxHeight:260,border:"1px solid "+B.stone}} />
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>Previewing clip 1{clips.length>1?" of "+clips.length:""}.</p>
-      </div>}
+      {clips.length>0 && (()=>{
+        // The preview turns the moment you tap Rotate. This is a CSS transform on the
+        // player, not the file — the render is rotated separately by the worker — but
+        // without it the button gives no feedback at all and there's no way to tell a
+        // setting that registered from one that didn't.
+        const rot = Number(clips[0].rotate) || 0;
+        const swap = rot === 90 || rot === 270;
+        return (
+          <div style={{marginBottom:16}}>
+            <div style={{overflow:"hidden",display:"inline-block",maxWidth:"100%"}}>
+              <video src={clips[0].preview} controls playsInline
+                style={{maxWidth:"100%",maxHeight:swap?190:260,border:"1px solid "+B.stone,
+                        transform:rot?("rotate("+rot+"deg)"):"none",transformOrigin:"center center",
+                        display:"block",margin:swap?"36px auto":"0 auto"}} />
+            </div>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"6px 0 0"}}>
+              Previewing clip 1{clips.length>1?" of "+clips.length:""}.{rot?" Rotated "+rot+"° — the finished edit will match.":""}
+            </p>
+          </div>
+        );
+      })()}
 
       {clips.length<=1 ? (
         <label style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:10,cursor:"pointer"}}>
