@@ -1230,7 +1230,7 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1239,7 +1239,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || [],
+        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
       })
@@ -5226,7 +5226,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         // by what you label it, and the label is the only thing the planner has to go
         // on. A b-roll clip with no label is still usable, just placed more loosely.
         role: "main",
-        label: ""
+        label: "",
+        // Degrees clockwise to turn this clip before anything else happens to it.
+        // Cameras that record everything in one sensor orientation and describe the
+        // turn in a metadata flag are the reason: plenty of files carry a wrong flag
+        // or none, and horizontal footage arrives standing on its end.
+        rotate: 0
       });
     }
     setClips(prev => {
@@ -5284,6 +5289,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     // Switching back to main drops the label rather than keeping it around invisibly —
     // a stale label on a main clip would be sent to the planner and quietly steer the cut.
     setClips(prev => prev.map(c => c.id === id ? { ...c, role: val, label: val === "broll" ? (c.label||"") : "" } : c));
+  }
+  function rotateClip(id){
+    setClips(prev => prev.map(c => c.id === id ? { ...c, rotate: (((Number(c.rotate)||0) + 90) % 360) } : c));
   }
   function setClipLabel(id, val){
     setClips(prev => prev.map(c => c.id === id ? { ...c, label: String(val).slice(0, 80) } : c));
@@ -5693,7 +5701,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // person has reviewed and adjusted the cut — from a fresh call.
       const ctx = {
         plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
-        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage, role:c.role||"main", label:c.label||"", dur:Number(c.dur)||0})),
+        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage, role:c.role||"main", label:c.label||"", dur:Number(c.dur)||0, rotate:Number(c.rotate)||0})),
         userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
         alsoShorts, showcaseLabels, narrationUrl
       };
@@ -5912,7 +5920,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
         style, footage, grade, wordsForRender, clipFootages,
         chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null,
-        subtitleForRender
+        subtitleForRender, (ctx.clips||[]).map(c=>Number(c.rotate)||0)
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -6176,6 +6184,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
                     {FOOTAGE_TYPES.filter(f=>f.id!=="none").map(f=>(<option key={f.id} value={f.id}>{f.label}</option>))}
                   </select>
                 )}
+                <div style={{marginTop:6}}>
+                  <button onClick={()=>rotateClip(c.id)} disabled={busy}
+                    title="Turn this clip a quarter turn clockwise"
+                    style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",padding:"4px 10px",cursor:busy?"default":"pointer",border:"1px solid "+((Number(c.rotate)||0)?B.charcoal:B.stone),background:(Number(c.rotate)||0)?B.inkBlock:B.white,color:(Number(c.rotate)||0)?B.inkText:B.mid}}>
+                    {(Number(c.rotate)||0) ? "Rotated " + (Number(c.rotate)||0) + "°" : "Rotate"}
+                  </button>
+                </div>
                 {canOwnBroll && (
                   <div style={{marginTop:6,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                     {[["main","Main"],["broll","B-roll"]].map(pair=>{

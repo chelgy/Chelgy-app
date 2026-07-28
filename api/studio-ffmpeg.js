@@ -301,6 +301,12 @@ export default async function handler(req, res) {
     const narration = typeof body.narration === "string" && /^https?:\/\//.test(body.narration.trim()) ? body.narration.trim() : null;
 
     // Per-clip "what did you shoot in?" — a day can span two cameras.
+    // Per-clip rotation in degrees clockwise. Anything that isn't a right angle becomes
+    // 0 — arbitrary angles would need padding to avoid corners of blank frame, and the
+    // problem this solves is only ever a quarter turn.
+    const clipRotate = (Array.isArray(body.clipRotate) ? body.clipRotate : [])
+      .map((r) => ([0, 90, 180, 270].includes(Math.round(Number(r) || 0)) ? Math.round(Number(r) || 0) : 0));
+
     const clipFootage = (Array.isArray(body.clipFootage) ? body.clipFootage : [])
       .map(f => ["sony", "canon", "standard", "none"].includes(f) ? f : footage);
 
@@ -349,7 +355,7 @@ export default async function handler(req, res) {
             edl: {
               sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
-              grade: { footage, look, clipFootage },
+              grade: { footage, look, clipFootage }, clipRotate,
               chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
               uploadPath
@@ -393,7 +399,7 @@ export default async function handler(req, res) {
           title, subtitle,
           orientation,
           uploadPath,
-          grade: { footage, look, clipFootage },
+          grade: { footage, look, clipFootage }, clipRotate,
           chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
