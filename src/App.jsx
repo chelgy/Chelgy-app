@@ -135,7 +135,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -3209,13 +3209,15 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
 // One admin-uploadable sample frame per look, so members can SEE the grade
 // instead of reading a description. Keyed by the grade's wire id, which never
 // changes, so renaming a look in the picker never orphans its thumbnail.
-// Thumbnail Studio is BUILT but hidden. Turn this to true to bring it back — the
-// component, its endpoint, the credit cost, the route label and the render branch are
-// all still in place, so nothing needs rebuilding. Only the ways in are switched off:
-// the Thumbnails tab on the Video card, and the AI Advisor's ability to route people
-// there. A direct link to tools/thumbnail still works, which is deliberate — it stays
-// testable without being findable.
-const THUMBNAILS_ENABLED = false;
+// Thumbnail Studio: LIVE. Set to false to hide it again — that switches off the
+// Thumbnails tab on the Video card and the AI Advisor's ability to route people there,
+// while leaving the component, its endpoint, the credit cost and the render branch
+// exactly where they are. Nothing needs rebuilding either way.
+//
+// The tool needs the four .ttf files in public/fonts/. Without them the covers still
+// render, but in a system serif rather than the brand faces — so if it ever looks
+// generic, check those before anything else.
+const THUMBNAILS_ENABLED = true;
 
 const LUT_SLOTS = [
   ["wolf",     "Golden Hour"],
