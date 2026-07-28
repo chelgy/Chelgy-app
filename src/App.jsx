@@ -7336,10 +7336,17 @@ function thParts(dataUrl){
   return { mimeType: m[1], data: m[2] };
 }
 
+const _thImgCache = new Map();
 function thLoad(src){
+  // Decoded images are cached by source. Without this, a drag re-decodes every photo on
+  // the cover for every frame of movement — which is most of the cost of a redraw and
+  // makes dragging feel like wading.
+  const hit = _thImgCache.get(src);
+  if(hit) return Promise.resolve(hit);
   return new Promise((res, rej)=>{
     const i = new Image(); i.crossOrigin = "anonymous";
-    i.onload = ()=>res(i); i.onerror = ()=>rej(new Error("Couldn't load that image."));
+    i.onload = ()=>{ try{ if(_thImgCache.size > 40) _thImgCache.clear(); _thImgCache.set(src, i); }catch(_){} res(i); };
+    i.onerror = ()=>rej(new Error("Couldn't load that image."));
     i.src = src;
   });
 }
@@ -7552,7 +7559,11 @@ async function thRenderSingle(o){
       // a guess: nudge it until your real edges disappear behind the cut-out.
       const OVER = Math.max(1, Math.min(1.6, Number(o.cutScale) || 1.12));
       const dw = W*OVER, dh = H*OVER;
-      thCover(g, cut, (W-dw)/2, H-dh, dw, dh);
+      // Offsets are fractions of the frame, so a position set at one aspect ratio still
+      // means the same thing at another.
+      const ox = (Number(o.cutX) || 0) * W;
+      const oy = (Number(o.cutY) || 0) * H;
+      thCover(g, cut, (W-dw)/2 + ox, H-dh + oy, dw, dh);
     }catch(_){}
   }
 
@@ -7828,6 +7839,9 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   const [photos,setPhotos]     = useState([null,null,null]);   // data URLs
   const [cutout,setCutout]     = useState(null);
   const [cutScale,setCutScale] = useState(1.12);
+  const [cutX,setCutX]         = useState(0);   // fractions of the frame
+  const [cutY,setCutY]         = useState(0);
+  const dragRef = useRef(null);
   const [background,setBackground] = useState(null);
   const [about,setAbout]       = useState("");
   const [header,setHeader]     = useState("");
@@ -7860,13 +7874,13 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   async function redraw(next){
     const cp = next || copy; if(!cp) return;
     try{
-      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background, cutScale };
+      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background, cutScale, cutX, cutY };
       const draw = { single: thRenderSingle, collage: thRenderCollage, triptych: thRenderTriptych,
                      spread: thRenderSpread, montage: thRenderMontage }[template] || thRenderSingle;
       setOut(await draw(opts));
     }catch(e){ setErr((e&&e.message)||"Couldn't draw that."); }
   }
-  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template, cutScale]);
+  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template, cutScale, cutX, cutY]);
 
   async function writeCopy(){
     if(!about.trim()){ setErr("Tell us what the video is about first."); return; }
@@ -7943,6 +7957,25 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     setStage(""); setBusy(false);
   }
 
+  // Dragging the preview moves the cut-out. Movement is converted from screen pixels
+  // to a fraction of the displayed width, so it tracks the finger at any size.
+  function dragStart(e){
+    if(!cutout || template !== "single") return;
+    const r = e.currentTarget.getBoundingClientRect();
+    dragRef.current = { x: e.clientX, y: e.clientY, w: r.width, h: r.height, sx: cutX, sy: cutY };
+    try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+  }
+  function dragMove(e){
+    const d = dragRef.current; if(!d) return;
+    e.preventDefault();
+    setCutX(Math.max(-0.4, Math.min(0.4, d.sx + (e.clientX - d.x) / d.w)));
+    setCutY(Math.max(-0.4, Math.min(0.4, d.sy + (e.clientY - d.y) / d.h)));
+  }
+  function dragEnd(e){
+    dragRef.current = null;
+    try{ e.currentTarget.releasePointerCapture(e.pointerId); }catch(_){}
+  }
+
   const Btn = ({on,children,...p}) => (
     <button {...p} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.07em",textTransform:"uppercase",padding:"7px 14px",cursor:"pointer",border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.inkBlock:B.white,color:on?B.inkText:B.mid}}>{children}</button>
   );
@@ -7994,14 +8027,6 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
               {cutout ? "Behind head ✓" : "Put title behind head"}
             </Btn>
           )}
-          {template==="single" && cutout && (
-            <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
-              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid}}>Cut-out size</span>
-              <Btn disabled={busy} onClick={()=>setCutScale(v=>Math.max(1, Math.round((v-0.03)*100)/100))}>−</Btn>
-              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.charcoal,minWidth:38,textAlign:"center"}}>{Math.round(cutScale*100)}%</span>
-              <Btn disabled={busy} onClick={()=>setCutScale(v=>Math.min(1.6, Math.round((v+0.03)*100)/100))}>+</Btn>
-            </span>
-          )}
           {template==="single" && photos[0] && !cutout && (
             <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>
               ← tap that to make the title pass behind you
@@ -8031,10 +8056,34 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
               as text in the src — and Safari's right-click Save Image is unreliable on
               those once they run to a few megabytes. As a link it offers "Download Linked
               File" instead, which works, and a plain click saves it. */}
-          <a href={out} download="chelgy-cover.jpg" title="Click to save"
-             style={{display:"block",lineHeight:0,maxWidth:aspect==="16:9"?720:(aspect==="9:16"?320:460)}}>
-            <img src={out} alt="Cover" style={{width:"100%",display:"block",border:"1px solid "+B.stone,cursor:"pointer"}} />
-          </a>
+          {(template==="single" && cutout) ? (
+            // While a cut-out is being positioned the preview is a drag surface, not a
+            // link — a click that saves the file would fight every attempt to nudge it.
+            <div onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd}
+                 title="Drag to move the cut-out"
+                 style={{display:"block",lineHeight:0,maxWidth:aspect==="16:9"?720:(aspect==="9:16"?320:460),touchAction:"none",cursor:"grab"}}>
+              <img src={out} alt="Cover" draggable={false} style={{width:"100%",display:"block",border:"1px solid "+B.stone,userSelect:"none"}} />
+            </div>
+          ) : (
+            <a href={out} download="chelgy-cover.png" title="Click to save (lossless PNG)"
+               style={{display:"block",lineHeight:0,maxWidth:aspect==="16:9"?720:(aspect==="9:16"?320:460)}}>
+              <img src={out} alt="Cover" style={{width:"100%",display:"block",border:"1px solid "+B.stone,cursor:"pointer"}} />
+            </a>
+          )}
+          {template==="single" && cutout && (
+            <div style={{border:"1px solid "+B.stone,background:B.white,padding:"11px 13px",margin:"10px 0 12px"}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:B.mid,marginBottom:7}}>Line yourself up</div>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.charcoal,lineHeight:1.55,margin:"0 0 10px"}}>
+                <strong>Drag the picture above</strong> to move the cut-out, and use these to resize it. Adjust until your original edges disappear behind it — it redraws instantly and costs nothing.
+              </p>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <Btn disabled={busy} onClick={()=>setCutScale(v=>Math.max(1, Math.round((v-0.03)*100)/100))}>− Smaller</Btn>
+                <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,minWidth:44,textAlign:"center"}}>{Math.round(cutScale*100)}%</span>
+                <Btn disabled={busy} onClick={()=>setCutScale(v=>Math.min(1.6, Math.round((v+0.03)*100)/100))}>Bigger +</Btn>
+                <Btn disabled={busy} onClick={()=>{ setCutScale(1.12); setCutX(0); setCutY(0); }}>Reset</Btn>
+              </div>
+            </div>
+          )}
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"8px 0 12px"}}>Edit any line — it redraws instantly and costs nothing.</p>
           {SLOT_LABELS.map(([k,label])=>(
             <div key={k} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
@@ -8043,7 +8092,11 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
                 style={{flex:1,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"7px 10px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
             </div>
           ))}
-          <button onClick={()=>downloadPic(out, "chelgy-cover.png")}
+          {/* Saves the canvas PNG untouched. downloadPic re-encodes to JPEG, which on a
+              cover throws away the one thing PNG was chosen for — clean edges on the
+              type. Hard white letters are precisely what JPEG handles worst, and it is
+              why the masthead had a coloured fringe before the format changed. */}
+          <button onClick={()=>{ try{ const a=document.createElement("a"); a.href=out; a.download="chelgy-cover.png"; a.click(); }catch(_){ downloadPic(out, "chelgy-cover.png"); } }}
             style={{marginTop:10,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"11px 20px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>
             Download
           </button>
