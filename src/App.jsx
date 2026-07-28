@@ -7219,9 +7219,14 @@ async function thAsDataUrl(src){
 // `soft` is the band between "definitely background" and "definitely subject", where
 // alpha ramps rather than switching. Without it every edge is a jagged staircase.
 function thKeyOut(img, key, tol, soft){
+  // Tolerance stays moderate ON PURPOSE. Widening it to swallow the purple rim was
+  // tried and it starts eating the subject: pale skin sits about 208 from magenta, so
+  // a tolerance near 140 makes a face partly transparent. The rim is dealt with by
+  // eroding the mask below, which removes it by POSITION rather than by colour and
+  // therefore cannot touch anything in the middle of the person.
   const K = key || [255, 0, 255];
-  const T = typeof tol === "number" ? tol : 105;
-  const F = typeof soft === "number" ? soft : 70;
+  const T = typeof tol === "number" ? tol : 110;
+  const F = typeof soft === "number" ? soft : 60;
   const cv = document.createElement("canvas");
   cv.width = img.width; cv.height = img.height;
   const g = cv.getContext("2d", { willReadFrequently: true });
@@ -7242,9 +7247,33 @@ function thKeyOut(img, key, tol, soft){
     // Where red and blue both run well above green, pull them back toward it.
     if(p[i+3] < 255){
       const gch = p[i+1];
-      if(p[i] > gch + 24 && p[i+2] > gch + 24){
-        p[i]   = Math.round(gch + (p[i]   - gch) * 0.35);
-        p[i+2] = Math.round(gch + (p[i+2] - gch) * 0.35);
+      if(p[i] > gch + 12 && p[i+2] > gch + 12){
+        // Pulled almost all the way to green. At 0.35 a magenta cast survived on every
+        // semi-transparent pixel; those pixels are the outline, so the outline stayed.
+        p[i]   = Math.round(gch + (p[i]   - gch) * 0.20);
+        p[i+2] = Math.round(gch + (p[i+2] - gch) * 0.20);
+      }
+    }
+  }
+  // ERODE. Every keyed edge leaves a ring of part-transparent pixels carrying some of
+  // the key colour — that ring IS the purple outline. Rather than widening the key
+  // until the ring is gone (which eats skin), pull the mask in by a pixel or two: any
+  // pixel with a fully transparent neighbour becomes transparent itself. It costs a
+  // hair of the subject's outline, which nobody can see, and removes the halo entirely.
+  const w = cv.width, h = cv.height;
+  const PASSES = 2;
+  for(let pass = 0; pass < PASSES; pass++){
+    const a = new Uint8ClampedArray(w*h);
+    for(let i = 0, j = 3; i < w*h; i++, j += 4) a[i] = p[j];
+    for(let y = 0; y < h; y++){
+      for(let x = 0; x < w; x++){
+        const i = y*w + x;
+        if(a[i] === 0) continue;
+        const l = x > 0     ? a[i-1] : 0;
+        const r = x < w-1   ? a[i+1] : 0;
+        const u = y > 0     ? a[i-w] : 0;
+        const dn= y < h-1   ? a[i+w] : 0;
+        if(l === 0 || r === 0 || u === 0 || dn === 0) p[i*4+3] = 0;
       }
     }
   }
@@ -7484,7 +7513,22 @@ async function thRenderSingle(o){
   g.shadowColor = "transparent"; g.shadowBlur = 0;
 
   if(o.cutout){
-    try{ const cut = await thLoad(o.cutout); thCover(g, cut, 0, 0, W, H); }catch(_){}
+    try{
+      const cut = await thLoad(o.cutout);
+      // Drawn slightly LARGER than the frame, anchored at the bottom centre.
+      //
+      // The cut-out comes from a regenerated image, so the person in it is never quite
+      // the size or position of the person in the original underneath. When it comes
+      // back even a little smaller, the real edges show around it and you see a doubled
+      // outline of yourself — which is exactly what happens without this.
+      //
+      // Overscaling covers that. Bottom-centre anchoring because a portrait is
+      // horizontally centred and grows downward out of frame, so the head — the part
+      // the masthead has to pass behind — barely moves.
+      const OVER = 1.075;
+      const dw = W*OVER, dh = H*OVER;
+      thCover(g, cut, (W-dw)/2, H-dh, dw, dh);
+    }catch(_){}
   }
 
   // The masthead was drawn BEFORE the cutout above so it passes behind the head. The
