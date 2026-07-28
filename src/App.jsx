@@ -6914,13 +6914,19 @@ async function thRenderTriptych(o){
   // Wider and longer than before so the group fills the frame rather than sitting in
   // it. On a wide canvas the panels also get taller, because a 16:9 frame gives them
   // far less height to work with than a 4:5 one.
-  const wide = W > H * 1.2;
-  const pw  = Math.round(W * (wide ? 0.305 : 0.327));
-  const gut = W * 0.004;
-  const left = (W - (pw*3 + gut*2)) / 2;
-  const rows = wide
-    ? [ { y: H*0.115, h: H*0.80 }, { y: H*0.195, h: H*0.79 }, { y: H*0.100, h: H*0.74 } ]
-    : [ { y: H*0.115, h: H*0.72 }, { y: H*0.205, h: H*0.775 }, { y: H*0.100, h: H*0.665 } ];
+  // Full bleed, both axes. The three panels divide the entire width between them and
+  // each one runs PAST the top and bottom edges — which is only survivable because the
+  // fades are deep enough that an edge running off-canvas has already dissolved. Any
+  // inset at all and the group reads as pictures placed on a page rather than as the
+  // page itself.
+  const gut = W * 0.002;
+  const pw  = Math.round((W - gut*2) / 3);
+  const left = 0;
+  const rows = [
+    { y: -H*0.03, h: H*1.06 },
+    { y:  H*0.00, h: H*1.10 },
+    { y: -H*0.06, h: H*1.06 }
+  ];
   g.textBaseline = "top"; g.fillStyle = "#FFFFFF";
   g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022); g.shadowOffsetY = Math.round(S*0.003);
   const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
@@ -6929,13 +6935,23 @@ async function thRenderTriptych(o){
   const mTop = Math.round(H*0.020);
   thCenter(g, o.masthead, mTop, W, mSize*0.02);
 
-  // Sub lines sit UNDER the title, centred, in the order they read.
+  // Sub lines sit UNDER the title — placed off the type's MEASURED bottom, not off its
+  // font size. Those are not the same number: a font size is the em box, and a display
+  // face like Monoton fills far more of it than a text face does, so "top + fontSize"
+  // landed inside the letters and the two lines overlapped. measureText knows where the
+  // glyphs actually end; the fallback multiplier is only for browsers that don't report it.
   const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
   const sf = Math.round(S*0.032);
+  let mBottom;
+  try{
+    const mm = g.measureText(o.masthead || "H");
+    mBottom = mTop + (mm.actualBoundingBoxDescent || 0) + (mm.actualBoundingBoxAscent || 0);
+    if(!(mBottom > mTop)) mBottom = mTop + mSize * 1.18;
+  }catch(_){ mBottom = mTop + mSize * 1.18; }
   g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.94)";
-  let ty = mTop + mSize + Math.round(S*0.012);
+  let ty = Math.round(mBottom + S*0.030);
   const line = [o.kicker, o.sub].filter(Boolean).join(" — ");
-  if(line){ thCenter(g, line, ty, W, 0); ty += sf*1.35; }
+  if(line){ thCenter(g, line, ty, W, 0); ty += Math.round(sf*1.55); }
   if(o.kickerSub) thCenter(g, o.kickerSub, ty, W, 0);
   g.shadowColor = "transparent";
   return c.toDataURL("image/png");
@@ -7045,14 +7061,23 @@ async function thRenderMontage(o){
 
   g.textBaseline = "top";
   const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
-  const mSize = thFit(g, o.masthead, W*0.52, mastFont, Math.round(S*0.085), Math.round(S*0.038), 0.02);
+  const mSize = thFit(g, o.masthead, W*0.62, mastFont, Math.round(S*0.125), Math.round(S*0.055), 0.02);
   g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
   g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022);
-  thDraw(g, o.masthead, Math.round(W*0.05), Math.round(H*0.845), mSize*0.02);
+  thDraw(g, o.masthead, Math.round(W*0.05), Math.round(H*0.815), mSize*0.02);
   const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
-  const sf = Math.round(S*0.024);
+  const sf = Math.round(S*0.036);
   g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.92)";
-  if(o.sub) g.fillText(o.sub, Math.round(W*0.05), Math.round(H*0.845) + mSize + Math.round(S*0.014));
+  // Measured, same reason as the triptych.
+  let subTop;
+  try{
+    g.font = mastFont(mSize);
+    const mm = g.measureText(o.masthead || "H");
+    subTop = Math.round(H*0.815) + (mm.actualBoundingBoxAscent||0) + (mm.actualBoundingBoxDescent||0) + Math.round(S*0.018);
+    if(!(subTop > Math.round(H*0.815))) subTop = Math.round(H*0.815) + mSize*1.18;
+  }catch(_){ subTop = Math.round(H*0.815) + mSize*1.18; }
+  g.font = smF(sf);
+  if(o.sub) g.fillText(o.sub, Math.round(W*0.05), subTop);
   g.shadowColor = "transparent";
   return c.toDataURL("image/png");
 }
