@@ -7545,7 +7545,12 @@ async function thRenderSingle(o){
       // Overscaling covers that. Bottom-centre anchoring because a portrait is
       // horizontally centred and grows downward out of frame, so the head — the part
       // the masthead has to pass behind — barely moves.
-      const OVER = 1.075;
+      // Scale is adjustable, not a constant, because there is no constant that works.
+      // How much smaller the regenerated person comes back varies from one generation
+      // to the next — sometimes barely, sometimes by a sixth — so any fixed number is
+      // wrong about half the time. Redrawing is free, so this is a control rather than
+      // a guess: nudge it until your real edges disappear behind the cut-out.
+      const OVER = Math.max(1, Math.min(1.6, Number(o.cutScale) || 1.12));
       const dw = W*OVER, dh = H*OVER;
       thCover(g, cut, (W-dw)/2, H-dh, dw, dh);
     }catch(_){}
@@ -7822,6 +7827,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   const [aspect,setAspect]     = useState("4:5");
   const [photos,setPhotos]     = useState([null,null,null]);   // data URLs
   const [cutout,setCutout]     = useState(null);
+  const [cutScale,setCutScale] = useState(1.12);
   const [background,setBackground] = useState(null);
   const [about,setAbout]       = useState("");
   const [header,setHeader]     = useState("");
@@ -7854,13 +7860,13 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   async function redraw(next){
     const cp = next || copy; if(!cp) return;
     try{
-      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background };
+      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background, cutScale };
       const draw = { single: thRenderSingle, collage: thRenderCollage, triptych: thRenderTriptych,
                      spread: thRenderSpread, montage: thRenderMontage }[template] || thRenderSingle;
       setOut(await draw(opts));
     }catch(e){ setErr((e&&e.message)||"Couldn't draw that."); }
   }
-  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template]);
+  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template, cutScale]);
 
   async function writeCopy(){
     if(!about.trim()){ setErr("Tell us what the video is about first."); return; }
@@ -7987,6 +7993,14 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
             <Btn on={!!cutout} disabled={busy} onClick={()=>cutout?setCutout(null):makeCutout()}>
               {cutout ? "Behind head ✓" : "Put title behind head"}
             </Btn>
+          )}
+          {template==="single" && cutout && (
+            <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid}}>Cut-out size</span>
+              <Btn disabled={busy} onClick={()=>setCutScale(v=>Math.max(1, Math.round((v-0.03)*100)/100))}>−</Btn>
+              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.charcoal,minWidth:38,textAlign:"center"}}>{Math.round(cutScale*100)}%</span>
+              <Btn disabled={busy} onClick={()=>setCutScale(v=>Math.min(1.6, Math.round((v+0.03)*100)/100))}>+</Btn>
+            </span>
           )}
           {template==="single" && photos[0] && !cutout && (
             <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>
