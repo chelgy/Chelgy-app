@@ -54,6 +54,7 @@ const CA_NAV_LABELS = {
   "tools/presspitch": "Press",
   "tools/restage": "Fake It",
   "tools/stylematch": "Style Match",
+  "tools/backdrop": "Backdrop",
   "tools/videoedit": "Fake It Video",
   "tools/highfashion": "High Fashion",
   "tools/beauty": "Beauty",
@@ -107,7 +108,7 @@ Four tabs across the bottom:
 • AI Content Writer — captions and copy for Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blogs, email, and ads.
 • Backlink & Authority Builder — finds real, white-hat ways to get the business linked, listed and featured (local directories, press, roundups, partnerships), writes the outreach, and suggests linkable content. Send people here for "how do I get backlinks" or "how do I rank higher on Google" — it never recommends buying links.
 • Dropshipping Directory — vetted suppliers with links, niches, shipping times, and honest notes.
-• Fake It — upload a photo of your face and appear anywhere: the Amalfi Coast, a Paris café, a rooftop in Tokyo. Any outfit, any light, no training or waiting, and it still looks like them. Tabs: Fake It (the main tool), Style Match (recreate the look of a photo they like), High Fashion and Beauty (editorial presets), and Video Edit (bring a shot to life as a short video). Use tool "restage" for the main tool.
+• Fake It — upload a photo of your face and appear anywhere: the Amalfi Coast, a Paris café, a rooftop in Tokyo. Any outfit, any light, no training or waiting, and it still looks like them. Tabs: Fake It (the main tool), Style Match (recreate the look of a photo they like), Backdrop (describe any background in words and be placed there, keeping their face, pose and outfit exactly), High Fashion and Beauty (editorial presets), and Video Edit (bring a shot to life as a short video). Use tool "restage" for the main tool.
 • Get Featured — search real podcasts in their niche, see who to contact, and get a pitch written for that specific show (tool "getfeatured"). The Press tab does the same for journalists, plus an honest read on whether their story is ready yet (tool "presspitch").
 • Platform Setup Guides — step-by-step setup and posting guides for every major platform.
 • My Library — where saved creations are stored.
@@ -135,7 +136,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, videoedit, highfashion, beauty.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, backdrop, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -4058,6 +4059,183 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
             {gallery.map((g,i)=>(<img key={i} src={g} alt="" onClick={()=>setImage(g)} style={{width:76,height:96,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />))}
           </div>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,margin:"8px 0 0"}}>Download anything you want to keep — this clears when you refresh.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ═════════════════════════════════════════════════
+   BACKDROP — put yourself anywhere, keeping you exactly you.
+   Runs on GPT Image via /api/openai-image.
+   ═════════════════════════════════════════════════
+
+   This exists because the background swap turned out to be the strongest thing GPT
+   does with a photograph, and it was buried inside Thumbnail Studio where nobody
+   would find it. Same engine, same identity wording, one job.
+
+   The prompt does two things at once and the balance between them is the whole trick:
+   describe the new world in as much detail as the person gives, while insisting
+   nothing about THEM changes. Left to itself the model quietly restyles hair, slims a
+   jaw, warms skin — small edits that individually look like an improvement and
+   together produce a stranger.
+
+   GPT wants to be told plainly who someone is, and told twice. That is the opposite of
+   Gemini, which gets WORSE the harder you insist on identity — the Fake It work
+   established that, and it is why these two tools sit on different engines.
+*/
+function Backdrop({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [me,setMe]           = useState(null);
+  const [scene,setScene]     = useState("");
+  const [aspect,setAspect]   = useState("4:5");
+  const [quality,setQuality] = useState("standard");
+  const [consent,setConsent] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [image,setImage]     = useState(null);
+  const [gallery,setGallery] = useState([]);
+
+  const COST = quality==="high" ? CREDIT_COSTS.smGptHigh : CREDIT_COSTS.smGptStd;
+
+  // A few starting points. Not presets that lock anything — they drop text into the
+  // box so it can be edited, because the good results come from specifics the person
+  // adds rather than from a list somebody else wrote.
+  const IDEAS = [
+    ["Amalfi terrace",  "a sunlit terrace on the Amalfi coast, lemon trees, sea far below"],
+    ["Paris café",      "a Paris café at dusk, wet pavement, warm window light behind me"],
+    ["Seamless studio", "a clean seamless studio backdrop in soft grey, editorial lighting"],
+    ["Tokyo at night",  "a Tokyo side street at night, neon signage out of focus behind me"],
+    ["Desert road",     "an empty desert road at golden hour, long shadows, dust in the air"],
+    ["Marble lobby",    "a quiet marble hotel lobby, tall windows, cool daylight"]
+  ];
+
+  async function pick(e){
+    const f = (e.target.files||[])[0];
+    e.target.value = "";
+    if(!f) return;
+    setErr(""); setBusy(true);
+    try{ setMe(await cgShrinkPhoto(f)); }
+    catch{ setErr("That image couldn't be read. Try a JPG or PNG."); }
+    setBusy(false);
+  }
+
+  async function generate(){
+    setErr(""); setImage(null);
+    if(!consent){ setErr("Please confirm that's a photo of you."); return; }
+    if(!me){ setErr("Upload a photo of yourself first."); return; }
+    if(!scene.trim()){ setErr("Describe the background you want."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    setBusy(true);
+    try{
+      // Word for word the prompt the thumbnail re-shoot uses, because that one already
+      // works: it finds a setting that suits the person, keeps pose, face and hair, and
+      // it does that WITHOUT being told how to light them.
+      //
+      // The first version of this file said more — build depth and perspective, choose
+      // between keeping and matching the light, do not change the pose, do not redesign
+      // the clothing. All reasonable-sounding, all unnecessary, and the extra
+      // instruction is not free: telling the model how to light a scene stops it
+      // choosing a scene that suits how the person is ALREADY lit, which is the thing
+      // it was quietly getting right. Same lesson as the Style Match outfit lines.
+      const prompt =
+        "Take this photo of me and re-shoot it as a high-end fashion magazine photograph of ME.\n\n" +
+        "Setting: " + scene.trim() + ".\n" +
+        "Light me deliberately, the way a magazine photographer would, with rich controlled colour grading.\n\n" +
+        "CRITICAL: keep my face, hair and skin EXACTLY as they are in the photo — not merely my likeness, but ME, the same person. Do not slim, reshape, lighten or beautify anything. Do not invent a different face.";
+      const oaQuality = quality==="high" ? "4K" : "2K";
+      const d = await generateOpenAIImage(prompt, [{ mimeType: me.mimeType, data: me.data }], aspect, oaQuality);
+      setImage(d.image);
+      setGallery(g=>[d.image,...g].slice(0,24));
+      if(typeof d.balance==="number") onBalance(d.balance);
+      track("tool_used",{tool:"backdrop",quality}); onToolUse("backdrop", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Backdrop</h3>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Upload a photo of yourself and describe anywhere you'd rather be. You stay exactly you — same face, same pose, same outfit — the world behind you changes.
+      </p>
+
+      <div style={{border:"1px solid "+B.stone,padding:14,marginBottom:14}}>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 4px"}}>Your photo</p>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.5,margin:"0 0 10px"}}>A clear shot of you. The more of the frame you fill, the better this works.</p>
+        {me ? (
+          <div style={{position:"relative",display:"inline-block"}}>
+            <img src={me.preview} alt="" style={{width:110,height:140,objectFit:"cover",border:"1px solid "+B.stone}} />
+            <button onClick={()=>setMe(null)} style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",border:"none",background:B.inkBlock,color:"#fff",fontSize:12,lineHeight:1,cursor:"pointer"}}>×</button>
+          </div>
+        ) : (
+          <input type="file" accept="image/*" onChange={pick} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,display:"block"}} />
+        )}
+      </div>
+
+      <textarea value={scene} onChange={e=>setScene(e.target.value)} rows={3}
+        placeholder="Describe the background — e.g. a sunlit terrace on the Amalfi coast, lemon trees, the sea far below"
+        style={{width:"100%",boxSizing:"border-box",padding:11,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,resize:"vertical",marginBottom:8}} />
+
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+        {IDEAS.map(([label,text])=>(
+          <button key={label} onClick={()=>setScene(text)} disabled={busy}
+            style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"6px 11px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:busy?"default":"pointer"}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14}}>
+        <div>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,margin:"0 0 6px",textTransform:"uppercase"}}>Shape</p>
+          <div style={{display:"flex",gap:6}}>
+            {["4:5","1:1","9:16","16:9"].map(a=>(
+              <button key={a} onClick={()=>setAspect(a)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"7px 12px",border:"1px solid "+(aspect===a?B.charcoal:B.stone),background:aspect===a?B.inkBlock:B.white,color:aspect===a?B.inkText:B.mid,cursor:"pointer"}}>{a}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,margin:"0 0 6px",textTransform:"uppercase"}}>Quality</p>
+          <div style={{display:"flex",gap:6}}>
+            {[["standard","Standard",CREDIT_COSTS.smGptStd],["high","High detail",CREDIT_COSTS.smGptHigh]].map(([v,l,c])=>(
+              <button key={v} onClick={()=>setQuality(v)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"7px 12px",border:"1px solid "+(quality===v?B.charcoal:B.stone),background:quality===v?B.inkBlock:B.white,color:quality===v?B.inkText:B.mid,cursor:"pointer"}}>{l} · {c.toLocaleString()}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <label style={{display:"flex",gap:8,alignItems:"flex-start",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,lineHeight:1.5,marginBottom:14,cursor:"pointer"}}>
+        <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} style={{marginTop:3}} />
+        <span>That's a photo of <strong>me</strong>, I'm over 18, and I consent to AI-generated images of my likeness. I won't upload photos of anyone else.</span>
+      </label>
+
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
+        <button onClick={generate} disabled={busy}
+          style={{background:B.inkBlock,color:"#fff",border:"none",padding:"13px 26px",fontSize:12,letterSpacing:"0.14em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+          {busy?"PLACING YOU…":"PUT ME THERE"}
+        </button>
+        <CreditTag n={COST} />
+        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>you have {Number(credits).toLocaleString()}</span>
+      </div>
+
+      {image && (
+        <div style={{marginBottom:18}}>
+          <img src={image} alt="" style={{width:"100%",border:"1px solid "+B.stone,display:"block"}} />
+          <button onClick={()=>downloadPic(image,"chelgy-backdrop.jpg")}
+            style={{marginTop:10,background:B.white,color:B.charcoal,border:"1px solid "+B.charcoal,padding:"9px 16px",fontSize:10,letterSpacing:"0.1em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer"}}>DOWNLOAD</button>
+        </div>
+      )}
+
+      {gallery.length>1 && (
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {gallery.slice(1).map((src,i)=>(
+            <img key={i} src={src} alt="" onClick={()=>setImage(src)} style={{width:92,height:116,objectFit:"cover",border:"1px solid "+B.stone,cursor:"pointer"}} />
+          ))}
         </div>
       )}
     </div>
@@ -9126,6 +9304,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
@@ -9622,7 +9801,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Backdrop", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -9689,7 +9868,7 @@ const CATEGORIES = [
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Style Match",tool:"stylematch"}, {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
+    tabs:[ {label:"Style Match",tool:"stylematch"}, {label:"Backdrop",tool:"backdrop"}, {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
