@@ -6394,15 +6394,21 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // CORS setting. A locally chosen file is same-origin and unaffected either way.
 async function extractFrameAt(url, t, maxW){
   const v = document.createElement("video");
-  v.crossOrigin = "anonymous";
+  // Same rule as sampleVideoFrames: CORS only for remote sources. A finished render on
+  // Supabase needs it or the canvas comes back tainted; a local blob does not, and
+  // asking for it there can stop the file loading at all.
+  if(!/^blob:/i.test(String(url))) v.crossOrigin = "anonymous";
   v.preload = "auto"; v.muted = true; v.playsInline = true;
   try{
-    // loadeddata rather than loadedmetadata — see afterFramePresented above. Metadata
-    // gives dimensions; it does not give a picture.
     await new Promise((res, rej)=>{
-      const bail = setTimeout(()=>rej(new Error("Timed out opening that video.")), 25000);
-      v.onloadeddata = ()=>{ clearTimeout(bail); res(); };
-      v.onerror = ()=>{ clearTimeout(bail); rej(new Error("Couldn't open that video.")); };
+      let settled = false;
+      const ok = ()=>{ if(!settled){ settled = true; clearTimeout(bail); res(); } };
+      const bail = setTimeout(()=>{
+        if(!settled){ settled = true; (v.readyState >= 1 ? res() : rej(new Error("Timed out opening that video."))); }
+      }, 25000);
+      v.onloadeddata = ok;
+      v.onloadedmetadata = ()=>{ if(v.readyState >= 2) ok(); };
+      v.onerror = ()=>{ if(!settled){ settled = true; clearTimeout(bail); rej(new Error("Couldn't open that video.")); } };
       v.src = url;
     });
     await new Promise((res)=>{
@@ -6770,24 +6776,31 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
           setStage("Restaging moment " + (i+1) + " as an editorial shot…");
           try{
             const m = base.match(/^data:(.*?);base64,(.*)$/);
-            const rr = await fetch("/api/fakeit-restage", {
-              method:"POST",
-              headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-              body: JSON.stringify({
-                mode:"editorial",
-                preset: i === 1 ? "editorial" : "luxury",
-                consent: true,
-                // Short and soft on purpose. The Fake It work established that
-                // over-instructing on identity makes the likeness WORSE, so this
-                // describes the setting and leaves the person alone.
-                scene: "magazine cover portrait, considered light, generous negative space",
-                aspectRatio: aspect,
-                quality: "hd",
-                photos: [{ mimeType: (m && m[1]) || "image/jpeg", data: (m && m[2]) || "" }]
-              })
-            });
-            const rd = await rr.json();
-            if(rr.ok && rd && rd.image){ out = rd.image; kind = "restaged"; }
+            // GPT Image, not Gemini. Gemini's restage kept producing someone who wasn't
+            // her — and this is the same finding that moved Style Match across, where
+            // GPT held the person's identity while Gemini drifted. The identity wording
+            // below is lifted from that proven prompt almost verbatim.
+            //
+            // Note this is the OPPOSITE of the Fake It lesson, where over-instructing on
+            // identity made the likeness worse. That held for Gemini. GPT wants to be
+            // told plainly, and told twice.
+            const cover = i === 1
+              ? "a clean editorial studio portrait against a plain seamless backdrop, soft directional light, generous empty space around me"
+              : "a magazine cover portrait on location, considered natural light, shallow depth of field, generous empty space around me";
+            const prompt =
+              "Take this photo of me and create a high-end fashion magazine cover image of ME.\n\n" +
+              "Setting: " + cover + ".\n" +
+              "Light me deliberately, the way a magazine photographer would. Rich, controlled colour grading. Leave clear space in the frame where a headline could sit.\n\n" +
+              "CRITICAL: keep my face, hair and skin EXACTLY as they are in the photo — not merely my likeness, but ME, the same person. Do not slim, reshape, lighten or beautify anything. Do not invent a different face.\n" +
+              "Keep my clothing recognisably the same as in the photo.";
+            const d = await generateOpenAIImage(
+              prompt,
+              [{ mimeType: (m && m[1]) || "image/jpeg", data: (m && m[2]) || "" }],
+              aspect,
+              "2K"
+            );
+            if(d && d.image){ out = d.image; kind = "restaged"; }
+            if(typeof d?.balance === "number") onBalance(d.balance);
           }catch(_){ /* a failed restage falls back to the real frame, never to nothing */ }
         }
 
@@ -6950,15 +6963,28 @@ async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
 
   const v = document.createElement("video");
   v.preload = "auto"; v.muted = true; v.playsInline = true;
-  v.crossOrigin = "anonymous";
+  // crossOrigin ONLY for remote sources. On a local file this is a blob: URL, which is
+  // same-origin already — and asking for CORS on one makes the browser do a cross-origin
+  // fetch that can fail outright rather than just tainting the canvas. Setting it
+  // unconditionally is how this started returning zero frames: not a decode problem, a
+  // load that never happened.
+  if(!/^blob:/i.test(String(objectUrl))) v.crossOrigin = "anonymous";
   const out = [];
   try{
-    // loadeddata, not loadedmetadata: metadata means dimensions are known, and there
-    // is still nothing decoded to draw.
+    // Resolve on EITHER load event, whichever the file happens to fire. loadeddata is
+    // the stronger signal — it means a frame exists — but some containers in Safari
+    // announce metadata and never fire it, and waiting for a guarantee that isn't
+    // coming just times out with nothing.
     await new Promise((res, rej)=>{
-      const bail = setTimeout(()=>rej(new Error("load timeout")), 30000);
-      v.onloadeddata = ()=>{ clearTimeout(bail); res(); };
-      v.onerror = ()=>{ clearTimeout(bail); rej(new Error("load error")); };
+      let settled = false;
+      const ok = ()=>{ if(!settled){ settled = true; clearTimeout(bail); res(); } };
+      const bail = setTimeout(()=>{
+        // Even on timeout, go ahead if there's anything decodable at all.
+        if(!settled){ settled = true; (v.readyState >= 1 ? res() : rej(new Error("load timeout"))); }
+      }, 30000);
+      v.onloadeddata = ok;
+      v.onloadedmetadata = ()=>{ if(v.readyState >= 2) ok(); };
+      v.onerror = ()=>{ if(!settled){ settled = true; clearTimeout(bail); rej(new Error("load error")); } };
       v.src = objectUrl;
     });
     const w = 512, h = Math.max(1, Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9)));
