@@ -6406,565 +6406,436 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // than a local file. Without it the canvas is tainted and toDataURL throws a security
 // error instead of returning pixels — which looks like a broken feature rather than a
 // CORS setting. A locally chosen file is same-origin and unaffected either way.
-async function extractFrameAt(url, t, maxW){
-  const v = document.createElement("video");
-  // Same rule as sampleVideoFrames: CORS only for remote sources. A finished render on
-  // Supabase needs it or the canvas comes back tainted; a local blob does not, and
-  // asking for it there can stop the file loading at all.
-  if(!/^blob:/i.test(String(url))) v.crossOrigin = "anonymous";
-  v.preload = "auto"; v.muted = true; v.playsInline = true;
-  try{
-    await new Promise((res, rej)=>{
-      let settled = false;
-      const ok = ()=>{ if(!settled){ settled = true; clearTimeout(bail); res(); } };
-      const bail = setTimeout(()=>{
-        if(!settled){ settled = true; (v.readyState >= 1 ? res() : rej(new Error("Timed out opening that video."))); }
-      }, 25000);
-      v.onloadeddata = ok;
-      v.onloadedmetadata = ()=>{ if(v.readyState >= 2) ok(); };
-      v.onerror = ()=>{ if(!settled){ settled = true; clearTimeout(bail); rej(new Error("Couldn't open that video.")); } };
-      v.src = url;
-    });
-    await new Promise((res)=>{
-      const done = ()=>res();
-      v.onseeked = done;
-      setTimeout(done, 8000);
-      try{ v.currentTime = Math.max(0, Math.min(Number(t)||0, (v.duration||1) - 0.05)); }
-      catch(_){ done(); }
-    });
-    await afterFramePresented(v, 220);
-
-    const nw = v.videoWidth||1280, nh = v.videoHeight||720;
-    const w = Math.min(maxW||1600, nw);
-    const h = Math.max(1, Math.round(w * nh / nw));
-    const c = document.createElement("canvas"); c.width=w; c.height=h;
-    c.getContext("2d").drawImage(v,0,0,w,h);
-    if(canvasLooksBlank(c)){
-      // Safari especially will hand back an empty buffer on the first draw after a
-      // seek. Nudge it and try once more before shipping a black thumbnail.
-      await afterFramePresented(v, 500);
-      c.getContext("2d").drawImage(v,0,0,w,h);
-    }
-    let data;
-    try{ data = c.toDataURL("image/jpeg", 0.92); }
-    catch(_){ throw new Error("This video won't allow frames to be read in the browser."); }
-    return data;
-  } finally {
-    try{ v.src = ""; v.load(); }catch(_){}
-  }
-}
-
-// ─── THUMBNAILS: SET THE TYPE OVER THE PICTURE ───────────────────────────────
-// The single most important decision in this feature. Image models render text badly
-// and always will — malformed letters, invented words, broken kerning — and a
-// premium thumbnail is the worst possible place for it to show. So the model never
-// draws a word: it picks the moment and writes the copy, and the type is set here in
-// real fonts on a canvas. Editing a headline afterwards is free, because nothing has
-// to be regenerated — it just redraws.
+// ─── THUMBNAIL STUDIO ────────────────────────────────────────────────────────
+// Magazine covers from photographs the person already has.
 //
-// THE LOOK IS DIDONE, AND THAT IS THE WHOLE POINT.
-// This was first built in Outfit, the app's geometric sans, and it looked like clean
-// software rather than a magazine. Vogue, Porter, Harper's and the rest all sit on a
-// Didone — extreme contrast between hairline thins and heavy thicks — and swapping
-// the typeface does more for the feel than any amount of layout work. Bodoni Moda is
-// the closest true Didone on Google Fonts and was already in this codebase for one of
-// the site themes.
+// This replaces a version that read frames out of a video and asked a vision model to
+// pick the best one. Every problem that tool had came from those two decisions: prying
+// frames out of a browser meant fighting codecs, seek races and tainted canvases, and
+// asking a model to judge a real person's face is something it does poorly and
+// sometimes declines outright. Both are gone. You bring the pictures you already chose;
+// the model only WRITES, which it is reliable at.
 //
-// The other borrowed conventions:
-//  · The line SPLITS. A small italic lead-in, then one enormous hero word. "All in
-//    the" then DETAILS. The violence of that size jump is what reads as editorial;
-//    one evenly-sized headline never will.
-//  · The hero word is tracked out in caps. Tracking is drawn per character rather
-//    than with ctx.letterSpacing, which is too new to rely on in every browser.
-//  · Barely any scrim. Real covers have none at all — but they are art-directed and a
-//    frame grabbed out of a vlog is not, so there is a light gradient as insurance.
-//    Much lighter than a caption bar: it should read as a photograph with type on it.
-let _edFontPromise = null;
-function ensureEditorialFont(){
-  if(_edFontPromise) return _edFontPromise;
-  _edFontPromise = (async ()=>{
+// The layouts are FIXED — two of them, ported from covers Chelsea picked, with every
+// position and type size expressed as a fraction of the canvas so one layout serves
+// 4:5, 16:9 and 9:16 without a second set of numbers.
+//
+// Type is set on canvas in Chelsea's own licensed fonts, never generated. Image models
+// cannot render text and a garbled letterform on a luxury cover is the most obvious
+// possible tell. It also means editing a line is instant and free.
+
+// The four faces ship WITH the app, from public/fonts/, not from storage.
+//
+// Fetching them from the sites bucket was the first idea and it was wrong twice over:
+// every page load would have pulled four typefaces out of Supabase as billable egress,
+// on an account already over its quota — and a cross-origin font is one CORS header
+// away from silently falling back to Georgia. Files in public/ are served same-origin
+// off Vercel's CDN, cost nothing, and are versioned with the code that uses them.
+//
+// This mirrors how the render server does it: its fonts are baked into the image
+// rather than fetched at render time.
+const TH_FONT_BASE = "/fonts/";
+const TH_FONTS = [
+  ["ChelgyDisplay", "Monoton-Regular.ttf"],   // the masthead
+  ["ChelgySub",     "Amore.ttf"],             // cover lines and the main title
+  ["ChelgySmall",   "LacunaRegular.ttf"],     // the quiet supporting text
+  ["ChelgyScript",  "CAVELINE.ttf"]           // the handwritten accent
+];
+let _thFonts = null;
+function ensureThumbFonts(){
+  if(_thFonts) return _thFonts;
+  _thFonts = (async ()=>{
     try{
-      if(!document.getElementById("cg-bodoni")){
-        const l = document.createElement("link");
-        l.id = "cg-bodoni"; l.rel = "stylesheet";
-        // opsz is pinned to 16 — a TEXT optical size, not a display one — and that is
-        // the fix for hairlines disappearing. Bodoni Moda's optical axis thins the
-        // strokes as the size goes up, so setting a word at 200px on the display end
-        // of the axis gives you thins about a pixel wide. They look elegant on a big
-        // screen and evaporate at the size a thumbnail is actually viewed, especially
-        // white over a busy photograph. The text-end design keeps the Didone contrast
-        // while giving the thins enough body to survive.
-        l.href = "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,16,600;0,16,700;1,16,500;1,16,600&display=swap";
-        document.head.appendChild(l);
-      }
-      // A font declared in CSS but never used in the DOM is not downloaded, so
-      // document.fonts.ready alone would resolve without it and the canvas would
-      // silently fall back to Georgia. Each weight and style has to be asked for.
-      if(document.fonts && document.fonts.load){
-        await Promise.all([
-          document.fonts.load("600 96px 'Bodoni Moda'"),
-          document.fonts.load("700 96px 'Bodoni Moda'"),
-          document.fonts.load("italic 500 96px 'Bodoni Moda'"),
-          document.fonts.load("italic 600 96px 'Bodoni Moda'")
-        ]);
-      }
-      if(document.fonts && document.fonts.ready) await document.fonts.ready;
-    }catch(_){}
+      await Promise.all(TH_FONTS.map(async ([family, file])=>{
+        if(document.fonts && document.fonts.check && document.fonts.check("16px '"+family+"'")) return;
+        const ff = new FontFace(family, "url('"+TH_FONT_BASE+file+"')");
+        await ff.load();
+        document.fonts.add(ff);
+      }));
+    }catch(_){ /* falls back to system faces rather than failing the render */ }
   })();
-  return _edFontPromise;
+  return _thFonts;
 }
-const ED_SERIF = "'Bodoni Moda', Didot, 'Playfair Display', Georgia, serif";
 
-function wrapLines(ctx, text, maxW, maxLines){
-  const words = String(text||"").split(/\s+/).filter(Boolean);
-  const lines = []; let line = "";
-  for(const w of words){
-    const test = line ? line + " " + w : w;
-    if(ctx.measureText(test).width <= maxW || !line) line = test;
-    else { lines.push(line); line = w; if(lines.length >= maxLines) break; }
-  }
-  if(line && lines.length < maxLines) lines.push(line);
-  return lines;
-}
-// Letter-spacing drawn by hand. ctx.letterSpacing exists but is recent enough that
-// relying on it would give some people tracked caps and others a tight mess.
-function trackedWidth(ctx, text, track){
+// Letter-spacing drawn by hand. ctx.letterSpacing is too recent to rely on, and the
+// difference between tracked and untracked caps is most of what reads as editorial.
+function thWidth(g, txt, track){
+  if(!txt) return 0;
   let w = 0;
-  for(const ch of String(text)) w += ctx.measureText(ch).width + track;
+  for(const ch of String(txt)) w += g.measureText(ch).width + track;
   return w - track;
 }
-function drawTracked(ctx, text, x, y, track){
+function thDraw(g, txt, x, y, track){
   let cx = x;
-  for(const ch of String(text)){
-    ctx.fillText(ch, cx, y);
-    cx += ctx.measureText(ch).width + track;
-  }
+  for(const ch of String(txt)){ g.fillText(ch, cx, y); cx += g.measureText(ch).width + track; }
 }
-async function composeThumbnail(baseSrc, o){
-  const opt = o || {};
-  await ensureEditorialFont();
-  const img = await new Promise((res,rej)=>{
+function thCenter(g, txt, y, W, track){
+  thDraw(g, txt, Math.round((W - thWidth(g, txt, track)) / 2), y, track);
+}
+// Shrink until it fits. Losing a few points of size is always better than losing the
+// end of a cover line.
+function thFit(g, txt, maxW, font, start, floor, track){
+  let size = start;
+  for(let i=0; i<40; i++){
+    g.font = font(size);
+    if(thWidth(g, txt, size*track) <= maxW || size <= floor) break;
+    size = Math.round(size * 0.95);
+  }
+  return size;
+}
+function thLoad(src){
+  return new Promise((res, rej)=>{
     const i = new Image(); i.crossOrigin = "anonymous";
     i.onload = ()=>res(i); i.onerror = ()=>rej(new Error("Couldn't load that image."));
-    i.src = baseSrc;
+    i.src = src;
   });
-  const W = Math.max(320, Math.round(opt.width || 1280));
-  const H = Math.max(320, Math.round(opt.height || 720));
-  const c = document.createElement("canvas"); c.width = W; c.height = H;
-  const g = c.getContext("2d");
-
-  // Cover-fit, centred: never letterbox a thumbnail. A black bar reads as a mistake.
-  const s = Math.max(W / img.width, H / img.height);
+}
+// Cover-fit into a box: never letterbox, never distort.
+function thCover(g, img, x, y, w, h){
+  const s = Math.max(w / img.width, h / img.height);
   const dw = img.width * s, dh = img.height * s;
-  g.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-
-  const upper = opt.space === "upper";
-  const centered = opt.layout !== "left";
-  const base = Math.min(W, H);
-  const pad = Math.round(W * 0.06);
-  const maxW = W - pad * 2;
-
-  // Insurance, not a caption bar. Tops out well below half opacity so the frame still
-  // reads as a photograph.
-  const grad = upper
-    ? g.createLinearGradient(0, 0, 0, H * 0.55)
-    : g.createLinearGradient(0, H * 0.45, 0, H);
-  grad.addColorStop(upper ? 0 : 0, upper ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)");
-  grad.addColorStop(1, upper ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.44)");
-  g.fillStyle = grad;
-  g.fillRect(0, upper ? 0 : H * 0.45, W, H * 0.55);
-
-  const lead = String(opt.lead || "").trim();
-  const hero = String(opt.hero || "").trim().toUpperCase();
-  const sub  = String(opt.sub  || "").trim();
-
-  const leadSize = Math.round(base * (opt.aspect === "9:16" ? 0.052 : 0.062));
-  let heroSize   = Math.round(base * (opt.aspect === "9:16" ? 0.105 : 0.135));
-  const subSize  = Math.round(base * 0.026);
-  const track    = () => heroSize * 0.075;
-
-  // Shrink the hero until it fits on at most two lines. Losing size is always better
-  // than losing words off the end of a cover line.
-  const heroFont = (px)=> "700 " + px + "px " + ED_SERIF;
-  g.font = heroFont(heroSize);
-  let heroLines = wrapLines(g, hero, maxW - track(), 2);
-  let guard = 0;
-  while(guard++ < 30){
-    g.font = heroFont(heroSize);
-    heroLines = wrapLines(g, hero, maxW - track(), 2);
-    const widest = heroLines.reduce((m,l)=>Math.max(m, trackedWidth(g, l, track())), 0);
-    if(widest <= maxW && heroLines.length <= 2) break;
-    if(heroSize <= base * 0.055) break;
-    heroSize = Math.round(heroSize * 0.93);
-  }
-
-  // Then GROW it to fill the measure. This is the step that separates a cover from
-  // text-on-a-photo: on a real magazine the hero word spans nearly the full width,
-  // and a short word like DETAILS left at its default size sits at about 40% of the
-  // measure and reads as a caption. Scaling to the measure means the word is as large
-  // as the frame allows regardless of how many letters it happens to have — which is
-  // exactly what a picture editor would do by hand.
-  if(heroLines.length === 1 && hero){
-    g.font = heroFont(heroSize);
-    const w = trackedWidth(g, heroLines[0], track());
-    if(w > 0){
-      const target = maxW * 0.94;
-      // Capped against the short edge so one short word on a tall frame doesn't
-      // become a wall of letters.
-      const ceiling = Math.round(base * (opt.aspect === "9:16" ? 0.20 : 0.26));
-      const grown = Math.min(ceiling, Math.round(heroSize * (target / w)));
-      if(grown > heroSize){
-        heroSize = grown;
-        g.font = heroFont(heroSize);
-        // Re-check: growing can push it past the measure once tracking is re-applied.
-        let g2 = 0;
-        while(trackedWidth(g, heroLines[0], track()) > maxW && g2++ < 20){
-          heroSize = Math.round(heroSize * 0.97);
-          g.font = heroFont(heroSize);
-        }
-      }
-    }
-  }
-
-  const heroLH = Math.round(heroSize * 1.0);
-  const leadGap = lead ? Math.round(leadSize * 1.25) : 0;
-  const subGap  = sub ? Math.round(subSize * 2.6) : 0;
-  const blockH = leadGap + heroLines.length * heroLH + subGap;
-
-  let y = upper ? pad + leadSize : H - pad - blockH + leadGap + heroSize * 0.86;
-  if(!upper) y = H - pad - (heroLines.length - 1) * heroLH - subGap - Math.round(heroSize * 0.08);
-  const startY = upper ? pad + leadGap + heroSize * 0.86 : y;
-
-  g.textBaseline = "alphabetic";
-  // Slightly heavier than a designed cover would need, because a cover is shot for its
-  // type and a video frame is not — there is no guarantee of a clean area under the words.
-  g.shadowColor = "rgba(0,0,0,0.55)";
-  g.shadowBlur = Math.round(base * 0.03);
-  g.shadowOffsetY = Math.round(base * 0.004);
-  g.fillStyle = "#FFFFFF";
-
-  // Lead-in: italic, small, sitting directly on top of the hero word.
-  if(lead){
-    g.font = "italic 600 " + leadSize + "px " + ED_SERIF;
-    const lw = g.measureText(lead).width;
-    const lx = centered ? Math.round((W - lw) / 2) : pad;
-    g.fillText(lead, lx, startY - heroSize * 0.86 - Math.round(leadSize * 0.35));
-  }
-
-  // Hero: caps, tracked, as large as it will go.
-  g.font = heroFont(heroSize);
-  let hy = startY;
-  for(const ln of heroLines){
-    const w = trackedWidth(g, ln, track());
-    const x = centered ? Math.round((W - w) / 2) : pad;
-    drawTracked(g, ln, x, hy, track());
-    hy += heroLH;
-  }
-
-  // Sub: one quiet line, the way a cover carries a standfirst.
-  if(sub){
-    g.font = "400 " + subSize + "px Jost, 'Helvetica Neue', Helvetica, Arial, sans-serif";
-    const sw = trackedWidth(g, sub, subSize * 0.04);
-    const sx = centered ? Math.round((W - sw) / 2) : pad;
-    drawTracked(g, sub, sx, hy - heroLH + Math.round(subSize * 2.5), subSize * 0.04);
-  }
-
-  g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
-  return c.toDataURL("image/jpeg", 0.92);
+  g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+  g.drawImage(img, x + (w - dw)/2, y + (h - dh)/2, dw, dh);
+  g.restore();
 }
 
-// ─── THUMBNAIL STUDIO ────────────────────────────────────────────────────────
-// Three magazine-style thumbnails from a video: one built on a real moment out of the
-// footage, two restaged through the Fake It engine so the same person appears in an
-// editorial setup that was never filmed.
-//
-// Deliberately NOT welded to the editor. It takes any video file, so it works for
-// someone who cut their video somewhere else entirely — which is most people. The
-// editor simply hands it a finished render when you come from that direction.
-function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null, prefill=null, onPrefillDone=()=>{} }){
-  const [file, setFile] = useState(null);
-  const [vurl, setVurl] = useState("");
-  const [vname, setVname] = useState("");
-  const [dur, setDur] = useState(0);
-  const [aspect, setAspect] = useState("16:9");
-  const [topic, setTopic] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [stage, setStage] = useState("");
-  const [err, setErr] = useState("");
-  const [shots, setShots] = useState([]);   // [{base, out, headline, kicker, space, kind, t}]
-  const [sel, setSel] = useState(0);
-  const objUrl = useRef("");
+const TH_SIZES = { "4:5": [1080,1350], "16:9": [1920,1080], "9:16": [1080,1920] };
 
-  const COST = CREDIT_COSTS.editorThumbnails;
-  const dims = aspect === "9:16" ? { w:1080, h:1920 } : { w:1280, h:720 };
+// ── TEMPLATE A · single image, masthead behind the subject ───────────────────
+async function thRenderSingle(o){
+  await ensureThumbFonts();
+  const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
+  const S = Math.min(W,H);
+  const c = document.createElement("canvas"); c.width=W; c.height=H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H);
 
-  useEffect(()=>{ ensureEditorialFont(); }, []);
-  useEffect(()=>()=>{ try{ if(objUrl.current) URL.revokeObjectURL(objUrl.current); }catch(_){} }, []);
+  const photo = o.photo ? await thLoad(o.photo) : null;
+  if(photo) thCover(g, photo, 0, 0, W, H);
 
-  // Arriving from the editor with a finished render. The URL is remote rather than a
-  // local file, which is why extractFrameAt sets crossOrigin.
-  useEffect(()=>{
-    if(!prefill || prefill.tool !== "thumbnail") return;
-    const d = prefill.data || {};
-    if(d.videoUrl){
-      setVurl(d.videoUrl); setVname(d.name || "your video");
-      setDur(Number(d.dur)||0);
-      if(d.aspect) setAspect(d.aspect === "9:16" ? "9:16" : "16:9");
-      if(d.title) setTopic(String(d.title).slice(0,300));
-    }
-    onPrefillDone();
-  }, [prefill]);
+  // The masthead is drawn on the photo, then the CUTOUT is composited back on top —
+  // which is what makes the letters pass behind the subject's head. Without a cutout
+  // it simply sits over the picture, which is still a valid cover.
+  g.textBaseline = "top";
+  g.fillStyle = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.30)"; g.shadowBlur = Math.round(S*0.018);
+  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mSize = thFit(g, o.masthead, W*0.92, mastFont, Math.round(S*0.20), Math.round(S*0.07), 0.03);
+  g.font = mastFont(mSize);
+  thCenter(g, o.masthead, Math.round(H*0.035), W, mSize*0.03);
+  g.shadowColor = "transparent"; g.shadowBlur = 0;
 
-  async function pick(f){
-    if(!f) return;
-    setErr(""); setShots([]);
-    try{ if(objUrl.current) URL.revokeObjectURL(objUrl.current); }catch(_){}
-    const u = URL.createObjectURL(f);
-    objUrl.current = u;
-    setFile(f); setVurl(u); setVname(f.name || "your video");
-    // Read the real dimensions rather than asking — the aspect of the thumbnail should
-    // match the video without anyone having to think about it.
-    try{
-      const meta = await new Promise((res,rej)=>{
-        const v = document.createElement("video");
-        v.preload = "metadata"; v.muted = true;
-        v.onloadedmetadata = ()=>res({ d:v.duration||0, w:v.videoWidth||0, h:v.videoHeight||0 });
-        v.onerror = ()=>rej(new Error("meta"));
-        v.src = u;
-      });
-      setDur(meta.d);
-      setAspect(meta.h > meta.w ? "9:16" : "16:9");
-    }catch(_){ setErr("Couldn't read that video. Try an MP4 or MOV."); }
+  if(o.cutout){
+    try{ const cut = await thLoad(o.cutout); thCover(g, cut, 0, 0, W, H); }catch(_){}
   }
 
-  async function make(){
-    if(!vurl){ setErr("Choose a video first."); return; }
-    if(credits < COST){ onBuyCredits(); return; }
-    if(!useCredits("editorThumbnails")) return;
-    setBusy(true); setErr(""); setShots([]); setSel(0);
-    try{
-      setStage("Watching your video for the strongest moments…");
-      const frames = await sampleVideoFrames(vurl, dur || 60, 24);
-      if(frames.length < 2) throw new Error("Couldn't read enough of that video.");
-      // If every sampled frame came back blank, the browser never decoded anything and
-      // going further just produces black thumbnails and a confused model. Say so here
-      // rather than charging on and delivering three black rectangles.
-      const anyLit = await (async ()=>{
-        for(const f of frames.slice(0, 8)){
-          try{
-            const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=f.data; });
-            const c = document.createElement("canvas"); c.width=im.width; c.height=im.height;
-            c.getContext("2d").drawImage(im,0,0);
-            if(!canvasLooksBlank(c)) return true;
-          }catch(_){}
-        }
-        return false;
-      })();
-      if(!anyLit) throw new Error("This browser couldn't read the picture out of that video. Safari is the usual culprit — try Chrome, or re-save the video as an MP4 (H.264).");
+  g.shadowColor = "rgba(0,0,0,0.45)"; g.shadowBlur = Math.round(S*0.022);
+  const pad = Math.round(W*0.065);
 
+  // left kicker block
+  if(o.kicker){
+    const kf = (px)=> px + "px ChelgySub, Georgia, serif";
+    const kSize = thFit(g, o.kicker, W*0.42, kf, Math.round(S*0.070), Math.round(S*0.030), 0);
+    g.font = kf(kSize); g.fillStyle = "#FFFFFF";
+    g.fillText(o.kicker, pad, Math.round(H*0.30));
+    if(o.kickerSub){
+      const sf = Math.round(S*0.030);
+      g.font = sf + "px ChelgySmall, Georgia, serif";
+      g.fillStyle = "rgba(255,255,255,0.90)";
+      const words = String(o.kickerSub).split(/\s+/);
+      const half = Math.ceil(words.length/2);
+      g.fillText(words.slice(0,half).join(" "), pad, Math.round(H*0.30) + kSize + Math.round(S*0.014));
+      g.fillText(words.slice(half).join(" "),   pad, Math.round(H*0.30) + kSize + Math.round(S*0.014) + sf*1.25);
+    }
+  }
+
+  // bottom title block, centred and spanning
+  if(o.hero){
+    const hf = (px)=> px + "px ChelgySub, Georgia, serif";
+    const hSize = thFit(g, o.hero, W - pad*2, hf, Math.round(S*0.095), Math.round(S*0.040), 0.01);
+    g.font = hf(hSize); g.fillStyle = "#FFFFFF";
+    thCenter(g, o.hero, Math.round(H*0.80), W, hSize*0.01);
+    if(o.sub){
+      const sf = Math.round(S*0.032);
+      g.font = sf + "px ChelgySmall, Georgia, serif";
+      g.fillStyle = "rgba(255,255,255,0.88)";
+      thCenter(g, o.sub, Math.round(H*0.80) + hSize + Math.round(S*0.022), W, sf*0.14);
+    }
+  }
+  g.shadowColor = "transparent"; g.shadowBlur = 0;
+  return c.toDataURL("image/jpeg", 0.93);
+}
+
+// ── TEMPLATE B · three-panel collage ─────────────────────────────────────────
+async function thRenderCollage(o){
+  await ensureThumbFonts();
+  const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
+  const S = Math.min(W,H);
+  const c = document.createElement("canvas"); c.width=W; c.height=H;
+  const g = c.getContext("2d");
+
+  if(o.background){
+    try{ thCover(g, await thLoad(o.background), 0, 0, W, H); }
+    catch(_){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); }
+  } else { g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); }
+
+  // Panels run wide and long on purpose. Narrower and the grey around them reads as
+  // unused space rather than as air; a cover wants the pictures to dominate and the
+  // type to sit INTO them.
+  const wide = W > H * 1.2;
+  const pw   = Math.round(W * (wide ? 0.285 : 0.305));
+  const band = Math.round(H * (wide ? 0.60  : 0.56));
+  const gut  = W * (wide ? 0.022 : 0.018);
+  const left = (W - (pw*3 + gut*2)) / 2;
+  const xs = [left, left+pw+gut, left+2*(pw+gut)].map(Math.round);
+  const ys = [H*0.135, H*0.055, H*0.105].map(Math.round);
+  const hs = [band, Math.round(band*1.30), Math.round(band*1.10)];
+
+  for(let i=0;i<3;i++){
+    const src = (o.photos||[])[i];
+    if(!src){ g.fillStyle = "rgba(0,0,0,0.06)"; g.fillRect(xs[i], ys[i], pw, hs[i]); continue; }
+    try{ thCover(g, await thLoad(src), xs[i], ys[i], pw, hs[i]); }catch(_){}
+  }
+
+  g.textBaseline = "top";
+  // masthead over the panels — this is how the reference collage does it
+  g.fillStyle = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.30)"; g.shadowBlur = Math.round(S*0.016);
+  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mSize = thFit(g, o.masthead, W*0.90, mastFont, Math.round(S*0.145), Math.round(S*0.055), 0.03);
+  g.font = mastFont(mSize);
+  thCenter(g, o.masthead, Math.round(H*0.45), W, mSize*0.03);
+  g.shadowColor = "transparent"; g.shadowBlur = 0;
+
+  const ink = "#141210";
+  const subF = (px)=> px + "px ChelgySub, Georgia, serif";
+  const smF  = (px)=> px + "px ChelgySmall, Georgia, serif";
+  const scF  = (px)=> px + "px ChelgyScript, Georgia, serif";
+
+  // top-left block
+  const x0 = Math.round(W*0.06), y0 = Math.round(H*0.115);
+  const s1 = Math.round(S*0.050);
+  g.font = subF(s1); g.fillStyle = ink;
+  if(o.tl1) g.fillText(o.tl1, x0, y0);
+  if(o.tl2){ g.font = smF(Math.round(S*0.028)); g.fillText(o.tl2, x0, y0 + Math.round(S*0.056)); }
+  if(o.tl3){
+    g.font = subF(s1);
+    const bw = thWidth(g, o.tl3, 0) + Math.round(S*0.030);
+    g.fillStyle = ink;
+    g.fillRect(x0 - Math.round(S*0.012), y0 + Math.round(S*0.096), bw, Math.round(S*0.062));
+    g.fillStyle = "#FFFFFF";
+    g.fillText(o.tl3, x0, y0 + Math.round(S*0.102));
+  }
+
+  // top-right script
+  g.fillStyle = ink;
+  if(o.tr1){ g.font = scF(Math.round(S*0.058)); g.fillText(o.tr1, Math.round(W*0.66), Math.round(H*0.065)); }
+  if(o.tr2){ g.font = smF(Math.round(S*0.028)); g.fillText(o.tr2, Math.round(W*0.66), Math.round(H*0.065) + Math.round(S*0.060)); }
+
+  // bottom block, centred and spanning
+  if(o.hero){
+    const hSize = thFit(g, o.hero, W*0.88, subF, Math.round(S*0.075), Math.round(S*0.034), 0.01);
+    g.font = subF(hSize); g.fillStyle = ink;
+    thCenter(g, o.hero, Math.round(H*0.875), W, hSize*0.01);
+    if(o.sub){
+      const sf = Math.round(S*0.028);
+      g.font = smF(sf); g.fillStyle = "#3C3732";
+      thCenter(g, o.sub, Math.round(H*0.875) + hSize + Math.round(S*0.018), W, 0);
+    }
+  }
+  return c.toDataURL("image/jpeg", 0.93);
+}
+
+function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null }){
+  const [template,setTemplate] = useState("single");
+  const [aspect,setAspect]     = useState("4:5");
+  const [photos,setPhotos]     = useState([null,null,null]);   // data URLs
+  const [cutout,setCutout]     = useState(null);
+  const [background,setBackground] = useState(null);
+  const [about,setAbout]       = useState("");
+  const [brand,setBrand]       = useState("");
+  const [copy,setCopy]         = useState(null);
+  const [out,setOut]           = useState("");
+  const [busy,setBusy]         = useState(false);
+  const [stage,setStage]       = useState("");
+  const [err,setErr]           = useState("");
+  const [scene,setScene]       = useState("");
+
+  const COST = CREDIT_COSTS.editorThumbnails;
+  const nPhotos = template === "collage" ? 3 : 1;
+
+  useEffect(()=>{ ensureThumbFonts(); }, []);
+
+  const SLOT_LABELS = template === "collage"
+    ? [["masthead","Masthead"],["tl1","Top left"],["tl2","…connector"],["tl3","…payoff (on black)"],["tr1","Top right (script)"],["tr2","…under it"],["hero","Main title"],["sub","Line underneath"]]
+    : [["masthead","Masthead"],["kicker","Cover line"],["kickerSub","…under it"],["hero","Main title"],["sub","Line underneath"]];
+
+  function readFile(file, cb){
+    if(!file) return;
+    const fr = new FileReader();
+    fr.onload = ()=>cb(String(fr.result||""));
+    fr.onerror = ()=>setErr("Couldn't read that image.");
+    fr.readAsDataURL(file);
+  }
+  function pickPhoto(i, file){ readFile(file, (d)=>{ setPhotos(p=>{ const n=p.slice(); n[i]=d; return n; }); setCutout(null); }); }
+
+  async function redraw(next){
+    const cp = next || copy; if(!cp) return;
+    try{
+      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background };
+      setOut(template === "collage" ? await thRenderCollage(opts) : await thRenderSingle(opts));
+    }catch(e){ setErr((e&&e.message)||"Couldn't draw that."); }
+  }
+  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template]);
+
+  async function writeCopy(){
+    if(!about.trim()){ setErr("Tell us what the video is about first."); return; }
+    if(!photos[0]){ setErr("Add at least one photo."); return; }
+    setBusy(true); setErr(""); setStage("Writing the cover lines…");
+    try{
       const tok = await freshToken();
       const r = await fetch("/api/studio-thumbnail", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({ frames, aspect, topic: topic.trim(), title: topic.trim() })
+        body: JSON.stringify({ template, about: about.trim(), brand: brand.trim() })
       });
       const d = await r.json();
-      if(!r.ok || !d || !Array.isArray(d.picks) || !d.picks.length) throw new Error((d&&d.error) || "Couldn't choose a thumbnail.");
-      // The picker declined but the pipeline still works — say so plainly rather than
-      // letting them wonder why the words are generic.
-      if(d.fallback) setErr("Couldn't read the best moments in that video, so these are spread across it. The words are yours to change.");
-
-      // The first pick becomes the real-moment thumbnail. The other two get restaged.
-      // Order matters: the authentic one lands first so it's the default, and so you
-      // can see whether the footage alone was already enough.
-      const built = [];
-      for(let i=0; i<d.picks.length && i<3; i++){
-        const p = d.picks[i];
-        setStage("Pulling the frame at " + p.t + "s at full size…");
-        let base;
-        try{ base = await extractFrameAt(vurl, p.t, aspect==="9:16" ? 1080 : 1600); }
-        catch(e){ if(!built.length) throw e; continue; }
-
-        let out = base, kind = "real";
-        if(i > 0){
-          setStage("Restaging moment " + (i+1) + " as an editorial shot…");
-          try{
-            const m = base.match(/^data:(.*?);base64,(.*)$/);
-            // GPT Image, not Gemini. Gemini's restage kept producing someone who wasn't
-            // her — and this is the same finding that moved Style Match across, where
-            // GPT held the person's identity while Gemini drifted. The identity wording
-            // below is lifted from that proven prompt almost verbatim.
-            //
-            // Note this is the OPPOSITE of the Fake It lesson, where over-instructing on
-            // identity made the likeness worse. That held for Gemini. GPT wants to be
-            // told plainly, and told twice.
-            const cover = i === 1
-              ? "a clean editorial studio portrait against a plain seamless backdrop, soft directional light, generous empty space around me"
-              : "a magazine cover portrait on location, considered natural light, shallow depth of field, generous empty space around me";
-            const prompt =
-              "Take this photo of me and create a high-end fashion magazine cover image of ME.\n\n" +
-              "Setting: " + cover + ".\n" +
-              "Light me deliberately, the way a magazine photographer would. Rich, controlled colour grading. Leave clear space in the frame where a headline could sit.\n\n" +
-              "CRITICAL: keep my face, hair and skin EXACTLY as they are in the photo — not merely my likeness, but ME, the same person. Do not slim, reshape, lighten or beautify anything. Do not invent a different face.\n" +
-              "Keep my clothing recognisably the same as in the photo.";
-            const d = await generateOpenAIImage(
-              prompt,
-              [{ mimeType: (m && m[1]) || "image/jpeg", data: (m && m[2]) || "" }],
-              aspect,
-              "2K"
-            );
-            if(d && d.image){ out = d.image; kind = "restaged"; }
-            if(typeof d?.balance === "number") onBalance(d.balance);
-          }catch(_){ /* a failed restage falls back to the real frame, never to nothing */ }
-        }
-
-        setStage("Setting the type…");
-        // Alternating the layout across the three so you get a real choice rather than
-        // the same composition three times: centred reads like Porter, left like Vogue.
-        const layout = i === 1 ? "left" : "centered";
-        const copy = { lead: p.lead||"", hero: p.hero||"", sub: p.sub||"", space: p.space, layout };
-        let composed = out;
-        try{ composed = await composeThumbnail(out, { width:dims.w, height:dims.h, aspect, ...copy }); }
-        catch(_){}
-        built.push({ base: out, out: composed, ...copy, kind, t: p.t, why: p.why });
-        setShots(built.slice());
-      }
-      if(!built.length) throw new Error("Couldn't build a thumbnail from that video.");
+      if(!r.ok || !d || !d.copy) throw new Error((d&&d.error)||"Couldn't write the cover lines.");
+      setCopy(d.copy);
+      setStage("Setting the type…");
+      await redraw(d.copy);
       try{ onToolUse && onToolUse("thumbnail"); }catch(_){}
       setStage("");
-    }catch(e){
-      setErr((e && e.message) || "Something went wrong. Your credits were refunded.");
-      setStage("");
-    }
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); setStage(""); }
     setBusy(false);
   }
 
-  // Editing the headline redraws the canvas. No model call, no charge — the whole
-  // point of setting the type locally instead of asking a model to draw it.
-  async function retype(i, patch){
-    const next = shots.slice();
-    next[i] = { ...next[i], ...patch };
+  // High-fashion re-shoot of a supplied photo. Same identity wording Style Match proved
+  // out: GPT holds the person when told plainly who they are, and drifts when it isn't.
+  async function enhance(i){
+    const src = photos[i]; if(!src) return;
+    if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
+    setBusy(true); setErr(""); setStage("Re-shooting photo "+(i+1)+"…");
     try{
-      next[i].out = await composeThumbnail(next[i].base, {
-        width:dims.w, height:dims.h, aspect,
-        lead:next[i].lead, hero:next[i].hero, sub:next[i].sub, space:next[i].space, layout:next[i].layout
-      });
-    }catch(_){}
-    setShots(next);
+      const m = src.match(/^data:(.*?);base64,(.*)$/);
+      const prompt =
+        "Take this photo of me and re-shoot it as a high-end fashion magazine photograph of ME.\n\n" +
+        (scene.trim() ? ("Setting: " + scene.trim() + ".\n") : "Setting: a clean editorial studio with a plain seamless backdrop.\n") +
+        "Light me deliberately, the way a magazine photographer would, with rich controlled colour grading.\n\n" +
+        "CRITICAL: keep my face, hair and skin EXACTLY as they are in the photo — not merely my likeness, but ME, the same person. Do not slim, reshape, lighten or beautify anything. Do not invent a different face.";
+      const d = await generateOpenAIImage(prompt, [{ mimeType:(m&&m[1])||"image/jpeg", data:(m&&m[2])||"" }], aspect, "2K");
+      if(d && d.image){ setPhotos(p=>{ const n=p.slice(); n[i]=d.image; return n; }); setCutout(null); }
+      if(typeof d?.balance === "number") onBalance(d.balance);
+    }catch(e){ setErr((e&&e.message)||"Couldn't re-shoot that photo."); }
+    setStage(""); setBusy(false);
   }
 
-  const cur = shots[sel];
+  // The cutout is what lets the masthead pass BEHIND the head. Same source photo,
+  // returned on a transparent background, then composited over the type.
+  async function makeCutout(){
+    const src = photos[0]; if(!src) return;
+    if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
+    setBusy(true); setErr(""); setStage("Cutting you out from the background…");
+    try{
+      const m = src.match(/^data:(.*?);base64,(.*)$/);
+      const d = await generateOpenAIImage(
+        "Return this exact photo of me with the background fully removed — just me, cut out, on a transparent background. Do not change my face, hair, body, clothing, pose or the lighting on me in any way. This is a cut-out, not a new photograph.",
+        [{ mimeType:(m&&m[1])||"image/jpeg", data:(m&&m[2])||"" }], aspect, "2K", "transparent"
+      );
+      if(d && d.image) setCutout(d.image);
+      if(typeof d?.balance === "number") onBalance(d.balance);
+    }catch(e){ setErr((e&&e.message)||"Couldn't cut that out."); }
+    setStage(""); setBusy(false);
+  }
+
+  const Btn = ({on,children,...p}) => (
+    <button {...p} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.07em",textTransform:"uppercase",padding:"7px 14px",cursor:"pointer",border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.inkBlock:B.white,color:on?B.inkText:B.mid}}>{children}</button>
+  );
 
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Thumbnail Studio</h2>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 18px",lineHeight:1.6}}>
-        Three magazine-style thumbnails from any video — one from a real moment in your footage, two restaged as editorial shots. Headlines are editable and cost nothing to change.
+        Magazine covers from your own photos. Pick a layout, add your pictures, say what the video's about — the words are written for you and every one of them is editable for free.
       </p>
 
-      <label style={{display:"block",border:"1px dashed "+B.stone,padding:"18px 16px",cursor:busy?"default":"pointer",background:B.white,marginBottom:12}}>
-        <input type="file" accept="video/*" disabled={busy} onChange={e=>pick(e.target.files&&e.target.files[0])} style={{display:"none"}} />
-        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:vurl?B.charcoal:B.mid}}>
-          {vurl ? (vname + (dur ? " · " + Math.round(dur) + "s · " + aspect : "")) : "Choose a video"}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+        {[["single","One photo"],["collage","Collage of 3"]].map(([id,l])=>(
+          <Btn key={id} on={template===id} disabled={busy} onClick={()=>{setTemplate(id);setCopy(null);setOut("");}}>{l}</Btn>
+        ))}
+        <span style={{width:14}} />
+        {["4:5","16:9","9:16"].map(a=>(<Btn key={a} on={aspect===a} disabled={busy} onClick={()=>setAspect(a)}>{a}</Btn>))}
+      </div>
+
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {Array.from({length:nPhotos}).map((_,i)=>(
+          <label key={i} style={{flex:"1 1 150px",border:"1px dashed "+B.stone,padding:"12px 10px",cursor:busy?"default":"pointer",background:B.white,textAlign:"center"}}>
+            <input type="file" accept="image/*" disabled={busy} onChange={e=>pickPhoto(i, e.target.files&&e.target.files[0])} style={{display:"none"}} />
+            {photos[i]
+              ? <img src={photos[i]} alt="" style={{width:"100%",maxHeight:90,objectFit:"cover",display:"block"}} />
+              : <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>{nPhotos>1?("Photo "+(i+1)):"Choose a photo"}</span>}
+          </label>
+        ))}
+        {template==="collage" && (
+          <label style={{flex:"1 1 150px",border:"1px dashed "+B.stone,padding:"12px 10px",cursor:busy?"default":"pointer",background:B.white,textAlign:"center"}}>
+            <input type="file" accept="image/*" disabled={busy} onChange={e=>readFile(e.target.files&&e.target.files[0], setBackground)} style={{display:"none"}} />
+            {background
+              ? <img src={background} alt="" style={{width:"100%",maxHeight:90,objectFit:"cover",display:"block"}} />
+              : <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>Background (optional)</span>}
+          </label>
+        )}
+      </div>
+
+      {photos.some(Boolean) && (
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:10}}>
+          <input value={scene} onChange={e=>setScene(e.target.value)} disabled={busy}
+            placeholder="Re-shoot setting — e.g. a sunlit Amalfi terrace"
+            style={{flex:1,minWidth:180,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"8px 10px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
+          {Array.from({length:nPhotos}).map((_,i)=> photos[i] ? (
+            <Btn key={i} disabled={busy} onClick={()=>enhance(i)}>{nPhotos>1?("Re-shoot "+(i+1)):"Re-shoot"}</Btn>
+          ) : null)}
+          {template==="single" && photos[0] && (
+            <Btn on={!!cutout} disabled={busy} onClick={()=>cutout?setCutout(null):makeCutout()}>
+              {cutout ? "Behind head ✓" : "Put title behind head"}
+            </Btn>
+          )}
         </div>
-      </label>
+      )}
 
-      <input value={topic} onChange={e=>setTopic(e.target.value)} disabled={busy}
-        placeholder="What's the video about? (optional — sharpens the headlines)"
-        style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"10px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:12}} />
+      <input value={brand} onChange={e=>setBrand(e.target.value)} disabled={busy}
+        placeholder="Your name or brand (for the masthead)"
+        style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:8}} />
+      <textarea value={about} onChange={e=>setAbout(e.target.value)} disabled={busy} rows={2}
+        placeholder="What's the video about?"
+        style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,resize:"vertical",marginBottom:12}} />
 
-      <button onClick={make} disabled={busy||!vurl}
-        style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"12px 22px",border:"1px solid "+B.charcoal,background:(busy||!vurl)?B.white:B.inkBlock,color:(busy||!vurl)?B.mid:B.inkText,cursor:(busy||!vurl)?"default":"pointer"}}>
-        {busy ? "Working…" : "Create 3 thumbnails · " + COST.toLocaleString() + " credits"}
+      <button onClick={writeCopy} disabled={busy||!photos[0]||!about.trim()}
+        style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"12px 22px",border:"1px solid "+B.charcoal,background:(busy||!photos[0]||!about.trim())?B.white:B.inkBlock,color:(busy||!photos[0]||!about.trim())?B.mid:B.inkText,cursor:(busy||!photos[0]||!about.trim())?"default":"pointer"}}>
+        {busy ? "Working…" : (copy ? "Rewrite the words · " + COST.toLocaleString() + " credits" : "Make my cover · " + COST.toLocaleString() + " credits")}
       </button>
 
       {stage && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:12}}>{stage}</p>}
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#8B2F2F",marginTop:12}}>{err}</p>}
 
-      {shots.length>0 && (
-        <div style={{marginTop:22}}>
-          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
-            {shots.map((s,i)=>(
-              <button key={i} onClick={()=>setSel(i)}
-                style={{padding:0,border:"2px solid "+(sel===i?B.charcoal:"transparent"),background:"none",cursor:"pointer",lineHeight:0}}>
-                <img src={s.out} alt={"Option "+(i+1)} style={{width:aspect==="9:16"?68:120,display:"block"}} />
-              </button>
-            ))}
-          </div>
-
-          {cur && (
-            <div>
-              <img src={cur.out} alt="Thumbnail" style={{width:"100%",maxWidth:aspect==="9:16"?320:640,display:"block",border:"1px solid "+B.stone}} />
-              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"8px 0 12px"}}>
-                {cur.kind==="restaged" ? "Restaged editorial" : "Real moment"} · from {cur.t}s{cur.why ? " · " + cur.why : ""}
-              </p>
-
-              <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-                <input value={cur.lead} onChange={e=>retype(sel,{lead:e.target.value})}
-                  placeholder="Lead-in — e.g. All in the"
-                  style={{flex:1,minWidth:140,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
-                <input value={cur.hero} onChange={e=>retype(sel,{hero:e.target.value})}
-                  placeholder="Hero word — e.g. DETAILS"
-                  style={{flex:1,minWidth:140,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
-              </div>
-              <input value={cur.sub} onChange={e=>retype(sel,{sub:e.target.value})}
-                placeholder="Line underneath (optional)"
-                style={{width:"100%",boxSizing:"border-box",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"8px 10px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:10}} />
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-                <button onClick={()=>retype(sel,{space:cur.space==="lower"?"upper":"lower"})}
-                  style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.06em",textTransform:"uppercase",padding:"8px 14px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,cursor:"pointer"}}>
-                  Text {cur.space==="lower"?"top":"bottom"}
-                </button>
-                <button onClick={()=>retype(sel,{layout:cur.layout==="left"?"centered":"left"})}
-                  style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.06em",textTransform:"uppercase",padding:"8px 14px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,cursor:"pointer"}}>
-                  {cur.layout==="left"?"Centered":"Left aligned"}
-                </button>
-              </div>
-
-              <button onClick={()=>downloadPic(cur.out, "chelgy-thumbnail-"+(sel+1)+".jpg")}
-                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"11px 20px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>
-                Download
-              </button>
+      {out && (
+        <div style={{marginTop:20}}>
+          <img src={out} alt="Cover" style={{width:"100%",maxWidth:aspect==="16:9"?720:(aspect==="9:16"?320:460),display:"block",border:"1px solid "+B.stone}} />
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"8px 0 12px"}}>Edit any line — it redraws instantly and costs nothing.</p>
+          {SLOT_LABELS.map(([k,label])=>(
+            <div key={k} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid,width:120,flexShrink:0}}>{label}</span>
+              <input value={(copy&&copy[k])||""} onChange={e=>{ const n={...copy,[k]:e.target.value}; setCopy(n); redraw(n); }}
+                style={{flex:1,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"7px 10px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal}} />
             </div>
-          )}
+          ))}
+          <button onClick={()=>downloadPic(out, "chelgy-cover.jpg")}
+            style={{marginTop:10,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",padding:"11px 20px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>
+            Download
+          </button>
         </div>
       )}
     </div>
   );
-}
-
-// ─── WAIT FOR A FRAME TO ACTUALLY EXIST BEFORE COPYING IT ────────────────────
-// `onseeked` means "the seek finished", NOT "there is a decoded picture ready to
-// draw". Chrome usually has one anyway; Safari very often does not, and drawImage
-// then copies an empty buffer — which is how a whole set of thumbnails comes back
-// pure black with no error anywhere. The sampled frames go black too, so the model
-// that picks the best moment is handed 24 blank images and reasonably gives up.
-//
-// requestVideoFrameCallback fires when a frame is genuinely presented, which is the
-// real signal. It isn't everywhere, so there's a timeout behind it.
-function afterFramePresented(v, ms){
-  return new Promise((resolve)=>{
-    let done = false;
-    const finish = ()=>{ if(!done){ done = true; resolve(); } };
-    try{
-      if(typeof v.requestVideoFrameCallback === "function") v.requestVideoFrameCallback(()=>finish());
-    }catch(_){}
-    setTimeout(finish, ms || 160);
-  });
-}
-// Belt and braces: sample a handful of pixels and report whether anything is there.
-// A genuinely black frame in the footage is rare, and drawing it twice costs nothing,
-// so it's better to retry a real black frame than to ship a blank one.
-function canvasLooksBlank(c){
-  try{
-    const g = c.getContext("2d", { willReadFrequently: true });
-    const pts = [[0.5,0.5],[0.25,0.35],[0.75,0.35],[0.35,0.7],[0.65,0.7]];
-    for(const [fx,fy] of pts){
-      const d = g.getImageData(Math.floor(c.width*fx), Math.floor(c.height*fy), 1, 1).data;
-      if(d[0] > 8 || d[1] > 8 || d[2] > 8) return false;
-    }
-    return true;
-  }catch(_){ return false; }   // tainted canvas — not our problem to solve here
 }
 
 async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
@@ -6975,58 +6846,33 @@ async function sampleVideoFrames(objectUrl, durationSec, maxFrames = 40){
   for (let t = 0.5; t < dur - 0.2 && times.length < maxFrames; t += step) times.push(Math.round(t * 10) / 10);
   if (!times.length) times.push(Math.min(1, dur / 2));
 
-  const v = document.createElement("video");
-  v.preload = "auto"; v.muted = true; v.playsInline = true;
-  // crossOrigin ONLY for remote sources. On a local file this is a blob: URL, which is
-  // same-origin already — and asking for CORS on one makes the browser do a cross-origin
-  // fetch that can fail outright rather than just tainting the canvas. Setting it
-  // unconditionally is how this started returning zero frames: not a decode problem, a
-  // load that never happened.
-  if(!/^blob:/i.test(String(objectUrl))) v.crossOrigin = "anonymous";
-  const out = [];
-  try{
-    // Resolve on EITHER load event, whichever the file happens to fire. loadeddata is
-    // the stronger signal — it means a frame exists — but some containers in Safari
-    // announce metadata and never fire it, and waiting for a guarantee that isn't
-    // coming just times out with nothing.
-    await new Promise((res, rej)=>{
-      let settled = false;
-      const ok = ()=>{ if(!settled){ settled = true; clearTimeout(bail); res(); } };
-      const bail = setTimeout(()=>{
-        // Even on timeout, go ahead if there's anything decodable at all.
-        if(!settled){ settled = true; (v.readyState >= 1 ? res() : rej(new Error("load timeout"))); }
-      }, 30000);
-      v.onloadeddata = ok;
-      v.onloadedmetadata = ()=>{ if(v.readyState >= 2) ok(); };
-      v.onerror = ()=>{ if(!settled){ settled = true; clearTimeout(bail); rej(new Error("load error")); } };
-      v.src = objectUrl;
-    });
-    const w = 512, h = Math.max(1, Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9)));
-    for(const t of times){
-      try{
-        await new Promise((res)=>{
-          const done = ()=>res();
-          v.onseeked = done;
-          setTimeout(done, 4000);
-          try{ v.currentTime = t; }catch(_){ done(); }
-        });
-        await afterFramePresented(v, 160);
-        const c = document.createElement("canvas"); c.width=w; c.height=h;
-        c.getContext("2d").drawImage(v,0,0,w,h);
-        if(canvasLooksBlank(c)){
-          // One more go with a longer wait before accepting a blank frame.
-          await afterFramePresented(v, 400);
+  return new Promise((resolve)=>{
+    const out = [];
+    try{
+      const v = document.createElement("video");
+      v.preload = "auto"; v.muted = true; v.playsInline = true;
+      let i = 0;
+      const bail = setTimeout(()=>resolve(out), 60000);
+      const seekNext = ()=>{
+        if (i >= times.length) { clearTimeout(bail); resolve(out); return; }
+        try{ v.currentTime = times[i]; }catch(_){ clearTimeout(bail); resolve(out); }
+      };
+      v.onloadedmetadata = seekNext;
+      v.onseeked = ()=>{
+        try{
+          const w = 512, h = Math.round(512 * (v.videoHeight||16) / (v.videoWidth||9));
+          const c = document.createElement("canvas"); c.width=w; c.height=h;
           c.getContext("2d").drawImage(v,0,0,w,h);
-        }
-        out.push({ t, data: c.toDataURL("image/jpeg",0.6) });
-      }catch(_){}
-    }
-  }catch(_){}
-  try{ v.src = ""; v.load(); }catch(_){}
-  return out;
+          out.push({ t: times[i], data: c.toDataURL("image/jpeg",0.6) });
+        }catch(_){}
+        i++; seekNext();
+      };
+      v.onerror = ()=>{ clearTimeout(bail); resolve(out); };
+      v.src = objectUrl;
+    }catch(_){ resolve(out); }
+  });
 }
 
-// on already-warm or underexposed footage.
 
 async function uploadSiteAudioFile(file, path) {
   try {
