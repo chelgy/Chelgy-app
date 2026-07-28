@@ -6574,6 +6574,34 @@ async function thAsDataUrl(src){
     fr.readAsDataURL(blob);
   });
 }
+// Re-encode anything through a canvas before it leaves the browser.
+//
+// Reading a file gives a data URL in whatever format the file happened to be — and on a
+// Mac that is very often HEIC, because that is what an iPhone shoots. The data URL is
+// perfectly well-formed, so every validity check passes, and then the image API rejects
+// a format it doesn't accept. A file can also be renamed .jpg while still being HEIC
+// inside, which is why "but it's a jpg" and "it isn't a jpg" are both true at once.
+//
+// Drawing it to a canvas and exporting sidesteps the whole question: if the browser can
+// display it, this produces clean image/jpeg regardless of what went in. It also caps
+// the long edge, because a 48-megapixel phone photo becomes a data URL far larger than
+// anything needs to be.
+async function thForApi(src, maxPx){
+  const img = await thLoad(await thAsDataUrl(src));
+  const lim = maxPx || 2048;
+  const s = Math.min(1, lim / Math.max(img.width || 1, img.height || 1));
+  const w = Math.max(1, Math.round((img.width || lim) * s));
+  const h = Math.max(1, Math.round((img.height || lim) * s));
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, w, h);   // flatten any alpha; JPEG has none
+  g.drawImage(img, 0, 0, w, h);
+  let out;
+  try{ out = cv.toDataURL("image/jpeg", 0.92); }
+  catch(e){ throw new Error("The browser wouldn't let us read that image back. Re-upload it from your device."); }
+  return thParts(out);
+}
+
 // Split a data URL into the parts the image API wants, or say so plainly.
 function thParts(dataUrl){
   const m = String(dataUrl||"").match(/^data:([^;]+);base64,(.+)$/);
@@ -7036,12 +7064,15 @@ async function thRenderMontage(o){
 
 function thSay(e, fallback){
   const m = String((e && e.message) || "");
+  // Log the real thing. Paraphrasing an error for the customer is right; paraphrasing it
+  // for the person debugging is how four rounds get spent guessing at a screenshot.
+  try{ console.error("[thumbnail] " + fallback, e); }catch(_){}
   if(!m) return fallback;
   if(/did not match the expected pattern|SyntaxError|InvalidCharacter/i.test(m))
-    return fallback + " That image was in a format we couldn't read — try re-uploading it as a JPG or PNG.";
+    return fallback + " That image was in a format we couldn't read. (" + m + ")";
   if(/insecure|tainted|SecurityError/i.test(m))
     return fallback + " The browser wouldn't let us read that image back. Re-upload it from your device.";
-  return m;
+  return fallback + " " + m;
 }
 
 function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null }){
@@ -7123,7 +7154,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
     setBusy(true); setErr(""); setStage("Re-shooting photo "+(i+1)+"…");
     try{
-      const parts = thParts(await thAsDataUrl(src));
+      const parts = await thForApi(src);
       const prompt =
         "Take this photo of me and re-shoot it as a high-end fashion magazine photograph of ME.\n\n" +
         (scene.trim() ? ("Setting: " + scene.trim() + ".\n") : "Setting: a clean editorial studio with a plain seamless backdrop.\n") +
@@ -7145,7 +7176,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     if(credits < CREDIT_COSTS.imageHD){ onBuyCredits(); return; }
     setBusy(true); setErr(""); setStage("Cutting you out from the background…");
     try{
-      const parts = thParts(await thAsDataUrl(src));
+      const parts = await thForApi(src);
       const d = await generateOpenAIImage(
         "Return this exact photo of me with the background fully removed — just me, cut out, on a transparent background. Do not change my face, hair, body, clothing, pose or the lighting on me in any way. This is a cut-out, not a new photograph.",
         [parts], aspect, "2K", "transparent"
