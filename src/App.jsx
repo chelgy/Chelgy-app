@@ -5497,10 +5497,26 @@ function EditReview({ review, onCancel, onRender }){
     if (!kept.length) return;
     // Consecutive kept tokens become one continuous range. The gap threshold is
     // wider than the pause between words in a sentence but narrower than a real cut.
+    // Consecutive kept tokens become one continuous range — but ONLY across a gap
+    // with nothing in it.
+    //
+    // This is the same bug the planner had and the same fix. A gap between two kept
+    // tokens means one of two opposite things: either nothing was said there, or
+    // something was said and deliberately cut. Merging on elapsed time alone treats
+    // them identically, so every removal shorter than 0.28s was quietly reinstated —
+    // and 0.28s is longer than plenty of real words. "the", "I", a part-word stutter
+    // like "mar-": all of them under the threshold, all of them coming straight back.
+    //
+    // That is exactly what a false start is made of. "find the— find the brands" is
+    // cut by dropping two short words, and both were being restored the moment the
+    // range was rebuilt, which is why the stutters survived review.
+    const off = toks.filter(t => !t.on);
+    const gapHasCutWords = (from, to) =>
+      off.some(t => Number(t.s) >= from - 0.02 && Number(t.s) < to + 0.02);
     const merged = [];
     for (const t of kept) {
       const last = merged[merged.length-1];
-      if (last && t.s - last.e < 0.28) last.e = Math.max(last.e, t.e);
+      if (last && t.s - last.e < 0.28 && !gapHasCutWords(last.e, t.s)) last.e = Math.max(last.e, t.e);
       else merged.push({ s: t.s, e: t.e });
     }
     // A breath either side — but through the SAME snapper the non-review path uses.
