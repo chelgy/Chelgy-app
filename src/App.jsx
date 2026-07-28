@@ -6737,10 +6737,66 @@ const TH_TEMPLATES = [
   { id:"single",   label:"One photo",   photos:1, slots:"single"  },
   { id:"collage",  label:"Collage",     photos:3, slots:"collage" },
   { id:"triptych", label:"Triptych",    photos:3, slots:"single"  },
-  { id:"spread",   label:"Spread",      photos:2, slots:"collage" },
+  { id:"spread",   label:"Spread",      photos:2, slots:"single"  },
   { id:"montage",  label:"Montage",     photos:3, slots:"single"  }
 ];
 const thTpl = (id)=> TH_TEMPLATES.find(t=>t.id===id) || TH_TEMPLATES[0];
+
+// The cover type block, shared by every layout except the collage.
+//
+// Masthead across the top, a kicker up the left, title and standfirst spanning the
+// bottom. Lifted out of the single-photo template once it was clear the same structure
+// suits all of them: it asks nothing of the composition underneath beyond the top and
+// bottom bands being readable, which is true of a full-bleed photo, three panels and a
+// montage alike. Four layouts each drawing their own near-identical type was four
+// places for it to drift, and it had already drifted twice.
+//
+// Fractions of the canvas throughout, sized off the SHORT edge, so one call serves
+// 4:5, 16:9 and 9:16.
+function thCoverType(g, W, H, S, o){
+  g.textBaseline = "top";
+  g.shadowColor = "rgba(0,0,0,0.48)"; g.shadowBlur = Math.round(S*0.024); g.shadowOffsetY = Math.round(S*0.003);
+  const pad  = Math.round(W*0.065);
+  const subF = (px)=> px + "px ChelgySub, Georgia, serif";
+  const smF  = (px)=> px + "px ChelgySmall, Georgia, serif";
+
+  if(o.masthead){
+    const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+    const mSize = thFit(g, o.masthead, W*0.90, mastFont, Math.round(S*0.155), Math.round(S*0.055), 0.03);
+    g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
+    thCenter(g, o.masthead, Math.round(H*0.035), W, mSize*0.03);
+  }
+
+  if(o.kicker){
+    const kSize = thFit(g, o.kicker, W*0.42, subF, Math.round(S*0.070), Math.round(S*0.030), 0);
+    g.font = subF(kSize); g.fillStyle = "#FFFFFF";
+    const ky = Math.round(H*0.30);
+    g.fillText(o.kicker, pad, ky);
+    if(o.kickerSub){
+      const sf = Math.round(S*0.030);
+      g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.90)";
+      // Broken over two lines rather than run long: a kicker sub that stretches toward
+      // the middle collides with whatever the layout has put there.
+      const words = String(o.kickerSub).split(/\s+/);
+      const half = Math.ceil(words.length/2);
+      g.fillText(words.slice(0,half).join(" "), pad, ky + kSize + Math.round(S*0.014));
+      g.fillText(words.slice(half).join(" "),   pad, ky + kSize + Math.round(S*0.014) + sf*1.25);
+    }
+  }
+
+  if(o.hero){
+    const hSize = thFit(g, o.hero, W - pad*2, subF, Math.round(S*0.095), Math.round(S*0.040), 0.01);
+    g.font = subF(hSize); g.fillStyle = "#FFFFFF";
+    const hy = Math.round(H*0.80);
+    thCenter(g, o.hero, hy, W, hSize*0.01);
+    if(o.sub){
+      const sf = Math.round(S*0.032);
+      g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.88)";
+      thCenter(g, o.sub, hy + hSize + Math.round(S*0.022), W, sf*0.14);
+    }
+  }
+  g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
+}
 
 // ── TEMPLATE A · single image, masthead behind the subject ───────────────────
 async function thRenderSingle(o){
@@ -6770,40 +6826,10 @@ async function thRenderSingle(o){
     try{ const cut = await thLoad(o.cutout); thCover(g, cut, 0, 0, W, H); }catch(_){}
   }
 
-  g.shadowColor = "rgba(0,0,0,0.45)"; g.shadowBlur = Math.round(S*0.022);
-  const pad = Math.round(W*0.065);
-
-  // left kicker block
-  if(o.kicker){
-    const kf = (px)=> px + "px ChelgySub, Georgia, serif";
-    const kSize = thFit(g, o.kicker, W*0.42, kf, Math.round(S*0.070), Math.round(S*0.030), 0);
-    g.font = kf(kSize); g.fillStyle = "#FFFFFF";
-    g.fillText(o.kicker, pad, Math.round(H*0.30));
-    if(o.kickerSub){
-      const sf = Math.round(S*0.030);
-      g.font = sf + "px ChelgySmall, Georgia, serif";
-      g.fillStyle = "rgba(255,255,255,0.90)";
-      const words = String(o.kickerSub).split(/\s+/);
-      const half = Math.ceil(words.length/2);
-      g.fillText(words.slice(0,half).join(" "), pad, Math.round(H*0.30) + kSize + Math.round(S*0.014));
-      g.fillText(words.slice(half).join(" "),   pad, Math.round(H*0.30) + kSize + Math.round(S*0.014) + sf*1.25);
-    }
-  }
-
-  // bottom title block, centred and spanning
-  if(o.hero){
-    const hf = (px)=> px + "px ChelgySub, Georgia, serif";
-    const hSize = thFit(g, o.hero, W - pad*2, hf, Math.round(S*0.095), Math.round(S*0.040), 0.01);
-    g.font = hf(hSize); g.fillStyle = "#FFFFFF";
-    thCenter(g, o.hero, Math.round(H*0.80), W, hSize*0.01);
-    if(o.sub){
-      const sf = Math.round(S*0.032);
-      g.font = sf + "px ChelgySmall, Georgia, serif";
-      g.fillStyle = "rgba(255,255,255,0.88)";
-      thCenter(g, o.sub, Math.round(H*0.80) + hSize + Math.round(S*0.022), W, sf*0.14);
-    }
-  }
-  g.shadowColor = "transparent"; g.shadowBlur = 0;
+  // The masthead was drawn BEFORE the cutout above so it passes behind the head. The
+  // rest of the type goes over everything, so it comes from the shared block with the
+  // masthead suppressed.
+  thCoverType(g, W, H, S, { ...o, masthead: "" });
   return c.toDataURL("image/png");
 }
 
@@ -6927,33 +6953,7 @@ async function thRenderTriptych(o){
     { y:  H*0.00, h: H*1.10 },
     { y: -H*0.06, h: H*1.06 }
   ];
-  g.textBaseline = "top"; g.fillStyle = "#FFFFFF";
-  g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022); g.shadowOffsetY = Math.round(S*0.003);
-  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
-  const mSize = thFit(g, o.masthead, W*0.74, mastFont, Math.round(S*0.115), Math.round(S*0.048), 0.02);
-  g.font = mastFont(mSize);
-  const mTop = Math.round(H*0.020);
-  thCenter(g, o.masthead, mTop, W, mSize*0.02);
-
-  // Sub lines sit UNDER the title — placed off the type's MEASURED bottom, not off its
-  // font size. Those are not the same number: a font size is the em box, and a display
-  // face like Monoton fills far more of it than a text face does, so "top + fontSize"
-  // landed inside the letters and the two lines overlapped. measureText knows where the
-  // glyphs actually end; the fallback multiplier is only for browsers that don't report it.
-  const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
-  const sf = Math.round(S*0.032);
-  let mBottom;
-  try{
-    const mm = g.measureText(o.masthead || "H");
-    mBottom = mTop + (mm.actualBoundingBoxDescent || 0) + (mm.actualBoundingBoxAscent || 0);
-    if(!(mBottom > mTop)) mBottom = mTop + mSize * 1.18;
-  }catch(_){ mBottom = mTop + mSize * 1.18; }
-  g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.94)";
-  let ty = Math.round(mBottom + S*0.030);
-  const line = [o.kicker, o.sub].filter(Boolean).join(" — ");
-  if(line){ thCenter(g, line, ty, W, 0); ty += Math.round(sf*1.55); }
-  if(o.kickerSub) thCenter(g, o.kickerSub, ty, W, 0);
-  g.shadowColor = "transparent";
+  thCoverType(g, W, H, S, o);
   return c.toDataURL("image/png");
 }
 
@@ -6987,36 +6987,7 @@ async function thRenderSpread(o){
     try{ thCover(g, await thLoad(o.photos[1]), ix, iy, iw, ih); }catch(_){}
   }
 
-  g.textBaseline = "top";
-  const pad = Math.round(W*0.05);
-  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
-  const mSize = thFit(g, o.masthead, W*0.34, mastFont, Math.round(S*0.20), Math.round(S*0.070), 0.02);
-  g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
-  g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022);
-  thDraw(g, o.masthead, pad, Math.round(H*0.22), mSize*0.02);
-
-  const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
-  const sf = Math.round(S*0.024);
-  g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.92)";
-  // the standfirst paragraph, wrapped to the column beside the masthead
-  const words = String(o.sub||"").split(/\s+/).filter(Boolean);
-  let ln = "", y = Math.round(H*0.075), maxW = W*0.30;
-  for(const w of words){
-    const t = ln ? ln+" "+w : w;
-    if(g.measureText(t).width > maxW && ln){ g.fillText(ln, pad, y); y += sf*1.45; ln = w; }
-    else ln = t;
-  }
-  if(ln) g.fillText(ln, pad, y);
-
-  // credit, reversed out of the big picture
-  const subF = (px)=> px + "px ChelgySub, Georgia, serif";
-  const cf = Math.round(S*0.038);
-  g.font = subF(cf); g.fillStyle = "#FFFFFF";
-  g.shadowColor = "rgba(0,0,0,0.40)"; g.shadowBlur = Math.round(S*0.02);
-  String(o.kicker||"").split(/\s+/).slice(0,3).forEach((w,i)=>{
-    g.fillText(w.toUpperCase(), Math.round(W*0.62), Math.round(H*0.74) + i*cf*1.2);
-  });
-  g.shadowColor = "transparent";
+  thCoverType(g, W, H, S, o);
   return c.toDataURL("image/png");
 }
 
@@ -7059,26 +7030,7 @@ async function thRenderMontage(o){
     }catch(_){}
   }
 
-  g.textBaseline = "top";
-  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
-  const mSize = thFit(g, o.masthead, W*0.62, mastFont, Math.round(S*0.125), Math.round(S*0.055), 0.02);
-  g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
-  g.shadowColor = "rgba(0,0,0,0.50)"; g.shadowBlur = Math.round(S*0.022);
-  thDraw(g, o.masthead, Math.round(W*0.05), Math.round(H*0.815), mSize*0.02);
-  const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
-  const sf = Math.round(S*0.036);
-  g.font = smF(sf); g.fillStyle = "rgba(255,255,255,0.92)";
-  // Measured, same reason as the triptych.
-  let subTop;
-  try{
-    g.font = mastFont(mSize);
-    const mm = g.measureText(o.masthead || "H");
-    subTop = Math.round(H*0.815) + (mm.actualBoundingBoxAscent||0) + (mm.actualBoundingBoxDescent||0) + Math.round(S*0.018);
-    if(!(subTop > Math.round(H*0.815))) subTop = Math.round(H*0.815) + mSize*1.18;
-  }catch(_){ subTop = Math.round(H*0.815) + mSize*1.18; }
-  g.font = smF(sf);
-  if(o.sub) g.fillText(o.sub, Math.round(W*0.05), subTop);
-  g.shadowColor = "transparent";
+  thCoverType(g, W, H, S, o);
   return c.toDataURL("image/png");
 }
 
