@@ -52,9 +52,9 @@ const CA_NAV_LABELS = {
   "tools/thumbnail": "Thumbnail Studio",
   "tools/getfeatured": "Podcasts",
   "tools/presspitch": "Press",
-  "tools/restage": "Fake It",
+  "tools/restage": "Fake It Presets",
   "tools/stylematch": "Style Match",
-  "tools/backdrop": "Backdrop",
+  "tools/backdrop": "Fake It",
   "tools/filmroom": "Film Room",
   "tools/videoedit": "Fake It Video",
   "tools/highfashion": "High Fashion",
@@ -109,7 +109,7 @@ Four tabs across the bottom:
 • AI Content Writer — captions and copy for Instagram, TikTok, Facebook, LinkedIn, Google Business, Yelp, blogs, email, and ads.
 • Backlink & Authority Builder — finds real, white-hat ways to get the business linked, listed and featured (local directories, press, roundups, partnerships), writes the outreach, and suggests linkable content. Send people here for "how do I get backlinks" or "how do I rank higher on Google" — it never recommends buying links.
 • Dropshipping Directory — vetted suppliers with links, niches, shipping times, and honest notes.
-• Fake It — upload a photo of your face and appear anywhere: the Amalfi Coast, a Paris café, a rooftop in Tokyo. Any outfit, any light, no training or waiting, and it still looks like them. Tabs: Fake It (the main tool), Style Match (recreate the look of a photo they like), Backdrop (describe any background in words and be placed there, keeping their face, pose and outfit exactly), High Fashion and Beauty (editorial presets), and Video Edit (bring a shot to life as a short video). Use tool "restage" for the main tool.
+• Fake It — upload a photo of your face and appear anywhere: the Amalfi Coast, a Paris café, a rooftop in Tokyo. They describe the setting in their own words and are placed there, keeping their face, pose and outfit exactly. Tabs: Fake It (the main tool), Style Match (recreate the look of a photo they like), and Video Edit (bring a shot to life as a short video). Use tool "backdrop" for the main tool.
 • Get Featured — search real podcasts in their niche, see who to contact, and get a pitch written for that specific show (tool "getfeatured"). The Press tab does the same for journalists, plus an honest read on whether their story is ready yet (tool "presspitch").
 • Platform Setup Guides — step-by-step setup and posting guides for every major platform.
 • My Library — where saved creations are stored.
@@ -137,7 +137,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, backdrop, filmroom, videoedit, highfashion, beauty.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, videoedit.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -3220,6 +3220,15 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
 // render, but in a system serif rather than the brand faces — so if it ever looks
 // generic, check those before anything else.
 const THUMBNAILS_ENABLED = true;
+
+// The original Fake It (preset restaging), High Fashion and Beauty are hidden. The
+// Backdrop tool — describe any setting in words — does the same job better and without
+// the preset list, so it has taken the Fake It name and the first slot.
+//
+// Nothing is deleted: the components, their endpoints, credit costs, route labels and
+// render branches are all still here, and a direct link to any of them still works.
+// Flip this to true and the three tabs come back exactly as they were.
+const FAKEIT_PRESETS_ENABLED = false;
 
 const LUT_SLOTS = [
   ["wolf",     "Golden Hour"],
@@ -10128,7 +10137,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Backdrop", filmroom:"Film Room", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -10195,7 +10204,8 @@ const CATEGORIES = [
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Style Match",tool:"stylematch"}, {label:"Backdrop",tool:"backdrop"}, {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
+    tabs:[ {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"},
+           ...(FAKEIT_PRESETS_ENABLED ? [{label:"Presets",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}] : []) ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"}, {label:"Film Room",tool:"filmroom"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
