@@ -6599,6 +6599,86 @@ function thCover(g, img, x, y, w, h){
 
 const TH_SIZES = { "4:5": [1080,1350], "16:9": [1920,1080], "9:16": [1080,1920] };
 
+// Rounded / pill panels. roundRect isn't everywhere yet, so this falls back to arcs
+// rather than losing the corner radius on an older browser.
+function thRoundPath(g, x, y, w, h, r){
+  const rr = Math.min(r, w/2, h/2);
+  if(typeof g.roundRect === "function"){ g.beginPath(); g.roundRect(x, y, w, h, rr); return; }
+  g.beginPath();
+  g.moveTo(x+rr, y);
+  g.arcTo(x+w, y,   x+w, y+h, rr);
+  g.arcTo(x+w, y+h, x,   y+h, rr);
+  g.arcTo(x,   y+h, x,   y,   rr);
+  g.arcTo(x,   y,   x+w, y,   rr);
+  g.closePath();
+}
+function thCoverRound(g, img, x, y, w, h, r){
+  g.save(); thRoundPath(g, x, y, w, h, r); g.clip();
+  const s = Math.max(w / img.width, h / img.height);
+  const dw = img.width * s, dh = img.height * s;
+  // Biased UP rather than centred. On a tall crop of a person, the geometric middle is
+  // usually their waist; faces live in the upper third and that is what a cover needs.
+  g.drawImage(img, x + (w - dw)/2, y + (h - dh) * 0.28, dw, dh);
+  g.restore();
+}
+// Draw a photo into its own canvas, cover-fit, with soft edges.
+//
+// Feathering has to happen on a SEPARATE canvas. Painting a gradient over the image in
+// place would just lighten it toward the background colour, which looks like fog and
+// only works if the background is a flat colour. Erasing alpha instead — destination-out
+// against a gradient — makes the pixels genuinely transparent, so whatever is underneath
+// shows through and two photos can actually dissolve into each other.
+//
+// `feather` is {top,bottom,left,right} in pixels; omit a side to leave it hard.
+function thPlate(img, w, h, feather, radius, bias){
+  const cv = document.createElement("canvas"); cv.width = Math.max(1,Math.round(w)); cv.height = Math.max(1,Math.round(h));
+  const g = cv.getContext("2d");
+  if(radius){ thRoundPath(g, 0, 0, cv.width, cv.height, radius); g.clip(); }
+  const s = Math.max(cv.width / img.width, cv.height / img.height);
+  const dw = img.width * s, dh = img.height * s;
+  g.drawImage(img, (cv.width - dw)/2, (cv.height - dh) * (typeof bias === "number" ? bias : 0.28), dw, dh);
+  const f = feather || {};
+  g.globalCompositeOperation = "destination-out";
+  const wipe = (x0,y0,x1,y1,rx,ry,rw,rh)=>{
+    const gr = g.createLinearGradient(x0,y0,x1,y1);
+    gr.addColorStop(0,"rgba(0,0,0,1)"); gr.addColorStop(1,"rgba(0,0,0,0)");
+    g.fillStyle = gr; g.fillRect(rx,ry,rw,rh);
+  };
+  if(f.top)    wipe(0,0,0,f.top, 0,0,cv.width,f.top);
+  if(f.bottom) wipe(0,cv.height,0,cv.height-f.bottom, 0,cv.height-f.bottom,cv.width,f.bottom);
+  if(f.left)   wipe(0,0,f.left,0, 0,0,f.left,cv.height);
+  if(f.right)  wipe(cv.width,0,cv.width-f.right,0, cv.width-f.right,0,f.right,cv.height);
+  g.globalCompositeOperation = "source-over";
+  return cv;
+}
+
+// The blurred backdrop, shared by every layout that wants one.
+async function thBackdrop(g, W, H, src, dim){
+  if(!src){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); return false; }
+  try{
+    const img = await thLoad(src);
+    g.save();
+    g.filter = "blur(" + Math.round(Math.min(W,H) * 0.055) + "px)";
+    const over = Math.round(Math.min(W,H) * 0.14);
+    thCover(g, img, -over, -over, W + over*2, H + over*2);
+    g.restore();
+    if(dim > 0){ g.fillStyle = "rgba(18,16,14," + dim + ")"; g.fillRect(0,0,W,H); }
+    return true;
+  }catch(_){ g.fillStyle = "#D6D4D0"; g.fillRect(0,0,W,H); return false; }
+}
+
+// Every layout in one place: what it's called, how many photos it eats, and which set
+// of written slots it uses. Adding a seventh means one entry and one render function —
+// the picker, the upload slots and the edit fields all read from here.
+const TH_TEMPLATES = [
+  { id:"single",   label:"One photo",   photos:1, slots:"single"  },
+  { id:"collage",  label:"Collage",     photos:3, slots:"collage" },
+  { id:"triptych", label:"Triptych",    photos:3, slots:"single"  },
+  { id:"spread",   label:"Spread",      photos:2, slots:"collage" },
+  { id:"montage",  label:"Montage",     photos:3, slots:"single"  }
+];
+const thTpl = (id)=> TH_TEMPLATES.find(t=>t.id===id) || TH_TEMPLATES[0];
+
 // ── TEMPLATE A · single image, masthead behind the subject ───────────────────
 async function thRenderSingle(o){
   await ensureThumbFonts();
@@ -6777,6 +6857,168 @@ async function thRenderCollage(o){
 
 // Browser exceptions are written for browser engineers. "The string did not match the
 // expected pattern" is a real WebKit message and it tells a customer nothing at all.
+
+// ── TEMPLATE C · triptych, pill panels under a centred type block ─────────────
+// The type sits in a clean band ABOVE the pictures rather than over them, which is
+// what makes this one read as a keepsake rather than a cover. Panels are staggered so
+// the eye travels: the middle one drops lower and runs longer than its neighbours.
+async function thRenderTriptych(o){
+  await ensureThumbFonts();
+  const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
+  const S = Math.min(W,H);
+  const c = document.createElement("canvas"); c.width=W; c.height=H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#FFFFFF"; g.fillRect(0,0,W,H);
+
+  const wide = W > H * 1.2;
+  const pw = Math.round(W * (wide ? 0.235 : 0.275));
+  const gut = W * 0.022;
+  const left = (W - (pw*3 + gut*2)) / 2;
+  const top = H * (wide ? 0.30 : 0.235);
+  const rows = [
+    { y: top,               h: H * (wide ? 0.62 : 0.60) },
+    { y: top + H * 0.115,   h: H * (wide ? 0.66 : 0.66) },
+    { y: top - H * 0.010,   h: H * (wide ? 0.55 : 0.53) }
+  ];
+  for(let i=0;i<3;i++){
+    const src = (o.photos||[])[i];
+    const x = Math.round(left + i*(pw+gut));
+    const y = Math.round(rows[i].y), ph = Math.round(rows[i].h);
+    if(!src){ g.fillStyle="rgba(0,0,0,0.05)"; thRoundPath(g,x,y,pw,ph,pw/2); g.fill(); continue; }
+    try{
+      // Fades into the page at the top, the way the reference does. The pill has no
+      // hard upper edge at all — the picture simply stops existing, which is why those
+      // panels feel printed rather than pasted on.
+      const plate = thPlate(await thLoad(src), pw, ph, { top: Math.round(ph*0.42) }, pw/2, 0.34);
+      g.drawImage(plate, x, y);
+    }catch(_){}
+  }
+
+  g.textBaseline = "top"; g.fillStyle = "#141210";
+  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mSize = thFit(g, o.masthead, W*0.62, mastFont, Math.round(S*0.095), Math.round(S*0.040), 0.02);
+  g.font = mastFont(mSize);
+  thCenter(g, o.masthead, Math.round(H*0.045), W, mSize*0.02);
+
+  const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
+  const sf = Math.round(S*0.026);
+  g.font = smF(sf); g.fillStyle = "#2A2622";
+  const line = [o.kicker, o.sub].filter(Boolean).join(" — ");
+  if(line) thCenter(g, line, Math.round(H*0.045) + mSize + Math.round(S*0.020), W, 0);
+  if(o.kickerSub) thCenter(g, o.kickerSub, Math.round(H*0.045) + mSize + Math.round(S*0.020) + sf*1.4, W, 0);
+  return c.toDataURL("image/png");
+}
+
+// ── TEMPLATE D · editorial spread, one bleeding image and one inset ───────────
+// Built landscape-first. The big picture bleeds off the right edge, a smaller panel
+// overlaps into the middle, and the type occupies the negative space on the left —
+// which is the whole point of the layout, so the masthead is set LARGE and left-aligned
+// rather than centred.
+async function thRenderSpread(o){
+  await ensureThumbFonts();
+  const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["16:9"];
+  const S = Math.min(W,H);
+  const c = document.createElement("canvas"); c.width=W; c.height=H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#F4F2EF"; g.fillRect(0,0,W,H);
+
+  // big picture, bleeding off the right
+  const bigX = Math.round(W*0.56);
+  if((o.photos||[])[0]){
+    try{ thCover(g, await thLoad(o.photos[0]), bigX, 0, W - bigX, H); }catch(_){}
+  } else { g.fillStyle="rgba(0,0,0,0.05)"; g.fillRect(bigX,0,W-bigX,H); }
+
+  // inset panel overlapping it
+  const iw = Math.round(W*0.30), ih = Math.round(H*0.52);
+  const ix = Math.round(W*0.38), iy = Math.round(H*0.44);
+  if((o.photos||[])[1]){
+    g.save();
+    g.shadowColor = "rgba(0,0,0,0.22)"; g.shadowBlur = Math.round(S*0.035); g.shadowOffsetY = Math.round(S*0.008);
+    g.fillStyle="#fff"; g.fillRect(ix-6, iy-6, iw+12, ih+12);
+    g.restore();
+    try{ thCover(g, await thLoad(o.photos[1]), ix, iy, iw, ih); }catch(_){}
+  }
+
+  g.textBaseline = "top";
+  const pad = Math.round(W*0.05);
+  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mSize = thFit(g, o.masthead, W*0.34, mastFont, Math.round(S*0.20), Math.round(S*0.070), 0.02);
+  g.font = mastFont(mSize); g.fillStyle = "#141210";
+  thDraw(g, o.masthead, pad, Math.round(H*0.22), mSize*0.02);
+
+  const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
+  const sf = Math.round(S*0.024);
+  g.font = smF(sf); g.fillStyle = "#3C3732";
+  // the standfirst paragraph, wrapped to the column beside the masthead
+  const words = String(o.sub||"").split(/\s+/).filter(Boolean);
+  let ln = "", y = Math.round(H*0.075), maxW = W*0.30;
+  for(const w of words){
+    const t = ln ? ln+" "+w : w;
+    if(g.measureText(t).width > maxW && ln){ g.fillText(ln, pad, y); y += sf*1.45; ln = w; }
+    else ln = t;
+  }
+  if(ln) g.fillText(ln, pad, y);
+
+  // credit, reversed out of the big picture
+  const subF = (px)=> px + "px ChelgySub, Georgia, serif";
+  const cf = Math.round(S*0.038);
+  g.font = subF(cf); g.fillStyle = "#FFFFFF";
+  g.shadowColor = "rgba(0,0,0,0.40)"; g.shadowBlur = Math.round(S*0.02);
+  String(o.kicker||"").split(/\s+/).slice(0,3).forEach((w,i)=>{
+    g.fillText(w.toUpperCase(), Math.round(W*0.62), Math.round(H*0.74) + i*cf*1.2);
+  });
+  g.shadowColor = "transparent";
+  return c.toDataURL("image/png");
+}
+
+// ── TEMPLATE F · montage, overlapping crops ──────────────────────────────────
+// HONEST VERSION. The reference is hand-masked in Photoshop — the pieces are cut along
+// the contours of the faces themselves, which is not something a layout can reproduce.
+// What it CAN do is the other half of what makes that image work: hard-edged crops at
+// different scales, overlapping on white, with the type kept small and out of the way.
+// Different technique, same discipline. Calling it a contour montage would be a lie.
+async function thRenderMontage(o){
+  await ensureThumbFonts();
+  const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
+  const S = Math.min(W,H);
+  const c = document.createElement("canvas"); c.width=W; c.height=H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#FFFFFF"; g.fillRect(0,0,W,H);
+
+  // Z-ORDER, back to front: third, second, first.
+  //
+  // Photo 1 finishes fully visible on top. Photo 2 sits under it on the left while its
+  // own right side covers photo 3. That reads as an interleave but it is plain layering —
+  // 3, then 2, then 1 — and it only works because the overlaps are feathered, so each
+  // seam dissolves instead of showing an edge.
+  const plates = [
+    { i:2, x: W*0.52, y: H*0.10, w: W*0.44, h: H*0.50, f:{ left:W*0.10, bottom:H*0.08 } },
+    { i:1, x: W*0.26, y: H*0.30, w: W*0.48, h: H*0.46, f:{ left:W*0.12, right:W*0.10, top:H*0.06, bottom:H*0.06 } },
+    { i:0, x: W*0.05, y: H*0.16, w: W*0.46, h: H*0.56, f:{ right:W*0.11, bottom:H*0.07 } }
+  ];
+  for(const p of plates){
+    const src = (o.photos||[])[p.i];
+    const x = Math.round(p.x), y = Math.round(p.y), w = Math.round(p.w), h = Math.round(p.h);
+    if(!src){ g.fillStyle="rgba(0,0,0,0.04)"; g.fillRect(x,y,w,h); continue; }
+    try{
+      const f = {};
+      for(const k in p.f) f[k] = Math.round(p.f[k]);
+      g.drawImage(thPlate(await thLoad(src), w, h, f, 0, 0.24), x, y);
+    }catch(_){}
+  }
+
+  g.textBaseline = "top";
+  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mSize = thFit(g, o.masthead, W*0.52, mastFont, Math.round(S*0.085), Math.round(S*0.038), 0.02);
+  g.font = mastFont(mSize); g.fillStyle = "#141210";
+  thDraw(g, o.masthead, Math.round(W*0.05), Math.round(H*0.815), mSize*0.02);
+  const smF = (px)=> px + "px ChelgySmall, Georgia, serif";
+  const sf = Math.round(S*0.024);
+  g.font = smF(sf); g.fillStyle = "#3C3732";
+  if(o.sub) g.fillText(o.sub, Math.round(W*0.05), Math.round(H*0.815) + mSize + Math.round(S*0.016));
+  return c.toDataURL("image/png");
+}
+
 function thSay(e, fallback){
   const m = String((e && e.message) || "");
   if(!m) return fallback;
@@ -6803,11 +7045,12 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   const [scene,setScene]       = useState("");
 
   const COST = CREDIT_COSTS.editorThumbnails;
-  const nPhotos = template === "collage" ? 3 : 1;
+  const tpl = thTpl(template);
+  const nPhotos = tpl.photos;
 
   useEffect(()=>{ ensureThumbFonts(); }, []);
 
-  const SLOT_LABELS = template === "collage"
+  const SLOT_LABELS = tpl.slots === "collage"
     ? [["masthead","Masthead"],["tl1","Top left"],["tl2","…connector"],["tl3","…payoff (on black)"],["tr1","Top right (script)"],["tr2","…under it"],["hero","Main title"],["sub","Line underneath"]]
     : [["masthead","Masthead"],["kicker","Cover line"],["kickerSub","…under it"],["hero","Main title"],["sub","Line underneath"]];
 
@@ -6824,7 +7067,9 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     const cp = next || copy; if(!cp) return;
     try{
       const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background };
-      setOut(template === "collage" ? await thRenderCollage(opts) : await thRenderSingle(opts));
+      const draw = { single: thRenderSingle, collage: thRenderCollage, triptych: thRenderTriptych,
+                     spread: thRenderSpread, montage: thRenderMontage }[template] || thRenderSingle;
+      setOut(await draw(opts));
     }catch(e){ setErr((e&&e.message)||"Couldn't draw that."); }
   }
   useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template]);
@@ -6838,7 +7083,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
       const r = await fetch("/api/studio-thumbnail", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({ template, about: about.trim(), header: header.trim() })
+        body: JSON.stringify({ template: tpl.slots, about: about.trim(), header: header.trim() })
       });
       const d = await r.json();
       if(!r.ok || !d || !d.copy) throw new Error((d&&d.error)||"Couldn't write the cover lines.");
@@ -6908,8 +7153,8 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
       </p>
 
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-        {[["single","One photo"],["collage","Collage of 3"]].map(([id,l])=>(
-          <Btn key={id} on={template===id} disabled={busy} onClick={()=>{setTemplate(id);setCopy(null);setOut("");}}>{l}</Btn>
+        {TH_TEMPLATES.map(t=>(
+          <Btn key={t.id} on={template===t.id} disabled={busy} onClick={()=>{setTemplate(t.id);setCopy(null);setOut("");}}>{t.label}</Btn>
         ))}
         <span style={{width:14}} />
         {["4:5","16:9","9:16"].map(a=>(<Btn key={a} on={aspect===a} disabled={busy} onClick={()=>setAspect(a)}>{a}</Btn>))}
@@ -6924,7 +7169,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
               : <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>{nPhotos>1?("Photo "+(i+1)):"Choose a photo"}</span>}
           </label>
         ))}
-        {template==="collage" && (
+        {tpl.id==="collage" && (
           <label style={{flex:"1 1 150px",border:"1px dashed "+B.stone,padding:"12px 10px",cursor:busy?"default":"pointer",background:B.white,textAlign:"center"}}>
             <input type="file" accept="image/*" disabled={busy} onChange={e=>readFile(e.target.files&&e.target.files[0], setBackground)} style={{display:"none"}} />
             {background
