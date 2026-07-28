@@ -6591,6 +6591,55 @@ async function thAsDataUrl(src){
     fr.readAsDataURL(blob);
   });
 }
+// Chroma-key a flat background out of a returned image.
+//
+// WHY THIS EXISTS
+// The obvious way to cut someone out is to ask the image API for a transparent
+// background. It refuses: transparency is available when GENERATING an image from
+// nothing, which is why the logo path gets it, but not when EDITING one you supply —
+// and a cut-out is necessarily an edit. Both quality tiers say the same thing.
+//
+// So the model is asked for the one thing it will happily do — replace the background
+// with a flat colour — and the transparency is done here. Magenta because almost
+// nothing in a photograph is near it: green keys badly against foliage and skin has
+// far more red and yellow in it than people expect.
+//
+// `soft` is the band between "definitely background" and "definitely subject", where
+// alpha ramps rather than switching. Without it every edge is a jagged staircase.
+function thKeyOut(img, key, tol, soft){
+  const K = key || [255, 0, 255];
+  const T = typeof tol === "number" ? tol : 105;
+  const F = typeof soft === "number" ? soft : 70;
+  const cv = document.createElement("canvas");
+  cv.width = img.width; cv.height = img.height;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  let d;
+  try{ d = g.getImageData(0, 0, cv.width, cv.height); }
+  catch(e){ return cv; }          // tainted; hand back what we have
+  const p = d.data;
+  for(let i = 0; i < p.length; i += 4){
+    const dr = p[i] - K[0], dg = p[i+1] - K[1], db = p[i+2] - K[2];
+    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    if(dist < T){ p[i+3] = 0; continue; }
+    if(dist < T + F){
+      p[i+3] = Math.round(p[i+3] * ((dist - T) / F));
+    }
+    // Despill. A keyed edge picks up the key colour in its semi-transparent pixels,
+    // which shows as a coloured halo the moment it lands on a different background.
+    // Where red and blue both run well above green, pull them back toward it.
+    if(p[i+3] < 255){
+      const gch = p[i+1];
+      if(p[i] > gch + 24 && p[i+2] > gch + 24){
+        p[i]   = Math.round(gch + (p[i]   - gch) * 0.35);
+        p[i+2] = Math.round(gch + (p[i+2] - gch) * 0.35);
+      }
+    }
+  }
+  g.putImageData(d, 0, 0);
+  return cv;
+}
+
 // Re-encode anything through a canvas before it leaves the browser.
 //
 // Reading a file gives a data URL in whatever format the file happened to be — and on a
@@ -7189,23 +7238,20 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
     setBusy(true); setErr(""); setStage("Cutting you out from the background…");
     try{
       const parts = await thForApi(src);
+      // Ask for a flat key colour, not transparency — that request is refused on the
+      // edit path. Everything about the person must be left alone: this is a background
+      // swap, and any change to the subject shows up instantly when it's composited back
+      // over the original photograph underneath.
       const d = await generateOpenAIImage(
-        "Return this exact photo of me with the background fully removed — just me, cut out, on a transparent background. Do not change my face, hair, body, clothing, pose or the lighting on me in any way. This is a cut-out, not a new photograph.",
-        // "standard", not "2K". Transparency isn't available on the model the higher
-        // quality tiers map to — the API answers "transparent background is not
-        // supported for this model" — and the logo generation elsewhere in this app
-        // passes "standard" for exactly the same reason. A cut-out is composited over a
-        // photo that is already full resolution, so the softer tier costs nothing
-        // visible here.
-        [parts], aspect, "standard", "transparent"
+        "Keep me EXACTLY as I am in this photo — same face, hair, body, clothing, pose, framing and lighting, unchanged in every way. Replace ONLY the background behind me with a completely flat, solid, uniform magenta (#FF00FF). No gradient, no texture, no shadow cast onto it, no other objects. The magenta must be pure and identical across the whole background.",
+        [parts], aspect, "2K"
       );
-      if(d && d.image) setCutout(await thAsDataUrl(d.image));
       if(typeof d?.balance === "number") onBalance(d.balance);
+      if(!d || !d.image) throw new Error("No image came back.");
+      const keyed = thKeyOut(await thLoad(await thAsDataUrl(d.image)));
+      setCutout(keyed.toDataURL("image/png"));
     }catch(e){
-      const m = String((e && e.message) || "");
-      setErr(/transparent/i.test(m)
-        ? "Couldn't cut you out — the image service turned down the transparent background. The title will sit over the photo instead, which still works."
-        : thSay(e, "Couldn't cut that out."));
+      setErr(thSay(e, "Couldn't cut you out."));
     }
     setStage(""); setBusy(false);
   }
