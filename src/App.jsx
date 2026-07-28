@@ -754,6 +754,71 @@ async function generateVideo(prompt, image, opts) {
   } catch { return { error: "Couldn't reach the video service." }; }
 }
 
+// ─── WAITING THAT SURVIVES A BACKGROUND TAB ──────────────────────────────────
+//
+// setTimeout in a hidden tab is throttled to roughly once a minute — Safari is the
+// strictest but every browser does it. A render that polls every three seconds
+// therefore crawls the moment someone switches tabs, and since the pipeline is driven
+// from the browser, the render itself crawls with it. Chelsea hit exactly this: a job
+// that stalls while she works elsewhere and springs back to life when she returns.
+//
+// Two independent defences, because neither is complete on its own:
+//
+// 1. THE TIMER LIVES IN A WORKER. Worker timers are throttled far less than page
+//    timers — Chrome barely touches them and Safari is much gentler. The worker does
+//    nothing but count; all the fetching stays on the main thread where the auth
+//    token is.
+//
+// 2. SILENT AUDIO PLAYS WHILE A JOB RUNS. A tab producing audio is treated as active
+//    and largely exempted from throttling. The context is started from the same click
+//    that starts the render, which is what satisfies the gesture requirement. It emits
+//    nothing audible: a gain of zero, no oscillator connected to the output.
+//
+// The real fix is server-side orchestration so no tab needs to be open at all. Until
+// then this is the difference between "slower in the background" and "stopped".
+let _cgTicker = null;
+function cgWait(ms){
+  cgStayAwake();
+  try{
+    if(!_cgTicker){
+      const src = "onmessage=function(e){setTimeout(function(){postMessage(e.data.id)},e.data.ms)}";
+      _cgTicker = new Worker(URL.createObjectURL(new Blob([src], { type:"text/javascript" })));
+    }
+    return new Promise((res)=>{
+      const id = Math.random().toString(36).slice(2) + Date.now();
+      const onMsg = (e)=>{ if(e.data === id){ _cgTicker.removeEventListener("message", onMsg); res(); } };
+      _cgTicker.addEventListener("message", onMsg);
+      _cgTicker.postMessage({ id, ms });
+      // Belt and braces: if the worker is ever unavailable mid-flight, the page timer
+      // still resolves it eventually rather than hanging the poll forever.
+      setTimeout(()=>{ try{ _cgTicker.removeEventListener("message", onMsg); }catch(_){} res(); }, ms + 60000);
+    });
+  }catch(_){
+    return new Promise((r)=>setTimeout(r, ms));
+  }
+}
+
+// Called by cgWait rather than wrapped around each poll. Anything waiting on a job is,
+// by definition, a job in flight — so the two belong together and no call site has to
+// remember to release it. The oscillator is silent and costs nothing measurable, so it
+// simply stays up once started rather than being torn down and rebuilt between polls.
+let _cgAudioCtx = null;
+function cgStayAwake(){
+  try{
+    if(!_cgAudioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      _cgAudioCtx = new AC();
+      const g = _cgAudioCtx.createGain();
+      g.gain.value = 0;                       // silent, deliberately
+      g.connect(_cgAudioCtx.destination);
+      const o = _cgAudioCtx.createOscillator();
+      o.connect(g); o.start();
+    }
+    if(_cgAudioCtx.state === "suspended") _cgAudioCtx.resume().catch(()=>{});
+  }catch(_){}
+}
+
 let lastFfError = "";        // real error from the render engine, surfaced to the user
 async function pollVideo(taskId, onProgress) {
   const tid = String(taskId||"");
@@ -771,7 +836,7 @@ async function pollVideo(taskId, onProgress) {
   const startedAt = Date.now();
   for (let i = 0; Date.now() - startedAt < maxMs; i++) {
     // Poll briskly at first, then ease off so a long render isn't hammering the API.
-    await new Promise(r => setTimeout(r, i < 40 ? 3000 : i < 120 ? 6000 : 10000));
+    await cgWait(i < 40 ? 3000 : i < 120 ? 6000 : 10000);
     try {
       const token = isFf ? await freshToken() : null;
       const res = await fetch(endpoint, {
@@ -1087,7 +1152,7 @@ async function studioAudio(url, wantActivity, duration){
 async function pollAudioJob(taskId, onProgress){
   const started = Date.now();
   for(let i=0; Date.now() - started < 30*60*1000; i++){
-    await new Promise(r=>setTimeout(r, i<40 ? 3000 : 6000));
+    await cgWait(i<40 ? 3000 : 6000);
     try{
       const token = await freshToken();
       const res = await fetch("/api/studio-ffmpeg", {
@@ -1265,7 +1330,7 @@ async function studioTransition(action, payload){
 // Poll the render server's boundary extraction (tail clip + both frames).
 async function pollBoundary(id){
   for(let i=0; i<40; i++){
-    await new Promise(r=>setTimeout(r, i<10 ? 2000 : 4000));
+    await cgWait(i<10 ? 2000 : 4000);
     const d = await studioTransition("status", { id });
     if(d && d.status === "done") return d;
     if(d && d.status === "error") return null;

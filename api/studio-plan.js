@@ -367,6 +367,24 @@ export default async function handler(req, res) {
     // to beat an earlier one. So the track arrived, was described, and was then
     // overruled a paragraph later — a gym-and-cooking edit still came back as talking
     // heads. Last word plus an explicit statement of precedence.
+    // Applied to EVERY style, after the style's own rules.
+    //
+    // "false starts" was one clause inside a five-item list, sitting next to two full
+    // bullets about closing gaps — so the model spent its attention on pacing and left
+    // the stutters in. Edits came back saying "Find the- find the brands that need
+    // marketing, do the- do the thing that makes you happy": both attempts intact.
+    //
+    // The fix is not more emphasis, it is a WORKED EXAMPLE. A restart has a signature
+    // in the transcript — the same two or three words appearing twice in a row — and
+    // naming that signature turns a judgement call into pattern matching, which is the
+    // thing these models are reliably good at.
+    const restartRule =
+      "\nRESTARTS AND STUTTERS — this applies whatever the style:\n" +
+      "- When someone starts a phrase, breaks off, and starts it again, cut the ABANDONED attempt completely and keep only the finished one.\n" +
+      "- In the transcript a restart looks like the same short run of words appearing twice, back to back. For example: \"find the ... find the brands that need marketing\" or \"do the ... do the thing that makes you happy\". The first attempt is the mistake. Cut from where it begins to where the successful attempt begins.\n" +
+      "- Do the same for a word begun and re-begun (\"mar- marketing\"), and for a sentence restarted with different wording (\"I think that- what I mean is\") — keep the version the speaker settled on, which is almost always the LAST one.\n" +
+      "- This is not the same as repetition for emphasis. \"It is really, really good\" is deliberate and stays.\n";
+
     const cutRules =
       (processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
@@ -382,6 +400,7 @@ export default async function handler(req, res) {
          "- Never cut mid-word, but cut CLOSE: start each kept segment ~0.08s before its first word and end ~0.12s after its last word. A short tail keeps it clean without leaving trailing silence.\n" +
          "- Merge keeps less than 0.3s apart into one segment. No kept segment shorter than 1s.\n" +
          "- Be decisive: a tight talking-head cut usually keeps 65-85% of a well-delivered video, less if it's rambly. When in doubt between leaving a pause and cutting it, CUT it.\n"))
+      + restartRule
       + (activityOn ? activityPreamble : "");
 
     const prompt =
