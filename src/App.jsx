@@ -4396,10 +4396,10 @@ function FilmRoom(){
     <div style={{maxWidth:860,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Film Room</h3>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 4px"}}>
-        The same nine film looks your videos are graded with, on your photos — so a post and a reel from the same day match. Free, unlimited, and it never leaves your device.
+        Make your photos look like they were shot on film. Pick a look, nudge the sliders until it feels right, and save it. It's free, there's no limit on how many you do, and your photo never leaves your device — nothing is uploaded anywhere.
       </p>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.55,margin:"0 0 18px"}}>
-        Grain, halation and highlight rolloff are the three things that actually read as film. Halation is the warm bloom around bright edges; rolloff is the way film eases into white instead of clipping.
+        These are the same nine looks the video editor uses, so a photo and a video posted the same day will match.
       </p>
 
       <label style={{display:"block",border:"1px dashed "+B.stone,padding:"16px",cursor:"pointer",background:B.white,marginBottom:14}}>
@@ -4433,13 +4433,19 @@ function FilmRoom(){
           </div>
 
           <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16}}>
-            <Slider label="Look strength" value={strength} set={setStr} />
+            <Slider label="Strength" value={strength} set={setStr} />
             <Slider label="Grain" value={grain} set={setGrain} />
-            <Slider label="Grain size" value={grainSize} set={setGSize} min={1} max={5} step={1} fmt={v=>v+"px"} />
-            <Slider label="Halation" value={halation} set={setHal} />
-            <Slider label="Highlight rolloff" value={rolloff} set={setRoll} />
-            <Slider label="Vignette" value={vignette} set={setVig} />
+            <Slider label="Grain size" value={grainSize} set={setGSize} min={1} max={5} step={1} fmt={v=>["Fine","Fine","Medium","Medium","Coarse"][v-1]||"Medium"} />
+            <Slider label="Glow" value={halation} set={setHal} />
+            <Slider label="Soft highlights" value={rolloff} set={setRoll} />
+            <Slider label="Darken edges" value={vignette} set={setVig} />
           </div>
+
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>
+            <strong>Glow</strong> is the soft halo real film gets around bright things — windows, lamps, sunlight.{" "}
+            <strong>Soft highlights</strong> stops bright areas turning into flat white patches.{" "}
+            <strong>Grain</strong> is the fine speckled texture film has, strongest in the mid-tones the way it is on real stock.
+          </p>
 
           {out && (
             <button onClick={()=>downloadPic(out,"chelgy-film.jpg")}
