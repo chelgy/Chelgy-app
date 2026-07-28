@@ -6887,10 +6887,24 @@ async function thRenderTriptych(o){
     const y = Math.round(rows[i].y), ph = Math.round(rows[i].h);
     if(!src){ g.fillStyle="rgba(0,0,0,0.05)"; thRoundPath(g,x,y,pw,ph,pw/2); g.fill(); continue; }
     try{
-      // Fades into the page at the top, the way the reference does. The pill has no
-      // hard upper edge at all — the picture simply stops existing, which is why those
-      // panels feel printed rather than pasted on.
-      const plate = thPlate(await thLoad(src), pw, ph, { top: Math.round(ph*0.30) }, pw/2, 0.38);
+      // ALTERNATING fades, and each one takes out most of the panel it's on.
+      //
+      // Outer panels dissolve at the BOTTOM, the centre one at the TOP. That opposition
+      // is what makes the three interlock instead of reading as a row: every panel is
+      // solid exactly where its neighbours are vanishing, so the eye is passed along
+      // the group rather than stopping at three separate pictures. A single shared
+      // direction gave three parallel gradients and no relationship between them.
+      //
+      // The crop bias has to OPPOSE the fade or the subject dissolves. A panel fading
+      // at the bottom shows the top of its photo; the centre, fading at the top, shows
+      // the lower part of its own.
+      const fadeDeep = Math.round(ph * 0.46);
+      const plate = thPlate(
+        await thLoad(src), pw, ph,
+        (i === 1 ? { top: fadeDeep } : { bottom: fadeDeep }),
+        pw/2,
+        (i === 1 ? 0.62 : 0.10)
+      );
       g.drawImage(plate, x, y);
     }catch(_){}
   }
