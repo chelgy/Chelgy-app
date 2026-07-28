@@ -55,6 +55,7 @@ const CA_NAV_LABELS = {
   "tools/restage": "Fake It",
   "tools/stylematch": "Style Match",
   "tools/backdrop": "Backdrop",
+  "tools/filmroom": "Film Room",
   "tools/videoedit": "Fake It Video",
   "tools/highfashion": "High Fashion",
   "tools/beauty": "Beauty",
@@ -136,7 +137,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, backdrop, videoedit, highfashion, beauty.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, restage, stylematch, backdrop, filmroom, videoedit, highfashion, beauty.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -4065,6 +4066,312 @@ function HighFashion({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredi
   );
 }
 
+
+
+/* ═════════════════════════════════════════════════
+   FILM ROOM — the app's own film looks, on photographs.
+   Entirely in the browser. No API, no credits, works offline.
+   ═════════════════════════════════════════════════
+
+   The nine looks here are the SAME .cube files the video renderer grades with, so a
+   photo and a video posted the same day share one grade. That is the whole argument for
+   building this rather than shipping another preset pack: nobody else can offer it,
+   because nobody else owns both ends.
+
+   Everything runs on canvas. A LUT is a lookup table, not a model — applying one is
+   arithmetic, and arithmetic is free. So this costs nothing to run and nothing to use.
+
+   WHAT MAKES A PHOTO LOOK LIKE FILM, IN ORDER OF HOW MUCH IT MATTERS
+   Most "film presets" are a colour shift and grain, which is why they look like
+   filters. The tells that actually read are the ones nobody bothers with:
+     · highlight rolloff — digital clips hard to white, film shoulders off gradually
+     · halation — the red-orange bloom where light scatters back through the film base
+     · grain that is LUMINANCE-WEIGHTED — heaviest in midtones, nearly gone in the
+       highlights and deep shadows, and with a real grain SIZE
+   Uniform noise across the whole frame is the giveaway in every bad film filter.
+*/
+
+// The look list. Ids match the render server's LOOK_FILES so the two can never drift.
+const FILM_LOOKS = [
+  ["wolf",     "Golden Hour",   "wolf-2383.cube"],
+  ["luxury",   "Clean Luxury",  "luxury-vlog.cube"],
+  ["kodak6",   "Sunlit Film",   "kodak-fpe-06.cube"],
+  ["kodak7",   "Soft Daylight", "kodak-fpe-07.cube"],
+  ["movie3",   "Modern Cinema", "pro-movie-03.cube"],
+  ["movie5",   "Amber Dusk",    "pro-movie-05.cube"],
+  ["screen2",  "High Key",      "screen-style-02.cube"],
+  ["screen3",  "Editorial",     "screen-style-03.cube"],
+  ["timeless", "Timeless",      "timeless.cube"]
+];
+
+// Parsed LUTs are kept for the session. Roughly 1MB of text each and about 400KB as a
+// Float32Array — fetching one twice would be a waste, fetching all nine up front would
+// be 7MB nobody asked for.
+const _lutCache = {};
+async function filmLut(file){
+  if(_lutCache[file]) return _lutCache[file];
+  const r = await fetch("/luts/" + file);
+  if(!r.ok) throw new Error("Couldn't load that look.");
+  const text = await r.text();
+  let size = 0;
+  const vals = [];
+  for(const raw of text.split("\n")){
+    const line = raw.trim();
+    if(!line || line[0] === "#") continue;
+    if(/^LUT_3D_SIZE/i.test(line)){ size = parseInt(line.split(/\s+/)[1], 10); continue; }
+    if(/^[A-Za-z_]/.test(line)) continue;                 // TITLE, DOMAIN_MIN etc.
+    const p = line.split(/\s+/);
+    if(p.length < 3) continue;
+    vals.push(+p[0], +p[1], +p[2]);
+  }
+  if(!size || vals.length < size*size*size*3) throw new Error("That look file looks damaged.");
+  const lut = { size, data: Float32Array.from(vals) };
+  _lutCache[file] = lut;
+  return lut;
+}
+
+// Trilinear interpolation through the cube. Nearest-neighbour is much faster and looks
+// visibly banded on skin, which is the one place it must not.
+function filmSample(lut, r, g, b, out){
+  const N = lut.size, d = lut.data, m = N - 1;
+  const x = r*m, y = g*m, z = b*m;
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  const x1 = Math.min(x0+1, m), y1 = Math.min(y0+1, m), z1 = Math.min(z0+1, m);
+  const fx = x-x0, fy = y-y0, fz = z-z0;
+  // .cube stores red fastest
+  const at = (xi,yi,zi)=> ((zi*N + yi)*N + xi)*3;
+  for(let c=0;c<3;c++){
+    const c000=d[at(x0,y0,z0)+c], c100=d[at(x1,y0,z0)+c],
+          c010=d[at(x0,y1,z0)+c], c110=d[at(x1,y1,z0)+c],
+          c001=d[at(x0,y0,z1)+c], c101=d[at(x1,y0,z1)+c],
+          c011=d[at(x0,y1,z1)+c], c111=d[at(x1,y1,z1)+c];
+    const c00=c000+(c100-c000)*fx, c10=c010+(c110-c010)*fx;
+    const c01=c001+(c101-c001)*fx, c11=c011+(c111-c011)*fx;
+    const c0=c00+(c10-c00)*fy, c1=c01+(c11-c01)*fy;
+    out[c] = c0+(c1-c0)*fz;
+  }
+}
+
+// Value noise at a chosen cell size, so grain has a SIZE rather than being per-pixel
+// static. Real grain clumps; single-pixel noise reads as sensor noise, which is the
+// opposite of the impression we're after.
+function filmGrainField(w, h, cell){
+  const cw = Math.max(2, Math.ceil(w/cell)) + 1, chh = Math.max(2, Math.ceil(h/cell)) + 1;
+  const rnd = new Float32Array(cw*chh);
+  for(let i=0;i<rnd.length;i++) rnd[i] = Math.random()*2 - 1;
+  return { rnd, cw, chh, cell };
+}
+function filmGrainAt(f, x, y){
+  const gx = x/f.cell, gy = y/f.cell;
+  const x0 = gx|0, y0 = gy|0, fx = gx-x0, fy = gy-y0;
+  const x1 = Math.min(x0+1, f.cw-1), y1 = Math.min(y0+1, f.chh-1);
+  const a = f.rnd[y0*f.cw+x0], b = f.rnd[y0*f.cw+x1];
+  const c = f.rnd[y1*f.cw+x0], d = f.rnd[y1*f.cw+x1];
+  const sx = fx*fx*(3-2*fx), sy = fy*fy*(3-2*fy);   // smoothstep, or the cells show
+  return (a+(b-a)*sx) + ((c+(d-c)*sx) - (a+(b-a)*sx))*sy;
+}
+
+async function filmRender(img, opt){
+  const MAXW = 2048;
+  const s = Math.min(1, MAXW / Math.max(img.width, img.height));
+  const W = Math.max(1, Math.round(img.width*s)), H = Math.max(1, Math.round(img.height*s));
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0, W, H);
+  const id = g.getImageData(0,0,W,H);
+  const p = id.data;
+
+  const lut = opt.lutFile ? await filmLut(opt.lutFile) : null;
+  const strength = Math.max(0, Math.min(1, opt.strength));
+  const roll = Math.max(0, Math.min(1, opt.rolloff));
+  const out = [0,0,0];
+
+  // Pass 1 — rolloff, then the look.
+  for(let i=0;i<p.length;i+=4){
+    let r = p[i]/255, gg = p[i+1]/255, b = p[i+2]/255;
+    if(roll > 0){
+      // A shoulder, not a ceiling. Above the knee, values compress toward 1 instead of
+      // clipping flat — this is most of what separates a digital file from a scan.
+      const knee = 1 - 0.45*roll;
+      const sh = (v)=> v <= knee ? v : knee + (1-knee)*(1 - Math.exp(-(v-knee)/(1-knee)*2.2))/(1-Math.exp(-2.2));
+      r = sh(r); gg = sh(gg); b = sh(b);
+    }
+    if(lut && strength > 0){
+      filmSample(lut, r, gg, b, out);
+      r  += (out[0]-r )*strength;
+      gg += (out[1]-gg)*strength;
+      b  += (out[2]-b )*strength;
+    }
+    p[i]   = Math.max(0, Math.min(255, r*255));
+    p[i+1] = Math.max(0, Math.min(255, gg*255));
+    p[i+2] = Math.max(0, Math.min(255, b*255));
+  }
+  g.putImageData(id, 0, 0);
+
+  // Pass 2 — halation. Highlights only, blurred, tinted, screened back over.
+  if(opt.halation > 0){
+    const hc = document.createElement("canvas"); hc.width = W; hc.height = H;
+    const hg = hc.getContext("2d", { willReadFrequently: true });
+    hg.drawImage(cv, 0, 0);
+    const hd = hg.getImageData(0,0,W,H), q = hd.data;
+    for(let i=0;i<q.length;i+=4){
+      const l = (q[i]*0.2126 + q[i+1]*0.7152 + q[i+2]*0.0722)/255;
+      const k = l > 0.72 ? (l-0.72)/0.28 : 0;
+      q[i]   = 255*k;            // red-orange: this is the colour light actually
+      q[i+1] = 120*k;            // scatters as, coming back through the film base
+      q[i+2] =  40*k;
+      q[i+3] = 255;
+    }
+    hg.putImageData(hd, 0, 0);
+    g.save();
+    g.globalCompositeOperation = "screen";
+    g.globalAlpha = opt.halation * 0.75;
+    g.filter = "blur(" + Math.round(Math.min(W,H)*0.012) + "px)";
+    g.drawImage(hc, 0, 0);
+    g.restore();
+  }
+
+  // Pass 3 — vignette.
+  if(opt.vignette > 0){
+    const rg = g.createRadialGradient(W/2, H/2, Math.min(W,H)*0.30, W/2, H/2, Math.max(W,H)*0.72);
+    rg.addColorStop(0, "rgba(0,0,0,0)");
+    rg.addColorStop(1, "rgba(0,0,0," + (opt.vignette*0.55).toFixed(3) + ")");
+    g.fillStyle = rg; g.fillRect(0,0,W,H);
+  }
+
+  // Pass 4 — grain, last, because the emulsion sits on top of everything.
+  if(opt.grain > 0){
+    const gd = g.getImageData(0,0,W,H), q = gd.data;
+    const field = filmGrainField(W, H, Math.max(1, opt.grainSize));
+    const amt = opt.grain * 46;
+    for(let y=0, i=0; y<H; y++){
+      for(let x=0; x<W; x++, i+=4){
+        const l = (q[i]*0.2126 + q[i+1]*0.7152 + q[i+2]*0.0722)/255;
+        // Weighted to the midtones. Grain that is even across the frame is the single
+        // most obvious tell in a bad film filter — on real stock the highlights are
+        // nearly clean and the deep shadows hide it.
+        const w = 4*l*(1-l);
+        const n = filmGrainAt(field, x, y) * amt * w;
+        q[i]   = Math.max(0, Math.min(255, q[i]  + n));
+        q[i+1] = Math.max(0, Math.min(255, q[i+1]+ n));
+        q[i+2] = Math.max(0, Math.min(255, q[i+2]+ n));
+      }
+    }
+    g.putImageData(gd, 0, 0);
+  }
+  return cv.toDataURL("image/jpeg", 0.94);
+}
+
+function FilmRoom(){
+  const [src,setSrc]         = useState(null);
+  const [out,setOut]         = useState(null);
+  const [look,setLook]       = useState("wolf");
+  const [strength,setStr]    = useState(0.85);
+  const [grain,setGrain]     = useState(0.35);
+  const [grainSize,setGSize] = useState(2);
+  const [halation,setHal]    = useState(0.35);
+  const [rolloff,setRoll]    = useState(0.6);
+  const [vignette,setVig]    = useState(0.25);
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [compare,setCompare] = useState(false);
+  const imgRef = useRef(null);
+  const seq = useRef(0);
+
+  const lookFile = (FILM_LOOKS.find(l=>l[0]===look)||FILM_LOOKS[0])[2];
+
+  async function pick(e){
+    const f=(e.target.files||[])[0]; e.target.value="";
+    if(!f) return;
+    setErr(""); setOut(null);
+    try{
+      const url = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result||"")); fr.onerror=rej; fr.readAsDataURL(f); });
+      const im = await thLoad(url);
+      imgRef.current = im; setSrc(url);
+    }catch{ setErr("That image couldn't be read. Try a JPG or PNG."); }
+  }
+
+  // Re-grades on every change. Each run stamps a sequence number and a late finisher
+  // throws its result away, so dragging a slider can't leave an older frame on screen.
+  useEffect(()=>{
+    if(!imgRef.current) return;
+    const mine = ++seq.current;
+    let alive = true;
+    setBusy(true);
+    (async ()=>{
+      try{
+        const d = await filmRender(imgRef.current, { lutFile:lookFile, strength, grain, grainSize, halation, rolloff, vignette });
+        if(alive && mine === seq.current) setOut(d);
+      }catch(e){ if(alive) setErr((e&&e.message)||"Couldn't apply that look."); }
+      if(alive && mine === seq.current) setBusy(false);
+    })();
+    return ()=>{ alive = false; };
+  }, [src, lookFile, strength, grain, grainSize, halation, rolloff, vignette]);
+
+  const Slider = ({label,value,set,min=0,max=1,step=0.01,fmt}) => (
+    <div style={{flex:"1 1 190px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:5}}>
+        <span>{label}</span><span>{fmt?fmt(value):Math.round(value*100)+"%"}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={e=>set(parseFloat(e.target.value))} style={{width:"100%"}} />
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:860,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Film Room</h3>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 4px"}}>
+        The same nine film looks your videos are graded with, on your photos — so a post and a reel from the same day match. Free, unlimited, and it never leaves your device.
+      </p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.55,margin:"0 0 18px"}}>
+        Grain, halation and highlight rolloff are the three things that actually read as film. Halation is the warm bloom around bright edges; rolloff is the way film eases into white instead of clipping.
+      </p>
+
+      <label style={{display:"block",border:"1px dashed "+B.stone,padding:"16px",cursor:"pointer",background:B.white,marginBottom:14}}>
+        <input type="file" accept="image/*" onChange={pick} style={{display:"none"}} />
+        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:src?B.charcoal:B.mid}}>{src?"Choose a different photo":"Choose a photo"}</span>
+      </label>
+
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      {src && (
+        <>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+            {FILM_LOOKS.map(([id,label])=>(
+              <button key={id} onClick={()=>setLook(id)}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 12px",border:"1px solid "+(look===id?B.charcoal:B.stone),background:look===id?B.inkBlock:B.white,color:look===id?B.inkText:B.mid,cursor:"pointer"}}>{label}</button>
+            ))}
+          </div>
+
+          <div style={{position:"relative",marginBottom:12}}>
+            <img src={compare ? src : (out||src)} alt="" style={{width:"100%",display:"block",border:"1px solid "+B.stone}} />
+            {busy && <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,0.6)",color:"#fff",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.08em",padding:"5px 10px"}}>WORKING…</div>}
+            <button onMouseDown={()=>setCompare(true)} onMouseUp={()=>setCompare(false)} onMouseLeave={()=>setCompare(false)}
+              onTouchStart={()=>setCompare(true)} onTouchEnd={()=>setCompare(false)}
+              style={{position:"absolute",bottom:10,right:10,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",padding:"7px 12px",border:"none",background:"rgba(0,0,0,0.62)",color:"#fff",cursor:"pointer"}}>
+              Hold to see original
+            </button>
+          </div>
+
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16}}>
+            <Slider label="Look strength" value={strength} set={setStr} />
+            <Slider label="Grain" value={grain} set={setGrain} />
+            <Slider label="Grain size" value={grainSize} set={setGSize} min={1} max={5} step={1} fmt={v=>v+"px"} />
+            <Slider label="Halation" value={halation} set={setHal} />
+            <Slider label="Highlight rolloff" value={rolloff} set={setRoll} />
+            <Slider label="Vignette" value={vignette} set={setVig} />
+          </div>
+
+          {out && (
+            <button onClick={()=>downloadPic(out,"chelgy-film.jpg")}
+              style={{background:B.inkBlock,color:"#fff",border:"none",padding:"12px 24px",fontSize:12,letterSpacing:"0.14em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer"}}>DOWNLOAD</button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 /* ═════════════════════════════════════════════════
    BACKDROP — put yourself anywhere, keeping you exactly you.
@@ -9310,6 +9617,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="filmroom"&&<FilmRoom />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
@@ -9806,7 +10114,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Backdrop", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Backdrop", filmroom:"Film Room", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -9875,7 +10183,7 @@ const CATEGORIES = [
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
     tabs:[ {label:"Style Match",tool:"stylematch"}, {label:"Backdrop",tool:"backdrop"}, {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
-    tabs:[ {label:"AI Photos",tool:"images"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Film Room",tool:"filmroom"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Never stare at a blank caption again. Get post ideas worth filming, captions in your voice, creator-style UGC clips, and scroll-stopping flyers and graphics — enough to fill your calendar for the month.",
