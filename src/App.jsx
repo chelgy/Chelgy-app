@@ -4246,7 +4246,12 @@ function filmGrainAt(f, x, y){
 }
 
 async function filmRender(img, opt){
-  const MAXW = 2048;
+  // Size is chosen by the caller. Dragging a slider renders small and fast; the full
+  // pass only runs once the person stops moving. Doing every frame at full size is
+  // what made the sliders feel stuck: the pixel loops are synchronous, so while one
+  // runs the browser cannot process the drag at all, and the handle stops following
+  // the finger.
+  const MAXW = opt.maxW || 2048;
   const s = Math.min(1, MAXW / Math.max(img.width, img.height));
   const W = Math.max(1, Math.round(img.width*s)), H = Math.max(1, Math.round(img.height*s));
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
@@ -4281,6 +4286,7 @@ async function filmRender(img, opt){
     p[i+2] = Math.max(0, Math.min(255, b*255));
   }
   g.putImageData(id, 0, 0);
+  await new Promise(r=>setTimeout(r,0));   // let the browser breathe before the next pass
 
   // Pass 2 — halation. Highlights only, blurred, tinted, screened back over.
   if(opt.halation > 0){
@@ -4315,6 +4321,7 @@ async function filmRender(img, opt){
 
   // Pass 4 — grain, last, because the emulsion sits on top of everything.
   if(opt.grain > 0){
+    await new Promise(r=>setTimeout(r,0));
     const gd = g.getImageData(0,0,W,H), q = gd.data;
     const field = filmGrainField(W, H, Math.max(1, opt.grainSize));
     const amt = opt.grain * 46;
@@ -4365,21 +4372,38 @@ function FilmRoom(){
     }catch{ setErr("That image couldn't be read. Try a JPG or PNG."); }
   }
 
-  // Re-grades on every change. Each run stamps a sequence number and a late finisher
-  // throws its result away, so dragging a slider can't leave an older frame on screen.
+  // TWO PASSES, DEBOUNCED.
+  //
+  // A quick one at 900px lands almost immediately so the picture tracks the slider,
+  // then a full-resolution one runs once the person has stopped moving for a moment.
+  // Rendering full size on every tick is what made the controls feel stuck — the pixel
+  // loops block the main thread, and a blocked main thread cannot follow a drag.
+  //
+  // Each run stamps a sequence number and a late finisher discards its own result, so
+  // a slow full pass can never overwrite a newer quick one.
   useEffect(()=>{
     if(!imgRef.current) return;
-    const mine = ++seq.current;
     let alive = true;
-    setBusy(true);
-    (async ()=>{
+    const opts = { lutFile:lookFile, strength, grain, grainSize, halation, rolloff, vignette };
+
+    const fast = setTimeout(async ()=>{
+      const mine = ++seq.current;
+      setBusy(true);
       try{
-        const d = await filmRender(imgRef.current, { lutFile:lookFile, strength, grain, grainSize, halation, rolloff, vignette });
+        const d = await filmRender(imgRef.current, { ...opts, maxW: 900 });
         if(alive && mine === seq.current) setOut(d);
       }catch(e){ if(alive) setErr((e&&e.message)||"Couldn't apply that look."); }
-      if(alive && mine === seq.current) setBusy(false);
-    })();
-    return ()=>{ alive = false; };
+    }, 40);
+
+    const full = setTimeout(async ()=>{
+      const mine = ++seq.current;
+      try{
+        const d = await filmRender(imgRef.current, { ...opts, maxW: 2048 });
+        if(alive && mine === seq.current){ setOut(d); setBusy(false); }
+      }catch(e){ if(alive) setBusy(false); }
+    }, 420);
+
+    return ()=>{ alive = false; clearTimeout(fast); clearTimeout(full); };
   }, [src, lookFile, strength, grain, grainSize, halation, rolloff, vignette]);
 
   const Slider = ({label,value,set,min=0,max=1,step=0.01,fmt}) => (
