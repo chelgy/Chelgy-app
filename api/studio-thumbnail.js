@@ -117,9 +117,9 @@ export default async function handler(req, res) {
         "You have been shown " + frames.length + " frames sampled across the video, each labelled with its time in seconds.\n" +
         (title ? "The video is titled: \"" + title + "\"\n" : "") +
         (topic ? "It is about: " + topic + "\n" : "") +
-        "\nPick the THREE strongest frames for a thumbnail and rank them best first. Judge them on:\n" +
-        "- The face. Eyes open, in focus, an expression that reads as something. Mid-blink, mid-word and mid-chew are unusable no matter how good the rest of the frame is.\n" +
-        "- Light on the subject. Flat or blown-out beats nothing, but a face that is modelled by the light beats both.\n" +
+        "\nPick the THREE strongest frames for a thumbnail and rank them best first. This is a TECHNICAL judgement about picture quality — do not describe, identify or assess anyone who appears in the frames. Judge on:\n" +
+        "- Sharpness. Reject motion blur and anything caught between two positions; a still grab from moving footage is often smeared.\n" +
+        "- Exposure. Reject blown-out highlights and crushed shadows. Even, controlled light is what you want.\n" +
         "- Composition, and specifically NEGATIVE SPACE — a headline has to sit somewhere. A frame with the subject dead centre and no clear area is a weaker thumbnail than a slightly worse frame with room in it.\n" +
         "- Whether it says something about the video at a glance.\n" +
         (vertical ? "- This is a VERTICAL thumbnail, so the usable area is tall and narrow. Favour frames where the subject reads at that shape.\n"
@@ -203,7 +203,16 @@ export default async function handler(req, res) {
         picks: spread.map((t) => ({
           t,
           lead: title ? "A look at" : "",
-          hero: title ? title.split(/\s+/).slice(0, 2).join(" ").toUpperCase().slice(0, 18) : "STORY",
+          // The first two words of a topic are almost always throwaway — "using a",
+          // "how to", "the best" — which is how a cover line ends up reading USING A.
+          // Take the longest real word instead; it carries the subject nearly every time.
+          hero: (() => {
+            const stop = new Set(["the","a","an","and","or","of","to","in","on","for","with","my","our","how","why","what","is","it","this","that","from","at","by","using","use"]);
+            const w = String(title || "").split(/[^A-Za-z0-9']+/).filter(Boolean)
+              .filter((x) => !stop.has(x.toLowerCase()) && x.length > 2)
+              .sort((a, b) => b.length - a.length)[0];
+            return (w || "STORY").toUpperCase().slice(0, 18);
+          })(),
           sub: "",
           space: "lower",
           why: "Chosen by position — edit the words to suit"

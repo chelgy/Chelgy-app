@@ -6452,7 +6452,14 @@ function ensureEditorialFont(){
       if(!document.getElementById("cg-bodoni")){
         const l = document.createElement("link");
         l.id = "cg-bodoni"; l.rel = "stylesheet";
-        l.href = "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400;1,6..96,500&display=swap";
+        // opsz is pinned to 16 — a TEXT optical size, not a display one — and that is
+        // the fix for hairlines disappearing. Bodoni Moda's optical axis thins the
+        // strokes as the size goes up, so setting a word at 200px on the display end
+        // of the axis gives you thins about a pixel wide. They look elegant on a big
+        // screen and evaporate at the size a thumbnail is actually viewed, especially
+        // white over a busy photograph. The text-end design keeps the Didone contrast
+        // while giving the thins enough body to survive.
+        l.href = "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,16,600;0,16,700;1,16,500;1,16,600&display=swap";
         document.head.appendChild(l);
       }
       // A font declared in CSS but never used in the DOM is not downloaded, so
@@ -6460,9 +6467,10 @@ function ensureEditorialFont(){
       // silently fall back to Georgia. Each weight and style has to be asked for.
       if(document.fonts && document.fonts.load){
         await Promise.all([
-          document.fonts.load("400 96px 'Bodoni Moda'"),
-          document.fonts.load("500 96px 'Bodoni Moda'"),
-          document.fonts.load("italic 400 96px 'Bodoni Moda'")
+          document.fonts.load("600 96px 'Bodoni Moda'"),
+          document.fonts.load("700 96px 'Bodoni Moda'"),
+          document.fonts.load("italic 500 96px 'Bodoni Moda'"),
+          document.fonts.load("italic 600 96px 'Bodoni Moda'")
         ]);
       }
       if(document.fonts && document.fonts.ready) await document.fonts.ready;
@@ -6542,7 +6550,7 @@ async function composeThumbnail(baseSrc, o){
 
   // Shrink the hero until it fits on at most two lines. Losing size is always better
   // than losing words off the end of a cover line.
-  const heroFont = (px)=> "500 " + px + "px " + ED_SERIF;
+  const heroFont = (px)=> "700 " + px + "px " + ED_SERIF;
   g.font = heroFont(heroSize);
   let heroLines = wrapLines(g, hero, maxW - track(), 2);
   let guard = 0;
@@ -6593,14 +6601,16 @@ async function composeThumbnail(baseSrc, o){
   const startY = upper ? pad + leadGap + heroSize * 0.86 : y;
 
   g.textBaseline = "alphabetic";
-  g.shadowColor = "rgba(0,0,0,0.42)";
-  g.shadowBlur = Math.round(base * 0.022);
-  g.shadowOffsetY = Math.round(base * 0.003);
+  // Slightly heavier than a designed cover would need, because a cover is shot for its
+  // type and a video frame is not — there is no guarantee of a clean area under the words.
+  g.shadowColor = "rgba(0,0,0,0.55)";
+  g.shadowBlur = Math.round(base * 0.03);
+  g.shadowOffsetY = Math.round(base * 0.004);
   g.fillStyle = "#FFFFFF";
 
   // Lead-in: italic, small, sitting directly on top of the hero word.
   if(lead){
-    g.font = "italic 400 " + leadSize + "px " + ED_SERIF;
+    g.font = "italic 600 " + leadSize + "px " + ED_SERIF;
     const lw = g.measureText(lead).width;
     const lx = centered ? Math.round((W - lw) / 2) : pad;
     g.fillText(lead, lx, startY - heroSize * 0.86 - Math.round(leadSize * 0.35));
@@ -9265,7 +9275,7 @@ const CATEGORIES = [
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
-    tabs:[ {label:"Fake It",tool:"restage"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
+    tabs:[ {label:"Style Match",tool:"stylematch"}, {label:"Fake It",tool:"restage"}, {label:"Video Edit",tool:"videoedit"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"} ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
