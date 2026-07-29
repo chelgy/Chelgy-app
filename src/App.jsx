@@ -8033,7 +8033,16 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         setClip(i, { note:"Placing the product…" });
         try{ startImg = await makeKeyFrame(c.prompt.slice(0, 320)) || null; }catch(_){}
       }
-      if(plan.format === "continuous"){
+      // A key frame exists to hold a look ACROSS clips. With only one clip there is
+      // nothing to hold it across, so generating one is an image nobody asked for and
+      // a slower first render for no benefit — text-to-video is what a single shot
+      // wants.
+      //
+      // Unless there are product photos. Then the frame is not about continuity at
+      // all, it is the only way the real product gets into the shot, and it earns its
+      // keep even on a single clip.
+      const needsKeyFrame = plan.clips.length > 1 || shots.filter(Boolean).length > 0;
+      if(plan.format === "continuous" && needsKeyFrame){
         let kf = keyFrame;
         if(!kf){ setClip(i, { note:"Making the key frame…" }); kf = await makeKeyFrame(); if(kf) setKeyFrame(kf); }
         startImg = kf || null;
