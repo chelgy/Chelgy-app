@@ -7877,6 +7877,8 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [clips,setClips]     = useState([]);      // {status,url,err,pct}
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
+  const [revise,setRevise]     = useState("");
+  const [logo,setLogo]         = useState(null);
   const [voiceId,setVoiceId]   = useState("JBFqnCBsd6RMkjVDRZzb");
   const [joined,setJoined]     = useState("");
   const [joining,setJoining]   = useState(false);
@@ -7893,20 +7895,26 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const done = clips.filter(c=>c.status==="done").length;
   const allDone = plan && done === plan.clips.length;
 
-  async function makePlan(){
+  async function makePlan(asRevision){
     if(!brief.trim()){ setErr("Tell us what the commercial is about first."); return; }
-    setBusy(true); setErr(""); setPlan(null); setClips([]);
+    const revising = !!(asRevision && plan && revise.trim());
+    setBusy(true); setErr("");
+    // A revision replaces the plan but keeps any clips already filmed. They were paid
+    // for, and if the note was about clip three there is no reason to lose clip one.
+    if(!revising){ setPlan(null); setClips([]); }
     try{
       const tok = await freshToken();
       const r = await fetch("/api/studio-commercial", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({ brief:brief.trim(), format, brand, look, orientation, totalSec, spoken, product:product.trim() })
+        body: JSON.stringify({ brief:brief.trim(), format, brand, look, orientation, totalSec, spoken, product:product.trim(),
+                               revise: revising ? revise.trim() : "", previous: revising ? plan : null })
       });
       const d = await r.json();
       if(!r.ok || !d || !Array.isArray(d.clips)) throw new Error((d&&d.error)||"Couldn't plan that.");
       setPlan(d);
-      setClips(d.clips.map(()=>({ status:"idle", url:"", err:"", pct:0 })));
+      setClips(prev => d.clips.map((_,i)=> (revising && prev[i]) ? prev[i] : ({ status:"idle", url:"", err:"", pct:0 })));
+      if(revising) setRevise("");
     }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
     setBusy(false);
   }
@@ -8057,6 +8065,13 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
                                              "commercial/vo-" + Date.now() + ".mp3");
         if(!voiceUrl) throw new Error("Couldn't store the voiceover.");
       }
+      let logoUrl = "";
+      if(logo){
+        // The render server fetches by URL, so a data URL is no use to it.
+        const blob = await (await fetch(logo.preview || ("data:"+logo.mimeType+";base64,"+logo.data))).blob();
+        logoUrl = await uploadSiteAudioFile(new File([blob], "logo.png", { type: logo.mimeType || "image/png" }),
+                                            "commercial/logo-" + Date.now() + ".png") || "";
+      }
       const size = orientation==="portrait" ? [1080,1920] : orientation==="square" ? [1080,1080] : [1920,1080];
       const tok = await freshToken();
       const r = await fetch("/api/studio-join", {
@@ -8064,6 +8079,7 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
         body: JSON.stringify({ clips: clips.map(c=>c.url).filter(Boolean),
                                voiceUrl: voiceUrl || undefined,
+                               logoUrl: logoUrl || undefined,
                                width:size[0], height:size[1] })
       });
       const d = await r.json();
@@ -8104,7 +8120,7 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         <input value={product} onChange={e=>setProduct(e.target.value)} disabled={busy}
           placeholder="What it is — e.g. a 100g tin of ceremonial matcha"
           style={{width:"100%",boxSizing:"border-box",padding:9,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,marginBottom:9}} />
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:9}}>
           {[0,1,2].map(ix=>(
             <label key={ix} style={{flex:"1 1 110px",border:"1px dashed "+B.stone,padding:"10px 8px",cursor:busy?"default":"pointer",background:B.white,textAlign:"center"}}>
               <input type="file" accept="image/*" disabled={busy} style={{display:"none"}}
@@ -8120,6 +8136,19 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
             </label>
           ))}
         </div>
+
+        <label style={{display:"flex",gap:9,alignItems:"center",border:"1px dashed "+B.stone,padding:"9px 11px",cursor:busy?"default":"pointer",background:B.white}}>
+          <input type="file" accept="image/png,image/webp" disabled={busy} style={{display:"none"}}
+            onChange={async e=>{
+              const f=(e.target.files||[])[0]; e.target.value="";
+              if(!f) return;
+              try{ setLogo(await cgShrinkPhoto(f, 900, 1)); }catch{ setErr("That logo couldn't be read."); }
+            }} />
+          {logo
+            ? <img src={logo.preview} alt="" style={{height:34,objectFit:"contain"}} />
+            : <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>Logo (optional) — a PNG with a transparent background works best</span>}
+          {logo && <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>burned into the corner of the finished film</span>}
+        </label>
       </div>
 
       <div style={{border:"1px solid "+B.stone,padding:13,marginBottom:14}}>
@@ -8189,6 +8218,19 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 14px"}}>
             {plan.clips.length} clip{plan.clips.length>1?"s":""} · {plan.totalSec}s · {done} done
           </p>
+
+          <div style={{border:"1px solid "+B.stone,background:B.white,padding:12,marginBottom:14}}>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Want something changed?</div>
+            <textarea value={revise} onChange={e=>setRevise(e.target.value)} disabled={busy} rows={2}
+              placeholder="Say it plainly — e.g. lose the helicopter, try a rooftop at dusk. Or: make clip 2 warmer and slower."
+              style={{width:"100%",boxSizing:"border-box",padding:9,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,resize:"vertical",marginBottom:8}} />
+            <div style={{display:"flex",gap:9,alignItems:"center",flexWrap:"wrap"}}>
+              <Chip disabled={busy||!revise.trim()} onClick={()=>makePlan(true)}>{busy?"REWRITING…":"REVISE THE PLAN"}</Chip>
+              <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>
+                Free, and anything you've already filmed is kept. Only what you mention changes.
+              </span>
+            </div>
+          </div>
 
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
             <button onClick={runAll} disabled={busy||allDone}

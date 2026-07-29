@@ -108,6 +108,12 @@ export default async function handler(req, res) {
     // only needs to know something must appear and what to call it, so it can write the
     // product into the action rather than leaving it to be added afterwards.
     const product  = String(body.product || "").trim().slice(0, 200);
+    // A revision: the plan they already have, plus what they want changed about it.
+    // Sent together because "make the second one more upbeat" is meaningless without
+    // the thing being revised, and re-planning from the brief alone throws away every
+    // choice they were happy with.
+    const revise   = String(body.revise || "").trim().slice(0, 600);
+    const previous = body.previous && typeof body.previous === "object" ? body.previous : null;
     if (!brief) return res.status(400).json({ error: "Tell us what the commercial is about first." });
 
     const lengths = planClipLengths(totalSec);
@@ -150,7 +156,18 @@ export default async function handler(req, res) {
         "- Put the most surprising setting in the middle, not first. The opening should be ordinary enough that the second clip lands as a turn.\n" +
         "- Leave the LOCKED DESCRIPTION empty — nothing is meant to match.\n";
 
-    const prompt = shared + formatRules +
+    const revisionBlock = (revise && previous)
+      ? "\n\nTHIS IS A REVISION. Here is the plan they already have:\n" +
+        JSON.stringify({ title: previous.title, idea: previous.idea,
+                         lockedDescription: previous.lockedDescription,
+                         narration: previous.narration,
+                         clips: (previous.clips || []).map(c => ({ n: c.n, slug: c.slug, prompt: c.prompt, spoken: c.spoken })) }) +
+        "\n\nWHAT THEY WANT CHANGED: " + revise + "\n" +
+        "Change what they asked for and LEAVE THE REST ALONE. Reuse the wording of any clip they did not mention, verbatim. " +
+        "A revision that quietly rewrites the parts someone was happy with is worse than no revision — they cannot tell what you changed, and they lose the thing they liked.\n"
+      : "";
+
+    const prompt = shared + formatRules + revisionBlock +
       "\nRespond with ONLY this JSON:\n" +
       '{"title":"a short name for the commercial",' +
       '"lockedDescription":"the verbatim subject and place description, or empty string unless the format is continuous",' +
