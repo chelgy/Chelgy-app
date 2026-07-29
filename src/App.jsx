@@ -7877,6 +7877,9 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [clips,setClips]     = useState([]);      // {status,url,err,pct}
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
+  const [voiceId,setVoiceId]   = useState("JBFqnCBsd6RMkjVDRZzb");
+  const [joined,setJoined]     = useState("");
+  const [joining,setJoining]   = useState(false);
   const [product,setProduct]   = useState("");     // what it is, in words
   const [shots,setShots]       = useState([]);     // photographs of it
   const [keyFrame,setKeyFrame] = useState("");
@@ -8033,6 +8036,43 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     }
   }
 
+  // Everything after the clips are made: the narration, then the join.
+  //
+  // The voiceover is ONE recording over the finished cut, not a line per clip. Seedance
+  // generates each clip's audio in isolation, so a voice that carries across a cut
+  // cannot come from it — it has to be laid over the whole thing afterwards, which is
+  // also how a real commercial is made.
+  async function finish(){
+    if(!plan) return;
+    setJoining(true); setErr("");
+    try{
+      let voiceUrl = "";
+      if(plan.format === "voiceover" && plan.narration){
+        const vo = await generateVoiceover(plan.narration, voiceId);
+        if(typeof vo.balance === "number") onBalance(vo.balance);
+        // The render server fetches by URL, so a blob: URL is no use to it — it has to
+        // be somewhere public first.
+        const blob = await (await fetch(vo.url)).blob();
+        voiceUrl = await uploadSiteAudioFile(new File([blob], "vo.mp3", { type:"audio/mpeg" }),
+                                             "commercial/vo-" + Date.now() + ".mp3");
+        if(!voiceUrl) throw new Error("Couldn't store the voiceover.");
+      }
+      const size = orientation==="portrait" ? [1080,1920] : orientation==="square" ? [1080,1080] : [1920,1080];
+      const tok = await freshToken();
+      const r = await fetch("/api/studio-join", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({ clips: clips.map(c=>c.url).filter(Boolean),
+                               voiceUrl: voiceUrl || undefined,
+                               width:size[0], height:size[1] })
+      });
+      const d = await r.json();
+      if(!r.ok || !d.url) throw new Error((d&&d.error)||"Couldn't join the clips.");
+      setJoined(d.url);
+    }catch(e){ setErr((e&&e.message)||"Couldn't finish the commercial."); }
+    setJoining(false);
+  }
+
   const Chip = ({on,children,...p}) => (
     <button {...p} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"8px 13px",cursor:"pointer",
       border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.inkBlock:B.white,color:on?B.inkText:B.mid}}>{children}</button>
@@ -8087,11 +8127,14 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
           <Chip on={format==="continuous"} disabled={busy} onClick={()=>setFormat("continuous")}>One story</Chip>
           <Chip on={format==="anthology"} disabled={busy} onClick={()=>setFormat("anthology")}>Different people</Chip>
+          <Chip on={format==="voiceover"} disabled={busy} onClick={()=>setFormat("voiceover")}>Narrated</Chip>
         </div>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:0}}>
           {format==="continuous"
             ? "One person, one place, running straight through. The look is locked so it stays the same throughout."
-            : "A different person and place in every clip, tied together by one idea — “mine's the long-lasting wear,” said mid-skydive. The contrast is the point."}
+            : format==="anthology"
+            ? "A different person and place in every clip, tied together by one idea — “mine's the long-lasting wear,” said mid-skydive. The contrast is the point."
+            : "Nobody speaks on camera. One voice runs over the whole thing, recorded in one take and laid over the finished cut — so the pictures are free to travel anywhere."}
         </p>
       </div>
 
@@ -8113,14 +8156,14 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         </div>
       </div>
 
-      <label style={{display:"flex",gap:9,alignItems:"flex-start",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
+      {format!=="voiceover" && <label style={{display:"flex",gap:9,alignItems:"flex-start",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
         <input type="checkbox" checked={spoken} disabled={busy} onChange={e=>setSpoken(e.target.checked)} style={{marginTop:3}} />
         <span><strong>People speak</strong>
           <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:2}}>
             Dialogue is generated and lip-synced. Turn off for music and atmosphere only.
           </span>
         </span>
-      </label>
+      </label>}
 
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#B00",marginBottom:12}}>{err}</p>}
 
@@ -8195,8 +8238,30 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
             );
           })}
 
+          {plan.narration && (
+            <div style={{border:"1px solid "+B.stone,background:B.white,padding:13,margin:"14px 0"}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:7}}>The voiceover</div>
+              <textarea value={plan.narration} onChange={e=>setPlan(p=>({ ...p, narration:e.target.value }))} rows={4}
+                style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"serif",fontSize:15,lineHeight:1.6,resize:"vertical"}} />
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:"7px 0 0"}}>
+                {plan.narration.trim().split(/\s+/).length} words · about {Math.round(plan.narration.trim().split(/\s+/).length/2.6)}s read aloud. Recorded once and laid over the finished cut.
+              </p>
+            </div>
+          )}
+
           {allDone && (
             <div style={{borderTop:"2px solid "+B.charcoal,marginTop:18,paddingTop:16}}>
+              <button onClick={finish} disabled={joining}
+                style={{background:B.inkBlock,color:"#fff",border:"none",padding:"13px 24px",fontSize:11,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:joining?"not-allowed":"pointer",opacity:joining?0.6:1,marginBottom:14}}>
+                {joining ? "PUTTING IT TOGETHER…" : (plan.format==="voiceover" ? "RECORD THE VOICE & JOIN IT UP" : "JOIN INTO ONE FILM")}
+              </button>
+              {joined && (
+                <div style={{marginBottom:16}}>
+                  <video src={joined} controls playsInline style={{width:"100%",maxWidth:orientation==="portrait"?320:640,display:"block",border:"1px solid "+B.stone}} />
+                  <a href={joined} download="chelgy-commercial.mp4" target="_blank" rel="noreferrer"
+                    style={{display:"inline-block",marginTop:9,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:B.charcoal,textDecoration:"underline"}}>Download the commercial</a>
+                </div>
+              )}
               <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:8}}>Watch it through</div>
               {/* Played as a playlist rather than one file. Stitching into a single mp4
                   is the render server's job and comes next; until then this is the whole

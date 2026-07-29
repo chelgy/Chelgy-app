@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     if (!GKEY) return res.status(500).json({ error: "The writer is not configured." });
 
     const brief    = String(body.brief || "").trim().slice(0, 1200);
-    const format   = body.format === "anthology" ? "anthology" : "continuous";
+    const format   = body.format === "anthology" ? "anthology" : body.format === "voiceover" ? "voiceover" : "continuous";
     const brand    = String(body.brand || "").trim().slice(0, 80);
     const look     = String(body.look || "").trim().slice(0, 300);
     const orientation = body.orientation === "landscape" ? "landscape" : body.orientation === "square" ? "square" : "portrait";
@@ -127,13 +127,20 @@ export default async function handler(req, res) {
       "- Each prompt is SELF-CONTAINED. The model has no memory of the other clips. Never write 'the same woman' or 'as before' — describe her again, fully, every time.\n" +
       "- Say what is in frame, what moves, where the camera is, and what the light is doing. Concrete nouns beat adjectives: 'low winter sun through a west-facing window' not 'beautiful lighting'.\n" +
       "- Name the shot size and any camera move in the prompt itself.\n" +
-      (spoken
+      ((spoken && format !== "voiceover")
         ? "- Seedance generates lip-synced speech. When someone talks, put the exact line in the prompt as spoken dialogue, in quotes, and say who says it and how.\n"
         : "- NO speech and no dialogue anywhere. These clips carry music and atmosphere only.\n") +
       "- A clip longer than about 8 seconds should contain more than one beat. Use 'Shot 1: ... Shot 2: ...' inside a single prompt to sequence them.\n" +
       "- No text, captions, logos or writing anywhere in frame. Those are added afterwards and a model rendering them produces garbled letters.\n\n";
 
-    const formatRules = format === "continuous"
+    const formatRules = format === "voiceover"
+      ? "FORMAT — NARRATED. Pictures under one continuous voice.\n" +
+        "- NOBODY SPEAKS ON CAMERA. No dialogue, no lip movement, no piece to camera. The clips carry action and atmosphere only.\n" +
+        "- Write ONE continuous narration for the whole film, in the `narration` field, as a single block of prose. It is recorded as one take and laid over the finished cut, so it must read as one thought from beginning to end — not a line per clip.\n" +
+        "- Pace it at roughly 2.6 words per second, so about " + Math.round(totalSec * 2.6) + " words for " + totalSec + " seconds. Under is fine; over gets cut off.\n" +
+        "- Then write the clips as PICTURES THAT ILLUSTRATE IT, in order. Each clip's prompt should show what the narration is talking about at that moment without repeating it.\n" +
+        "- Subjects and places may change between clips. What holds it together is the voice, so the visuals are free to travel.\n"
+      : format === "continuous"
       ? "FORMAT — CONTINUOUS. One subject, one world, one thread running through it.\n" +
         "- Write a LOCKED DESCRIPTION: the subject's age, build, hair, clothing, and the place, in about 25 words. Reproduce it VERBATIM at the start of every single shot prompt. Not paraphrased — the same words. This is the only thing holding the person's face together across clips.\n" +
         "- The clips must run in order as one continuous piece of time. Each begins roughly where the last ended.\n"
@@ -146,7 +153,8 @@ export default async function handler(req, res) {
     const prompt = shared + formatRules +
       "\nRespond with ONLY this JSON:\n" +
       '{"title":"a short name for the commercial",' +
-      '"lockedDescription":"the verbatim subject and place description, or empty string for anthology",' +
+      '"lockedDescription":"the verbatim subject and place description, or empty string unless the format is continuous",' +
+      '"narration":"the full continuous voiceover script, or empty string unless the format is narrated",' +
       '"idea":"one sentence on the through-line — what makes these clips one film",' +
       '"clips":[{' +
       '"n":1,' +
@@ -191,6 +199,7 @@ export default async function handler(req, res) {
       title: String(parsed.title || "Commercial").slice(0, 90),
       idea: String(parsed.idea || "").slice(0, 400),
       lockedDescription: format === "continuous" ? String(parsed.lockedDescription || "").slice(0, 400) : "",
+      narration: format === "voiceover" ? String(parsed.narration || "").slice(0, 2000) : "",
       format, orientation, totalSec: clips.reduce((a, c) => a + c.seconds, 0),
       clips
     });
