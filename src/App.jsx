@@ -3792,7 +3792,16 @@ function shrinkImage(file, maxEdge = 1024, quality = 0.88) {
    base64 inflates a file by ~37%, so a raw phone photo blows the limit before
    our code even runs. Also re-encodes iPhone HEIC to JPEG, which Gemini needs.
    ═══════════════════════════════════════════════════════════════════════════ */
-async function cgShrinkPhoto(file, maxDim=1280, quality=0.85){
+// 2048, up from 1280.
+//
+// Everything that depends on likeness — Fake It, Style Match, the re-shoot — was being
+// handed a face reduced to well under half the detail the model can use. GPT's 2K tier
+// works at roughly 2048px, so anything smaller than that is throwing away information
+// the model would otherwise have had, on the one thing these tools are judged by.
+// Quality up to 0.90 for the same reason: 0.85 is visible on skin at this size.
+//
+// The cost is a slower upload and nothing else.
+async function cgShrinkPhoto(file, maxDim=2048, quality=0.90){
   const url = URL.createObjectURL(file);
   try{
     const img = await new Promise((res,rej)=>{
