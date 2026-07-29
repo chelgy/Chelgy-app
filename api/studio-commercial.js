@@ -196,6 +196,31 @@ export default async function handler(req, res) {
         "- The clips must run in order as one continuous piece of time. Each begins roughly where the last ended.\n"
       : "FORMAT — ANTHOLOGY. Deliberately different people, places and moments, held together by one idea.\n" +
         "- Every clip is a DIFFERENT person in a DIFFERENT place. Vary age, appearance and setting hard — that contrast is the whole idea of the film.\n" +
+        // Several whole scenarios inside ONE generation, written the way the model
+        // actually wants them. The rules below are not guesses — Seedance 2.0 renders
+        // up to FIVE distinct camera setups, locations and characters per generation,
+        // and the structure it responds to is specific:
+        //
+        //   · numbered markers, with "Hard cut to" between blocks
+        //   · ONE action per block. Piling three actions into one block is the most
+        //     common way these come back mushy — if three things happen, that is three
+        //     blocks
+        //   · a shared anchor across all of them. Here the cast deliberately changes,
+        //     so the anchor is the LIGHTING AND GRADE, which is what stops five
+        //     unrelated vignettes reading as five unrelated clips
+        //   · global render notes at the end, once, rather than repeated per block
+        //   · 200-300 words for a five-shot prompt, and no padding
+        //
+        // Five shots in ten seconds is a real shape, not a stretch. Beats can be two
+        // seconds each.
+        "- PACK SEVERAL SCENARIOS INTO EACH CLIP — up to FIVE, which is the model's limit. A " + Math.max(...lengths) + " second clip should hold " + Math.min(5, Math.max(2, Math.round(Math.max(...lengths) / 3))) + " complete vignettes.\n" +
+        "- Structure every clip prompt like this, in one paragraph: 'Shot 1: [one action]. Hard cut to Shot 2: [one action]. Hard cut to Shot 3: [one action].' and so on.\n" +
+        "- ONE ACTION PER SHOT BLOCK. If three things need to happen, that is three blocks. Piling actions into one block is what makes these come back muddled.\n" +
+        "- Each block is a COMPLETELY DIFFERENT person in a COMPLETELY DIFFERENT location, unrelated to the block before it. Describe each fully — age, appearance, clothing, room. Do not let them blur together.\n" +
+        "- Give every one of them their own spoken line, all variations on the same idea.\n" +
+        "- THE ANCHOR IS THE LIGHT. Since the cast changes every few seconds, name one lighting and colour recipe at the START and hold it across every block — it is the only thing making these one film rather than five.\n" +
+        "- End the prompt with GLOBAL RENDER NOTES, once: the camera identity, the lighting recipe again, and what to avoid. Do not repeat them inside each block.\n" +
+        "- A five-block prompt runs 200-300 words. Do not pad; every word should be doing work for one of the blocks.\n" +
         "- What holds it together is the sentence structure, the grade and the rhythm, not the cast. Give each person a variation on the same line.\n" +
         "- Put the most surprising setting in the middle, not first. The opening should be ordinary enough that the second clip lands as a turn.\n" +
         "- Leave the LOCKED DESCRIPTION empty — nothing is meant to match.\n";
