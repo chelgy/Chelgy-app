@@ -7931,7 +7931,7 @@ function thSay(e, fallback){
 // cuts of generated footage reads as a commercial or as a fast slideshow, and that is
 // answered more honestly — and far more cheaply — without a voice and a score
 // carrying it. Wire them in once the cut stands up on its own.
-function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null }){
+function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
   const [subject,setSubject]   = useState("");
   const [duration,setDuration] = useState(30);
   const [aspect,setAspect]     = useState("9:16");
@@ -7946,11 +7946,6 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const [film,setFilm]         = useState("");      // the finished ad
   const [pct,setPct]           = useState(0);
   const [notes,setNotes]       = useState([]);      // warnings, advisory only
-  const [useVo,setUseVo]       = useState(true);
-  const [useMusic,setUseMusic] = useState(false);
-  const [captions,setCaptions] = useState(true);
-  const [vo,setVo]             = useState(null);    // { url, words, seconds }
-  const [music,setMusic]       = useState("");      // url
 
   const TIER = { "480p":"seedance480", "720p":"seedance720", "1080p":"seedance1080", "4k":"seedance4k" };
   const orientation = aspect === "16:9" ? "landscape" : "portrait";
@@ -7968,9 +7963,6 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     setBusy(true); setErr(""); setFilm(""); setNotes([]);
     // A revision keeps footage already filmed. It was paid for, and a note about
     // shot nine is no reason to lose shot one.
-    // The voice is written to fit the plan, so a new plan invalidates it. Keeping
-    // the old take would caption the new cut with the previous script.
-    setVo(null); setMusic("");
     if(!revising){ setPlan(null); setShots([]); }
     try{
       const tok = await freshToken();
@@ -8035,75 +8027,6 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     setStage(""); setBusy(false);
   }
 
-  // ── 2a. the voice ──────────────────────────────────────────────────────────
-  //
-  // BEFORE FILMING, DELIBERATELY. The voice is cheap and the footage is not, and the
-  // take tells you the real length of the ad. If a 30s plan reads in 21s you want to
-  // know that while a rewrite still costs nothing, not after buying twelve clips.
-  //
-  // Three steps, because none of them can be skipped:
-  //   1  ElevenLabs returns AUDIO BYTES as a browser-local blob url
-  //   2  which the render server cannot fetch, so it is uploaded for a real url
-  //   3  and word timings come from transcribing that upload — ElevenLabs is not
-  //      handing them back here, and captions cannot be built without them
-  // uploadSiteAudioFile already does exactly this and is used elsewhere. A second
-  // uploader here is how two copies of one job drift apart.
-  async function uploadVoice(blobUrl){
-    const bin = await (await fetch(blobUrl)).blob();
-    const uid = (user && user.id) || "anon";
-    const file = new File([bin], "vo.mp3", { type: bin.type || "audio/mpeg" });
-    const url = await uploadSiteAudioFile(file, uid + "/commercial-vo-" + Date.now() + ".mp3");
-    if(!url) throw new Error("Couldn't save the voiceover.");
-    return url;
-  }
-
-  async function recordVoice(){
-    const script = (plan && plan.vo && plan.vo.script) || "";
-    if(!script.trim()){ setErr("This plan has no voiceover script. Rewrite it asking for narration."); return; }
-    setErr(""); setBusy(true); setStage("Recording the voice…");
-    try{
-      const spoken = await generateVoiceover(script, (plan.vo && plan.vo.voice) || undefined);
-      if(typeof spoken.balance === "number") onBalance(spoken.balance);
-      setStage("Saving the take…");
-      const url = await uploadVoice(spoken.url);
-      try{ URL.revokeObjectURL(spoken.url); }catch(_){}
-
-      // Word timings. Not fatal if it fails — a voiceover without captions is still
-      // a voiceover, and commercial.js simply skips the caption track when there are
-      // no words to build it from.
-      setStage("Reading the timings…");
-      let words = null, seconds = null;
-      try{
-        const t = await studioTranscribe(url);
-        if(t && Array.isArray(t.words) && t.words.length){ words = t.words; seconds = t.duration || null; }
-      }catch(_){ }
-      if(!words) setNotes(n=>[...n, "couldn't read word timings — the voice will play without captions"]);
-
-      setVo({ url, words, seconds });
-      setStage("");
-    }catch(e){ setErr((e&&e.message)||"Couldn't record the voiceover."); setStage(""); }
-    setBusy(false);
-  }
-
-  async function composeMusic(){
-    setErr(""); setBusy(true); setStage("Composing the score…");
-    try{
-      const brief = (plan.music && plan.music.brief) || "";
-      const started = await studioMusic(brief, "commercial", "wolf", "auto");
-      if(!started || started.error || !started.id) throw new Error((started&&started.error)||"The music engine didn't start.");
-      if(typeof started.balance === "number") onBalance(started.balance);
-      const url = await pollVideo(started.id, (p)=> setStage("Composing the score — " + Math.round(p||0) + "%…"));
-      if(!url) throw new Error("The score didn't come back.");
-      setMusic(typeof url === "string" ? url : (url && url.url) || "");
-      setStage("");
-    }catch(e){
-      // Never fatal. A commercial without a score is still a commercial.
-      setNotes(n=>[...n, "score skipped: " + ((e&&e.message)||"unknown")]);
-      setStage("");
-    }
-    setBusy(false);
-  }
-
   // ── 3. assembly ────────────────────────────────────────────────────────────
   //
   // Its own poll loop rather than pollVideo's. That helper sends no auth token for
@@ -8142,14 +8065,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
       const r = await fetch("/api/studio-commercial-render", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({
-          plan: filledPlan,
-          voUrl: useVo && vo ? vo.url : null,
-          musicUrl: useMusic && music ? music : null,
-          // Captions are built from the VO's word timings and burn per shot. No
-          // voice, no words, no captions — there is nothing to caption.
-          words: useVo && captions && vo && vo.words ? vo.words : null
-        })
+        body: JSON.stringify({ plan: filledPlan })
       });
       const d = await r.json();
       if(!r.ok || !d || !d.taskId) throw new Error((d&&d.error)||"Couldn't start the assembly.");
@@ -8280,51 +8196,6 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
               );
             })}
           </div>
-
-          <div style={{ ...lbl, marginTop:22 }}>Sound</div>
-          <div>
-            <button disabled={busy} onClick={()=>setUseVo(v=>!v)} style={pill(useVo)}>Voiceover</button>
-            <button disabled={busy||!useVo} style={pill(useVo&&captions)}
-              onClick={()=>setCaptions(c=>!c)}>Captions</button>
-            <button disabled={busy} onClick={()=>setUseMusic(m=>!m)} style={pill(useMusic)}>Score</button>
-          </div>
-          <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:2, lineHeight:1.5 }}>
-            Turn all three off for a silent cut — the honest test of whether the edit holds up on its own.
-          </div>
-
-          {useVo && (plan.vo && plan.vo.script) && (
-            <div style={{ marginTop:14, borderTop:"1px solid "+B.stone, paddingTop:14 }}>
-              <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.mid, lineHeight:1.6, marginBottom:10 }}>
-                &ldquo;{plan.vo.script}&rdquo;
-              </div>
-              {vo ? (
-                <div>
-                  <audio src={vo.url} controls style={{ width:"100%", display:"block", marginBottom:8 }} />
-                  <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.mid }}>
-                    {vo.seconds ? ("Reads in " + Math.round(vo.seconds) + "s against a " + plan.totalSeconds + "s cut. ") : ""}
-                    {vo.words ? "Captions ready." : "No word timings — it'll play without captions."}
-                  </div>
-                  {vo.seconds && Math.abs(vo.seconds - plan.totalSeconds) / plan.totalSeconds > 0.15 && (
-                    <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:"#B3261E", marginTop:6, lineHeight:1.5 }}>
-                      That's well off the cut's length. Worth rewriting the plan now — it costs nothing until you film.
-                    </div>
-                  )}
-                  <div style={{ marginTop:10 }}><Btn small outline onClick={recordVoice} disabled={busy}>RECORD IT AGAIN</Btn></div>
-                </div>
-              ) : (
-                <Btn small dark onClick={recordVoice} disabled={busy}>RECORD THE VOICE</Btn>
-              )}
-            </div>
-          )}
-
-          {useMusic && (
-            <div style={{ marginTop:14, borderTop:"1px solid "+B.stone, paddingTop:14 }}>
-              {music
-                ? <div><audio src={music} controls style={{ width:"100%", display:"block", marginBottom:8 }} />
-                    <Btn small outline onClick={composeMusic} disabled={busy}>COMPOSE AGAIN</Btn></div>
-                : <Btn small dark onClick={composeMusic} disabled={busy}>COMPOSE THE SCORE</Btn>}
-            </div>
-          )}
 
           <div style={{ marginTop:18, display:"flex", gap:10, flexWrap:"wrap" }}>
             <Btn dark onClick={filmAll} disabled={busy||allFilmed}>
@@ -11232,7 +11103,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="filmroom"&&<FilmRoom />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
-      {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} user={user} />}
+      {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
