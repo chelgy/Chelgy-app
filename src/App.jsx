@@ -7877,6 +7877,9 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [clips,setClips]     = useState([]);      // {status,url,err,pct}
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
+  const [endTitle,setEndTitle] = useState("");
+  const [endCta,setEndCta]     = useState("");
+  const [endPack,setEndPack]   = useState("editorial");
   const [revise,setRevise]     = useState("");
   const [logo,setLogo]         = useState(null);
   const [voiceId,setVoiceId]   = useState("JBFqnCBsd6RMkjVDRZzb");
@@ -8080,6 +8083,9 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
         body: JSON.stringify({ clips: clips.map(c=>c.url).filter(Boolean),
                                voiceUrl: voiceUrl || undefined,
                                logoUrl: logoUrl || undefined,
+                               endCard: (endTitle.trim()||endCta.trim())
+                                 ? { title:endTitle.trim(), cta:endCta.trim(), seconds:2.5, pack:endPack }
+                                 : undefined,
                                width:size[0], height:size[1] })
       });
       const d = await r.json();
@@ -8137,7 +8143,21 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
           ))}
         </div>
 
-        <label style={{display:"flex",gap:9,alignItems:"center",border:"1px dashed "+B.stone,padding:"9px 11px",cursor:busy?"default":"pointer",background:B.white}}>
+        <div style={{borderTop:"1px solid "+B.stone,margin:"11px 0 0",paddingTop:11}}>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>End card (optional)</div>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 9px"}}>
+            Two and a half seconds on the end — your name and where to go. Set in your typeface, never generated.
+          </p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:9}}>
+            <input value={endTitle} onChange={e=>setEndTitle(e.target.value)} disabled={busy} placeholder="Your name"
+              style={{flex:"1 1 150px",padding:9,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13}} />
+            <input value={endCta} onChange={e=>setEndCta(e.target.value)} disabled={busy} placeholder="Where to go — chelgy.app"
+              style={{flex:"1 1 190px",padding:9,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13}} />
+          </div>
+          {(endTitle.trim()||endCta.trim()) && <FontPackPicker value={endPack} onChange={setEndPack} disabled={busy} />}
+        </div>
+
+        <label style={{display:"flex",gap:9,alignItems:"center",border:"1px dashed "+B.stone,padding:"9px 11px",cursor:busy?"default":"pointer",background:B.white,marginTop:11}}>
           <input type="file" accept="image/png,image/webp" disabled={busy} style={{display:"none"}}
             onChange={async e=>{
               const f=(e.target.files||[])[0]; e.target.value="";
