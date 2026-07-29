@@ -42,6 +42,50 @@ async function getUserId(token) {
   } catch { return null; }
 }
 
+// WHO WRITES THE COMMERCIAL
+//
+// GPT first, Gemini as a fallback. Not a coin toss: this prompt asks for dense visual
+// description — what is in frame, what the light is doing, how the camera moves — and
+// GPT writes that with more specificity, while Gemini tends toward summary. The same
+// difference showed up in Style Match and the thumbnail re-shoot, and the same answer
+// applies. Every other planner in this app stays on Gemini, which is cheaper and
+// perfectly good at structure; this one is judged on prose.
+//
+// The fallback is not decoration. It is one model, one API, one bad afternoon away
+// from a tool that does nothing, and the Gemini path below is known to work.
+//
+// OPENAI_MODEL lets the model be changed without a deploy — these names move faster
+// than release cycles do.
+const OPENAI_MODEL = (process.env.OPENAI_MODEL || "gpt-4.1").trim();
+
+async function callOpenAI(prompt) {
+  const key = (process.env.OPENAI_API_KEY || "").trim();
+  if (!key) return { ok: false, error: "no key" };
+  try {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          { role: "system", content: "You write prompts for a video generation model. You are specific and visual: concrete nouns, real light, named camera moves. You never summarise when you could describe. You reply with JSON and nothing else." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.9,
+        max_tokens: 4000
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return { ok: false, error: (d && d.error && d.error.message) || ("OpenAI " + r.status) };
+    const text = d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    if (!text) return { ok: false, error: "empty" };
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || "network" };
+  }
+}
+
 const GEMINI_PRIMARY = "gemini-flash-latest";
 const GEMINI_FALLBACK = "gemini-3.1-flash-lite";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -183,10 +227,14 @@ export default async function handler(req, res) {
       '}]}\n\n' +
       "Return exactly " + lengths.length + " clips with those exact durations in that order.";
 
-    const out = await callGemini(GKEY, {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 8192 }
-    });
+    let out = await callOpenAI(prompt);
+    if (!out.ok) {
+      console.warn("[commercial] GPT unavailable (" + out.error + "), falling back to Gemini");
+      out = await callGemini(GKEY, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 8192 }
+      });
+    }
     if (!out.ok) return res.status(502).json({ error: out.error });
 
     let parsed = null;

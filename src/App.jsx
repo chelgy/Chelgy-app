@@ -8024,9 +8024,13 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       const started = await generateVideo(c.prompt, startImg, { quality:tier, orientation, duration:c.seconds, tool:"commercial" });
       if(!started || !started.id) throw new Error((started&&started.error)||"The video service didn't start that clip.");
       if(typeof started.balance === "number") onBalance(started.balance);
+      // pollVideo resolves to the URL ITSELF, as a string — not to an object with a url
+      // on it. Reading .url off a string gives undefined, which is why every clip
+      // reported "came back empty" while the video had generated perfectly well. The
+      // object form is kept only to tolerate a future change in that helper.
       const out = await pollVideo(started.id, (pct)=> setClip(i, { pct: Math.round(pct||0) }));
-      const url = out && (out.url || out.video || (out.outputs && out.outputs[0]));
-      if(!url) throw new Error((out&&out.error)||"That clip came back empty.");
+      const url = typeof out === "string" ? out : (out && (out.url || out.video || (out.outputs && out.outputs[0])));
+      if(!url) throw new Error("That clip came back empty.");
       setClip(i, { status:"done", url, pct:100 });
       try{ onToolUse("commercial", cost); }catch(_){}
     }catch(e){
