@@ -308,6 +308,12 @@ export default async function handler(req, res) {
     // Per-clip rotation in degrees clockwise. Anything that isn't a right angle becomes
     // 0 — arbitrary angles would need padding to avoid corners of blank frame, and the
     // problem this solves is only ever a quarter turn.
+    // Which of the five typeface packages the title card is set in. Validated here
+    // rather than trusted, because it reaches libass by family NAME and an unknown one
+    // substitutes silently.
+    const FONT_PACK_IDS = ["editorial","retro","bold","classic","modern"];
+    const fontPack = FONT_PACK_IDS.includes(String(body.fontPack || "")) ? String(body.fontPack) : "editorial";
+
     const clipRotate = (Array.isArray(body.clipRotate) ? body.clipRotate : [])
       .map((r) => ([0, 90, 180, 270].includes(Math.round(Number(r) || 0)) ? Math.round(Number(r) || 0) : 0));
 
@@ -359,7 +365,7 @@ export default async function handler(req, res) {
             edl: {
               sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
-              grade: { footage, look, clipFootage }, clipRotate,
+              grade: { footage, look, clipFootage }, clipRotate, fontPack,
               chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
               uploadPath
@@ -403,7 +409,7 @@ export default async function handler(req, res) {
           title, subtitle,
           orientation,
           uploadPath,
-          grade: { footage, look, clipFootage }, clipRotate,
+          grade: { footage, look, clipFootage }, clipRotate, fontPack,
           chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })

@@ -1297,7 +1297,10 @@ function pointToClip(t, offsets){
 // `urls` is an array — one per clip, in timeline order. `keep` carries {clip,s,e}.
 // `clipFootage` is the per-clip "what did you shoot on?" answer, so a day shot on
 // two different cameras still converts each one correctly.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate){
+// NOTE the argument count. This signature has now grown past the point where position
+// is a safe way to pass anything — a sixth argument was silently dropped once already
+// and cost a session to find. Anything added from here should go in an options object.
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1306,7 +1309,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [],
+        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial",
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
       })
@@ -5681,6 +5684,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // subtitles; titles = the opening title, scene cards and showcase product labels.
   const [showCaptions,setShowCaptions] = useState(true);
   const [showTitles,setShowTitles]     = useState(true);
+  const [fontPack,setFontPack]         = useState("editorial");
   // Optional title override. Empty means "let the planner name it".
   const [userTitle,setUserTitle]       = useState("");
   const [userSubtitle,setUserSubtitle] = useState("");
@@ -6360,7 +6364,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
         totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage, role:c.role||"main", label:c.label||"", dur:Number(c.dur)||0, rotate:Number(c.rotate)||0})),
         userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
-        alsoShorts, showcaseLabels, narrationUrl
+        alsoShorts, showcaseLabels, narrationUrl, fontPack
       };
 
       // Review toggle. On → stop here, show the editable timeline, and let the person
@@ -6577,7 +6581,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
         style, footage, grade, wordsForRender, clipFootages,
         chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null,
-        subtitleForRender, (ctx.clips||[]).map(c=>Number(c.rotate)||0)
+        subtitleForRender, (ctx.clips||[]).map(c=>Number(c.rotate)||0), ctx.fontPack || "editorial"
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -6768,6 +6772,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             </span>
           </span>
         </label>
+
+        {showTitles && (
+          <div style={{padding:"12px 14px",borderTop:"1px solid "+B.stone}}>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,marginBottom:3}}><strong>Typeface</strong></div>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,marginBottom:10}}>
+              Sets the opening title and scene cards. The same five are in Thumbnail Studio, so a cover and a video can match.
+            </div>
+            <FontPackPicker value={fontPack} onChange={setFontPack} disabled={busy} />
+          </div>
+        )}
 
         {/* Title override. Both optional — blank means the planner names it from what
             you actually said, which is usually good enough and one less thing to do. */}
