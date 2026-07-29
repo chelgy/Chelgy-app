@@ -56,6 +56,7 @@ const CA_NAV_LABELS = {
   "tools/stylematch": "Style Match",
   "tools/backdrop": "Fake It",
   "tools/filmroom": "Film Room",
+  "tools/storyboard": "Storyboard",
   "tools/videoedit": "Fake It Video",
   "tools/highfashion": "High Fashion",
   "tools/beauty": "Beauty",
@@ -137,7 +138,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, videoedit.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -7116,10 +7117,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // commercially, no attribution required in the output.
 const TH_FONT_BASE = "/fonts/";
 const FONT_PACKS = [
-  { id:"editorial", label:"Editorial", note:"Fashion magazine. Light, spaced, quiet.", caption:["ChelgyScript","CAVELINE.ttf"],
-    display:["ChelgyDisplay","LacunaRegular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
-  { id:"retro", label:"Retro", note:"Inline display letters. Graphic and loud.", caption:["ChelgySmall","LacunaRegular.ttf"],
-    display:["PackRetroD","Monoton-Regular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
+  // CHELGY — the original set, unchanged: Monoton over Amore over Lacuna, captions in
+  // CAVELINE. It was briefly split in two here, with Lacuna promoted to the display
+  // role and Monoton moved to a package called "Retro". That was wrong. This set is
+  // the brand, it is what every existing cover was made in, and it stays first and
+  // untouched. The other packages are alternatives to it, not replacements for it.
+  { id:"editorial", label:"Chelgy", note:"The original. Fashion magazine, graphic display letters.", caption:["ChelgyScript","CAVELINE.ttf"],
+    display:["ChelgyDisplay","Monoton-Regular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
   { id:"bold", label:"Bold", note:"Heavy and condensed. Sport, gym, business.", caption:["PackBoldS","BarlowCondensed-SemiBold.ttf"],
     display:["PackBoldD","Anton-Regular.ttf"], sub:["PackBoldS","BarlowCondensed-SemiBold.ttf"], small:["PackBoldT","BarlowCondensed-Regular.ttf"] },
   { id:"classic", label:"Classic", note:"High-contrast serif. Timeless and formal.", caption:["PackClassicT","Lora.ttf"],
@@ -7837,6 +7841,296 @@ function thSay(e, fallback){
     return fallback + " The browser wouldn't let us read that image back. Re-upload it from your device.";
   return fallback + " " + m;
 }
+
+
+/* ═════════════════════════════════════════════════
+   STORYBOARD — a shoot plan you can work through on the day.
+   ═════════════════════════════════════════════════
+
+   Each shot is a card: the framing drawn as a diagram, the line to say, the tone, the
+   light, and what to actually do — all in one place, in order. That layout is the whole
+   point. A script in one document and a shot list in another means holding two things
+   in your head on a day when your hands are already full.
+
+   THE DIAGRAMS ARE DRAWN, NOT GENERATED
+   An AI image per shot would cost real money for twelve shots and would show a picture
+   of a person rather than a FRAMING. What a director actually needs to see is where the
+   subject sits in the rectangle, how much of them is in it, and where the camera is —
+   which is four enumerated values and some geometry. It is free, instant, consistent
+   between shots, and it cannot hallucinate a room they do not have.
+*/
+
+const SB_SIZE_SCALE = {
+  "extreme-wide": 0.30, "wide": 0.46, "medium-wide": 0.62,
+  "medium": 0.80, "medium-close": 1.05, "close": 1.45, "extreme-close": 2.30
+};
+const SB_LABEL = {
+  "extreme-wide":"Extreme wide","wide":"Wide","medium-wide":"Medium wide","medium":"Medium",
+  "medium-close":"Medium close","close":"Close-up","extreme-close":"Extreme close",
+  "low":"Low angle","eye":"Eye level","high":"High angle","overhead":"Overhead","dutch":"Dutch tilt",
+  "static":"Static","pan-left":"Pan left","pan-right":"Pan right","tilt-up":"Tilt up","tilt-down":"Tilt down",
+  "push-in":"Push in","pull-out":"Pull out","handheld":"Handheld","orbit":"Orbit",
+  "left":"Subject left","centre":"Subject centred","right":"Subject right"
+};
+
+// A figure, sized and placed inside the frame. Deliberately a silhouette: the diagram
+// is about WHERE and HOW MUCH, and any more detail invites reading it as a picture of
+// the person rather than as a framing.
+function SbFraming({ shot, portrait }){
+  const W = portrait ? 132 : 232, H = portrait ? 232 : 132;
+  const scale = SB_SIZE_SCALE[shot.shotSize] || 0.8;
+  const cx = shot.subjectPos === "left" ? W*0.32 : shot.subjectPos === "right" ? W*0.68 : W*0.5;
+  // Head sits on the upper third — where eyes belong in almost every frame that works.
+  const headR = Math.max(3, H*0.075*scale);
+  const headY = H*0.34 - (scale-0.8)*H*0.06;
+  const bodyW = headR*3.1, bodyTop = headY + headR*0.85;
+  const dutch = shot.angle === "dutch" ? 8 : 0;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block",background:"#EFEDE9",border:"1px solid "+B.stone}}>
+      <g transform={`rotate(${dutch} ${W/2} ${H/2})`}>
+        {/* thirds */}
+        <g stroke="#D4D0C9" strokeWidth="1">
+          <line x1={W/3} y1="0" x2={W/3} y2={H} /><line x1={2*W/3} y1="0" x2={2*W/3} y2={H} />
+          <line x1="0" y1={H/3} x2={W} y2={H/3} /><line x1="0" y1={2*H/3} x2={W} y2={2*H/3} />
+        </g>
+        <clipPath id={"sbc"+shot.n}><rect x="0" y="0" width={W} height={H} /></clipPath>
+        <g clipPath={`url(#sbc${shot.n})`} fill="#2A2622">
+          {shot.angle === "overhead" ? (
+            <circle cx={cx} cy={H*0.5} r={headR*1.5} />
+          ) : (
+            <>
+              <circle cx={cx} cy={headY} r={headR} />
+              <path d={`M ${cx-bodyW/2} ${H+headR}
+                        C ${cx-bodyW/2} ${bodyTop+headR*0.4}, ${cx-bodyW*0.34} ${bodyTop}, ${cx} ${bodyTop}
+                        C ${cx+bodyW*0.34} ${bodyTop}, ${cx+bodyW/2} ${bodyTop+headR*0.4}, ${cx+bodyW/2} ${H+headR} Z`} />
+            </>
+          )}
+        </g>
+        {/* camera height, shown as a horizon rather than words */}
+        {shot.angle !== "overhead" && (
+          <line x1="0" y1={shot.angle==="low" ? H*0.80 : shot.angle==="high" ? H*0.22 : H*0.34}
+                x2={W} y2={shot.angle==="low" ? H*0.80 : shot.angle==="high" ? H*0.22 : H*0.34}
+                stroke="#B9A47C" strokeWidth="1.5" strokeDasharray="4 3" />
+        )}
+        {/* movement */}
+        {shot.movement !== "static" && (()=>{
+          const y = H*0.90, m = shot.movement;
+          if(m==="push-in"||m==="pull-out"){
+            const grow = m==="push-in";
+            return <g stroke="#8A6D3B" strokeWidth="1.6" fill="none">
+              <rect x={W*0.32} y={H*0.30} width={W*0.36} height={H*0.36} strokeDasharray="4 3" />
+              <path d={grow ? `M ${W*0.40} ${H*0.24} L ${W*0.32} ${H*0.30} L ${W*0.42} ${H*0.32}`
+                            : `M ${W*0.32} ${H*0.30} L ${W*0.24} ${H*0.24} L ${W*0.34} ${H*0.22}`} />
+            </g>;
+          }
+          if(m==="tilt-up"||m==="tilt-down"){
+            const up = m==="tilt-up";
+            return <g stroke="#8A6D3B" strokeWidth="1.6" fill="none">
+              <path d={`M ${W*0.90} ${up?H*0.72:H*0.28} L ${W*0.90} ${up?H*0.28:H*0.72}`} />
+              <path d={up ? `M ${W*0.86} ${H*0.36} L ${W*0.90} ${H*0.27} L ${W*0.94} ${H*0.36}`
+                          : `M ${W*0.86} ${H*0.64} L ${W*0.90} ${H*0.73} L ${W*0.94} ${H*0.64}`} />
+            </g>;
+          }
+          const right = m==="pan-right" || m==="orbit";
+          return <g stroke="#8A6D3B" strokeWidth="1.6" fill="none">
+            <path d={`M ${W*0.22} ${y} L ${W*0.78} ${y}`} strokeDasharray={m==="handheld"?"3 3":"0"} />
+            <path d={right ? `M ${W*0.70} ${y-5} L ${W*0.79} ${y} L ${W*0.70} ${y+5}`
+                           : `M ${W*0.30} ${y-5} L ${W*0.21} ${y} L ${W*0.30} ${y+5}`} />
+          </g>;
+        })()}
+      </g>
+    </svg>
+  );
+}
+
+function Storyboard({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [about,setAbout]         = useState("");
+  const [equipment,setEquipment] = useState("");
+  const [team,setTeam]           = useState("");
+  const [lighting,setLighting]   = useState("");
+  const [location,setLocation]   = useState("");
+  const [mood,setMood]           = useState("");
+  const [orientation,setOrient]  = useState("portrait");
+  const [lengthSec,setLength]    = useState(60);
+  const [plan,setPlan]           = useState(null);
+  const [busy,setBusy]           = useState(false);
+  const [err,setErr]             = useState("");
+
+  const COST = CREDIT_COSTS.editorScript;
+
+  async function build(){
+    if(!about.trim()){ setErr("Tell us what the video is about first."); return; }
+    if(Number(credits) < COST){ setErr("This costs "+COST.toLocaleString()+" credits."); onBuyCredits(); return; }
+    setBusy(true); setErr(""); setPlan(null);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/studio-storyboard", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({ about:about.trim(), equipment, team, lighting, location, mood, orientation, lengthSec })
+      });
+      const d = await r.json();
+      if(!r.ok || !d || !Array.isArray(d.shots)) throw new Error((d&&d.error)||"Couldn't plan that shoot.");
+      setPlan(d);
+      track("tool_used",{tool:"storyboard"}); onToolUse("storyboard", COST);
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  const Field = ({label,hint,value,set,rows}) => (
+    <div style={{flex:"1 1 260px"}}>
+      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:5}}>{label}</div>
+      {rows
+        ? <textarea value={value} onChange={e=>set(e.target.value)} disabled={busy} rows={rows} placeholder={hint}
+            style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,resize:"vertical"}} />
+        : <input value={value} onChange={e=>set(e.target.value)} disabled={busy} placeholder={hint}
+            style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14}} />}
+    </div>
+  );
+
+  const totalSec = plan ? plan.shots.reduce((a,s)=>a+(s.seconds||0),0) : 0;
+
+  return (
+    <div style={{maxWidth:900,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Storyboard</h3>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        A shot-by-shot plan for a video you're going to film yourself. Tell us what you're making and what you actually own — the plan only asks for things you have.
+      </p>
+
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14}}>
+        <Field label="What's the video?" hint="A tour of my matcha bar, with three drinks made on camera" value={about} set={setAbout} rows={3} />
+      </div>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14}}>
+        <Field label="Equipment" hint="iPhone 15, small tripod, ring light" value={equipment} set={setEquipment} />
+        <Field label="Anyone helping?" hint="Just me — or: my sister can hold the camera" value={team} set={setTeam} />
+      </div>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14}}>
+        <Field label="Light you have" hint="Big window on the left, overhead spots" value={lighting} set={setLighting} />
+        <Field label="Where" hint="My shop, ~20ft, white walls, wooden counter" value={location} set={setLocation} />
+      </div>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end",marginBottom:16}}>
+        <Field label="Mood (optional)" hint="Calm and premium, not busy" value={mood} set={setMood} />
+        <div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:5}}>Shape</div>
+          <div style={{display:"flex",gap:6}}>
+            {[["portrait","Portrait"],["landscape","Landscape"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setOrient(v)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"9px 13px",border:"1px solid "+(orientation===v?B.charcoal:B.stone),background:orientation===v?B.inkBlock:B.white,color:orientation===v?B.inkText:B.mid,cursor:"pointer"}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:5}}>Length</div>
+          <div style={{display:"flex",gap:6}}>
+            {[30,60,120,300].map(v=>(
+              <button key={v} onClick={()=>setLength(v)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"9px 13px",border:"1px solid "+(lengthSec===v?B.charcoal:B.stone),background:lengthSec===v?B.inkBlock:B.white,color:lengthSec===v?B.inkText:B.mid,cursor:"pointer"}}>
+                {v<60?v+"s":(v/60)+"m"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:22}}>
+        <button onClick={build} disabled={busy||!about.trim()}
+          style={{background:B.inkBlock,color:"#fff",border:"none",padding:"13px 26px",fontSize:12,letterSpacing:"0.14em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+          {busy?"PLANNING THE SHOOT…":"PLAN MY SHOOT"}
+        </button>
+        <CreditTag n={COST} />
+      </div>
+
+      {plan && (
+        <div className="sb-print">
+          <div style={{borderTop:"2px solid "+B.charcoal,paddingTop:16,marginBottom:18}}>
+            <h4 style={{fontFamily:"serif",fontSize:22,margin:"0 0 6px"}}>{plan.title}</h4>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.charcoal,lineHeight:1.6,margin:"0 0 8px"}}>{plan.summary}</p>
+            {plan.kitNotes && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>{plan.kitNotes}</p>}
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:0}}>
+              {plan.shots.length} shots · about {Math.round(totalSec)}s total
+            </p>
+          </div>
+
+          {plan.shots.map(shot=>(
+            <div key={shot.n} className="sb-shot" style={{display:"flex",gap:16,flexWrap:"wrap",padding:"16px 0",borderTop:"1px solid "+B.stone}}>
+              <div style={{flex:"0 0 "+(orientation==="portrait"?"132px":"232px")}}>
+                <SbFraming shot={shot} portrait={orientation==="portrait"} />
+                <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,color:B.mid,marginTop:6,lineHeight:1.5}}>
+                  {SB_LABEL[shot.shotSize]} · {SB_LABEL[shot.angle]}<br/>
+                  {SB_LABEL[shot.movement]} · {SB_LABEL[shot.subjectPos]}
+                  {shot.lens ? <><br/>{shot.lens}</> : null}
+                </div>
+              </div>
+
+              <div style={{flex:"1 1 340px",minWidth:0}}>
+                <div style={{display:"flex",alignItems:"baseline",gap:9,marginBottom:6}}>
+                  <span style={{fontFamily:"serif",fontSize:22,color:B.charcoal}}>{shot.n}</span>
+                  <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,fontWeight:700,color:B.charcoal}}>{shot.slug}</span>
+                  <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,marginLeft:"auto"}}>{shot.seconds}s</span>
+                </div>
+
+                {shot.script ? (
+                  <p style={{fontFamily:"serif",fontSize:17,lineHeight:1.5,color:B.charcoal,margin:"0 0 8px",paddingLeft:12,borderLeft:"2px solid "+B.gold}}>
+                    “{shot.script}”
+                  </p>
+                ) : (
+                  <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.06em",textTransform:"uppercase",color:B.mid,margin:"0 0 8px"}}>No speech — visual only</p>
+                )}
+
+                {shot.tone     && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.55,margin:"0 0 5px"}}><strong>Tone.</strong> {shot.tone}</p>}
+                {shot.lighting && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.55,margin:"0 0 5px"}}><strong>Light.</strong> {shot.lighting}</p>}
+                {shot.notes    && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.55,margin:"0 0 5px"}}><strong>Do.</strong> {shot.notes}</p>}
+                {shot.who      && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,lineHeight:1.55,margin:0}}><strong>Who.</strong> {shot.who}</p>}
+              </div>
+            </div>
+          ))}
+
+          <div className="sb-noprint" style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:20,paddingTop:16,borderTop:"1px solid "+B.stone}}>
+            <button onClick={()=>window.print()}
+              style={{background:B.inkBlock,color:"#fff",border:"none",padding:"12px 22px",fontSize:11,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer"}}>
+              SAVE AS PDF
+            </button>
+            <button onClick={()=>{
+              const lines = [plan.title, "", plan.summary, "", plan.kitNotes, ""];
+              plan.shots.forEach(s=>{
+                lines.push("— " + s.n + ". " + s.slug + "  (" + s.seconds + "s)");
+                lines.push("   " + SB_LABEL[s.shotSize] + " · " + SB_LABEL[s.angle] + " · " + SB_LABEL[s.movement] + " · " + SB_LABEL[s.subjectPos] + (s.lens?" · "+s.lens:""));
+                if(s.script)   lines.push("   \u201C" + s.script + "\u201D");
+                if(s.tone)     lines.push("   Tone: " + s.tone);
+                if(s.lighting) lines.push("   Light: " + s.lighting);
+                if(s.notes)    lines.push("   Do: " + s.notes);
+                if(s.who)      lines.push("   Who: " + s.who);
+                lines.push("");
+              });
+              try{ navigator.clipboard.writeText(lines.join("\n")); }catch(_){}
+            }}
+              style={{background:B.white,color:B.charcoal,border:"1px solid "+B.charcoal,padding:"12px 22px",fontSize:11,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:"pointer"}}>
+              COPY AS TEXT
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Print rules. "Save as PDF" is the browser's own print-to-PDF: it needs no
+          library, produces a real selectable-text document, and honours the layout
+          already on screen. The only work is stopping a shot being split across a page
+          break, which is exactly the thing that makes a printed shot list useless. */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .sb-print, .sb-print * { visibility: visible; }
+          .sb-print { position: absolute; left: 0; top: 0; width: 100%; }
+          .sb-noprint { display: none !important; }
+          .sb-shot { break-inside: avoid; page-break-inside: avoid; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 
 // The picker shows the actual typefaces, not their names.
 //
@@ -9922,6 +10216,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="filmroom"&&<FilmRoom />}
+      {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
@@ -10418,7 +10713,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -10481,7 +10776,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",

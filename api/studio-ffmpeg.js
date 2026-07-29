@@ -311,7 +311,7 @@ export default async function handler(req, res) {
     // Which of the five typeface packages the title card is set in. Validated here
     // rather than trusted, because it reaches libass by family NAME and an unknown one
     // substitutes silently.
-    const FONT_PACK_IDS = ["editorial","retro","bold","classic","modern"];
+    const FONT_PACK_IDS = ["editorial","bold","classic","modern"];
     const fontPack = FONT_PACK_IDS.includes(String(body.fontPack || "")) ? String(body.fontPack) : "editorial";
 
     const clipRotate = (Array.isArray(body.clipRotate) ? body.clipRotate : [])
