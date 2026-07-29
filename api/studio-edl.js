@@ -36,7 +36,7 @@ const FX = new Set([
 ]);
 
 const MAX_SOURCES = 15;
-const MAX_TIMELINE = 80;
+const MAX_TIMELINE = 120;
 const CLIP_SECONDS = 4; // Seedance sweet spot
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,22 @@ function schemaBlock(duration, aspect, hasRefs) {
 }
 
 RULES
-- Target ${duration} seconds total. Timeline durations must sum to within 10% of that.
+- Target ${duration} seconds total.
+
+  DURATION IS COMPUTED AS: for each source entry, (out - in) / speed. For each
+  card entry, its "dur". Sum all of them.
+
+  Note what "speed" does. A slice from 1.0 to 1.75 played at speed 1.35 does NOT
+  run for 0.75 seconds. It runs for 0.75 / 1.35 = 0.56 seconds. Speeding a shot
+  up makes it SHORTER. Slowing it down makes it LONGER.
+
+  You will need roughly ${Math.round(duration / 0.75)} timeline entries to fill
+  ${duration} seconds. Keep a running total as you write. If you have written
+  ${Math.round(duration / 0.75)} entries and the total is still well under
+  ${duration}, keep going — do not stop at an entry count that feels finished.
+  Add it up before you return, and adjust until it lands within a second of
+  ${duration}.
+
 - Aspect is ${aspect}. Write scenes that compose for it.
 - Every "src" must match a source "id". "in" and "out" are seconds within that
   source, 0 to ${CLIP_SECONDS}, and "out" must exceed "in".
@@ -134,7 +149,9 @@ RULES
   earns its cost.
 - Cards have no "src". Use them for full-screen typography beats. Keep them
   short, 0.3-0.6s, except a final one.
-- Allowed fx: ${[...FX].join(", ")}. Empty array is the right answer most of the time.
+- Allowed fx: ${[...FX].join(", ")}. Leave "fx" empty on at least two thirds of
+  entries. Effects are punctuation. A clean cut reads as confident; an effect on
+  every shot reads as a template.
 - "speed" between 0.25 and 3.
 - At most ${MAX_SOURCES} sources.`;
 }
@@ -166,6 +183,29 @@ Change only what the instruction asks for. Everything the instruction does not
 mention must survive unchanged — same source ids, same scenes, same timeline
 entries, same voiceover wording. Return the complete revised EDL in the same
 shape.`;
+}
+
+function durationBrief(edl, actual, target) {
+  const dir = actual < target ? "TOO SHORT" : "TOO LONG";
+  const delta = Math.abs(round(target - actual));
+  return `This EDL is ${dir}. Its timeline runs ${round(actual)} seconds against a
+${target} second target — ${delta} seconds ${actual < target ? "short" : "over"}.
+
+${JSON.stringify(edl, null, 2)}
+
+Fix ONLY the timeline length. ${
+    actual < target
+      ? `Add roughly ${Math.ceil(delta / 0.75)} more entries. Draw them from the sources that
+already exist — new in/out points, new crops. Do not add sources. Spread the new
+entries through the edit rather than piling them at the end.`
+      : `Remove or shorten entries. Cut the weakest repeats first.`
+  }
+
+Remember: a source entry lasts (out - in) / speed seconds, and a card lasts its
+"dur". Sum them and check before returning.
+
+Keep the sources, the voiceover, the music, the cards and the end card exactly as
+they are. Return the complete EDL in the same shape.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,6 +281,7 @@ function parseJson(txt) {
 
 function validate(edl, opts) {
   const warnings = [];
+  opts = { ...opts, res: normRes(opts.res) };
 
   if (!edl || typeof edl !== "object") throw new Error("planner returned a non-object");
   if (!Array.isArray(edl.sources) || !edl.sources.length) throw new Error("no sources");
@@ -359,13 +400,15 @@ function validate(edl, opts) {
   }
 
   // --- cost, computed here, never taken from the model ---
-  const rate = RES[opts.res] || RES["720p"];
+  const resKey = opts.res;
+  const rate = RES[resKey];
   const genSeconds = edl.sources.reduce((a, s) => a + s.seconds, 0);
   edl.cost = {
-    res: opts.res,
+    res: resKey,
     generatedSeconds: genSeconds,
     usd: round(genSeconds * rate.usdPerSec),
     credits: Math.ceil(genSeconds * rate.creditsPerSec),
+    atRes: priceLadder(genSeconds),
   };
 
   // --- vo / music / end card ---
@@ -405,6 +448,30 @@ function validate(edl, opts) {
 
 const round = (n) => Math.round(n * 100) / 100;
 
+// "4K", "1080P", "  720p " all resolve. Anything unrecognised falls back to 720p.
+function normRes(v) {
+  const k = String(v || "").trim().toLowerCase().replace(/\s/g, "");
+  if (RES[k]) return k;
+  if (k === "480" || k === "sd") return "480p";
+  if (k === "720" || k === "hd") return "720p";
+  if (k === "1080" || k === "fhd") return "1080p";
+  if (k === "2160" || k === "2160p" || k === "uhd") return "4k";
+  return "720p";
+}
+
+// What this exact plan would cost at every resolution, so the picker can show
+// real prices for this ad rather than a generic rate card.
+function priceLadder(generatedSeconds) {
+  const out = {};
+  for (const [k, r] of Object.entries(RES)) {
+    out[k] = {
+      usd: round(generatedSeconds * r.usdPerSec),
+      credits: Math.ceil(generatedSeconds * r.creditsPerSec),
+    };
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 
 export default async function handler(req, res) {
@@ -416,7 +483,7 @@ export default async function handler(req, res) {
     const opts = {
       duration: [15, 30, 60].includes(Number(b.duration)) ? Number(b.duration) : 30,
       aspect: b.aspect === "16:9" ? "16:9" : "9:16",
-      res: RES[b.res] ? b.res : "720p",
+      res: normRes(b.res),
       refs: Array.isArray(b.refs) ? b.refs.filter(Boolean).slice(0, 3) : [],
       logo: b.logo || null,
       voice: b.voice || null,
@@ -453,9 +520,31 @@ export default async function handler(req, res) {
       parsed = parseJson(raw);
     }
 
-    const edl = validate(parsed, opts);
-    edl.plannedBy = engine;
+    let edl = validate(parsed, opts);
 
+    // The model reliably under-fills the timeline because it does not account for
+    // speed shortening a slice. One repair pass, no video spend either way.
+    const drift = Math.abs(edl.totalSeconds - opts.duration) / opts.duration;
+    if (drift > 0.12) {
+      try {
+        const fixRaw = engine === "openai"
+          ? await callOpenAI(SYSTEM, durationBrief(edl, edl.totalSeconds, opts.duration))
+          : await callGemini(SYSTEM, durationBrief(edl, edl.totalSeconds, opts.duration));
+        const fixed = validate(parseJson(fixRaw), opts);
+        const newDrift = Math.abs(fixed.totalSeconds - opts.duration) / opts.duration;
+        if (newDrift < drift) {
+          fixed.warnings.unshift(`length repaired: ${edl.totalSeconds}s -> ${fixed.totalSeconds}s`);
+          edl = fixed;
+        } else {
+          edl.warnings.unshift(`length repair attempted and rejected (${fixed.totalSeconds}s was no better)`);
+        }
+      } catch (e) {
+        console.warn("[edl] duration repair failed:", e.message);
+        edl.warnings.unshift("length repair failed — timeline is off target");
+      }
+    }
+
+    edl.plannedBy = engine;
     return res.status(200).json({ ok: true, edl });
   } catch (err) {
     console.error("[edl] failed:", err);
