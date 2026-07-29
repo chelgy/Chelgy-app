@@ -5686,6 +5686,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // subtitles; titles = the opening title, scene cards and showcase product labels.
   const [showCaptions,setShowCaptions] = useState(true);
   const [showTitles,setShowTitles]     = useState(true);
+  // A fashion film has nothing to caption and nothing to title. Both come on by
+  // default everywhere else, and leaving them on here would put three-word subtitles
+  // over a silent outfit montage — which is how the style would get judged as broken
+  // rather than as unsuited to what was switched on.
+  useEffect(()=>{
+    if(style === "fashion"){ setShowTitles(false); setShowCaptions(false); }
+  }, [style]);
   const [fontPack,setFontPack]         = useState("editorial");
   // Optional title override. Empty means "let the planner name it".
   const [userTitle,setUserTitle]       = useState("");
@@ -5774,6 +5781,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"vlog",        label:"Vlog",         note:"Real-world, day-in-the-life energy. Punchy cuts that keep it moving, but the visual moments survive — only true dead air gets cut.", ready:true },
     { id:"tutorial",    label:"Tutorial",     note:"Sit-down teaching. The AI finds your sections and inserts luxury chapter cards between them, with callout-style captions.", ready:true },
     { id:"process",     label:"Process",      note:"Cooking, cleaning, building, GRWM — anything where the doing is the point. Reads the footage itself to find where something is happening, so the silent working shots survive instead of being cut as dead air.", ready:true },
+    { id:"fashion",     label:"Fashion Film",  note:"An outfit, shot from every angle and cut fast to music \u2014 no talking, no captions, no labels. Give it two or three minutes of footage from a few positions and it finds the movement, cuts on it, and opens and closes on the same frame so it loops seamlessly on a feed.", ready:true },
     { id:"showcase",    label:"Showcase",     note:"Outfit-of-the-day, jewelry, product hauls — no talking needed. Tell Chelgy what to show and it WATCHES your footage to find each product, keeps that moment, and labels it on screen (e.g. “Jewelry · cherosi.com”) right next to the item so it never gets buried under TikTok's captions.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts and scene cards that punctuate the story. Golden Hour grade by default.", ready:true },
   ];
@@ -6132,15 +6140,23 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // vlog came back as nothing but talking, with every bit of the doing cut out.
       // It costs one extra ffmpeg output on a decode that already happens, not a second
       // pass, but it does mean these styles now always extract rather than sometimes.
-      const wantsActivity = ["process","vlog","cinematic"].includes(style);
+      // Fashion cuts on movement ALONE — there is no transcript to fall back on, so
+      // without the activity track the planner would be working from nothing at all.
+      // For the other styles this track is a second opinion; here it is the only one.
+      const wantsActivity = ["process","vlog","cinematic","fashion"].includes(style);
       // Showcase finds products by SIGHT, not sound — it needs no transcript at all,
       // so it skips the whole listen/transcribe loop below. A jewelry or OOTD video
       // is silent by design; running speech detection on it and rejecting it for
       // having no words was the bug.
+      // Fashion has no speech either, so transcription is skipped the same way — but
+      // it does NOT use the vision pass. Showcase needs vision because it must find
+      // and name products; a fashion film only needs to know when something moved,
+      // which the activity track already says far more cheaply.
       const visionOnly = style==="showcase";
+      const noSpeech = style==="showcase" || style==="fashion";
       let heardAnything = false;
       let extractionFailed = false;
-      for(let i = 0; i < n && !visionOnly; i++){
+      for(let i = 0; i < n && !noSpeech; i++){
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
 
@@ -6202,7 +6218,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
       }
-      if(!visionOnly && !heardAnything && !(wantsActivity && haveActivity)){
+      if(!noSpeech && !heardAnything && !(wantsActivity && haveActivity)){
         setErr(extractionFailed
           ? "We couldn't pull the audio out of " + (many ? "your clips" : "your video") + ", so there was nothing to transcribe. This is on our side, not your footage — the render engine may be restarting. Nothing has been charged; please try again in a minute."
           : style==="process"

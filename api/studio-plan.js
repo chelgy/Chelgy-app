@@ -252,7 +252,10 @@ export default async function handler(req, res) {
       .slice(0, 20);
     // A process video can be almost entirely silent, so it is the one style that may
     // be planned with no transcript at all.
-    if (!words.length && style !== "process") return res.status(400).json({ error: "Missing transcript." });
+    // Fashion joins process as a style that can be planned with no transcript at all.
+    // An outfit film has nobody talking in it by definition - requiring speech would
+    // reject exactly the footage the style exists for.
+    if (!words.length && style !== "process" && style !== "fashion") return res.status(400).json({ error: "Missing transcript." });
 
     const GKEY = (process.env.GEMINI_API_KEY || "").trim();
     const AKEY = (process.env.ANTHROPIC_API_KEY || "").trim();
@@ -308,6 +311,35 @@ export default async function handler(req, res) {
         "- Merge keeps under 0.4s apart. No kept segment shorter than 1s.\n" +
         "- ALSO identify 0-4 SCENE INTROS where the story clearly turns (a time jump, a place change, a twist). Short cinematic card labels (2-5 words, title case) in the storyteller's own words — like 'Three Months Earlier', 'The Turning Point', 'Back In Miami'. NEVER the word Chapter. Give each start time (seconds, ORIGINAL timeline).\n" +
         "- ALSO identify 2-4 B-ROLL moments: points where the speaker references something visual (a place, an object, a scene, a memory) and a full-screen cinematic photograph should cut in over their voice. For each give: s (seconds, ORIGINAL timeline, at the moment the thing is mentioned) and prompt (a vivid photography brief for that image — subject, setting, lighting, mood; absolutely no text or words in the image). Describe the scene NEUTRALLY, as a straight photograph: do NOT ask for a warm, cinematic, filmic, teal-and-orange or otherwise graded look. The render applies the film-look LUT to these inserts itself, so a pre-graded image would be graded twice and would jump out against the surrounding footage.\n";
+    // FASHION — an outfit film. No speech, no captions, no labels: rhythm and shape.
+    //
+    // Every other style here cuts on MEANING — what was said, what was done. This one
+    // cuts on TIME. The reference it comes from runs 22 shots in 15 seconds, most of
+    // them under half a second, and what makes it work is not any individual shot but
+    // the rate at which they arrive.
+    //
+    // So the rules are almost the inverse of talking-head. Do not preserve a thought.
+    // Do not keep a moment because it is complete. Take the frames where the subject
+    // is MOVING, hold them briefly, and cut. A shot that outstays its welcome is the
+    // only real failure in this format.
+    //
+    // The loop is not a flourish. Opening and closing on the same framing is what lets
+    // it play twice on a feed with no visible seam, and it is most of why the reference
+    // feels finished rather than merely fast.
+    const fashionRules =
+        "This is an OUTFIT FILM. Nobody is talking and nothing needs explaining. You are cutting for RHYTHM.\n" +
+        "\n" +
+        "You have ONE signal: the ACTIVITY TRACK above - how much of the picture is moving, second by second. Use it the way a dancer uses a beat.\n" +
+        "\n" +
+        "THE RULES:\n" +
+        "- SHORT. Most segments should be 0.3 to 1.2 seconds. A few may run to 2 seconds for a held pose. Nothing longer, ever.\n" +
+        "- Keep the moments with the MOST movement - a turn, a step, a bag swinging, fabric catching. Movement is the subject here.\n" +
+        "- Cut a walk into several pieces from different points rather than keeping one long walk. The same ten seconds of footage should become six cuts, not one.\n" +
+        "- Alternate wide and close where the footage allows it. Two wides in a row read as a mistake.\n" +
+        "- Drop anything static, anything where they are adjusting themselves or looking at the camera between takes, and anything out of focus unless the blur is directional and looks deliberate.\n" +
+        "- THE LOOP: the FIRST and LAST segments must come from the same framing - ideally the same shot, near its start and near its end. Played on repeat this hides the join entirely.\n" +
+        "- Aim for 18 to 30 segments in a 15 to 25 second film. If the footage cannot support that many, use what there is rather than padding with long holds.\n";
+
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
         "- The TRANSCRIPT below, as usual. This is the stronger of the two signals: if someone is talking, that moment matters.\n" +
@@ -386,7 +418,7 @@ export default async function handler(req, res) {
       "- This is not the same as repetition for emphasis. \"It is really, really good\" is deliberate and stays.\n";
 
     const cutRules =
-      (processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
+      (style === "fashion" ? fashionRules : processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
          "- IMPORTANT: in a vlog, silence is NOT automatically dead air — quiet gaps under ~4 seconds are usually the person showing something, walking, or letting a moment breathe. KEEP those (extend the surrounding kept segment across them) unless they clearly drag.\n" +
          "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), and only truly long dead air (over ~4-5s of nothing).\n" +
@@ -533,7 +565,11 @@ export default async function handler(req, res) {
       .map(k => ({ s: Math.max(0, Number(k.s) || 0), e: Math.min(duration || 1e9, Number(k.e) || 0) }))
       .filter(k => k.e - k.s >= 0.8)
       .sort((a, b) => a.s - b.s);
-    const mergeGap = style === "vlog" ? 4.0 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "cinematic" ? 0.4 : 0.3; // vlogs bridge visual moments; tutorials breathe; cinematic and talking-head cut tight
+    // Fashion merges almost nothing: 0.12s. The whole style IS the cut rate, and a
+    // merge gap that tidies away short gaps would quietly undo it - two 0.4s segments
+    // 0.3s apart becoming one 1.1s segment is the format collapsing into the thing it
+    // was trying not to be.
+    const mergeGap = style === "fashion" ? 0.12 : style === "vlog" ? 4.0 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "cinematic" ? 0.4 : 0.3; // vlogs bridge visual moments; tutorials breathe; cinematic and talking-head cut tight
     // A gap between two kept ranges means one of two completely different things,
     // and merging on time alone treated them identically:
     //
