@@ -57,6 +57,7 @@ const CA_NAV_LABELS = {
   "tools/backdrop": "Fake It",
   "tools/filmroom": "Film Room",
   "tools/storyboard": "Storyboard",
+  "tools/commercial": "Commercial",
   "tools/videoedit": "Fake It Video",
   "tools/highfashion": "High Fashion",
   "tools/beauty": "Beauty",
@@ -138,7 +139,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, commercial, videoedit.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -7843,6 +7844,263 @@ function thSay(e, fallback){
 }
 
 
+
+/* ═════════════════════════════════════════════════
+   COMMERCIAL — a finished ad, generated shot by shot.
+   ═════════════════════════════════════════════════
+
+   Plan first, then generate. The plan is EDITABLE before a single credit is spent,
+   which is the difference between a tool and a slot machine: every prompt is on screen
+   and can be rewritten, so a bad clip is something you saw coming rather than something
+   you paid for.
+
+   CLIPS ARE GENERATED AND CHARGED INDIVIDUALLY.
+   A 60-second commercial is four Seedance calls. If the third fails, the first two are
+   already made and paid for and there is no sense in throwing them away — so each clip
+   carries its own state and its own retry, and one failure costs one clip.
+
+   A FAILURE STOPS AND WAITS.
+   Auto-retry was the alternative and it is the wrong default here: a Seedance clip is
+   real money, and quietly spending it twice because something failed once is not a
+   kindness. It stops, says so, and leaves the button to you.
+*/
+function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
+  const [brief,setBrief]     = useState("");
+  const [format,setFormat]   = useState("continuous");
+  const [brand,setBrand]     = useState("");
+  const [look,setLook]       = useState("");
+  const [orientation,setOrient] = useState("portrait");
+  const [totalSec,setTotal]  = useState(15);
+  const [tier,setTier]       = useState("seedance720");
+  const [spoken,setSpoken]   = useState(true);
+  const [plan,setPlan]       = useState(null);
+  const [clips,setClips]     = useState([]);      // {status,url,err,pct}
+  const [busy,setBusy]       = useState(false);
+  const [err,setErr]         = useState("");
+  const [playing,setPlaying] = useState(0);
+  const vidRef = useRef(null);
+
+  const PER_SEC = { seedance480:CREDIT_COSTS.seedance480Sec, seedance720:CREDIT_COSTS.seedance720Sec,
+                    seedance1080:CREDIT_COSTS.seedance1080Sec, seedance4k:CREDIT_COSTS.seedanceSec };
+  const perSec = PER_SEC[tier] || CREDIT_COSTS.seedance720Sec;
+  const planCost = plan ? plan.clips.reduce((a,c)=>a+c.seconds*perSec, 0) : totalSec*perSec;
+  const done = clips.filter(c=>c.status==="done").length;
+  const allDone = plan && done === plan.clips.length;
+
+  async function makePlan(){
+    if(!brief.trim()){ setErr("Tell us what the commercial is about first."); return; }
+    setBusy(true); setErr(""); setPlan(null); setClips([]);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/studio-commercial", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({ brief:brief.trim(), format, brand, look, orientation, totalSec, spoken })
+      });
+      const d = await r.json();
+      if(!r.ok || !d || !Array.isArray(d.clips)) throw new Error((d&&d.error)||"Couldn't plan that.");
+      setPlan(d);
+      setClips(d.clips.map(()=>({ status:"idle", url:"", err:"", pct:0 })));
+    }catch(e){ setErr((e&&e.message)||"Something went wrong."); }
+    setBusy(false);
+  }
+
+  function editPrompt(i, val){
+    setPlan(p => p ? { ...p, clips: p.clips.map((c,ix)=> ix===i ? { ...c, prompt: val } : c) } : p);
+  }
+  const setClip = (i, patch) => setClips(cs => cs.map((c,ix)=> ix===i ? { ...c, ...patch } : c));
+
+  // One clip, start to finish. Everything here is per-clip on purpose — the cost, the
+  // failure, the retry — because that is the unit the person is actually buying.
+  async function runClip(i){
+    const c = plan.clips[i];
+    const cost = c.seconds * perSec;
+    if(Number(credits) < cost){ setErr("This clip costs "+cost.toLocaleString()+" credits."); onBuyCredits(); return; }
+    setClip(i, { status:"working", err:"", pct:0 });
+    try{
+      const started = await generateVideo(c.prompt, null, { quality:tier, orientation, duration:c.seconds, tool:"commercial" });
+      if(!started || !started.id) throw new Error((started&&started.error)||"The video service didn't start that clip.");
+      if(typeof started.balance === "number") onBalance(started.balance);
+      const out = await pollVideo(started.id, (pct)=> setClip(i, { pct: Math.round(pct||0) }));
+      const url = out && (out.url || out.video || (out.outputs && out.outputs[0]));
+      if(!url) throw new Error((out&&out.error)||"That clip came back empty.");
+      setClip(i, { status:"done", url, pct:100 });
+      try{ onToolUse("commercial", cost); }catch(_){}
+    }catch(e){
+      // Stops here deliberately. See the note at the top: no automatic second attempt.
+      setClip(i, { status:"failed", err:(e&&e.message)||"That clip failed." });
+    }
+  }
+
+  async function runAll(){
+    setErr("");
+    for(let i=0;i<plan.clips.length;i++){
+      if(clips[i] && clips[i].status === "done") continue;
+      await runClip(i);
+      // Stop the run on a failure rather than burning through the rest — if clip two
+      // failed, clips three and four are probably about to fail the same way.
+      const fresh = await new Promise(r=>setClips(cs=>{ r(cs); return cs; }));
+      if(fresh[i] && fresh[i].status === "failed") break;
+    }
+  }
+
+  const Chip = ({on,children,...p}) => (
+    <button {...p} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,padding:"8px 13px",cursor:"pointer",
+      border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.inkBlock:B.white,color:on?B.inkText:B.mid}}>{children}</button>
+  );
+
+  return (
+    <div style={{maxWidth:900,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Commercial</h3>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Describe the ad you want and it's written, shot and voiced for you — up to a minute, with sound and speech generated in. Nothing is filmed and nobody is hired.
+      </p>
+
+      <textarea value={brief} onChange={e=>setBrief(e.target.value)} disabled={busy} rows={3}
+        placeholder="A beauty ad — different women, each naming their favourite thing about the product, each somewhere unexpected"
+        style={{width:"100%",boxSizing:"border-box",padding:11,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,resize:"vertical",marginBottom:12}} />
+
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>
+        <input value={brand} onChange={e=>setBrand(e.target.value)} disabled={busy} placeholder="Brand (optional)"
+          style={{flex:"1 1 190px",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14}} />
+        <input value={look} onChange={e=>setLook(e.target.value)} disabled={busy} placeholder="Look — e.g. warm 35mm film, soft daylight"
+          style={{flex:"1 1 260px",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14}} />
+      </div>
+
+      <div style={{border:"1px solid "+B.stone,padding:13,marginBottom:14}}>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:8}}>Format</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+          <Chip on={format==="continuous"} disabled={busy} onClick={()=>setFormat("continuous")}>One story</Chip>
+          <Chip on={format==="anthology"} disabled={busy} onClick={()=>setFormat("anthology")}>Different people</Chip>
+        </div>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:0}}>
+          {format==="continuous"
+            ? "One person, one place, running straight through. The look is locked so it stays the same throughout."
+            : "A different person and place in every clip, tied together by one idea — “mine's the long-lasting wear,” said mid-skydive. The contrast is the point."}
+        </p>
+      </div>
+
+      <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:14}}>
+        <div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Length</div>
+          <div style={{display:"flex",gap:6}}>{[8,15,30,60].map(v=>(
+            <Chip key={v} on={totalSec===v} disabled={busy} onClick={()=>setTotal(v)}>{v}s</Chip>))}</div>
+        </div>
+        <div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Shape</div>
+          <div style={{display:"flex",gap:6}}>{[["portrait","9:16"],["landscape","16:9"],["square","1:1"]].map(([v,l])=>(
+            <Chip key={v} on={orientation===v} disabled={busy} onClick={()=>setOrient(v)}>{l}</Chip>))}</div>
+        </div>
+        <div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Quality</div>
+          <div style={{display:"flex",gap:6}}>{SEEDANCE_TIERS.map(([v,l])=>(
+            <Chip key={v} on={tier===v} disabled={busy} onClick={()=>setTier(v)}>{l}</Chip>))}</div>
+        </div>
+      </div>
+
+      <label style={{display:"flex",gap:9,alignItems:"flex-start",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.charcoal,lineHeight:1.5,marginBottom:16,cursor:"pointer"}}>
+        <input type="checkbox" checked={spoken} disabled={busy} onChange={e=>setSpoken(e.target.checked)} style={{marginTop:3}} />
+        <span><strong>People speak</strong>
+          <span style={{display:"block",color:B.mid,fontSize:11,lineHeight:1.6,marginTop:2}}>
+            Dialogue is generated and lip-synced. Turn off for music and atmosphere only.
+          </span>
+        </span>
+      </label>
+
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:"#B00",marginBottom:12}}>{err}</p>}
+
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
+        <button onClick={makePlan} disabled={busy||!brief.trim()}
+          style={{background:B.inkBlock,color:"#fff",border:"none",padding:"13px 26px",fontSize:12,letterSpacing:"0.14em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
+          {busy?"WRITING…":(plan?"REWRITE THE PLAN":"WRITE THE COMMERCIAL")}
+        </button>
+        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>
+          Planning is free. Filming it costs about {planCost.toLocaleString()} credits.
+        </span>
+      </div>
+
+      {plan && (
+        <div style={{borderTop:"2px solid "+B.charcoal,paddingTop:16}}>
+          <h4 style={{fontFamily:"serif",fontSize:21,margin:"0 0 5px"}}>{plan.title}</h4>
+          {plan.idea && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.charcoal,lineHeight:1.6,margin:"0 0 6px"}}>{plan.idea}</p>}
+          {plan.lockedDescription && (
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 6px"}}>
+              <strong>Locked through every clip:</strong> {plan.lockedDescription}
+            </p>
+          )}
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,margin:"0 0 14px"}}>
+            {plan.clips.length} clip{plan.clips.length>1?"s":""} · {plan.totalSec}s · {done} done
+          </p>
+
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+            <button onClick={runAll} disabled={busy||allDone}
+              style={{background:allDone?B.white:B.inkBlock,color:allDone?B.mid:"#fff",border:allDone?"1px solid "+B.stone:"none",padding:"12px 22px",fontSize:11,letterSpacing:"0.12em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:allDone?"default":"pointer"}}>
+              {allDone ? "ALL CLIPS DONE" : (done ? "FILM THE REST · "+(plan.clips.filter((c,i)=>clips[i]&&clips[i].status!=="done").reduce((a,c)=>a+c.seconds*perSec,0)).toLocaleString()+" CREDITS"
+                                                  : "FILM IT · "+planCost.toLocaleString()+" CREDITS")}
+            </button>
+          </div>
+
+          {plan.clips.map((c,i)=>{
+            const st = clips[i] || { status:"idle" };
+            return (
+              <div key={c.n} style={{borderTop:"1px solid "+B.stone,padding:"14px 0"}}>
+                <div style={{display:"flex",alignItems:"baseline",gap:9,marginBottom:7}}>
+                  <span style={{fontFamily:"serif",fontSize:20,color:B.charcoal}}>{c.n}</span>
+                  <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,fontWeight:700,color:B.charcoal}}>{c.slug}</span>
+                  <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,marginLeft:"auto"}}>
+                    {c.seconds}s · {(c.seconds*perSec).toLocaleString()} credits
+                  </span>
+                </div>
+
+                {c.why && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,margin:"0 0 7px"}}>{c.why}</p>}
+                {c.spoken && <p style={{fontFamily:"serif",fontSize:16,lineHeight:1.5,color:B.charcoal,margin:"0 0 8px",paddingLeft:11,borderLeft:"2px solid "+B.gold}}>“{c.spoken}”</p>}
+
+                <textarea value={c.prompt} onChange={e=>editPrompt(i, e.target.value)} disabled={st.status==="working"} rows={3}
+                  style={{width:"100%",boxSizing:"border-box",padding:9,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,lineHeight:1.5,color:B.mid,resize:"vertical",marginBottom:8}} />
+
+                {st.status==="done" && st.url && (
+                  <video src={st.url} controls playsInline style={{width:"100%",maxWidth:orientation==="portrait"?280:520,display:"block",border:"1px solid "+B.stone,marginBottom:8}} />
+                )}
+                {st.status==="failed" && (
+                  <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#B00",margin:"0 0 8px"}}>
+                    {st.err} Nothing else was filmed — edit the prompt above if you like, then run this clip again.
+                  </p>
+                )}
+
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  <Chip disabled={st.status==="working"} onClick={()=>runClip(i)}>
+                    {st.status==="working" ? "FILMING… "+(st.pct||0)+"%" : st.status==="done" ? "FILM AGAIN" : st.status==="failed" ? "TRY THIS CLIP AGAIN" : "FILM THIS CLIP"}
+                  </Chip>
+                  {st.status==="done" && st.url && (
+                    <a href={st.url} download={"chelgy-clip-"+c.n+".mp4"} target="_blank" rel="noreferrer"
+                      style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,textDecoration:"underline"}}>download</a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {allDone && (
+            <div style={{borderTop:"2px solid "+B.charcoal,marginTop:18,paddingTop:16}}>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:8}}>Watch it through</div>
+              {/* Played as a playlist rather than one file. Stitching into a single mp4
+                  is the render server's job and comes next; until then this is the whole
+                  commercial in order, which is what you need to judge whether it works. */}
+              <video ref={vidRef} src={(clips[playing]||{}).url} controls autoPlay playsInline
+                onEnded={()=>{ if(playing < clips.length-1) setPlaying(playing+1); }}
+                style={{width:"100%",maxWidth:orientation==="portrait"?320:640,display:"block",border:"1px solid "+B.stone}} />
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,marginTop:7}}>
+                Clip {playing+1} of {clips.length}. {playing>0 && <button onClick={()=>setPlaying(0)} style={{background:"none",border:"none",padding:0,color:B.charcoal,textDecoration:"underline",cursor:"pointer",font:"inherit"}}>start again</button>}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 /* ═════════════════════════════════════════════════
    STORYBOARD — a shoot plan you can work through on the day.
    ═════════════════════════════════════════════════
@@ -10217,6 +10475,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="filmroom"&&<FilmRoom />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="commercial"&&<Commercial credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
@@ -10713,7 +10972,7 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", commercial:"Commercial", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
@@ -10776,7 +11035,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Commercial",tool:"commercial"}, {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
