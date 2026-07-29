@@ -167,6 +167,9 @@ export default async function handler(req, res) {
       "THE COMMERCIAL: " + brief + "\n" +
       (brand ? "BRAND: " + brand + "\n" : "") +
       (look ? "LOOK THEY WANT: " + look + "\n" : "") +
+      (/anima|cartoon|illustrat|3d|render|stylis|stylize|claymation|anime|paper|puppet/i.test(look)
+        ? "They have asked for a NON-PHOTOREAL look. Follow what they asked for and ignore the live-action rule below.\n"
+        : "") +
       (product
         ? "THE PRODUCT — it must physically appear: " + product + "\n" +
           "Put it in the action rather than on a shelf. Someone lifts it, opens it, uses it, sets it down. A product a person handles reads as real; a product placed in shot reads as an advert for one.\n"
@@ -181,6 +184,8 @@ export default async function handler(req, res) {
         ? "- Seedance generates lip-synced speech. When someone talks, put the exact line in the prompt as spoken dialogue, in quotes, and say who says it and how.\n"
         : "- NO speech and no dialogue anywhere. These clips carry music and atmosphere only.\n") +
       "- A clip longer than about 8 seconds should contain more than one beat. Use 'Shot 1: ... Shot 2: ...' inside a single prompt to sequence them.\n" +
+      "- LIVE ACTION, PHOTOREAL. Every clip is footage of real people and real places, shot on a real camera. Say so in the prompt: real human skin with pores and texture, natural imperfections, real fabric, real depth of field, the look of a camera rather than a render.\n" +
+      "- Never write anything that pulls it toward animation: no 'stylised', no 'illustration', no 'render', no '3D', no 'vibrant colourful cartoon energy'. Words like that are why a clip comes back looking animated when nobody asked for it — the model reads enthusiasm as a style instruction.\n" +
       "- No text, captions, logos or writing anywhere in frame. Those are added afterwards and a model rendering them produces garbled letters.\n\n";
 
     const formatRules = format === "voiceover"
@@ -193,7 +198,9 @@ export default async function handler(req, res) {
       : format === "continuous"
       ? "FORMAT — CONTINUOUS. One subject, one world, one thread running through it.\n" +
         "- Write a LOCKED DESCRIPTION: the subject's age, build, hair, clothing, and the place, in about 25 words. Reproduce it VERBATIM at the start of every single shot prompt. Not paraphrased — the same words. This is the only thing holding the person's face together across clips.\n" +
-        "- The clips must run in order as one continuous piece of time. Each begins roughly where the last ended.\n"
+        "- The clips must run in order as one continuous piece of time. Each begins roughly where the last ended.\n" +
+        "- CHOOSE THE SHAPE OF EACH CLIP YOURSELF. One clip can be a single unbroken take; another can cut two or three times within the same scene — a wide, then a close, then a detail. Both are one continuous piece of time; they just cut differently. Vary it rather than doing the same thing every clip.\n" +
+        "- Where a clip cuts, structure it in one paragraph: 'Shot 1: [one action]. Hard cut to Shot 2: [one action].' One action per block — if three things happen, that is three blocks.\n"
       : "FORMAT — ANTHOLOGY. Deliberately different people, places and moments, held together by one idea.\n" +
         "- Every clip is a DIFFERENT person in a DIFFERENT place. Vary age, appearance and setting hard — that contrast is the whole idea of the film.\n" +
         // Several whole scenarios inside ONE generation, written the way the model
@@ -213,10 +220,11 @@ export default async function handler(req, res) {
         //
         // Five shots in ten seconds is a real shape, not a stretch. Beats can be two
         // seconds each.
-        "- PACK SEVERAL SCENARIOS INTO EACH CLIP — up to FIVE, which is the model's limit. A " + Math.max(...lengths) + " second clip should hold " + Math.min(5, Math.max(2, Math.round(Math.max(...lengths) / 3))) + " complete vignettes.\n" +
-        "- Structure every clip prompt like this, in one paragraph: 'Shot 1: [one action]. Hard cut to Shot 2: [one action]. Hard cut to Shot 3: [one action].' and so on.\n" +
+        "- CHOOSE THE SHAPE OF EACH CLIP YOURSELF. A clip can be ONE continuous scene held all the way through, or two or three cuts within one scene, or up to FIVE separate vignettes in completely different places. Five is the model's hard limit per generation.\n" +
+        "- Vary it across the commercial. A film where every clip is five rapid vignettes is exhausting, and one where every clip is a single held scene is slow. Let the moment decide: open on something that breathes, pack the middle, land on one clear image.\n" +
+        "- Where a clip holds more than one thing, structure it in one paragraph: 'Shot 1: [one action]. Hard cut to Shot 2: [one action].' and so on.\n" +
         "- ONE ACTION PER SHOT BLOCK. If three things need to happen, that is three blocks. Piling actions into one block is what makes these come back muddled.\n" +
-        "- Each block is a COMPLETELY DIFFERENT person in a COMPLETELY DIFFERENT location, unrelated to the block before it. Describe each fully — age, appearance, clothing, room. Do not let them blur together.\n" +
+        "- Where a clip holds separate vignettes, each block is a COMPLETELY DIFFERENT person in a COMPLETELY DIFFERENT location, unrelated to the block before it. Describe each fully — age, appearance, clothing, room. Do not let them blur together.\n" +
         "- Give every one of them their own spoken line, all variations on the same idea.\n" +
         "- THE ANCHOR IS THE LIGHT. Since the cast changes every few seconds, name one lighting and colour recipe at the START and hold it across every block — it is the only thing making these one film rather than five.\n" +
         "- End the prompt with GLOBAL RENDER NOTES, once: the camera identity, the lighting recipe again, and what to avoid. Do not repeat them inside each block.\n" +
