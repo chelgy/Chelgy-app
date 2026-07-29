@@ -249,7 +249,16 @@ export default async function handler(req, res) {
     // as its own field rather than being split out of one string downstream.
     const subtitle = typeof body.subtitle === "string" ? body.subtitle.slice(0, 120) : "";
     const orientation = body.orientation === "landscape" ? "landscape" : "portrait";
-    const style = ["vlog", "tutorial", "cinematic"].includes(body.style) ? body.style : "talkinghead";
+    // EVERY style the app offers. This listed three of seven, so process, fashion and
+    // showcase were all rewritten to "talkinghead" before leaving Vercel — and every
+    // gate downstream tests `style === "fashion"`. The result: no silent track, no
+    // beat snapping, no motion blur, no rgb shift, no burns, no ghost, no glitch, no
+    // double exposure, no whip-pans. All of it built, none of it ever reached.
+    //
+    // Same failure as LOOKS immediately below, and as chapters/broll in server.js: a
+    // whitelist that stopped being updated while the thing it guards grew.
+    const STYLES = ["talkinghead", "vlog", "tutorial", "process", "fashion", "showcase", "cinematic"];
+    const style = STYLES.includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
     // Every look the render server has a .cube for. This list MUST stay in step with
     // LOOK_FILES in the render server's render.js — it was left at just wolf/luxury
