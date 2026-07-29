@@ -121,7 +121,19 @@ const GENRES = {
   hiphop:     "Hip-hop underscore. Boom-bap drums with a soft swing, warm rounded sub bass, muted piano chords and dusty sampled texture, light vinyl crackle. Confident and head-nodding without ever getting busy. Around 88 BPM.",
   pop:        "Modern pop underscore. Bright synth chords, clean plucked lead line, tight programmed drums and a rounded bass. Polished and upbeat, radio-clean but held back so it sits under a voice. Around 104 BPM.",
   afrobeats:  "Afrobeats underscore. Rolling log-drum pattern, shaker and rim percussion, warm rounded bass, bright plucked guitar figures and soft marimba. Sunlit and rhythmic, danceable but restrained. Around 104 BPM.",
-  dreampop:   "Dream pop underscore. Reverb-drenched electric guitar with slow chorus and tremolo, hazy analogue synth pads, soft brushed drums set far back in the mix. Washed-out, nostalgic and weightless. Around 92 BPM."
+  dreampop:   "Dream pop underscore. Reverb-drenched electric guitar with slow chorus and tremolo, hazy analogue synth pads, soft brushed drums set far back in the mix. Washed-out, nostalgic and weightless. Around 92 BPM.",
+  // Downtempo / organic house. The one genre here with a real pulse, which makes it
+  // the only sensible choice for a silent montage that has to cut on the beat —
+  // every other entry above is a bed with no grid to snap to.
+  //
+  // Written as an underscore like the rest, but NOT flattened into ambience: the
+  // four-to-the-floor is the whole point. "Held low in the mix" rather than "no
+  // drums", or HOUSE_STYLE's restraint clause turns it into a pad.
+  downtempo:  "Downtempo organic-house underscore. Steady hypnotic four-on-the-floor pulse held low in the mix, warm analogue sub bass, hand percussion, shakers and rim clicks, filtered pads and one repeating melodic figure with long delay. Nocturnal, hypnotic and unhurried — moving continuously without ever building or dropping. Around 118 BPM.",
+  // French Impressionist piano — Satie, Debussy, Ravel. Distinct from `classical`
+  // above, which is a string chamber ensemble: this is solo piano, modal, and much
+  // slower. No pulse at all, so it is the wrong choice for anything beat-cut.
+  frenchclassical: "French Impressionist solo piano underscore in the manner of Satie and Debussy. Felt piano, close and intimate, modal and whole-tone harmony, unhurried phrasing with generous space between figures and soft sustain pedal. Still, elegant and faintly melancholy, no percussion of any kind. Around 66 BPM."
 };
 const GENRE_IDS = Object.keys(GENRES);
 

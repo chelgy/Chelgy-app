@@ -1307,7 +1307,10 @@ function pointToClip(t, offsets){
 // normal and double time at plus or minus 12% around this, so a hint of 88 still finds
 // a track that came back at 176. Kept here because the client is what knows the genre.
 const GENRE_BPM = { classical:70, orchestral:80, piano:68, ambient:60, acoustic:90, lofi:82,
-                    electronic:100, jazz:88, hiphop:88, pop:104, afrobeats:104, dreampop:92 };
+                    electronic:100, jazz:88, hiphop:88, pop:104, afrobeats:104, dreampop:92,
+                    // Downtempo is the only genre here with a real grid, which makes it
+                    // the one worth snapping cuts to. 118 matches the reference track.
+                    downtempo:118, frenchclassical:66 };
 
 async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint){
   try{
@@ -5717,6 +5720,22 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // "auto" lets the planner choose from what the video is about, which is usually
   // right and is why it stays the default. The rest are for when it isn't.
   const [musicGenre,setMusicGenre] = useState("auto");
+  // Fashion is a SILENT montage — the reference is continuous music, no dialogue,
+  // and natural sound removed entirely. Rendered with music off it isn't the style
+  // with a missing extra, it's the style inverted: street noise under jump cuts.
+  //
+  // It also cuts on TIME rather than on speech, and beat snapping only runs when
+  // there's a score, so silent Fashion has nothing to snap to and the cuts land
+  // wherever they fall.
+  //
+  // So selecting Fashion turns the score on and picks downtempo, which is the only
+  // genre with a real grid. Both remain fully overridable — this sets a starting
+  // point, it does not lock anything, and the credit cost is shown as always.
+  useEffect(()=>{
+    if(style!=="fashion") return;
+    setMusic(m => m==="off" ? "score" : m);
+    setMusicGenre(g => g==="auto" ? "downtempo" : g);
+  },[style]);
   // "score" is engine-neutral on purpose. It's Lyria 3 Pro today; if that's swapped
   // for another model the UI, the state and the stored value all stay put and only
   // api/studio-music.js changes.
@@ -6731,12 +6750,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       {music==="score" && (<>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"10px 0 8px"}}>Style of score</p>
         <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-          {[["auto","Match my video"],["classical","Classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"],["hiphop","Hip-hop"],["pop","Pop"],["afrobeats","Afro beats"],["dreampop","Dream pop"]].map(([v,l])=>(
+          {[["auto","Match my video"],["downtempo","Downtempo · organic house"],["classical","Classical"],["frenchclassical","French classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"],["hiphop","Hip-hop"],["pop","Pop"],["afrobeats","Afro beats"],["dreampop","Dream pop"]].map(([v,l])=>(
             <button key={v} onClick={()=>setMusicGenre(v)} style={{padding:"8px 14px",border:"1px solid "+(musicGenre===v?B.charcoal:B.stone),background:musicGenre===v?B.inkBlock:B.white,color:musicGenre===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
-          {musicGenre==="auto"
+          {style==="fashion"
+            ? "Fashion films are silent — the score carries the whole edit, and cuts are snapped to its beat. Downtempo is picked for you because it has a steady pulse to cut against; pick another if you'd rather, but the beatless styles (Ambient, Piano, French classical) give the editor nothing to snap to."
+            : musicGenre==="auto"
             ? "We'll choose the style from what you're actually talking about."
             : "Composed in this style, with the mood matched to your video."}
         </p>
