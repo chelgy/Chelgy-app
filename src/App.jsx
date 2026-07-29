@@ -7983,6 +7983,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const [aspect,setAspect]     = useState("9:16");
   const [res,setRes]           = useState("720p");
   const [refs,setRefs]         = useState([]);      // product photographs, as data urls
+  const [lut,setLut]           = useState("");     // "" = ungraded
   const [plan,setPlan]         = useState(null);
   const [shots,setShots]       = useState([]);      // per source: {status,url,pct,err}
   const [busy,setBusy]         = useState(false);
@@ -8001,6 +8002,18 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const [captions,setCaptions] = useState(true);
   const [vo,setVo]             = useState(null);    // { url, words, seconds }
   const [music,setMusic]       = useState("");      // url
+
+  // The same nine looks the video editor uses. These ids are wire values — the render
+  // server keys its .cube files off them — so the label is free to change and the id
+  // is not. Generated footage is already Rec.709, so it takes the film LOOK only and
+  // no camera conversion; the assembler asks for "standard", which resolves to no
+  // conversion, exactly as a generated bridge shot does in the video editor.
+  const LOOKS = [
+    ["", "None"], ["wolf", "Golden Hour"], ["luxury", "Clean Luxury"],
+    ["kodak6", "Sunlit Film"], ["kodak7", "Soft Daylight"], ["movie3", "Modern Cinema"],
+    ["movie5", "Amber Dusk"], ["screen2", "High Key"], ["screen3", "Editorial"],
+    ["timeless", "Timeless"],
+  ];
 
   const TIER = { "480p":"seedance480", "720p":"seedance720", "1080p":"seedance1080", "4k":"seedance4k" };
   const orientation = aspect === "16:9" ? "landscape" : "portrait";
@@ -8028,7 +8041,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
         body: JSON.stringify({
-          subject: subject.trim(), duration, aspect, res, refs,
+          subject: subject.trim(), duration, aspect, res, refs, lut: lut || null,
           revision: revising ? revise.trim() : "", priorEdl: revising ? plan : null
         })
       });
@@ -8264,6 +8277,14 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
         ))}</div>
         <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:2, lineHeight:1.5 }}>
           Resolution sets what the shots cost. The cut is the same either way — plan at 480p to see the film cheaply, then re-film at 1080p once it reads.
+        </div>
+
+        <div style={{ ...lbl, marginTop:16 }}>Grade</div>
+        <div>{LOOKS.map(([v,l])=>(
+          <button key={v||"none"} disabled={busy} onClick={()=>setLut(v)} style={pill(lut===v)}>{l}</button>
+        ))}</div>
+        <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:2, lineHeight:1.5 }}>
+          The same film looks the video editor grades with. Burned into each shot as it renders, so the whole ad matches rather than each generation arriving its own colour.
         </div>
 
         <div style={{ ...lbl, marginTop:16 }}>Product photographs (optional, up to 3)</div>
