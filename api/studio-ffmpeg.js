@@ -257,7 +257,7 @@ export default async function handler(req, res) {
     //
     // Same failure as LOOKS immediately below, and as chapters/broll in server.js: a
     // whitelist that stopped being updated while the thing it guards grew.
-    const STYLES = ["talkinghead", "vlog", "tutorial", "process", "fashion", "showcase", "cinematic"];
+    const STYLES = ["talkinghead", "vlog", "tutorial", "process", "fashion", "showcase", "cinematic", "entrepreneur", "realestate"];
     const style = STYLES.includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
     // Every look the render server has a .cube for. This list MUST stay in step with
