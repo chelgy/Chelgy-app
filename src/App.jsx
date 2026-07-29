@@ -5716,7 +5716,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [shBusy,setShBusy]         = useState(false);
   const [shStage,setShStage]       = useState("");
   const [shErr,setShErr]           = useState("");
-  const [music,setMusic]           = useState("off");  // "off" | "score"
+  const [music,setMusic]           = useState("off");  // "off" | "score" | "own"
+  const [ownMusic,setOwnMusic]     = useState(null);  // { url, name } — a track they uploaded
+  const [ownBusy,setOwnBusy]       = useState(false);
+  const [ownErr,setOwnErr]         = useState("");
   // "auto" lets the planner choose from what the video is about, which is usually
   // right and is why it stays the default. The rest are for when it isn't.
   const [musicGenre,setMusicGenre] = useState("auto");
@@ -5785,7 +5788,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // Process costs what Cinematic costs: it runs the same b-roll generation and adds
   // a full video decode on every clip that the speech-only styles never pay for.
   const BASE_COST = (style==="cinematic"||style==="process") ? CREDIT_COSTS.editorCinematic : CREDIT_COSTS.editorQuick;
-  const MUSIC_EST = music==="off" ? 0 : CREDIT_COSTS.musicScore;
+  // Their own track costs nothing — there is nothing to compose. Only the AI score
+  // carries the music charge.
+  const MUSIC_EST = music==="score" ? CREDIT_COSTS.musicScore : 0;
   // Only cinematic and process ever generate b-roll, and the planner is capped at 4
   // stills, so that is the ceiling quoted. Fewer cues means fewer images and the
   // charge is per image at generation time, so this is an upper bound, not a promise.
@@ -6595,7 +6600,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       // ── 3d. The score ──
       let musicUrl = null;
-      if(music!=="off"){
+      if(music==="own"){
+        // Already uploaded and already a public URL, so there is nothing to generate,
+        // nothing to poll and nothing to charge. It joins the mix exactly where a
+        // composed score would.
+        musicUrl = ownMusic && ownMusic.url ? ownMusic.url : null;
+      } else if(music!=="off"){
         setStage("Composing your score…");
         try{
           const mus = await studioMusic((plan.music && plan.music.prompt) || "", style, grade, musicGenre);
@@ -6626,7 +6636,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         style, footage, grade, wordsForRender, clipFootages,
         chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null,
         subtitleForRender, (ctx.clips||[]).map(c=>Number(c.rotate)||0), ctx.fontPack || "editorial",
-        GENRE_BPM[ctx.musicGenre] || 100
+        // 0 means "unknown", which makes the beat finder sweep the whole tempo range
+        // instead of refining around a number. We know what we asked Lyria for; we
+        // know nothing about a track someone uploaded.
+        ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100)
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -6743,14 +6756,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Music</p>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-        {[["off","No music",true],["score","Cinematic score · original",true],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
+        {[["off","No music",true],["score","Cinematic score · original",true],["own","My own song",true],["licensed","Licensed tracks",false]].map(([v,l,ready])=>(
           <button key={v} disabled={!ready} onClick={()=>ready&&setMusic(v)} style={{padding:"9px 16px",border:"1px solid "+(music===v?B.charcoal:B.stone),background:music===v?B.inkBlock:B.white,color:music===v?B.inkText:(ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:ready?"pointer":"default",opacity:ready?1:0.55}}>{l}{!ready&&" · soon"}</button>
         ))}
       </div>
       {music==="score" && (<>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"10px 0 8px"}}>Style of score</p>
         <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-          {[["auto","Match my video"],["runway","Runway · fashion house"],["downtempo","Downtempo · organic house"],["classical","Classical"],["frenchclassical","French classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"],["hiphop","Hip-hop"],["pop","Pop"],["afrobeats","Afro beats"],["dreampop","Dream pop"]].map(([v,l])=>(
+          {[["auto","Match my video"],["classical","Classical"],["frenchclassical","French classical"],["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"],["hiphop","Hip-hop"],["pop","Pop"],["afrobeats","Afro beats"],["dreampop","Dream pop"],["runway","Runway · fashion house"],["downtempo","Downtempo · organic house"]].map(([v,l])=>(
             <button key={v} onClick={()=>setMusicGenre(v)} style={{padding:"8px 14px",border:"1px solid "+(musicGenre===v?B.charcoal:B.stone),background:musicGenre===v?B.inkBlock:B.white,color:musicGenre===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
@@ -6762,8 +6775,41 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             : "Composed in this style, with the mood matched to your video."}
         </p>
       </>)}
+      {music==="own" && (<>
+        <div style={{marginBottom:10}}>
+          <input type="file" accept="audio/*" disabled={ownBusy}
+            onChange={async (e)=>{
+              const f = (e.target.files||[])[0];
+              try{ e.target.value=""; }catch(_){}
+              if(!f) return;
+              setOwnErr(""); setOwnBusy(true);
+              try{
+                const uid = (user && user.id) || "anon";
+                const safe = (f.name||"track").replace(/[^a-zA-Z0-9._-]/g,"_").slice(-60);
+                const url = await uploadSiteAudioFile(f, uid + "/own-music-" + Date.now() + "-" + safe);
+                if(!url) throw new Error("Couldn't upload that track.");
+                setOwnMusic({ url, name: f.name || "your track" });
+              }catch(err){ setOwnErr((err&&err.message)||"Couldn't upload that track."); }
+              setOwnBusy(false);
+            }}
+            style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal}} />
+        </div>
+        {ownBusy && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,margin:"0 0 10px"}}>Uploading…</p>}
+        {ownErr && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B3261E",margin:"0 0 10px"}}>{ownErr}</p>}
+        {ownMusic && (
+          <div style={{marginBottom:10}}>
+            <audio src={ownMusic.url} controls style={{width:"100%",display:"block",marginBottom:6}} />
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,margin:0}}>{ownMusic.name}</p>
+          </div>
+        )}
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+          Your track carries the whole edit and the cuts are snapped to its beat — the tempo is found from the audio itself, so nothing needs entering. A short track is looped to fill the video. Use music you have the rights to.
+        </p>
+      </>)}
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>
-        {music==="score"
+        {music==="own"
+          ? "No credits — there is nothing to compose."
+          : music==="score"
           ? "An original score is composed for this video — written from what you actually talk about, then mixed underneath your voice so it swells in the gaps and ducks out of the way when you speak. + "+CREDIT_COSTS.musicScore+" credits, however long the video is."
           : "Add an original AI-composed score for +"+CREDIT_COSTS.musicScore+" credits, flat. Licensed real-artist tracks are coming."}
       </p>
