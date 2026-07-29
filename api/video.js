@@ -76,7 +76,11 @@ function realUsd(quality, duration) {
   const perSec = {
     veolite: 0.05, veo: 0.40,   // Google Veo 3.1 direct
     kling4k: 0.42,                              // Kling 3.0 4K
-    seedance480: 0.12, seedance720: 0.24, seedance1080: 0.36, seedance4k: 0.60 // Seedance 2.0 (4K = estimate)
+    // Measured against the WaveSpeed invoice, not estimated: 15s costs $1.62 / $3.50 /
+    // $10.00 / $16.20. The old figures had 1080p at 0.36 when it is really 0.667, which
+    // made the margin look healthy in the log while the tier was actually selling at a
+    // loss — a cost log that flatters is worse than no cost log.
+    seedance480: 0.108, seedance720: 0.233, seedance1080: 0.667, seedance4k: 1.080
   }[quality];
   if (perSec != null) return Math.round(perSec * d * 10000) / 10000;
   const base5 = quality === "1080p" ? 0.75 : quality === "720p" ? 0.30 : 0.15; // WAN 2.x per 5s
@@ -100,8 +104,8 @@ function videoCost(quality, duration, wantAudio) {
   if (quality === "kling4k") return 1300 * d;
   if (quality === "seedance480") return 300 * d;
   if (quality === "seedance720") return 600 * d;
-  if (quality === "seedance1080") return 900 * d;
-  if (quality === "seedance4k") return 1800 * d;
+  if (quality === "seedance1080") return 1800 * d;
+  if (quality === "seedance4k") return 2800 * d;
   const base = quality === "1080p" ? 2500 : quality === "720p" ? 1000 : 500;
   return Math.round(base * d / 5);
 }

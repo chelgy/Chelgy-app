@@ -7877,6 +7877,7 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [clips,setClips]     = useState([]);      // {status,url,err,pct}
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
+  const [keyFrame,setKeyFrame] = useState("");
   const [playing,setPlaying] = useState(0);
   const vidRef = useRef(null);
 
@@ -7905,6 +7906,55 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     setBusy(false);
   }
 
+  // ONE key frame, generated once, for the continuous format only.
+  //
+  // The locked description holds a face together only as well as words can, which is
+  // not very well — the model reads the same 25 words four times and draws four
+  // different people. A real image is a far stronger anchor, so clip 1 animates it
+  // and every clip after starts from the last frame of the one before.
+  //
+  // The prompt fights GPT's house style deliberately. Left alone it returns something
+  // warm, contrasty and HDR-looking, and because every clip inherits from this frame,
+  // that over-processing would be baked into the entire commercial rather than
+  // showing up in one image you could simply regenerate.
+  async function makeKeyFrame(){
+    if(!plan || !plan.lockedDescription) return "";
+    if(Number(credits) < CREDIT_COSTS.imageHD){ onBuyCredits(); return ""; }
+    const prompt =
+      "A single frame from a live-action commercial.\n\n" +
+      plan.lockedDescription + "\n" +
+      (look.trim() ? ("Look: " + look.trim() + ".\n") : "") +
+      "\nShoot it like a real photograph taken on set. Natural light with normal contrast and a normal dynamic range. " +
+      "NOT HDR, not high contrast, no warm orange grade, no glow, no bloom, no heavy sharpening, no beauty retouching, no plastic skin. " +
+      "Ordinary skin texture with pores and small imperfections. Flat enough that a colourist could still grade it. " +
+      "No text, no logos, no captions anywhere in frame.";
+    const d = await generateOpenAIImage(prompt, null, orientation==="portrait"?"9:16":orientation==="square"?"1:1":"16:9", "2K");
+    if(typeof d?.balance === "number") onBalance(d.balance);
+    return (d && d.image) || "";
+  }
+
+  // The last frame of one clip becomes the first of the next. Needs the video to be
+  // readable cross-origin; when it isn't, the canvas taints and this throws, so the
+  // caller falls back to the key frame rather than losing the clip.
+  async function lastFrameOf(url){
+    return await new Promise((res, rej)=>{
+      const v = document.createElement("video");
+      v.crossOrigin = "anonymous"; v.muted = true; v.playsInline = true; v.preload = "auto";
+      const bail = setTimeout(()=>rej(new Error("timeout")), 20000);
+      v.onloadeddata = ()=>{ try{ v.currentTime = Math.max(0, (v.duration||1) - 0.1); }catch(e){ rej(e); } };
+      v.onseeked = ()=>{
+        try{
+          const c = document.createElement("canvas");
+          c.width = v.videoWidth || 720; c.height = v.videoHeight || 1280;
+          c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+          clearTimeout(bail); res(c.toDataURL("image/jpeg", 0.92));
+        }catch(e){ clearTimeout(bail); rej(e); }
+      };
+      v.onerror = ()=>{ clearTimeout(bail); rej(new Error("couldn't read that clip back")); };
+      v.src = url;
+    });
+  }
+
   function editPrompt(i, val){
     setPlan(p => p ? { ...p, clips: p.clips.map((c,ix)=> ix===i ? { ...c, prompt: val } : c) } : p);
   }
@@ -7918,7 +7968,22 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
     if(Number(credits) < cost){ setErr("This clip costs "+cost.toLocaleString()+" credits."); onBuyCredits(); return; }
     setClip(i, { status:"working", err:"", pct:0 });
     try{
-      const started = await generateVideo(c.prompt, null, { quality:tier, orientation, duration:c.seconds, tool:"commercial" });
+      // Only the continuous format uses a start image. The anthology one is meant to
+      // look different every time, so anchoring it would be working against the idea.
+      let startImg = null;
+      if(plan.format === "continuous"){
+        let kf = keyFrame;
+        if(!kf){ setClip(i, { note:"Making the key frame…" }); kf = await makeKeyFrame(); if(kf) setKeyFrame(kf); }
+        startImg = kf || null;
+        const prev = i > 0 ? clips[i-1] : null;
+        if(prev && prev.status === "done" && prev.url){
+          setClip(i, { note:"Matching the last shot…" });
+          try{ startImg = await lastFrameOf(prev.url); }
+          catch(_){ /* falls back to the key frame — a weaker anchor, but an anchor */ }
+        }
+      }
+      setClip(i, { note:"" });
+      const started = await generateVideo(c.prompt, startImg, { quality:tier, orientation, duration:c.seconds, tool:"commercial" });
       if(!started || !started.id) throw new Error((started&&started.error)||"The video service didn't start that clip.");
       if(typeof started.balance === "number") onBalance(started.balance);
       const out = await pollVideo(started.id, (pct)=> setClip(i, { pct: Math.round(pct||0) }));
@@ -8069,7 +8134,7 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
 
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <Chip disabled={st.status==="working"} onClick={()=>runClip(i)}>
-                    {st.status==="working" ? "FILMING… "+(st.pct||0)+"%" : st.status==="done" ? "FILM AGAIN" : st.status==="failed" ? "TRY THIS CLIP AGAIN" : "FILM THIS CLIP"}
+                    {st.status==="working" ? (st.note || ("FILMING… "+(st.pct||0)+"%")) : st.status==="done" ? "FILM AGAIN" : st.status==="failed" ? "TRY THIS CLIP AGAIN" : "FILM THIS CLIP"}
                   </Chip>
                   {st.status==="done" && st.url && (
                     <a href={st.url} download={"chelgy-clip-"+c.n+".mp4"} target="_blank" rel="noreferrer"
@@ -10854,8 +10919,8 @@ const CREDIT_COSTS = {
   veoLiteSec: 150,   // Veo 3.1 Lite per second, 720p w/ audio ($0.05/s, ~3x markup) — the cheap tier
   veoFastSec: 300,   // Veo 3.1 Fast per second, 720p w/ audio ($0.10/s, ~3x markup)
   klingSec: 1300,  // 4K Ultra per second — Kling 3.0 4K ($0.42/s, audio included)
-  seedanceSec: 1800, // 4K — Seedance 2.0 4K, ~2x markup (4K true cost is an estimate — verify)
-  seedance1080Sec: 900, // Seedance 2.0 1080p — real ~$0.36/s, ~2x markup
+  seedanceSec: 2800, // 4K — Seedance 2.0 4K, ~2x markup (4K true cost is an estimate — verify)
+  seedance1080Sec: 1800, // Seedance 2.0 1080p — real ~$0.36/s, ~2x markup
   seedance720Sec: 600,  // Seedance 2.0 720p — real ~$0.24/s, ~2x markup
   seedance480Sec: 300,  // Seedance 2.0 480p — real ~$0.12/s, ~2x markup
   omniClip: 2500,       // Gemini Omni Flash — flat, up to 10s (real ~$1.00 for 10s, ~2x)
