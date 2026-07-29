@@ -129,6 +129,16 @@ const GENRES = {
   // Written as an underscore like the rest, but NOT flattened into ambience: the
   // four-to-the-floor is the whole point. "Held low in the mix" rather than "no
   // drums", or HOUSE_STYLE's restraint clause turns it into a pad.
+  // RUNWAY — the fashion score, and deliberately the loud one.
+  //
+  // downtempo was fashion's default and it is the wrong brief for it: it asks for a
+  // pulse "held low in the mix" that moves "without ever building or dropping". That
+  // is an underscore, written to sit behind something. A fashion film has nothing in
+  // front of it — the score IS the track — so it should arrive, build, and land.
+  //
+  // Kept as a separate genre rather than a rewrite of downtempo, which is right for
+  // the talking-head edits that chose it.
+  runway:     "High-energy fashion-house track, front and centre. Hard four-on-the-floor kick, crisp claps on two and four, bright open hi-hats driving the offbeats, heavily sidechained analogue bass pumping against the kick. Filtered synth stabs and a confident rising lead that builds through the opening and drops into the main groove, with a second lift in the last third. Glossy, propulsive, expensive-sounding — a runway show, not a lounge. Strictly instrumental. Around 124 BPM.",
   downtempo:  "Downtempo organic-house underscore. Steady hypnotic four-on-the-floor pulse held low in the mix, warm analogue sub bass, hand percussion, shakers and rim clicks, filtered pads and one repeating melodic figure with long delay. Nocturnal, hypnotic and unhurried — moving continuously without ever building or dropping. Around 118 BPM.",
   // French Impressionist piano — Satie, Debussy, Ravel. Distinct from `classical`
   // above, which is a string chamber ensemble: this is solo piano, modal, and much
