@@ -7084,104 +7084,84 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // cannot render text and a garbled letterform on a luxury cover is the most obvious
 // possible tell. It also means editing a line is instant and free.
 
-// The four faces ship WITH the app, from public/fonts/, not from storage.
+// ─── FONT PACKAGES ───────────────────────────────────────────────────────────
 //
-// Fetching them from the sites bucket was the first idea and it was wrong twice over:
-// every page load would have pulled four typefaces out of Supabase as billable egress,
-// on an account already over its quota — and a cross-origin font is one CORS header
-// away from silently falling back to Georgia. Files in public/ are served same-origin
-// off Vercel's CDN, cost nothing, and are versioned with the code that uses them.
+// Every face ships WITH the app, from public/fonts/, not from storage. Fetching them
+// at runtime would be billable egress on every page load and one CORS header away from
+// silently falling back to Georgia; files in public/ are same-origin, cached by the CDN
+// and versioned with the code. Same reason the render server bakes its fonts into the
+// image rather than downloading them per job.
 //
-// This mirrors how the render server does it: its fonts are baked into the image
-// rather than fetched at render time.
+// A package is three roles — display, sub, small — because that is what a cover and a
+// title card both need: something to shout with, something to say it in, and something
+// quiet underneath. Packages are chosen, not assembled: picking three faces that work
+// together is the actual skill, and offering nine separate dropdowns would produce
+// worse results than offering five considered sets.
+//
+// All non-Chelgy faces are SIL Open Font Licence — free to use, embed and redistribute
+// commercially, no attribution required in the output.
 const TH_FONT_BASE = "/fonts/";
-const TH_FONTS = [
-  ["ChelgyDisplay", "Monoton-Regular.ttf"],   // the masthead
-  ["ChelgySub",     "Amore.ttf"],             // cover lines and the main title
-  ["ChelgySmall",   "LacunaRegular.ttf"],     // the quiet supporting text
-  ["ChelgyScript",  "CAVELINE.ttf"]           // the handwritten accent
+const FONT_PACKS = [
+  { id:"editorial", label:"Editorial", note:"Fashion magazine. Light, spaced, quiet.",
+    display:["ChelgyDisplay","LacunaRegular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
+  { id:"retro", label:"Retro", note:"Inline display letters. Graphic and loud.",
+    display:["PackRetroD","Monoton-Regular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
+  { id:"bold", label:"Bold", note:"Heavy and condensed. Sport, gym, business.",
+    display:["PackBoldD","Anton-Regular.ttf"], sub:["PackBoldS","BarlowCondensed-SemiBold.ttf"], small:["PackBoldT","BarlowCondensed-Regular.ttf"] },
+  { id:"classic", label:"Classic", note:"High-contrast serif. Timeless and formal.",
+    display:["PackClassicD","PlayfairDisplay.ttf"], sub:["PackClassicS","CormorantGaramond.ttf"], small:["PackClassicT","Lora.ttf"] },
+  { id:"modern", label:"Modern", note:"Clean geometric sans. Neutral and current.",
+    display:["PackModernD","SpaceGrotesk.ttf"], sub:["PackModernS","Inter.ttf"], small:["PackModernT","Inter.ttf"] }
 ];
-let _thFonts = null;
+const thPack = (id)=> FONT_PACKS.find(p=>p.id===id) || FONT_PACKS[0];
+// The handwritten accent belongs to the collage layout rather than to any package —
+// it is one word in one corner, and swapping it per package would break that layout
+// without improving any of the others.
+const TH_SCRIPT = ["ChelgyScript","CAVELINE.ttf"];
+
 let _thMissing = [];
-function ensureThumbFonts(){
-  if(_thFonts) return _thFonts;
-  _thFonts = (async ()=>{
+const _thLoaded = new Set();
+// Loaded a package at a time, on demand. All five up front is about 3MB of typefaces
+// for four of which the person may never pick.
+function ensureThumbFonts(packId){
+  const p = thPack(packId);
+  const want = [p.display, p.sub, p.small, TH_SCRIPT]
+    .filter((f,i,a)=> a.findIndex(x=>x[0]===f[0]) === i);
+  const key = p.id;
+  if(_thLoaded.has(key)) return Promise.resolve();
+  const job = (async ()=>{
+    const loaded = await Promise.all(want.map(async ([family, file])=>{
+      try{
+        const ff = new FontFace(family, "url('"+TH_FONT_BASE+file+"')");
+        await ff.load();
+        document.fonts.add(ff);
+        return true;
+      }catch(e){ return false; }
+    }));
+    _thMissing = want.filter((f,i)=>!loaded[i]).map(f=>f[1]);
+    if(_thMissing.length) console.error("[fonts] missing: " + _thMissing.join(", "));
+
+    // SAFARI: a FontFace that has loaded and been added to document.fonts is still not
+    // necessarily available to CANVAS. Safari only exposes a face to a 2D context once
+    // it has been used for real layout in the document — and when it hasn't, ctx.font
+    // falls silently through to the next name in the stack. The whole cover renders in
+    // Arial and Georgia with no error anywhere. Chrome does not do this, so it looks
+    // like a broken font file and gets blamed on the wrong thing.
     try{
-      // NO document.fonts.check() guard here, and that is deliberate.
-      //
-      // check() answers "can this text be rendered?", not "is this family loaded?" —
-      // and the answer is yes for ANY family name, because the browser will happily
-      // fall back. Guarding on it meant all four fonts were skipped as already present
-      // and the covers rendered in Arial Black and Georgia. Loading is cheap, the whole
-      // function is memoised in _thFonts, and a FontFace that is already registered
-      // costs nothing to add again.
-      const loaded = await Promise.all(TH_FONTS.map(async ([family, file])=>{
-        try{
-          const ff = new FontFace(family, "url('"+TH_FONT_BASE+file+"')");
-          await ff.load();
-          document.fonts.add(ff);
-          return true;
-        }catch(e){
-          // A missing or misnamed file lands here. Say so loudly — the visible symptom
-          // is "the covers look generic", which points at the design rather than at a 404.
-          console.error("[thumbnail] font failed to load: " + TH_FONT_BASE + file + " — " + ((e && e.message) || e));
-          return false;
-        }
-      }));
-      _thMissing = TH_FONTS.filter((f,i)=>!loaded[i]).map(f=>f[1]);
-      if(_thMissing.length) console.error("[thumbnail] missing brand fonts: " + _thMissing.join(", "));
-
-      // SAFARI: a FontFace that has loaded and been added to document.fonts is still
-      // not necessarily available to CANVAS. Safari only makes a face available to a
-      // 2D context once it has been used for real layout somewhere in the document —
-      // and when it hasn't, ctx.font silently falls through to the next name in the
-      // stack. The whole cover renders in Arial Black and Georgia with no error
-      // anywhere, which is exactly as hard to diagnose as it sounds. Chrome does not
-      // do this, so it looks like a Mac-only problem and gets blamed on the files.
-      //
-      // Laying each face out once in a hidden node fixes it. The node has to STAY for
-      // a moment — tearing it down immediately lets Safari drop the face again before
-      // the first draw.
-      try{
-        const probe = document.createElement("div");
-        probe.setAttribute("aria-hidden", "true");
-        // opacity, not visibility:hidden — a hidden element is laid out but may never be
-        // PAINTED, and painting is what actually makes Safari realise the face.
-        probe.style.cssText = "position:absolute;left:-9999px;top:0;opacity:0.01;white-space:nowrap;pointer-events:none;z-index:-1";
-        probe.innerHTML = TH_FONTS.map(f=>'<span style="font-family:\''+f[0]+'\';font-size:64px">Handgloves</span>').join("");
-        document.body.appendChild(probe);
-        void probe.offsetWidth;                                   // force layout NOW
-        if(document.fonts && document.fonts.ready) await document.fonts.ready;
-        setTimeout(()=>{ try{ probe.remove(); }catch(_){} }, 10000);
-      }catch(_){}
-
-      // Now PROVE it, per font, instead of trusting that load() resolving means canvas
-      // can see the face. Measure the same string in the custom family and in a
-      // deliberately unlike fallback: if the two widths are identical to the pixel, the
-      // custom face is not being applied and canvas has quietly fallen through. This is
-      // the only check that can't be fooled — document.fonts.check() answers "can this
-      // be rendered", which is yes for any family name because fallback always exists.
-      try{
-        const probeCv = document.createElement("canvas").getContext("2d");
-        const SAMPLE = "Handgloves 123";
-        probeCv.font = "72px monospace";
-        const baseline = probeCv.measureText(SAMPLE).width;
-        const notApplied = [];
-        for(const [family, file] of TH_FONTS){
-          probeCv.font = "72px " + family + ", monospace";
-          if(Math.abs(probeCv.measureText(SAMPLE).width - baseline) < 0.5) notApplied.push(file);
-        }
-        if(notApplied.length){
-          console.error("[thumbnail] canvas is NOT using: " + notApplied.join(", ") +
-                        " — the file loaded but the face never reached the 2D context");
-          for(const f of notApplied) if(_thMissing.indexOf(f) === -1) _thMissing.push(f);
-        } else {
-          console.log("[thumbnail] all four brand fonts confirmed active on canvas");
-        }
-      }catch(_){}
-    }catch(_){ /* falls back to system faces rather than failing the render */ }
+      const probe = document.createElement("div");
+      probe.setAttribute("aria-hidden","true");
+      // opacity, not visibility:hidden — a hidden element is laid out but may never be
+      // PAINTED, and painting is what makes Safari realise the face.
+      probe.style.cssText = "position:absolute;left:-9999px;top:0;opacity:0.01;white-space:nowrap;pointer-events:none;z-index:-1";
+      probe.innerHTML = want.map(f=>'<span style="font-family:\''+f[0]+'\';font-size:64px">Handgloves</span>').join("");
+      document.body.appendChild(probe);
+      void probe.offsetWidth;
+      if(document.fonts && document.fonts.ready) await document.fonts.ready;
+      setTimeout(()=>{ try{ probe.remove(); }catch(_){} }, 10000);
+    }catch(_){}
+    _thLoaded.add(key);
   })();
-  return _thFonts;
+  return job;
 }
 
 // Letter-spacing drawn by hand. ctx.letterSpacing is too recent to rely on, and the
@@ -7480,14 +7460,15 @@ const thTpl = (id)=> TH_TEMPLATES.find(t=>t.id===id) || TH_TEMPLATES[0];
 // Fractions of the canvas throughout, sized off the SHORT edge, so one call serves
 // 4:5, 16:9 and 9:16.
 function thCoverType(g, W, H, S, o){
+  const P = thPack(o.pack);
   g.textBaseline = "top";
   g.shadowColor = "rgba(0,0,0,0.48)"; g.shadowBlur = Math.round(S*0.024); g.shadowOffsetY = Math.round(S*0.003);
   const pad  = Math.round(W*0.065);
-  const subF = (px)=> px + "px ChelgySub, Georgia, serif";
-  const smF  = (px)=> px + "px ChelgySmall, Georgia, serif";
+  const subF = (px)=> px + "px '" + P.sub[0] + "', Georgia, serif";
+  const smF  = (px)=> px + "px '" + P.small[0] + "', Georgia, serif";
 
   if(o.masthead){
-    const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+    const mastFont = (px)=> px + "px '" + thPack(o.pack).display[0] + "', 'Arial Black', sans-serif";
     const mSize = thFit(g, o.masthead, W*0.90, mastFont, Math.round(S*0.155), Math.round(S*0.055), 0.03);
     g.font = mastFont(mSize); g.fillStyle = "#FFFFFF";
     thCenter(g, o.masthead, Math.round(H*0.035), W, mSize*0.03);
@@ -7526,7 +7507,7 @@ function thCoverType(g, W, H, S, o){
 
 // ── TEMPLATE A · single image, masthead behind the subject ───────────────────
 async function thRenderSingle(o){
-  await ensureThumbFonts();
+  await ensureThumbFonts(o.pack);
   const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
@@ -7542,7 +7523,7 @@ async function thRenderSingle(o){
   g.textBaseline = "top";
   g.fillStyle = "#FFFFFF";
   g.shadowColor = "rgba(0,0,0,0.30)"; g.shadowBlur = Math.round(S*0.018);
-  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mastFont = (px)=> px + "px '" + thPack(o.pack).display[0] + "', 'Arial Black', sans-serif";
   const mSize = thFit(g, o.masthead, W*0.92, mastFont, Math.round(S*0.20), Math.round(S*0.07), 0.03);
   g.font = mastFont(mSize);
   thCenter(g, o.masthead, Math.round(H*0.035), W, mSize*0.03);
@@ -7585,7 +7566,7 @@ async function thRenderSingle(o){
 
 // ── TEMPLATE B · three-panel collage ─────────────────────────────────────────
 async function thRenderCollage(o){
-  await ensureThumbFonts();
+  await ensureThumbFonts(o.pack);
   const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
@@ -7618,7 +7599,7 @@ async function thRenderCollage(o){
   // masthead over the panels — this is how the reference collage does it
   g.fillStyle = "#FFFFFF";
   g.shadowColor = "rgba(0,0,0,0.30)"; g.shadowBlur = Math.round(S*0.016);
-  const mastFont = (px)=> px + "px ChelgyDisplay, 'Arial Black', sans-serif";
+  const mastFont = (px)=> px + "px '" + thPack(o.pack).display[0] + "', 'Arial Black', sans-serif";
   const mSize = thFit(g, o.masthead, W*0.90, mastFont, Math.round(S*0.145), Math.round(S*0.055), 0.03);
   g.font = mastFont(mSize);
   thCenter(g, o.masthead, Math.round(H*0.45), W, mSize*0.03);
@@ -7630,9 +7611,10 @@ async function thRenderCollage(o){
   // bright.
   const ink = "#FFFFFF";
   g.shadowColor = "rgba(0,0,0,0.45)"; g.shadowBlur = Math.round(S*0.020); g.shadowOffsetY = Math.round(S*0.002);
-  const subF = (px)=> px + "px ChelgySub, Georgia, serif";
-  const smF  = (px)=> px + "px ChelgySmall, Georgia, serif";
-  const scF  = (px)=> px + "px ChelgyScript, Georgia, serif";
+  const P = thPack(o.pack);
+  const subF = (px)=> px + "px '" + P.sub[0] + "', Georgia, serif";
+  const smF  = (px)=> px + "px '" + P.small[0] + "', Georgia, serif";
+  const scF  = (px)=> px + "px '" + TH_SCRIPT[0] + "', Georgia, serif";
 
   // top-left block
   const x0 = Math.round(W*0.06), y0 = Math.round(H*0.115);
@@ -7680,7 +7662,7 @@ async function thRenderCollage(o){
 // what makes this one read as a keepsake rather than a cover. Panels are staggered so
 // the eye travels: the middle one drops lower and runs longer than its neighbours.
 async function thRenderTriptych(o){
-  await ensureThumbFonts();
+  await ensureThumbFonts(o.pack);
   const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
@@ -7743,7 +7725,7 @@ async function thRenderTriptych(o){
 // which is the whole point of the layout, so the masthead is set LARGE and left-aligned
 // rather than centred.
 async function thRenderSpread(o){
-  await ensureThumbFonts();
+  await ensureThumbFonts(o.pack);
   const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["16:9"];
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
@@ -7793,7 +7775,7 @@ async function thRenderSpread(o){
 // different scales, overlapping on white, with the type kept small and out of the way.
 // Different technique, same discipline. Calling it a contour montage would be a lie.
 async function thRenderMontage(o){
-  await ensureThumbFonts();
+  await ensureThumbFonts(o.pack);
   const [W,H] = TH_SIZES[o.aspect] || TH_SIZES["4:5"];
   const S = Math.min(W,H);
   const c = document.createElement("canvas"); c.width=W; c.height=H;
@@ -7842,11 +7824,41 @@ function thSay(e, fallback){
   return fallback + " " + m;
 }
 
+// The picker shows the actual typefaces, not their names.
+//
+// A list reading "Editorial / Bold / Classic / Modern" tells someone nothing — the
+// whole decision is visual, so the control has to be visual. Each row loads its own
+// package on mount and sets one real line in it, which doubles as proof the files are
+// reachable: if a row renders in Times, that package is missing from public/fonts.
+function FontPackPicker({ value, onChange, disabled }){
+  useEffect(()=>{ FONT_PACKS.forEach(p=>{ ensureThumbFonts(p.id).catch(()=>{}); }); }, []);
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:8,marginBottom:14}}>
+      {FONT_PACKS.map(p=>{
+        const on = value === p.id;
+        return (
+          <button key={p.id} disabled={disabled} onClick={()=>onChange(p.id)}
+            style={{textAlign:"left",padding:"11px 13px",cursor:disabled?"default":"pointer",
+                    border:"1px solid "+(on?B.charcoal:B.stone), background:on?B.offwhite:B.white}}>
+            <div style={{fontFamily:"'"+p.display[0]+"', 'Arial Black', sans-serif",fontSize:26,lineHeight:1.15,color:B.charcoal,marginBottom:2}}>Daily Vlog</div>
+            <div style={{fontFamily:"'"+p.sub[0]+"', Georgia, serif",fontSize:15,color:B.charcoal,marginBottom:5}}>Tampa's Best Matcha</div>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:on?B.charcoal:B.mid}}>
+              {p.label}{on?" ·  selected":""}
+            </div>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,marginTop:3,lineHeight:1.4}}>{p.note}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null }){
   const [template,setTemplate] = useState("single");
   const [aspect,setAspect]     = useState("4:5");
   const [photos,setPhotos]     = useState([null,null,null]);   // data URLs
   const [cutout,setCutout]     = useState(null);
+  const [pack,setPack]         = useState("editorial");
   const [cutScale,setCutScale] = useState(1.12);
   const [cutX,setCutX]         = useState(0);   // fractions of the frame
   const [cutY,setCutY]         = useState(0);
@@ -7865,7 +7877,7 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   const tpl = thTpl(template);
   const nPhotos = tpl.photos;
 
-  useEffect(()=>{ ensureThumbFonts(); }, []);
+  useEffect(()=>{ ensureThumbFonts(pack); }, [pack]);
 
   const SLOT_LABELS = tpl.slots === "collage"
     ? [["masthead","Masthead"],["tl1","Top left"],["tl2","…connector"],["tl3","…payoff (on black)"],["tr1","Top right (script)"],["tr2","…under it"],["hero","Main title"],["sub","Line underneath"]]
@@ -7883,13 +7895,13 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
   async function redraw(next){
     const cp = next || copy; if(!cp) return;
     try{
-      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background, cutScale, cutX, cutY };
+      const opts = { ...cp, aspect, photo: photos[0], photos, cutout, background, cutScale, cutX, cutY, pack };
       const draw = { single: thRenderSingle, collage: thRenderCollage, triptych: thRenderTriptych,
                      spread: thRenderSpread, montage: thRenderMontage }[template] || thRenderSingle;
       setOut(await draw(opts));
     }catch(e){ setErr((e&&e.message)||"Couldn't draw that."); }
   }
-  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template, cutScale, cutX, cutY]);
+  useEffect(()=>{ if(copy) redraw(); }, [aspect, photos, cutout, background, template, cutScale, cutX, cutY, pack]);
 
   async function writeCopy(){
     if(!about.trim()){ setErr("Tell us what the video is about first."); return; }
@@ -7995,6 +8007,9 @@ function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onB
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 18px",lineHeight:1.6}}>
         Magazine covers from your own photos. Pick a layout, add your pictures, say what the video's about — the words are written for you and every one of them is editable for free.
       </p>
+
+      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,margin:"0 0 7px"}}>Typeface</div>
+      <FontPackPicker value={pack} onChange={setPack} disabled={busy} />
 
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
         {TH_TEMPLATES.map(t=>(
