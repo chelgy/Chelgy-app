@@ -7909,6 +7909,463 @@ function thSay(e, fallback){
    real money, and quietly spending it twice because something failed once is not a
    kindness. It stops, says so, and leaves the button to you.
 */
+// ─── COMMERCIAL (the plan pipeline) ──────────────────────────────────────────
+//
+// Replaces the tool that gave all the power to Seedance. The shape is different in
+// one way that matters: the planner writes a PLAN — a handful of sources plus a
+// timeline that references SLICES of them — so one generation appears three or four
+// times at different in and out points and crops. Eight to twelve sources become
+// thirty to forty-five shots. That reuse is the style, and it is also what makes the
+// economics work: you pay for twelve clips and get a forty-shot commercial.
+//
+// THREE STEPS, EACH ONE STOPPABLE.
+//   1  plan      free, no video spend, revise as often as you like
+//   2  film      THE SPEND, one source at a time, resumable
+//   3  assemble  free, the render server cuts the plan into the finished ad
+//
+// Filming is deliberately its own button. The plan is worth reading before the money
+// goes out, and a plan that reads badly costs nothing to throw away.
+//
+// SILENT FIRST. The plan carries a voiceover script and a music brief, and the proxy
+// accepts both, but this does not send them yet. The open question is whether forty
+// cuts of generated footage reads as a commercial or as a fast slideshow, and that is
+// answered more honestly — and far more cheaply — without a voice and a score
+// carrying it. Wire them in once the cut stands up on its own.
+function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null }){
+  const [subject,setSubject]   = useState("");
+  const [duration,setDuration] = useState(30);
+  const [aspect,setAspect]     = useState("9:16");
+  const [res,setRes]           = useState("720p");
+  const [refs,setRefs]         = useState([]);      // product photographs, as data urls
+  const [plan,setPlan]         = useState(null);
+  const [shots,setShots]       = useState([]);      // per source: {status,url,pct,err}
+  const [busy,setBusy]         = useState(false);
+  const [stage,setStage]       = useState("");
+  const [err,setErr]           = useState("");
+  const [revise,setRevise]     = useState("");
+  const [film,setFilm]         = useState("");      // the finished ad
+  const [pct,setPct]           = useState(0);
+  const [notes,setNotes]       = useState([]);      // warnings, advisory only
+  const [useVo,setUseVo]       = useState(true);
+  const [useMusic,setUseMusic] = useState(false);
+  const [captions,setCaptions] = useState(true);
+  const [vo,setVo]             = useState(null);    // { url, words, seconds }
+  const [music,setMusic]       = useState("");      // url
+
+  const TIER = { "480p":"seedance480", "720p":"seedance720", "1080p":"seedance1080", "4k":"seedance4k" };
+  const orientation = aspect === "16:9" ? "landscape" : "portrait";
+  const filmed = shots.filter(s=>s && s.status==="done").length;
+  const total  = plan && Array.isArray(plan.sources) ? plan.sources.length : 0;
+  const allFilmed = !!plan && total > 0 && filmed === total;
+  const costCredits = plan && plan.cost ? (plan.cost.credits||0) : 0;
+
+  const setShot = (i, patch)=> setShots(prev => prev.map((s,n)=> n===i ? { ...s, ...patch } : s));
+
+  // ── 1. the plan ────────────────────────────────────────────────────────────
+  async function makePlan(asRevision){
+    if(!subject.trim()){ setErr("Tell us what the commercial is for first."); return; }
+    const revising = !!(asRevision && plan && revise.trim());
+    setBusy(true); setErr(""); setFilm(""); setNotes([]);
+    // A revision keeps footage already filmed. It was paid for, and a note about
+    // shot nine is no reason to lose shot one.
+    // The voice is written to fit the plan, so a new plan invalidates it. Keeping
+    // the old take would caption the new cut with the previous script.
+    setVo(null); setMusic("");
+    if(!revising){ setPlan(null); setShots([]); }
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/studio-edl", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({
+          subject: subject.trim(), duration, aspect, res, refs,
+          revision: revising ? revise.trim() : "", priorEdl: revising ? plan : null
+        })
+      });
+      const d = await r.json();
+      if(!r.ok || !d || !d.edl) throw new Error((d&&d.error)||"Couldn't write that plan.");
+      const p = d.edl;
+      setPlan(p);
+      setNotes(Array.isArray(p.warnings) ? p.warnings : []);
+      setShots(prev => (p.sources||[]).map((_,i)=> (revising && prev[i]) ? prev[i] : ({ status:"idle", url:"", pct:0, err:"" })));
+      if(revising) setRevise("");
+    }catch(e){ setErr((e&&e.message)||"Something went wrong writing the plan."); }
+    setBusy(false);
+  }
+
+  // ── 2. filming ─────────────────────────────────────────────────────────────
+  async function filmOne(i){
+    const s = plan.sources[i];
+    setShot(i, { status:"running", pct:0, err:"" });
+    try{
+      const started = await generateVideo(s.scene, (s.refs&&s.refs[0])||refs[0]||undefined, {
+        quality: TIER[s.res] || TIER[res] || "seedance720",
+        orientation, duration: s.seconds,
+        // No generated audio. The score and any voice are added at assembly, over
+        // the whole ad — a per-clip soundtrack would restart every few seconds.
+        audio: false, tool:"commercial"
+      });
+      if(!started || !started.id) throw new Error((started&&started.error)||"The video service didn't start that shot.");
+      if(typeof started.balance === "number") onBalance(started.balance);
+      // pollVideo resolves to the URL ITSELF, as a string. Reading .url off a string
+      // gives undefined and the shot looks empty while sitting perfectly fine in the
+      // account. The object form is tolerated in case that helper ever changes.
+      const out = await pollVideo(started.id, (p)=> setShot(i, { pct: Math.round(p||0) }));
+      const url = typeof out === "string" ? out : (out && (out.url || out.video || (out.outputs && out.outputs[0])));
+      if(!url) throw new Error("That shot came back empty.");
+      setShot(i, { status:"done", url, pct:100 });
+      try{ onToolUse("commercial", 0); }catch(_){}
+      return true;
+    }catch(e){
+      setShot(i, { status:"failed", err:(e&&e.message)||"That shot failed." });
+      return false;
+    }
+  }
+
+  async function filmAll(){
+    setErr(""); setBusy(true);
+    for(let i=0;i<plan.sources.length;i++){
+      if(shots[i] && shots[i].status === "done") continue;
+      setStage("Filming shot " + (i+1) + " of " + plan.sources.length + "…");
+      // Stops on a failure rather than buying the rest. An ad missing a shot is not
+      // shippable, so the remaining clips would be paid for and thrown away.
+      const ok = await filmOne(i);
+      if(!ok){ setErr("Shot " + (i+1) + " failed. Fix or retry it before assembling."); break; }
+    }
+    setStage(""); setBusy(false);
+  }
+
+  // ── 2a. the voice ──────────────────────────────────────────────────────────
+  //
+  // BEFORE FILMING, DELIBERATELY. The voice is cheap and the footage is not, and the
+  // take tells you the real length of the ad. If a 30s plan reads in 21s you want to
+  // know that while a rewrite still costs nothing, not after buying twelve clips.
+  //
+  // Three steps, because none of them can be skipped:
+  //   1  ElevenLabs returns AUDIO BYTES as a browser-local blob url
+  //   2  which the render server cannot fetch, so it is uploaded for a real url
+  //   3  and word timings come from transcribing that upload — ElevenLabs is not
+  //      handing them back here, and captions cannot be built without them
+  // uploadSiteAudioFile already does exactly this and is used elsewhere. A second
+  // uploader here is how two copies of one job drift apart.
+  async function uploadVoice(blobUrl){
+    const bin = await (await fetch(blobUrl)).blob();
+    const uid = (user && user.id) || "anon";
+    const file = new File([bin], "vo.mp3", { type: bin.type || "audio/mpeg" });
+    const url = await uploadSiteAudioFile(file, uid + "/commercial-vo-" + Date.now() + ".mp3");
+    if(!url) throw new Error("Couldn't save the voiceover.");
+    return url;
+  }
+
+  async function recordVoice(){
+    const script = (plan && plan.vo && plan.vo.script) || "";
+    if(!script.trim()){ setErr("This plan has no voiceover script. Rewrite it asking for narration."); return; }
+    setErr(""); setBusy(true); setStage("Recording the voice…");
+    try{
+      const spoken = await generateVoiceover(script, (plan.vo && plan.vo.voice) || undefined);
+      if(typeof spoken.balance === "number") onBalance(spoken.balance);
+      setStage("Saving the take…");
+      const url = await uploadVoice(spoken.url);
+      try{ URL.revokeObjectURL(spoken.url); }catch(_){}
+
+      // Word timings. Not fatal if it fails — a voiceover without captions is still
+      // a voiceover, and commercial.js simply skips the caption track when there are
+      // no words to build it from.
+      setStage("Reading the timings…");
+      let words = null, seconds = null;
+      try{
+        const t = await studioTranscribe(url);
+        if(t && Array.isArray(t.words) && t.words.length){ words = t.words; seconds = t.duration || null; }
+      }catch(_){ }
+      if(!words) setNotes(n=>[...n, "couldn't read word timings — the voice will play without captions"]);
+
+      setVo({ url, words, seconds });
+      setStage("");
+    }catch(e){ setErr((e&&e.message)||"Couldn't record the voiceover."); setStage(""); }
+    setBusy(false);
+  }
+
+  async function composeMusic(){
+    setErr(""); setBusy(true); setStage("Composing the score…");
+    try{
+      const brief = (plan.music && plan.music.brief) || "";
+      const started = await studioMusic(brief, "commercial", "wolf", "auto");
+      if(!started || started.error || !started.id) throw new Error((started&&started.error)||"The music engine didn't start.");
+      if(typeof started.balance === "number") onBalance(started.balance);
+      const url = await pollVideo(started.id, (p)=> setStage("Composing the score — " + Math.round(p||0) + "%…"));
+      if(!url) throw new Error("The score didn't come back.");
+      setMusic(typeof url === "string" ? url : (url && url.url) || "");
+      setStage("");
+    }catch(e){
+      // Never fatal. A commercial without a score is still a commercial.
+      setNotes(n=>[...n, "score skipped: " + ((e&&e.message)||"unknown")]);
+      setStage("");
+    }
+    setBusy(false);
+  }
+
+  // ── 3. assembly ────────────────────────────────────────────────────────────
+  //
+  // Its own poll loop rather than pollVideo's. That helper sends no auth token for
+  // anything but our own render engine, and this route needs one.
+  async function pollAssembly(taskId){
+    const started = Date.now();
+    for(let i=0; Date.now()-started < 45*60*1000; i++){
+      await cgWait(i < 40 ? 3000 : 6000);
+      try{
+        const tok = await freshToken();
+        const r = await fetch("/api/studio-commercial-render", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+          body: JSON.stringify({ taskId })
+        });
+        const d = await r.json();
+        if(d && d.status === "done" && d.url) return d;
+        if(d && d.status === "error") throw new Error(d.error || "The commercial failed to render.");
+        if(d && typeof d.progress === "number"){ setPct(d.progress); setStage(d.stage || "Assembling…"); }
+      }catch(e){
+        if(e && e.message && /failed to render/.test(e.message)) throw e;
+        // Anything else is a blip in the poll, not in the render. Keep waiting.
+      }
+    }
+    throw new Error("This is taking longer than usual and may still be rendering. Check back shortly.");
+  }
+
+  async function assemble(){
+    setErr(""); setBusy(true); setPct(0); setStage("Sending the plan…"); setFilm("");
+    try{
+      // The plan goes over with the filmed urls written back onto its sources. The
+      // render server refuses a plan whose sources have no url, which is the check
+      // that catches a half-filmed ad before any work starts.
+      const filledPlan = { ...plan, sources: plan.sources.map((s,i)=> ({ ...s, url: (shots[i]&&shots[i].url)||"" })) };
+      const tok = await freshToken();
+      const r = await fetch("/api/studio-commercial-render", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({
+          plan: filledPlan,
+          voUrl: useVo && vo ? vo.url : null,
+          musicUrl: useMusic && music ? music : null,
+          // Captions are built from the VO's word timings and burn per shot. No
+          // voice, no words, no captions — there is nothing to caption.
+          words: useVo && captions && vo && vo.words ? vo.words : null
+        })
+      });
+      const d = await r.json();
+      if(!r.ok || !d || !d.taskId) throw new Error((d&&d.error)||"Couldn't start the assembly.");
+      const out = await pollAssembly(d.taskId);
+      setFilm(out.url);
+      if(Array.isArray(out.warnings) && out.warnings.length) setNotes(n=>[...n, ...out.warnings]);
+      setPct(100); setStage("");
+    }catch(e){ setErr((e&&e.message)||"Assembly failed."); setStage(""); }
+    setBusy(false);
+  }
+
+  // ── product photographs ────────────────────────────────────────────────────
+  function addRefs(e){
+    const files = Array.from((e.target && e.target.files) || []).slice(0, 3 - refs.length);
+    files.forEach(f=>{
+      const rd = new FileReader();
+      rd.onload = ()=> setRefs(prev => prev.length >= 3 ? prev : [...prev, String(rd.result)]);
+      rd.readAsDataURL(f);
+    });
+    try{ e.target.value = ""; }catch(_){}
+  }
+
+  const lbl = { fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:9, fontWeight:700,
+                letterSpacing:"0.18em", textTransform:"uppercase", color:B.gold, marginBottom:8 };
+  const card = { background:B.white, border:"1px solid "+B.stone, padding:"18px 18px 20px", marginBottom:16 };
+  const pill = (on)=>({ padding:"8px 14px", cursor:"pointer", background:on?B.charcoal:B.white,
+                        color:on?B.white:B.charcoal, border:"1px solid "+(on?B.charcoal:B.stone),
+                        fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, fontWeight:700,
+                        letterSpacing:"0.08em", textTransform:"uppercase", marginRight:8, marginBottom:8 });
+
+  return (
+    <div>
+      <div style={card}>
+        <div style={lbl}>What is it for</div>
+        <textarea value={subject} onChange={e=>setSubject(e.target.value)} disabled={busy}
+          placeholder="The product or service, who it's for, and the one thing it should make someone feel."
+          style={{ width:"100%", minHeight:90, padding:12, border:"1px solid "+B.stone, background:B.white,
+                   fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:14, color:B.charcoal, resize:"vertical" }} />
+
+        <div style={{ ...lbl, marginTop:16 }}>Length</div>
+        <div>{[15,30,60].map(d=>(
+          <button key={d} disabled={busy} onClick={()=>setDuration(d)} style={pill(duration===d)}>{d} sec</button>
+        ))}</div>
+
+        <div style={{ ...lbl, marginTop:8 }}>Shape</div>
+        <div>
+          <button disabled={busy} onClick={()=>setAspect("9:16")} style={pill(aspect==="9:16")}>Vertical</button>
+          <button disabled={busy} onClick={()=>setAspect("16:9")} style={pill(aspect==="16:9")}>Wide</button>
+        </div>
+
+        <div style={{ ...lbl, marginTop:8 }}>Resolution</div>
+        <div>{["480p","720p","1080p"].map(r=>(
+          <button key={r} disabled={busy} onClick={()=>setRes(r)} style={pill(res===r)}>{r}</button>
+        ))}</div>
+        <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:2, lineHeight:1.5 }}>
+          Resolution sets what the shots cost. The cut is the same either way — plan at 480p to see the film cheaply, then re-film at 1080p once it reads.
+        </div>
+
+        <div style={{ ...lbl, marginTop:16 }}>Product photographs (optional, up to 3)</div>
+        <input type="file" accept="image/*" multiple disabled={busy||refs.length>=3} onChange={addRefs}
+          style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.charcoal }} />
+        {refs.length>0 && (
+          <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
+            {refs.map((src,i)=>(
+              <div key={i} style={{ position:"relative" }}>
+                <img src={src} alt="" style={{ width:64, height:64, objectFit:"cover", border:"1px solid "+B.stone }} />
+                <button onClick={()=>setRefs(prev=>prev.filter((_,n)=>n!==i))} disabled={busy}
+                  style={{ position:"absolute", top:-6, right:-6, width:20, height:20, borderRadius:"50%",
+                           border:"1px solid "+B.stone, background:B.white, cursor:"pointer", lineHeight:1, fontSize:12 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop:18 }}>
+          <Btn dark onClick={()=>makePlan(false)} disabled={busy||!subject.trim()}>
+            {busy && !plan ? "WRITING…" : plan ? "START OVER" : "WRITE THE PLAN"}
+          </Btn>
+        </div>
+      </div>
+
+      {err && (
+        <div style={{ ...card, borderColor:"#B3261E", color:"#B3261E",
+                      fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13 }}>{err}</div>
+      )}
+
+      {plan && (
+        <div style={card}>
+          <div style={lbl}>The plan</div>
+          <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:14, color:B.charcoal, lineHeight:1.7 }}>
+            <strong>{(plan.sources||[]).length}</strong> generations cut into <strong>{(plan.timeline||[]).length}</strong> shots,
+            running <strong>{plan.totalSeconds}s</strong>.
+            <br />
+            Filming costs <strong>{costCredits}</strong> credits. Assembling is free.
+          </div>
+
+          {notes.length>0 && (
+            <div style={{ marginTop:12, fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.mid, lineHeight:1.6 }}>
+              {notes.map((w,i)=><div key={i}>· {w}</div>)}
+            </div>
+          )}
+
+          <div style={{ marginTop:16 }}>
+            {(plan.sources||[]).map((s,i)=>{
+              const st = shots[i] || { status:"idle" };
+              const tone = st.status==="done" ? "#2E7D32" : st.status==="failed" ? "#B3261E" : B.mid;
+              return (
+                <div key={s.id} style={{ borderTop:"1px solid "+B.stone, padding:"10px 0" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", gap:12 }}>
+                    <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.charcoal, lineHeight:1.5 }}>
+                      <strong>{s.id}</strong> · {s.seconds}s<br />
+                      <span style={{ color:B.mid }}>{s.scene}</span>
+                    </div>
+                    <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, fontWeight:700,
+                                  letterSpacing:"0.08em", textTransform:"uppercase", color:tone, whiteSpace:"nowrap" }}>
+                      {st.status==="done" ? "filmed"
+                        : st.status==="running" ? (st.pct||0)+"%"
+                        : st.status==="failed" ? "failed" : "—"}
+                    </div>
+                  </div>
+                  {st.status==="failed" && (
+                    <div style={{ marginTop:6 }}>
+                      <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:"#B3261E", marginBottom:6 }}>{st.err}</div>
+                      <Btn small outline onClick={()=>filmOne(i)} disabled={busy}>RETRY THIS SHOT</Btn>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ ...lbl, marginTop:22 }}>Sound</div>
+          <div>
+            <button disabled={busy} onClick={()=>setUseVo(v=>!v)} style={pill(useVo)}>Voiceover</button>
+            <button disabled={busy||!useVo} style={pill(useVo&&captions)}
+              onClick={()=>setCaptions(c=>!c)}>Captions</button>
+            <button disabled={busy} onClick={()=>setUseMusic(m=>!m)} style={pill(useMusic)}>Score</button>
+          </div>
+          <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:2, lineHeight:1.5 }}>
+            Turn all three off for a silent cut — the honest test of whether the edit holds up on its own.
+          </div>
+
+          {useVo && (plan.vo && plan.vo.script) && (
+            <div style={{ marginTop:14, borderTop:"1px solid "+B.stone, paddingTop:14 }}>
+              <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.mid, lineHeight:1.6, marginBottom:10 }}>
+                &ldquo;{plan.vo.script}&rdquo;
+              </div>
+              {vo ? (
+                <div>
+                  <audio src={vo.url} controls style={{ width:"100%", display:"block", marginBottom:8 }} />
+                  <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.mid }}>
+                    {vo.seconds ? ("Reads in " + Math.round(vo.seconds) + "s against a " + plan.totalSeconds + "s cut. ") : ""}
+                    {vo.words ? "Captions ready." : "No word timings — it'll play without captions."}
+                  </div>
+                  {vo.seconds && Math.abs(vo.seconds - plan.totalSeconds) / plan.totalSeconds > 0.15 && (
+                    <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:"#B3261E", marginTop:6, lineHeight:1.5 }}>
+                      That's well off the cut's length. Worth rewriting the plan now — it costs nothing until you film.
+                    </div>
+                  )}
+                  <div style={{ marginTop:10 }}><Btn small outline onClick={recordVoice} disabled={busy}>RECORD IT AGAIN</Btn></div>
+                </div>
+              ) : (
+                <Btn small dark onClick={recordVoice} disabled={busy}>RECORD THE VOICE</Btn>
+              )}
+            </div>
+          )}
+
+          {useMusic && (
+            <div style={{ marginTop:14, borderTop:"1px solid "+B.stone, paddingTop:14 }}>
+              {music
+                ? <div><audio src={music} controls style={{ width:"100%", display:"block", marginBottom:8 }} />
+                    <Btn small outline onClick={composeMusic} disabled={busy}>COMPOSE AGAIN</Btn></div>
+                : <Btn small dark onClick={composeMusic} disabled={busy}>COMPOSE THE SCORE</Btn>}
+            </div>
+          )}
+
+          <div style={{ marginTop:18, display:"flex", gap:10, flexWrap:"wrap" }}>
+            <Btn dark onClick={filmAll} disabled={busy||allFilmed}>
+              {allFilmed ? "ALL SHOTS FILMED" : busy ? (stage||"FILMING…") : "FILM THE SHOTS · " + costCredits + " CREDITS"}
+            </Btn>
+            <Btn onClick={assemble} disabled={busy||!allFilmed}>ASSEMBLE THE COMMERCIAL</Btn>
+          </div>
+          {!allFilmed && filmed>0 && (
+            <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.mid, marginTop:8 }}>
+              {filmed} of {total} filmed. Shots already paid for are kept if you revise or retry.
+            </div>
+          )}
+
+          <div style={{ ...lbl, marginTop:22 }}>Change something</div>
+          <textarea value={revise} onChange={e=>setRevise(e.target.value)} disabled={busy}
+            placeholder="e.g. lose the office shots, make the ending land on the product"
+            style={{ width:"100%", minHeight:60, padding:12, border:"1px solid "+B.stone, background:B.white,
+                     fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:14, color:B.charcoal, resize:"vertical" }} />
+          <div style={{ marginTop:10 }}>
+            <Btn outline small onClick={()=>makePlan(true)} disabled={busy||!revise.trim()}>REWRITE THE PLAN</Btn>
+          </div>
+        </div>
+      )}
+
+      {busy && stage && (
+        <div style={{ ...card, fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.charcoal }}>
+          {stage}{pct>0 ? " — " + pct + "%" : ""}
+        </div>
+      )}
+
+      {film && (
+        <div style={card}>
+          <div style={lbl}>Your commercial</div>
+          <video src={film} controls playsInline style={{ maxWidth:"100%", display:"block", background:"#000", marginBottom:12 }} />
+          <Btn dark small onClick={()=>downloadVideo(film,"chelgy-commercial.mp4")}>DOWNLOAD</Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
   const [brief,setBrief]     = useState("");
   const [format,setFormat]   = useState("continuous");
@@ -10775,7 +11232,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="filmroom"&&<FilmRoom />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
-      {tool==="commercial"&&<Commercial credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
+      {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} user={user} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="presspitch"&&<PressPitch useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
 
