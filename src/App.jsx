@@ -1302,7 +1302,14 @@ function pointToClip(t, offsets){
 // NOTE the argument count. This signature has now grown past the point where position
 // is a safe way to pass anything — a sixth argument was silently dropped once already
 // and cost a session to find. Anything added from here should go in an options object.
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack){
+// The tempo each genre's brief asks Lyria for, so the render server has somewhere to
+// start looking. It only needs to be roughly right: the detector searches half time,
+// normal and double time at plus or minus 12% around this, so a hint of 88 still finds
+// a track that came back at 176. Kept here because the client is what knows the genre.
+const GENRE_BPM = { classical:70, orchestral:80, piano:68, ambient:60, acoustic:90, lofi:82,
+                    electronic:100, jazz:88, hiphop:88, pop:104, afrobeats:104, dreampop:92 };
+
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1311,7 +1318,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial",
+        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100,
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
       })
@@ -6599,7 +6606,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
         style, footage, grade, wordsForRender, clipFootages,
         chaptersForRender, brollShots, transitionClips, musicUrl, showcaseForRender, narrationUrl||null,
-        subtitleForRender, (ctx.clips||[]).map(c=>Number(c.rotate)||0), ctx.fontPack || "editorial"
+        subtitleForRender, (ctx.clips||[]).map(c=>Number(c.rotate)||0), ctx.fontPack || "editorial",
+        GENRE_BPM[ctx.musicGenre] || 100
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");

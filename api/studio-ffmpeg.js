@@ -313,6 +313,8 @@ export default async function handler(req, res) {
     // substitutes silently.
     const FONT_PACK_IDS = ["editorial","bold","classic","modern"];
     const fontPack = FONT_PACK_IDS.includes(String(body.fontPack || "")) ? String(body.fontPack) : "editorial";
+    // Where the beat detector starts looking. Clamped, not trusted.
+    const bpmHint = Math.max(40, Math.min(200, Math.round(Number(body.bpmHint) || 100)));
 
     const clipRotate = (Array.isArray(body.clipRotate) ? body.clipRotate : [])
       .map((r) => ([0, 90, 180, 270].includes(Math.round(Number(r) || 0)) ? Math.round(Number(r) || 0) : 0));
@@ -365,7 +367,7 @@ export default async function handler(req, res) {
             edl: {
               sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
-              grade: { footage, look, clipFootage }, clipRotate, fontPack,
+              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style,
               chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
               uploadPath
@@ -409,7 +411,7 @@ export default async function handler(req, res) {
           title, subtitle,
           orientation,
           uploadPath,
-          grade: { footage, look, clipFootage }, clipRotate, fontPack,
+          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style,
           chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
         })
