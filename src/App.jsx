@@ -7116,15 +7116,15 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 // commercially, no attribution required in the output.
 const TH_FONT_BASE = "/fonts/";
 const FONT_PACKS = [
-  { id:"editorial", label:"Editorial", note:"Fashion magazine. Light, spaced, quiet.",
+  { id:"editorial", label:"Editorial", note:"Fashion magazine. Light, spaced, quiet.", caption:["ChelgyScript","CAVELINE.ttf"],
     display:["ChelgyDisplay","LacunaRegular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
-  { id:"retro", label:"Retro", note:"Inline display letters. Graphic and loud.",
+  { id:"retro", label:"Retro", note:"Inline display letters. Graphic and loud.", caption:["ChelgySmall","LacunaRegular.ttf"],
     display:["PackRetroD","Monoton-Regular.ttf"], sub:["ChelgySub","Amore.ttf"], small:["ChelgySmall","LacunaRegular.ttf"] },
-  { id:"bold", label:"Bold", note:"Heavy and condensed. Sport, gym, business.",
+  { id:"bold", label:"Bold", note:"Heavy and condensed. Sport, gym, business.", caption:["PackBoldS","BarlowCondensed-SemiBold.ttf"],
     display:["PackBoldD","Anton-Regular.ttf"], sub:["PackBoldS","BarlowCondensed-SemiBold.ttf"], small:["PackBoldT","BarlowCondensed-Regular.ttf"] },
-  { id:"classic", label:"Classic", note:"High-contrast serif. Timeless and formal.",
+  { id:"classic", label:"Classic", note:"High-contrast serif. Timeless and formal.", caption:["PackClassicT","Lora.ttf"],
     display:["PackClassicD","PlayfairDisplay.ttf"], sub:["PackClassicS","CormorantGaramond.ttf"], small:["PackClassicT","Lora.ttf"] },
-  { id:"modern", label:"Modern", note:"Clean geometric sans. Neutral and current.",
+  { id:"modern", label:"Modern", note:"Clean geometric sans. Neutral and current.", caption:["PackModernS","Inter.ttf"],
     display:["PackModernD","SpaceGrotesk.ttf"], sub:["PackModernS","Inter.ttf"], small:["PackModernT","Inter.ttf"] }
 ];
 const thPack = (id)=> FONT_PACKS.find(p=>p.id===id) || FONT_PACKS[0];
@@ -7139,7 +7139,7 @@ const _thLoaded = new Set();
 // for four of which the person may never pick.
 function ensureThumbFonts(packId){
   const p = thPack(packId);
-  const want = [p.display, p.sub, p.small, TH_SCRIPT]
+  const want = [p.display, p.sub, p.small, p.caption || TH_SCRIPT, TH_SCRIPT]
     .filter((f,i,a)=> a.findIndex(x=>x[0]===f[0]) === i);
   const key = p.id;
   if(_thLoaded.has(key)) return Promise.resolve();
@@ -7855,7 +7855,8 @@ function FontPackPicker({ value, onChange, disabled }){
             style={{textAlign:"left",padding:"11px 13px",cursor:disabled?"default":"pointer",
                     border:"1px solid "+(on?B.charcoal:B.stone), background:on?B.offwhite:B.white}}>
             <div style={{fontFamily:"'"+p.display[0]+"', 'Arial Black', sans-serif",fontSize:26,lineHeight:1.15,color:B.charcoal,marginBottom:2}}>Daily Vlog</div>
-            <div style={{fontFamily:"'"+p.sub[0]+"', Georgia, serif",fontSize:15,color:B.charcoal,marginBottom:5}}>Tampa's Best Matcha</div>
+            <div style={{fontFamily:"'"+p.sub[0]+"', Georgia, serif",fontSize:15,color:B.charcoal,marginBottom:4}}>Tampa's Best Matcha</div>
+            <div style={{fontFamily:"'"+(p.caption?p.caption[0]:p.small[0])+"', Georgia, serif",fontSize:12,letterSpacing:"0.06em",color:B.mid,marginBottom:6}}>THE CAPTIONS LOOK LIKE THIS</div>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:on?B.charcoal:B.mid}}>
               {p.label}{on?" ·  selected":""}
             </div>
