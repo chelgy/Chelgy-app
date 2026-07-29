@@ -7992,6 +7992,10 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const [film,setFilm]         = useState("");      // the finished ad
   const [pct,setPct]           = useState(0);
   const [notes,setNotes]       = useState([]);      // warnings, advisory only
+  // Status shown NEXT TO the sound buttons. The main error card sits above the plan,
+  // which is off-screen once the shot list is long — so a failure down here looked
+  // exactly like the click doing nothing at all.
+  const [audioMsg,setAudioMsg] = useState("");
   const [useVo,setUseVo]       = useState(true);
   const [useMusic,setUseMusic] = useState(false);
   const [captions,setCaptions] = useState(true);
@@ -8105,8 +8109,11 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
 
   async function recordVoice(){
     const script = (plan && plan.vo && plan.vo.script) || "";
-    if(!script.trim()){ setErr("This plan has no voiceover script. Rewrite it asking for narration."); return; }
-    setErr(""); setBusy(true); setStage("Recording the voice…");
+    if(!script.trim()){
+      setAudioMsg("This plan came back without a voiceover script. Use the rewrite box below and ask for narration.");
+      return;
+    }
+    setErr(""); setAudioMsg("Recording the voice…"); setBusy(true); setStage("Recording the voice…");
     try{
       const spoken = await generateVoiceover(script, (plan.vo && plan.vo.voice) || undefined);
       if(typeof spoken.balance === "number") onBalance(spoken.balance);
@@ -8126,14 +8133,18 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
       if(!words) setNotes(n=>[...n, "couldn't read word timings — the voice will play without captions"]);
 
       setVo({ url, words, seconds });
-      setStage("");
-    }catch(e){ setErr((e&&e.message)||"Couldn't record the voiceover."); setStage(""); }
+      setAudioMsg(""); setStage("");
+    }catch(e){
+      const m = (e&&e.message)||"Couldn't record the voiceover.";
+      setErr(m); setAudioMsg(m); setStage("");
+    }
     setBusy(false);
   }
 
   async function composeMusic(){
     setErr(""); setBusy(true); setStage("Composing the score…");
     try{
+      setAudioMsg("Composing the score…");
       const brief = (plan.music && plan.music.brief) || "";
       const started = await studioMusic(brief, "commercial", "wolf", "auto");
       if(!started || started.error || !started.id) throw new Error((started&&started.error)||"The music engine didn't start.");
@@ -8141,10 +8152,11 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
       const url = await pollVideo(started.id, (p)=> setStage("Composing the score — " + Math.round(p||0) + "%…"));
       if(!url) throw new Error("The score didn't come back.");
       setMusic(typeof url === "string" ? url : (url && url.url) || "");
-      setStage("");
+      setAudioMsg(""); setStage("");
     }catch(e){
       // Never fatal. A commercial without a score is still a commercial.
-      setNotes(n=>[...n, "score skipped: " + ((e&&e.message)||"unknown")]);
+      const m = "Couldn't compose the score: " + ((e&&e.message)||"unknown");
+      setNotes(n=>[...n, m]); setAudioMsg(m);
       setStage("");
     }
     setBusy(false);
@@ -8338,8 +8350,23 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
             Turn all three off for a silent cut — the honest test of whether the edit holds up on its own.
           </div>
 
-          {useVo && (plan.vo && plan.vo.script) && (
+          {audioMsg && (
+            <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.charcoal,
+                          background:B.offwhite, border:"1px solid "+B.stone, padding:"9px 11px", marginTop:10, lineHeight:1.5 }}>
+              {audioMsg}
+            </div>
+          )}
+
+          {useVo && (
             <div style={{ marginTop:14, borderTop:"1px solid "+B.stone, paddingTop:14 }}>
+              {!(plan.vo && plan.vo.script) ? (
+                // Previously this whole block was hidden when the script was missing,
+                // so switching the voice on produced no panel, no button and no reason.
+                <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.mid, lineHeight:1.6 }}>
+                  This plan has no voiceover script — the planner wrote it as a music-only film.
+                  Use the rewrite box below and ask for narration, then record.
+                </div>
+              ) : (<>
               <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.mid, lineHeight:1.6, marginBottom:10 }}>
                 &ldquo;{plan.vo.script}&rdquo;
               </div>
@@ -8358,8 +8385,11 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
                   <div style={{ marginTop:10 }}><Btn small outline onClick={recordVoice} disabled={busy}>RECORD IT AGAIN</Btn></div>
                 </div>
               ) : (
-                <Btn small dark onClick={recordVoice} disabled={busy}>RECORD THE VOICE</Btn>
+                <Btn small dark onClick={recordVoice} disabled={busy}>
+                  {busy ? "RECORDING…" : "RECORD THE VOICE"}
+                </Btn>
               )}
+              </>)}
             </div>
           )}
 
