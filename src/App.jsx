@@ -7877,6 +7877,8 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   const [clips,setClips]     = useState([]);      // {status,url,err,pct}
   const [busy,setBusy]       = useState(false);
   const [err,setErr]         = useState("");
+  const [product,setProduct]   = useState("");     // what it is, in words
+  const [shots,setShots]       = useState([]);     // photographs of it
   const [keyFrame,setKeyFrame] = useState("");
   const [playing,setPlaying] = useState(0);
   const vidRef = useRef(null);
@@ -7896,7 +7898,7 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       const r = await fetch("/api/studio-commercial", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({ brief:brief.trim(), format, brand, look, orientation, totalSec, spoken })
+        body: JSON.stringify({ brief:brief.trim(), format, brand, look, orientation, totalSec, spoken, product:product.trim() })
       });
       const d = await r.json();
       if(!r.ok || !d || !Array.isArray(d.clips)) throw new Error((d&&d.error)||"Couldn't plan that.");
@@ -7917,18 +7919,34 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
   // warm, contrasty and HDR-looking, and because every clip inherits from this frame,
   // that over-processing would be baked into the entire commercial rather than
   // showing up in one image you could simply regenerate.
-  async function makeKeyFrame(){
-    if(!plan || !plan.lockedDescription) return "";
+  // The opening frame, built once for a continuous film and once per clip for an
+  // anthology. It is also where the real product enters.
+  //
+  // The product goes through the IMAGE model, not through Seedance's reference inputs.
+  // Seedance can take references, but not in the same call as a start frame — and the
+  // frame chain is what holds a continuous film together, so it wins. Composing the
+  // product into the opening frame gets it there anyway, and the chain then carries it
+  // through every clip after for free. It also composes better: an image model asked to
+  // place a specific tin on a specific counter does that far more reliably than a video
+  // model asked to keep one in mind while inventing motion.
+  async function makeKeyFrame(sceneText){
+    const desc = sceneText || (plan && plan.lockedDescription) || "";
+    if(!desc) return "";
     if(Number(credits) < CREDIT_COSTS.imageHD){ onBuyCredits(); return ""; }
+    const refs = shots.filter(Boolean).slice(0,3).map(sh=>({ mimeType: sh.mimeType, data: sh.data }));
     const prompt =
       "A single frame from a live-action commercial.\n\n" +
-      plan.lockedDescription + "\n" +
+      desc + "\n" +
+      (refs.length
+        ? ("\nThe product shown in the reference photo" + (refs.length>1?"s":"") + " must appear in this frame, in someone's hands or clearly in use. " +
+           "Reproduce it EXACTLY as photographed — the same shape, the same colours, the same label and lettering, unchanged. Do not redesign it, do not invent a different version of it, do not alter the packaging.\n")
+        : "") +
       (look.trim() ? ("Look: " + look.trim() + ".\n") : "") +
       "\nShoot it like a real photograph taken on set. Natural light with normal contrast and a normal dynamic range. " +
       "NOT HDR, not high contrast, no warm orange grade, no glow, no bloom, no heavy sharpening, no beauty retouching, no plastic skin. " +
       "Ordinary skin texture with pores and small imperfections. Flat enough that a colourist could still grade it. " +
       "No text, no logos, no captions anywhere in frame.";
-    const d = await generateOpenAIImage(prompt, null, orientation==="portrait"?"9:16":orientation==="square"?"1:1":"16:9", "2K");
+    const d = await generateOpenAIImage(prompt, refs.length?refs:null, orientation==="portrait"?"9:16":orientation==="square"?"1:1":"16:9", "2K");
     if(typeof d?.balance === "number") onBalance(d.balance);
     return (d && d.image) || "";
   }
@@ -7971,6 +7989,12 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
       // Only the continuous format uses a start image. The anthology one is meant to
       // look different every time, so anchoring it would be working against the idea.
       let startImg = null;
+      if(plan.format === "anthology" && shots.filter(Boolean).length){
+        // No chain here — each clip is meant to look nothing like the last. But the
+        // product still has to be the real one, so each gets its own opening frame.
+        setClip(i, { note:"Placing the product…" });
+        try{ startImg = await makeKeyFrame(c.prompt.slice(0, 320)) || null; }catch(_){}
+      }
       if(plan.format === "continuous"){
         let kf = keyFrame;
         if(!kf){ setClip(i, { note:"Making the key frame…" }); kf = await makeKeyFrame(); if(kf) setKeyFrame(kf); }
@@ -8030,6 +8054,32 @@ function Commercial({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredit
           style={{flex:"1 1 190px",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14}} />
         <input value={look} onChange={e=>setLook(e.target.value)} disabled={busy} placeholder="Look — e.g. warm 35mm film, soft daylight"
           style={{flex:"1 1 260px",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14}} />
+      </div>
+
+      <div style={{border:"1px solid "+B.stone,padding:13,marginBottom:14}}>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Your product (optional)</div>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.55,margin:"0 0 9px"}}>
+          Photos of the real thing, so it appears as it actually looks — same label, same packaging. Up to three, from different angles.
+        </p>
+        <input value={product} onChange={e=>setProduct(e.target.value)} disabled={busy}
+          placeholder="What it is — e.g. a 100g tin of ceremonial matcha"
+          style={{width:"100%",boxSizing:"border-box",padding:9,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,marginBottom:9}} />
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {[0,1,2].map(ix=>(
+            <label key={ix} style={{flex:"1 1 110px",border:"1px dashed "+B.stone,padding:"10px 8px",cursor:busy?"default":"pointer",background:B.white,textAlign:"center"}}>
+              <input type="file" accept="image/*" disabled={busy} style={{display:"none"}}
+                onChange={async e=>{
+                  const f=(e.target.files||[])[0]; e.target.value="";
+                  if(!f) return;
+                  try{ const sh=await cgShrinkPhoto(f); setShots(p=>{ const n=p.slice(); n[ix]=sh; return n; }); }
+                  catch{ setErr("That image couldn't be read."); }
+                }} />
+              {shots[ix]
+                ? <img src={shots[ix].preview} alt="" style={{width:"100%",maxHeight:74,objectFit:"contain",display:"block"}} />
+                : <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>Photo {ix+1}</span>}
+            </label>
+          ))}
+        </div>
       </div>
 
       <div style={{border:"1px solid "+B.stone,padding:13,marginBottom:14}}>

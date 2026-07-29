@@ -104,6 +104,10 @@ export default async function handler(req, res) {
     const orientation = body.orientation === "landscape" ? "landscape" : body.orientation === "square" ? "square" : "portrait";
     const totalSec = Math.max(4, Math.min(60, Math.round(Number(body.totalSec) || 15)));
     const spoken   = body.spoken !== false;
+    // What the product IS, in words. The photographs go to the image model; the planner
+    // only needs to know something must appear and what to call it, so it can write the
+    // product into the action rather than leaving it to be added afterwards.
+    const product  = String(body.product || "").trim().slice(0, 200);
     if (!brief) return res.status(400).json({ error: "Tell us what the commercial is about first." });
 
     const lengths = planClipLengths(totalSec);
@@ -113,6 +117,10 @@ export default async function handler(req, res) {
       "THE COMMERCIAL: " + brief + "\n" +
       (brand ? "BRAND: " + brand + "\n" : "") +
       (look ? "LOOK THEY WANT: " + look + "\n" : "") +
+      (product
+        ? "THE PRODUCT — it must physically appear: " + product + "\n" +
+          "Put it in the action rather than on a shelf. Someone lifts it, opens it, uses it, sets it down. A product a person handles reads as real; a product placed in shot reads as an advert for one.\n"
+        : "") +
       "TOTAL LENGTH: " + totalSec + " seconds, shot " + orientation + ".\n" +
       "IT WILL BE " + lengths.length + " CLIPS, of these lengths in order: " + lengths.join("s, ") + "s.\n\n" +
       "HOW TO WRITE A SHOT PROMPT — this is the part that decides whether it works:\n" +
