@@ -302,6 +302,10 @@ export default async function handler(req, res) {
       ? "You are a professional video editor AND colorist cutting a PROCESS video — cooking, cleaning, a build, a craft, a get-ready-with-me. Someone is DOING something, and the doing is the point. Long stretches have no talking at all and are the best material in the video, not gaps in it."
       : style === "cinematic"
       ? "You are a professional video editor AND colorist cutting a CINEMATIC STORYTELLING piece in the energy of a Scorsese picture — voiceover-driven, kinetic, confessional first-person. Momentum is everything."
+      : style === "entrepreneur"
+      ? "You are a professional video editor AND colorist cutting a FOUNDER FILM — one person talking about their business, to camera, across several setups. It should feel confident and expensive: every cut lands on a finished thought, never inside one."
+      : style === "realestate"
+      ? "You are a professional video editor AND colorist cutting a PROPERTY TOUR. It alternates between the agent presenting to camera and fast silent bursts of the property itself. The silent stretches are the tour and are the most valuable footage in the video, not gaps in it."
       : "You are a professional video editor AND colorist cutting a talking-head video (one person speaking to camera).";
 
     const tutorialRules =
@@ -592,9 +596,62 @@ export default async function handler(req, res) {
     if (!g.ok) {
       return res.status(502).json({ error: g.error });
     }
+    // ── Parse, and when that fails, SAY WHY ──────────────────────────────────
+    //
+    // This used to discard the response and return "try again", which is the worst
+    // possible signature: the one piece of evidence that would identify the cause is
+    // thrown away, so every failure looks identical and none of them can be diagnosed.
+    // The outage this morning cost a day to exactly this shape of silence.
+    //
+    // The overwhelmingly likely cause is TRUNCATION. Gemini runs with
+    // responseMimeType application/json and maxOutputTokens 8192, so a long video
+    // whose keep list overruns the budget returns valid JSON that simply stops
+    // mid-array — unparseable, through no fault of the prompt.
+    //
+    // So: try the whole thing, then try to SALVAGE. A truncated keep array still
+    // contains complete segments, and a slightly short edit beats no edit at all.
     let plan;
-    try { plan = JSON.parse((g.text || "").replace(/```json|```/g, "").trim()); } catch {
-      return res.status(502).json({ error: "The editor couldn't produce a valid plan. Please try again." });
+    const raw = (g.text || "").replace(/```json|```/g, "").trim();
+    try {
+      plan = JSON.parse(raw);
+    } catch (e) {
+      const looksTruncated = raw.length > 200 && !/[}\]]\s*$/.test(raw);
+      console.warn("[plan] " + plannedBy + " returned unparseable JSON — " + raw.length +
+                   " chars, truncated=" + looksTruncated + ", parse error: " + (e && e.message));
+      console.warn("[plan] response HEAD: " + raw.slice(0, 300));
+      console.warn("[plan] response TAIL: " + raw.slice(-300));
+
+      // Salvage: pull every COMPLETE object out of the keep array by brace matching.
+      // Regex cannot do this reliably; a depth counter can.
+      const salvaged = [];
+      const k = raw.indexOf('"keep"');
+      if (k >= 0) {
+        let depth = 0, start = -1;
+        for (let i = raw.indexOf("[", k); i >= 0 && i < raw.length; i++) {
+          const ch = raw[i];
+          if (ch === "{") { if (!depth) start = i; depth++; }
+          else if (ch === "}") {
+            depth--;
+            if (!depth && start >= 0) {
+              try { salvaged.push(JSON.parse(raw.slice(start, i + 1))); } catch {}
+              start = -1;
+            }
+          }
+        }
+      }
+
+      // Four is the floor. Fewer than that is not a short edit, it is a broken one,
+      // and shipping it would look like the tool ignored most of the footage.
+      if (salvaged.length >= 4) {
+        console.warn("[plan] salvaged " + salvaged.length + " segments from the truncated response");
+        plan = { keep: salvaged, salvaged: true };
+      } else {
+        return res.status(502).json({
+          error: looksTruncated
+            ? "The editor ran out of room part-way through planning this edit. Try a shorter video, or split it in two."
+            : "The editor couldn't produce a valid plan. Please try again."
+        });
+      }
     }
 
     // ── Sanitize: clamp, order, merge, drop invalid ──
