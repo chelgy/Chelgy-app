@@ -279,6 +279,16 @@ export default async function handler(req, res) {
       .slice(0, 24)
       .map((x) => ({ at: Math.max(0, Number(x.at)), effect: x.effect }));
 
+    // One url per EFFECT TYPE, not per occurrence — job-plan.js drops a copy wherever it
+    // placed that effect, so the app never needs to know where they landed.
+    const fxSfx = {};
+    if (body.fxSfx && typeof body.fxSfx === "object") {
+      for (const k of ["burn", "ghost", "glitch", "dub"]) {
+        const v = body.fxSfx[k];
+        if (typeof v === "string" && /^https?:\/\//.test(v)) fxSfx[k] = v;
+      }
+    }
+
     const STYLES = ["talkinghead", "vlog", "tutorial", "process", "fashion", "showcase", "cinematic", "entrepreneur", "realestate"];
     const style = STYLES.includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
@@ -411,7 +421,7 @@ export default async function handler(req, res) {
             edl: {
               sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
-              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx, fx,
+              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx, fx, fxSfx,
               chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
                 : style === "entrepreneur"
@@ -465,7 +475,7 @@ export default async function handler(req, res) {
           title, subtitle,
           orientation,
           uploadPath,
-          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx, fx,
+          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx, fx, fxSfx,
           chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
                 : style === "entrepreneur"

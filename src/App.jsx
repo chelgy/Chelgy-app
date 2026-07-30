@@ -1312,7 +1312,7 @@ const GENRE_BPM = { classical:70, orchestral:80, piano:68, ambient:60, acoustic:
                     // the one worth snapping cuts to. 118 matches the reference track.
                     downtempo:118, runway:124, frenchclassical:66 };
 
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx, fx){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx, fx, fxSfx){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1321,7 +1321,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[], fx: Array.isArray(fx)?fx:[],
+        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[], fx: Array.isArray(fx)?fx:[], fxSfx: fxSfx||null,
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
       })
@@ -6688,7 +6688,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // track, in a call that had to happen anyway. All that is left is to make the
       // audio and host it. Times stay on the SOURCE timeline; the render server remaps
       // them onto the finished edit, where it knows both scales.
-      let sfxList = [], ambienceUrl = null;
+      let sfxList = [], ambienceUrl = null, fxSfxSet = null;
       if(useSfx && plan){
         const uid = (user && user.id) || "anon";
         const wanted = Array.isArray(plan.sfx) ? plan.sfx.slice(0, 6) : [];
@@ -6699,6 +6699,33 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           else console.warn("[sfx] " + wanted[i].sound + ": " + ((r&&r.error)||"failed"));
           if(r && typeof r.balance === "number") onBalance(r.balance);
         }
+        // ── A SOUND FOR EACH VISUAL EFFECT ──────────────────────────────────
+        //
+        // Fashion's effects are placed on the render server, so the app cannot know
+        // where they land — but it can make one sound per TYPE and let the server drop
+        // a copy at every occurrence. Four generations instead of dozens.
+        //
+        // The descriptions are fixed rather than planned, because these are not about
+        // the footage: they are the sound the EFFECT makes. A frame echo sounds like
+        // electricity whatever is on screen.
+        if(style==="fashion"){
+          const FX_SOUNDS = [
+            ["burn",   "old film projector flare, soft warm whoosh, analogue"],
+            ["ghost",  "electrical hum swelling and fading, power line buzz"],
+            ["glitch", "short digital stutter, tape head static burst"],
+            ["dub",    "soft airy swell, two sounds merging and parting"],
+          ];
+          const set = {};
+          for(let i=0;i<FX_SOUNDS.length;i++){
+            const [k, desc] = FX_SOUNDS[i];
+            setStage("Making effect sound " + (i+1) + " of " + FX_SOUNDS.length + "…");
+            const r = await studioSfx(desc, 0.9, false, uid);
+            if(r && r.url) set[k] = r.url;
+            if(r && typeof r.balance === "number") onBalance(r.balance);
+          }
+          if(Object.keys(set).length) fxSfxSet = set;
+        }
+
         if(plan.ambience){
           setStage("Making the room tone…");
           // Twenty seconds and loopable: long enough not to feel repetitive, short
@@ -6753,7 +6780,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100),
         ambienceUrl, sfxList,
         // The planner's transition choices. Without this they never leave the app.
-        Array.isArray(plan && plan.fx) ? plan.fx : []
+        Array.isArray(plan && plan.fx) ? plan.fx : [],
+        fxSfxSet
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
