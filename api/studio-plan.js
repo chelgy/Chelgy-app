@@ -434,19 +434,36 @@ export default async function handler(req, res) {
       : "";
 
     const realestateRules =
-        "This is a SILENT PROPERTY FILM. Nobody is narrating it and nobody should be.\n" +
+        "This is a PROPERTY FILM. It has a structure, and the structure is the style.\n" +
         "\n" +
-        "CUT IT ENTIRELY FROM THE PICTURES. If there is speech in this footage, IGNORE IT — do not build the edit around it, do not keep a shot because someone talked over it, do not treat a quiet stretch as dead air. Music goes over the finished cut. What you are making is a tour of a building, not a video of a person describing one.\n" +
+        "IF NOBODY SPEAKS IN THIS FOOTAGE, IT IS A SILENT TOUR — a normal way to make one, a walkthrough with music over it. In that case the structure below collapses to its montage half:\n" +
+        "  Cut the WHOLE video as montage. Short shots, 0.6 to 2.0 seconds. Different rooms and different scales — wide, then a detail, then somewhere else. Open on the exterior or the approach, close on the widest shot you can see.\n" +
+        "  Use the frames to tell the rooms apart and the movement track to find where the camera is actually travelling through the property.\n" +
+        "  Everything below about presenter blocks does not apply. Do not invent a presenter that is not there.\n" +
+        "\n" +
+        "OTHERWISE, ALTERNATE PRESENTER AND MONTAGE. That is the whole idea:\n" +
+        "- PRESENTER blocks: the agent is talking, on camera. Keep these LONG — 4 to 9 seconds, uncut, so a thought lands whole.\n" +
+        "- MONTAGE blocks: no speech, just the property. Keep these SHORT and MANY — 0.4 to 1.5 seconds each, four to eight in a row.\n" +
+        "- Then back to the presenter. The reference runs presenter, montage, presenter, montage, presenter across a minute, and the contrast between the two paces is what makes it feel produced.\n" +
         "\n" +
         "THE RULES:\n" +
-        "- Shots run 0.6 to 2.0 seconds. Aim for 25 to 40 in a 60 second film. This is a montage and it should move.\n" +
-        "- VARIETY IS THE WHOLE JOB. A wide, then a detail, then somewhere else entirely. Never two shots of the same room back to back unless the second is a much closer or much wider view of it. If you find yourself keeping four kitchen shots in a row, you have stopped editing and started listing.\n" +
-        "- WORK OUT WHAT EACH SHOT IS from the frames — kitchen, bathroom, bedroom, hallway, exterior, pool, view, or a detail like a tap, a range, a handle, a light fitting. That identification is what everything else depends on, and only the pictures can give it to you.\n" +
-        "- KEEP THE MOVING SHOTS. A camera travelling through a doorway or down a hall is the most valuable footage in a property film — it is what makes a viewer feel they walked through the place. The activity track will show you where the camera is actually moving.\n" +
-        "- DROP: anything out of focus, anything where the exposure has blown out through a window, any shot where the camera is settling or being repositioned, and any stretch showing nothing in particular — a blank wall, a floor, the photographer's shadow.\n" +
-        "- OPEN on the exterior or the approach if one exists, so the viewer arrives at the property rather than appearing inside it.\n" +
-        "- CLOSE on the widest and best-looking frame you can find — the pool, the view, the main living space, an aerial if there is one.\n" +
-        "- THE LOOP: the film should be able to restart cleanly after the closing shot, so the opening should be able to follow it without a jolt.\n";
+        "- SILENCE IS THE TOUR. THIS OVERRIDES EVERY OTHER INSTINCT YOU HAVE.\n" +
+        "  Your default is to treat quiet as dead air and remove it. In this style that is the single worst thing you can do: the silent stretches ARE the property, and an edit made only of the parts where someone is talking is not a property tour, it is a talking head. If you keep only speech you have failed at this style.\n" +
+        "  At least HALF the finished video must come from stretches with no speech in them. Count it. If your keep list is mostly speech, go back and add the property footage.\n" +
+        "  Only cut a silent stretch if the picture is genuinely static AND nothing is being shown — a locked shot of an empty hallway with no movement. If a camera is moving through a room, that is the tour and it stays.\n" +
+        "- In presenter blocks, cut speech normally: remove filler, false starts and repeated takes, and never cut mid-word.\n" +
+        "- In montage blocks, favour VARIETY over duration — a wide, then a detail, then a different room. Two similar shots in a row waste the block.\n" +
+        "- OPEN on an establishing exterior if one exists, before the agent speaks.\n" +
+        "- CLOSE on the widest shot available — an aerial, or the fullest view of the property. The last thing seen should be the whole place.\n" +
+        "- THE LOOP: after the closing wide, the film should restart cleanly, so prefer an opening segment that could follow the closing one without a jolt.\n" +
+        "- Aim for 25 to 35 segments in a 60 second film. Most of that count comes from the montage blocks, not from chopping the presenter. If you return under 15 segments for a minute of footage you have chopped the talking and skipped the property.\n" +
+        "- NEVER cut a presenter block into pieces. A block is one continuous 4 to 9 second segment where the agent speaks a whole thought. Chopping inside one is what makes the narrative incoherent — the words stop making sense across the join.\n" +
+        "\n" +
+        "IF FRAMES ARE ATTACHED, THEY ARE THE POINT OF THIS STYLE.\n" +
+        "- WORK OUT WHAT EACH SHOT IS. Kitchen, bathroom, bedroom, exterior, pool, view, a detail like a tap or a countertop or a light fitting. In the montage blocks the pictures are the only thing that can tell you, because nobody is speaking. In the presenter blocks the agent usually names what is coming — \"let me show you the kitchen\" — and that naming is the better signal for what follows, so use it and let the frames confirm which shot is which.\n" +
+        "- Build each montage block out of DIFFERENT rooms and different scales. A wide, then a detail, then somewhere else. Two shots of the same worktop back to back waste the block.\n" +
+        "- Put the effects on what deserves them. The slow-motion goes on the best reveal in the property — the pool, the view, the main living space — not on whatever shot happens to be next. The push goes on a detail. The roll goes on a move into a new room. The flash goes where the picture crosses from inside to outside.\n" +
+        "- The CLOSING shot should be the most impressive frame you can see, and the OPENING should be the exterior or the approach if one exists.\n";
 
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
