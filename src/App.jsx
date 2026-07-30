@@ -6211,7 +6211,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Fashion cuts on movement ALONE — there is no transcript to fall back on, so
       // without the activity track the planner would be working from nothing at all.
       // For the other styles this track is a second opinion; here it is the only one.
-      const wantsActivity = ["process","vlog","cinematic","fashion"].includes(style);
+      // realestate joins this because a property tour can be entirely silent — a
+      // walkthrough with music over it — and without the movement track there would be
+      // no signal at all to cut on.
+      const wantsActivity = ["process","vlog","cinematic","fashion","realestate"].includes(style);
       // Showcase finds products by SIGHT, not sound — it needs no transcript at all,
       // so it skips the whole listen/transcribe loop below. A jewelry or OOTD video
       // is silent by design; running speech detection on it and rejecting it for
@@ -6221,7 +6224,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // and name products; a fashion film only needs to know when something moved,
       // which the activity track already says far more cheaply.
       const visionOnly = style==="showcase";
-      const noSpeech = style==="showcase" || style==="fashion";
+      // Styles that do not REQUIRE speech. Property belongs here: plenty of tours are
+      // shot silent and scored, and refusing them because nobody narrated is refusing a
+      // completely normal way to make one. It still uses speech happily when it exists.
+      const noSpeech = style==="showcase" || style==="fashion" || style==="realestate";
       let heardAnything = false;
       let extractionFailed = false;
       for(let i = 0; i < n && !noSpeech; i++){
