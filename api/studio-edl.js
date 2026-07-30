@@ -152,6 +152,23 @@ Pick an anchor that can genuinely survive a change of setting: a line, a horizon
 doorway, a colour, a repeated object, a hand entering frame from the same side. If you
 cannot name one that works across all your settings, change the settings.
 
+THE VOICEOVER MUST FILL THE AD
+A script is not a tagline. Write to LENGTH, and count the words before you return it.
+
+  Spoken advertising runs at roughly 2.5 words per second. So:
+    15 seconds  ->  about 35-40 words
+    30 seconds  ->  about 70-80 words
+    60 seconds  ->  about 145-160 words
+
+A 30 second ad with a 30 word script leaves eighteen seconds of silence, and the
+person recording it finds out only after they have paid for the footage. Err LONG
+rather than short — a read that slightly overruns can be trimmed, a short one cannot
+be stretched.
+
+Write it as continuous spoken sentences that carry across the whole film, not a list
+of slogans. Slogans are what a short script collapses into, and they are why it stops
+early: three lines and a brand name is fifteen words and eight seconds.
+
 SOUND
 Return up to SIX sound effects and one line of ambience.
 
@@ -455,6 +472,21 @@ function validate(edl, opts) {
   // the most common thing to be missing and the easiest to fix by rewriting.
   if (!edl.timeline.some((e) => e && e.card && String(e.card.text || "").trim())) {
     warnings.push("no end card — the ad stops rather than ends; rewrite asking for a closing brand card");
+  }
+
+  // A script far shorter than the ad is the single most common thing to go wrong with
+  // the voice, and it is invisible until the take is recorded. Say so at plan time,
+  // when a rewrite is still free.
+  {
+    const words = String((edl.vo && edl.vo.script) || "").trim().split(/\s+/).filter(Boolean).length;
+    const total = Number(edl.totalSeconds) || 0;
+    if (words && total) {
+      const expected = total * 2.5;
+      if (words < expected * 0.65) {
+        warnings.push("the voiceover is only about " + Math.round(words / 2.5) + "s of speech against a " +
+                      Math.round(total) + "s ad — rewrite asking for a fuller script");
+      }
+    }
   }
 
   // Sound. Times are already on the finished ad's clock — the planner writes the

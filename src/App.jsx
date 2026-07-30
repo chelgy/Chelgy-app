@@ -8122,6 +8122,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   // exactly like the click doing nothing at all.
   const [audioMsg,setAudioMsg] = useState("");
   const [voices,setVoices]     = useState([]);
+  const [voicesErr,setVoicesErr] = useState("");
   const [voiceId,setVoiceId]   = useState("");
   const [useVo,setUseVo]       = useState(true);
   const [useMusic,setUseMusic] = useState(false);
@@ -8146,15 +8147,47 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   // Loaded from the account rather than hardcoded — see api/voices.js. Failing to load
   // is not an error state: the picker just does not appear and the default voice is
   // used, which is exactly the behaviour before this existed.
+  // A SMALL VERIFIED FALLBACK, used only when the account list cannot be read.
+  //
+  // Asking the account is still the right answer — it cannot go stale and it picks up
+  // voices cloned later. But when that call fails the picker simply vanished, which
+  // looks identical to the feature not existing, and left one hardcoded British man as
+  // the only voice in the product.
+  //
+  // These ids are ElevenLabs' long-standing defaults. WORTH KNOWING: ElevenLabs has
+  // said the default voices expire on 31 December 2026, so this list has a shelf life
+  // and the account call is what should be working.
+  const FALLBACK_VOICES = [
+    { id:"21m00Tcm4TlvDq8ikWAM", name:"Rachel",   gender:"female", accent:"american", age:"young" },
+    { id:"EXAVITQu4vr4xnSDxMaL", name:"Sarah",    gender:"female", accent:"american", age:"young" },
+    { id:"AZnzlk1XvdvUeBnXmlld", name:"Domi",     gender:"female", accent:"american", age:"young" },
+    { id:"LcfcDJNUP1GQjkzn1xUU", name:"Emily",    gender:"female", accent:"american", age:"young" },
+    { id:"ErXwobaYiN019PkySvjV", name:"Antoni",   gender:"male",   accent:"american", age:"young" },
+    { id:"JBFqnCBsd6RMkjVDRZzb", name:"George",   gender:"male",   accent:"british",  age:"middle aged" },
+    { id:"IKne3meq5aSn9XLyUdCD", name:"Charlie",  gender:"male",   accent:"australian", age:"young" },
+    { id:"CYw3kZ02Hs0563khs1Fj", name:"Dave",     gender:"male",   accent:"british",  age:"young" },
+    { id:"29vD33N1CtxCmqQRPOHJ", name:"Drew",     gender:"male",   accent:"american", age:"middle aged" },
+    { id:"GBv7mTt0atIp3Br8iCZE", name:"Thomas",   gender:"male",   accent:"american", age:"young" },
+    { id:"D38z5RcWu1voky8WS1ja", name:"Fin",      gender:"male",   accent:"irish",    age:"old" },
+    { id:"2EiwWnXFnvU5JabPnv8n", name:"Clyde",    gender:"male",   accent:"american", age:"middle aged" },
+  ];
+
   useEffect(() => {
     let dead = false;
     (async () => {
       try {
         const tok = await freshToken();
         const r = await fetch("/api/voices", { headers: tok ? { Authorization: "Bearer " + tok } : {} });
-        const d = await r.json();
-        if (!dead && d && Array.isArray(d.voices)) setVoices(d.voices);
-      } catch (_) {}
+        const d = await r.json().catch(()=>({}));
+        if (dead) return;
+        if (r.ok && d && Array.isArray(d.voices) && d.voices.length) { setVoices(d.voices); return; }
+        setVoices(FALLBACK_VOICES);
+        setVoicesErr((d && d.error) || ("Couldn't read the voice list (" + r.status + ") — showing the standard voices."));
+      } catch (e) {
+        if (dead) return;
+        setVoices(FALLBACK_VOICES);
+        setVoicesErr("Couldn't reach the voice service — showing the standard voices.");
+      }
     })();
     return () => { dead = true; };
   }, []);
@@ -8617,6 +8650,11 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
                       </option>
                     ))}
                   </select>
+                  {voicesErr && (
+                    <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:4 }}>
+                      {voicesErr}
+                    </div>
+                  )}
                   {(()=>{
                     const v = voices.find(x=>x.id===voiceId);
                     return v && v.preview
