@@ -5720,6 +5720,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [ownMusic,setOwnMusic]     = useState(null);  // { url, name } — a track they uploaded
   const [ownBusy,setOwnBusy]       = useState(false);
   const [ownErr,setOwnErr]         = useState("");
+  // Non-fatal notice. vlog and cinematic degrade to speech-only cutting when the
+  // movement measurement fails, deliberately — but silently, which made the whole
+  // activity feature look like it had never been built.
+  const [activityNote,setActivityNote] = useState("");
   // "auto" lets the planner choose from what the video is about, which is usually
   // right and is why it stays the default. The rest are for when it isn't.
   const [musicGenre,setMusicGenre] = useState("auto");
@@ -6246,6 +6250,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // silence by activity, so with no track it would treat every working shot as dead
       // air. For vlog and cinematic the track is an enhancement: if it's missing they
       // fall back to their speech-based rules, which is exactly how they behaved before.
+      // Say when the enhancement was lost. Silent degradation here is why the activity
+      // work appeared never to have worked: the track failed, vlog and cinematic fell
+      // back to speech, and nothing anywhere mentioned it.
+      setActivityNote(
+        (wantsActivity && !haveActivity && (style==="vlog" || style==="cinematic"))
+          ? "We couldn't measure the movement in this footage, so this edit was cut from speech alone — silent action shots may have been treated as dead air. Your video is fine; this is our measurement step failing, and it's worth retrying if the cuts miss something you were doing."
+          : ""
+      );
       if(style==="process" && !haveActivity){
         setErr("We couldn't measure the movement in your footage, and the Process style needs it — without it we'd cut every silent working shot as if it were dead air. Nothing has been charged. If this keeps happening, the render engine may not be up to date.");
         for(const p of cleanup) await deleteSiteObject(p);
@@ -7035,6 +7047,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </p>
 
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+      {activityNote && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#8A6D3B",background:"#FCF8E3",border:"1px solid #E8DCB5",padding:"10px 12px",lineHeight:1.5,marginTop:6}}>{activityNote}</p>}
       {notice && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12,paddingLeft:10,borderLeft:"2px solid "+B.stone}}>{notice}</p>}
 
       <Btn dark full disabled={busy} onClick={run}>
