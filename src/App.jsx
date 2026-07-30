@@ -5850,13 +5850,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"fashion",     label:"Fashion Film",  note:"An outfit, shot from every angle and cut fast to music \u2014 no talking, no captions, no labels. Give it two or three minutes of footage from a few positions and it finds the movement, cuts on it, and opens and closes on the same frame so it loops seamlessly on a feed.", ready:true },
     { id:"showcase",    label:"Showcase",     note:"Outfit-of-the-day, jewelry, product hauls — no talking needed. Tell Chelgy what to show and it WATCHES your footage to find each product, keeps that moment, and labels it on screen (e.g. “Jewelry · cherosi.com”) right next to the item so it never gets buried under TikTok's captions.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts and scene cards that punctuate the story. Golden Hour grade by default.", ready:true },
-    // HIDDEN, not deleted. Both still work end to end — the planner rules, the whitelists,
-    // the transitions and the captions are all intact and deployed. They are off the
-    // picker because the edits are not good enough yet, and the fastest way back is to
-    // delete the `hidden` flag on the one being worked on. Removing them properly would
-    // mean unpicking nine files and rebuilding it all to try again.
-    { id:"entrepreneur", hidden:true, label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true },
-    { id:"realestate",  hidden:true, label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true },
+    { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true },
+    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true },
   ];
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
@@ -6862,7 +6857,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
-        {STYLES.filter(s=>!s.hidden).map(s=>(
+        {STYLES.map(s=>(
           <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{padding:"9px 16px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55,whiteSpace:"nowrap"}}>
             {s.label}{!s.ready && " · soon"}
           </button>
