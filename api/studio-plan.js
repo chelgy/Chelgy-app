@@ -604,13 +604,13 @@ export default async function handler(req, res) {
         ? ("\nALSO RETURN \"fx\": where the transitions go. AT MOST ONE PER FIVE SECONDS OF FINISHED VIDEO, and fewer is better.\n" +
            "- at: the second on the ORIGINAL timeline. It must be the START of something you kept, because a transition belongs at a cut, not in the middle of a shot.\n" +
            "- effect: exactly one of " + (style === "realestate"
-              ? "\"roll\" | \"push\" | \"flash\" | \"slowmo\""
+              ? "\"roll\" | \"push\" | \"flash\""
               : "\"whip\" | \"push\" | \"flash\" | \"drain\" | \"echo\"") + ".\n" +
            (style === "realestate"
              ? "- roll: a rotating camera. Use it moving INTO a new room or a new part of the property.\n" +
                "- push: a fast push with blur. Use it arriving at a detail the speech just named — a countertop, a range, a light fitting.\n" +
                "- flash: a bright exposure ramp. Use it ONLY going from inside to outside, or outside to inside.\n" +
-               "- slowmo: a held slow-motion shot. Use it on the single best reveal in the whole tour — the pool, the view, the main room. Once, at most twice.\n"
+               ""
              : "- whip: a fast blurred camera snap. Use it where the argument turns — a but, a however, a contradiction.\n" +
                "- push: a fast push with blur. Use it arriving at the most important claim in a sentence.\n" +
                "- flash: a bright exposure ramp. Use it on the hardest break between two ideas.\n" +
@@ -833,7 +833,7 @@ export default async function handler(req, res) {
     // having chosen nothing.
     {
       const FX_OK = style === "realestate"
-        ? ["roll", "push", "flash", "slowmo"]
+        ? ["roll", "push", "flash"]
         : ["whip", "push", "flash", "drain", "echo"];
       const cap = Math.max(1, Math.round(duration / 5));
       const seen = [];

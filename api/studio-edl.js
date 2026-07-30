@@ -118,6 +118,13 @@ centimetres off the ground with an ultra-wide lens, centred on a white boundary 
 in EVERY sport — the surface changes from track to grass to water to hardwood to clay
 while the line barely moves. That is why the cuts read as one continuous idea.
 
+  look.grade — the photographic quality every shot shares. A STILL is generated from
+    this first and then animated, so write it as you would brief a photographer:
+    stock or sensor, light quality, contrast, colour. Real and cinematic, never
+    illustrated or rendered.
+    e.g. "shot on 35mm, natural stadium floodlight, deep contrast, rich saturated
+    colour, fine film grain, photographic realism"
+
   look.camera — height, angle, lens, composition. Identical in every shot.
     e.g. "camera a few centimetres off the ground, ultra-wide lens, one-point
     perspective, subject approaching the lens head-on, shallow foreground focus"
@@ -155,7 +162,8 @@ function schemaBlock(duration, aspect, hasRefs) {
   "throughline": "the story in one sentence",
   "look": {
     "camera": "the ONE camera spec every source shares — height, angle, lens, composition",
-    "anchor": "the ONE visual element held in the same screen position in every source"
+    "anchor": "the ONE visual element held in the same screen position in every source",
+    "grade": "the ONE photographic quality every source shares — stock, light, contrast, colour"
   },
   "vo": {
     "script": "the full voiceover, spoken as one continuous read",
@@ -361,7 +369,15 @@ function validate(edl, opts) {
   const look = {
     camera: String((edl.look && edl.look.camera) || "").trim(),
     anchor: String((edl.look && edl.look.anchor) || "").trim(),
+    grade:  String((edl.look && edl.look.grade)  || "").trim(),
   };
+  if (!look.grade) {
+    // Plain, real, and the same everywhere. Generation models drift toward illustration
+    // when nothing pins them down, and one illustrated shot among eight photographic
+    // ones is far more obvious than eight consistently plain ones.
+    look.grade = "photographic realism, natural light, cinematic contrast, fine film grain, no illustration or 3D render look";
+    warnings.push("no shared photographic grade returned — used a neutral realistic default");
+  }
   if (!look.camera) {
     look.camera = "consistent camera height and framing across every shot, single-point " +
                   "composition, subject centred, shallow foreground focus";
@@ -399,6 +415,7 @@ function validate(edl, opts) {
       String(s.scene).trim().replace(/[.\s]+$/, ""),
       look.camera,
       look.anchor ? ("held throughout: " + look.anchor) : null,
+      look.grade,
     ].filter(Boolean).join(". ") + ".";
     return {
       id,

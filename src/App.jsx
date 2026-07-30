@@ -8087,6 +8087,22 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const allFilmed = !!plan && total > 0 && filmed === total;
   const costCredits = plan && plan.cost ? (plan.cost.credits||0) : 0;
 
+  // ── IMAGE FIRST, THEN ANIMATE ────────────────────────────────────────────────
+  //
+  // How the reference ad was actually made: a still was generated for every shot, the
+  // stills were made cohesive, and each one was then animated. That order is the reason
+  // eight different sports read as one film.
+  //
+  // Going straight to video cannot get there. Each generation invents its own light,
+  // lens and colour from a text prompt, so twelve clips arrive twelve different films
+  // however carefully the prompt is written. A still is cheap to make, and the video
+  // model treats it as the FIRST FRAME — so the look is decided once, in a picture, and
+  // the motion inherits it.
+  //
+  // Every still is generated from the same prompt the video will use, which already
+  // carries the shared camera, anchor and photographic grade from the planner.
+  const imageFirst = true;
+
   const setShot = (i, patch)=> setShots(prev => prev.map((s,n)=> n===i ? { ...s, ...patch } : s));
 
   // ── 1. the plan ────────────────────────────────────────────────────────────
@@ -8126,7 +8142,25 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     const s = plan.sources[i];
     setShot(i, { status:"running", pct:0, err:"" });
     try{
-      const started = await generateVideo(s.scene, (s.refs&&s.refs[0])||refs[0]||undefined, {
+      // The still. A product photograph the person supplied always wins — it is the
+      // real thing and no generated frame beats it.
+      let startFrame = (s.refs&&s.refs[0]) || refs[0] || undefined;
+      if(imageFirst && !startFrame){
+        setShot(i, { pct: 1 });
+        const uid = (user && user.id) || "anon";
+        const img = await studioBrollImage(s.scene, orientation, uid);
+        if(img && img.url){
+          startFrame = img.url;
+          if(typeof img.balance === "number") onBalance(img.balance);
+        } else {
+          // Not fatal. A shot generated from text alone is worse than one grown from a
+          // still, but it is far better than a missing shot — and the plan's shared look
+          // is in the prompt either way.
+          setNotes(n=>[...n, "shot " + s.id + ": couldn't make a still first, generated from the description instead"]);
+        }
+      }
+
+      const started = await generateVideo(s.scene, startFrame, {
         quality: TIER[s.res] || TIER[res] || "seedance720",
         orientation, duration: s.seconds,
         // No generated audio. The score and any voice are added at assembly, over
@@ -8519,6 +8553,9 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
               {allFilmed ? "ALL SHOTS FILMED" : busy ? (stage||"FILMING…") : "FILM THE SHOTS · " + costCredits + " CREDITS"}
             </Btn>
             <Btn onClick={assemble} disabled={busy||!allFilmed}>ASSEMBLE THE COMMERCIAL</Btn>
+          </div>
+          <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:8, lineHeight:1.5 }}>
+            Each shot is made as a still photograph first and then animated — that is what makes a dozen different settings look like one film. Product photographs you added are used directly instead.
           </div>
           {!allFilmed && filmed>0 && (
             <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.mid, marginTop:8 }}>
