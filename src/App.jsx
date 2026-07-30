@@ -6414,7 +6414,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Failing to sample is never fatal — the planner falls back to the transcript and
       // the activity track, which is exactly how it worked before.
       let planFrames = [];
-      if(style==="fashion" || style==="realestate"){
+      // process, vlog and cinematic were built to SHOW things, not just to caption
+      // speech — silent moments are the material, not gaps in it. Without a look at the
+      // footage the planner names those moments from the transcript and the movement
+      // track, and movement cannot tell washing up from wiping a counter. So it writes
+      // something plausible and wrong.
+      if(style==="fashion" || style==="realestate" || style==="process" || style==="vlog" || style==="cinematic"){
         setStage("Looking at your footage…");
         const PER_CLIP = Math.max(4, Math.floor(32 / Math.max(1, clips.length)));
         let base = 0;

@@ -421,6 +421,7 @@ export default async function handler(req, res) {
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
         "- The TRANSCRIPT below, as usual. This is the stronger of the two signals: if someone is talking, that moment matters.\n" +
+        "- THE FRAMES, if they are attached. They are the only thing that can say WHAT is being done. The activity track says a lot is moving; the transcript says whatever was spoken aloud, which on a silent working stretch is nothing. Only the pictures distinguish washing up from wiping a counter from putting shopping away — so every step label comes from them, and a step you cannot see in a frame does not get named.\n" +
         "- An ACTIVITY TRACK: how much of the picture is moving, measured from the footage itself, given above as timestamped spans with a peak value of 0 to 9. still means genuinely nothing is moving — an empty counter, an abandoned tripod, someone out of frame. ACTION (4-6) is a person working within a fixed shot: hands chopping, wiping, folding, assembling. STRONG ACTION (7-9) is large movement — the camera moving, or something carried across the frame. The span times are on the same timeline as the word timings, so an ACTION span is a keep range you can quote directly. UNMEASURED means the read failed for that stretch, NOT that nothing happened — keep those unless speech says otherwise.\n" +
         "\n" +
         "THE RULE THAT MATTERS: silence is NOT dead air in this video. A silent stretch with HIGH activity is the most valuable footage there is — it is the actual work being done, and it must be KEPT even though nobody is speaking over it. A silent stretch with activity at or near 0 is genuinely dead and should go.\n" +
@@ -522,6 +523,14 @@ export default async function handler(req, res) {
            "=== END OF THE CREATOR'S DIRECTION ===\n\n")
         : "") +
       "Below is the transcript as word|startSeconds|endSeconds lines. Total length: " + duration + "s.\n" +
+      // Chapter labels are the thing most damaged by planning blind: they are asserted
+      // as fact on screen, so a wrong one is not a duller edit, it is a caption that
+      // says something the video does not show.
+      (canSee
+        ? ("NAME WHAT YOU CAN SEE, NOT WHAT YOU ASSUME.\n" +
+           "Any label, title or chapter you write must describe what is actually visible in the frames at that timestamp. If the frames show someone at a sink with plates, that is washing up. Do not infer the activity from the words or from how much movement there is — movement cannot tell washing up from wiping a counter, and someone silent is not doing nothing.\n" +
+           "If the frames do not make an activity clear, write a plainer label that is true rather than a specific one that might not be. \"Kitchen\" is a better label than a confident guess at the wrong task.\n\n")
+        : "") +
       (canSee
         ? ("YOU CAN SEE THIS FOOTAGE. " + frames.length + " frames are attached, each labelled with its timestamp on the same timeline as everything else above.\n" +
            "Use them. This is the difference between arranging a video and editing one:\n" +
