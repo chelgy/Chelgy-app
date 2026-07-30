@@ -1312,7 +1312,7 @@ const GENRE_BPM = { classical:70, orchestral:80, piano:68, ambient:60, acoustic:
                     // the one worth snapping cuts to. 118 matches the reference track.
                     downtempo:118, runway:124, frenchclassical:66 };
 
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1321,7 +1321,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100,
+        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
       })
@@ -1432,6 +1432,34 @@ async function studioBrollImage(prompt, orientation, userId){
 // Compose the score. Same shape as studioBrollImage and studioTransition: generate
 // before the render, hand the render server a URL. It polls through pollVideo
 // unchanged because a bare WaveSpeed id is what /api/video-result already expects.
+// One generated sound effect, hosted so the render server can fetch it.
+//
+// Same shape as studioBrollImage: generate, store, hand back a url. api/sfx.js already
+// deducts and refunds, so a failure here costs nothing and is never fatal — a missing
+// whoosh is a plainer video, and losing an edit over one would be absurd.
+async function studioSfx(text, seconds, loop, userId){
+  try{
+    const token = await freshToken();
+    const res = await fetch("/api/sfx", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+      body: JSON.stringify({ text, seconds, loop: !!loop })
+    });
+    if(!res.ok){
+      let msg = "Sound effect failed.";
+      try{ const e = await res.json(); msg = (e && e.error) || msg; }catch(_){}
+      return { error: msg };
+    }
+    const blob = await res.blob();
+    const bal = res.headers.get("X-Credits-Balance");
+    const file = new File([blob], "sfx.mp3", { type: blob.type || "audio/mpeg" });
+    const path = (userId||"anon") + "/sfx-" + Date.now() + "-" + Math.random().toString(36).slice(2,6) + ".mp3";
+    const url = await uploadSiteAudioFile(file, path);
+    if(!url) return { error: "Couldn't store that sound." };
+    return { url, balance: bal ? Number(bal) : null };
+  } catch(e){ return { error: (e && e.message) || "Sound effect failed." }; }
+}
+
 async function studioMusic(prompt, style, look, genre){
   try{
     const token = await freshToken();
@@ -5724,6 +5752,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // movement measurement fails, deliberately — but silently, which made the whole
   // activity feature look like it had never been built.
   const [activityNote,setActivityNote] = useState("");
+  // Off by default. Every effect is a real generation, so this is opt-in spend rather
+  // than something that quietly happens on every render.
+  const [useSfx,setUseSfx]         = useState(false);
   // "auto" lets the planner choose from what the video is about, which is usually
   // right and is why it stays the default. The rest are for when it isn't.
   const [musicGenre,setMusicGenre] = useState("auto");
@@ -6645,6 +6676,34 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       }
 
       // ── 3d. The score ──
+      // ── SOUND EFFECTS ────────────────────────────────────────────────────────
+      //
+      // The planner already chose these from the transcript, the frames and the movement
+      // track, in a call that had to happen anyway. All that is left is to make the
+      // audio and host it. Times stay on the SOURCE timeline; the render server remaps
+      // them onto the finished edit, where it knows both scales.
+      let sfxList = [], ambienceUrl = null;
+      if(useSfx && plan){
+        const uid = (user && user.id) || "anon";
+        const wanted = Array.isArray(plan.sfx) ? plan.sfx.slice(0, 6) : [];
+        for(let i=0;i<wanted.length;i++){
+          setStage("Making sound " + (i+1) + " of " + wanted.length + "…");
+          const r = await studioSfx(wanted[i].sound, 1.2, false, uid);
+          if(r && r.url) sfxList.push({ at: Number(wanted[i].at)||0, url: r.url });
+          else console.warn("[sfx] " + wanted[i].sound + ": " + ((r&&r.error)||"failed"));
+          if(r && typeof r.balance === "number") onBalance(r.balance);
+        }
+        if(plan.ambience){
+          setStage("Making the room tone…");
+          // Twenty seconds and loopable: long enough not to feel repetitive, short
+          // enough to be cheap, and seamless so it can cover a film of any length.
+          const r = await studioSfx(plan.ambience, 20, true, uid);
+          if(r && r.url) ambienceUrl = r.url;
+          else console.warn("[sfx] ambience: " + ((r&&r.error)||"failed"));
+          if(r && typeof r.balance === "number") onBalance(r.balance);
+        }
+      }
+
       let musicUrl = null;
       if(music==="own"){
         // Already uploaded and already a public URL, so there is nothing to generate,
@@ -6685,7 +6744,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         // 0 means "unknown", which makes the beat finder sweep the whole tempo range
         // instead of refining around a number. We know what we asked Lyria for; we
         // know nothing about a track someone uploaded.
-        ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100)
+        ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100),
+        ambienceUrl, sfxList
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -7079,6 +7139,15 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </p>
 
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+      <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:12,cursor:"pointer"}}>
+        <input type="checkbox" checked={useSfx} disabled={busy} onChange={e=>setUseSfx(e.target.checked)} style={{marginTop:3}} />
+        <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5}}>
+          Add sound effects
+          <span style={{display:"block",color:B.mid,fontSize:11,marginTop:2}}>
+            Chelgy picks a handful of moments where something actually moves and makes a sound for each, plus quiet room tone underneath. Each sound is generated, so this costs a little extra — leave it off and the edit is unchanged.
+          </span>
+        </span>
+      </label>
       {activityNote && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#8A6D3B",background:"#FCF8E3",border:"1px solid #E8DCB5",padding:"10px 12px",lineHeight:1.5,marginTop:6}}>{activityNote}</p>}
       {notice && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12,paddingLeft:10,borderLeft:"2px solid "+B.stone}}>{notice}</p>}
 

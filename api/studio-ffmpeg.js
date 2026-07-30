@@ -257,6 +257,15 @@ export default async function handler(req, res) {
     //
     // Same failure as LOOKS immediately below, and as chapters/broll in server.js: a
     // whitelist that stopped being updated while the thing it guards grew.
+    // Audio layers, generated and hosted by the app before the render starts. Times are
+    // still on the SOURCE timeline here; job-plan.js remaps them onto the finished edit,
+    // where both scales are known.
+    const ambience = typeof body.ambience === "string" && /^https?:\/\//.test(body.ambience) ? body.ambience : null;
+    const sfx = (Array.isArray(body.sfx) ? body.sfx : [])
+      .filter((x) => x && Number.isFinite(Number(x.at)) && typeof x.url === "string" && /^https?:\/\//.test(x.url))
+      .slice(0, 12)
+      .map((x) => ({ at: Math.max(0, Number(x.at)), url: x.url }));
+
     const STYLES = ["talkinghead", "vlog", "tutorial", "process", "fashion", "showcase", "cinematic", "entrepreneur", "realestate"];
     const style = STYLES.includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
@@ -389,7 +398,7 @@ export default async function handler(req, res) {
             edl: {
               sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
-              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style,
+              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx,
               chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
                 : style === "entrepreneur"
@@ -443,7 +452,7 @@ export default async function handler(req, res) {
           title, subtitle,
           orientation,
           uploadPath,
-          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style,
+          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx,
           chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
                 : style === "entrepreneur"
