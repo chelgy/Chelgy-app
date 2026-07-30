@@ -1121,10 +1121,10 @@ async function studioTranscribe(url){
     return await res.json(); // { transcript, words, duration } or { error }
   } catch { return { error: "Couldn't reach the transcription service." }; }
 }
-async function studioPlan(words, duration, frame, style, activity, note, brollClips){
+async function studioPlan(words, duration, frame, style, activity, note, brollClips, frames){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null, note: note||"", brollClips: brollClips||[] }) });
+    const res = await fetch("/api/studio-plan", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ words, duration, frame: frame||null, style: style||"talkinghead", activity: activity||null, note: note||"", brollClips: brollClips||[], frames: frames||[] }) });
     return await res.json(); // { keep, title, look, outSeconds, brollPlace } or { error }
   } catch { return { error: "Couldn't reach the edit planner." }; }
 }
@@ -6401,8 +6401,35 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         // which is the whole point. Matching "the food arriving" against a transcript
         // where you say "okay this just came out" is a language problem, and that is
         // the one thing the model is genuinely reliable at.
+      // ── A LOOK AT THE FOOTAGE, for the styles where the pictures are the job ──
+      //
+      // Fashion and property are aesthetic tools. Movement and words cannot tell a
+      // kitchen from a bathroom or a good frame from a dull one, so these two get an
+      // actual look at the video before anything is planned.
+      //
+      // Sampled ACROSS EVERY CLIP and rebased onto the global timeline, so a frame's
+      // timestamp is on the same scale as the word timings and the activity spans, and
+      // whatever the planner notices can be quoted straight back as a keep range.
+      //
+      // Failing to sample is never fatal — the planner falls back to the transcript and
+      // the activity track, which is exactly how it worked before.
+      let planFrames = [];
+      if(style==="fashion" || style==="realestate"){
+        setStage("Looking at your footage…");
+        const PER_CLIP = Math.max(4, Math.floor(32 / Math.max(1, clips.length)));
+        let base = 0;
+        for(const c of clips){
+          try{
+            const got = await sampleVideoFrames(c.preview, c.dur||0, PER_CLIP);
+            for(const g of got) planFrames.push({ t: Math.round((base + (Number(g.t)||0)) * 10) / 10, data: g.data });
+          }catch(_){ }
+          base += (c.dur || 0);
+        }
+        if(!planFrames.length) console.warn("[plan] couldn't sample frames — planning from movement and speech only");
+      }
+
         plan = await studioPlan(globalWords, totalDur, frame, style, globalActivity, directorNote,
-                                brollClips.map(b=>({ clip:b.i, label:b.label, dur:b.dur })));
+                                brollClips.map(b=>({ clip:b.i, label:b.label, dur:b.dur })), planFrames);
       }
       setNotice("");
       if(!plan || plan.error || !Array.isArray(plan.keep) || !plan.keep.length){

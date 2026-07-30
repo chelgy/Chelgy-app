@@ -225,6 +225,29 @@ export default async function handler(req, res) {
     const words = Array.isArray(body.words) ? body.words : [];
     const duration = Number(body.duration) || 0;
     const frame = typeof body.frame === "string" ? body.frame : null; // small JPEG data URL of one frame
+
+    // A TIMESTAMPED STRIP OF THE FOOTAGE, for the styles where the pictures ARE the job.
+    //
+    // The activity track answers "how much is moving", which is the right question for
+    // fashion's cuts and the wrong one for everything aesthetic: it cannot tell a
+    // kitchen from a bathroom, or a good frame from a dull one. A transcript cannot
+    // either, and a property tour's montage blocks are silent by design.
+    //
+    // So these two styles get to LOOK. Each frame is labelled with its timestamp on the
+    // same timeline as the word timings, so anything the model notices can be quoted
+    // straight back as a keep range or an effect position.
+    //
+    // Capped because every frame is tokens on every edit forever. 32 across a whole
+    // video is roughly one every few seconds — enough to tell rooms and outfits apart,
+    // which is all that is being asked.
+    const MAX_FRAMES = 32;
+    const frames = Array.isArray(body.frames)
+      ? body.frames
+          .filter((f) => f && typeof f.data === "string" && /^data:/.test(f.data) && Number.isFinite(Number(f.t)))
+          .slice(0, MAX_FRAMES)
+          .map((f) => ({ t: Math.max(0, Number(f.t)), data: f.data }))
+      : [];
+    const canSee = frames.length > 0;
     // Every style the planner knows. A style missing from this list does not error —
     // it silently becomes talkinghead, which is worse: fashion arrived here, was
     // quietly renamed, and was then rejected for having no transcript by a check its
@@ -365,6 +388,13 @@ export default async function handler(req, res) {
         "- THE PAYOFF LINES EARN THEIR OWN SEGMENT. Where a sentence turns on one idea, give that idea its own cut rather than burying it mid-segment.\n" +
         "- THE LOOP: the LAST segment should come from the SAME framing as the FIRST, so the film restarts without a visible ending. Prefer the opening setup near its end.\n";
 
+    const fashionSeeing = canSee && style === "fashion"
+      ? "\nYOU CAN SEE THE FOOTAGE. The activity track still decides WHERE the movement is — that is what it is for and it is more precise than the frames. Use the pictures for the judgement it cannot make:\n" +
+        "- Between two moments with similar movement, keep the one that LOOKS better. Framing, light, whether the outfit reads clearly, whether the pose has landed.\n" +
+        "- Drop moments where the movement is real but the frame is not worth showing — the subject half out of shot, an unflattering angle, a dead background.\n" +
+        "- The opening and closing shot should be the two strongest frames in the footage, not merely the first and last movement.\n"
+      : "";
+
     const realestateRules =
         "This is a PROPERTY FILM. It has a structure, and the structure is the style.\n" +
         "\n" +
@@ -380,7 +410,13 @@ export default async function handler(req, res) {
         "- OPEN on an establishing exterior if one exists, before the agent speaks.\n" +
         "- CLOSE on the widest shot available — an aerial, or the fullest view of the property. The last thing seen should be the whole place.\n" +
         "- THE LOOP: after the closing wide, the film should restart cleanly, so prefer an opening segment that could follow the closing one without a jolt.\n" +
-        "- Aim for 25 to 35 segments in a 60 second film. Most of that count comes from the montage blocks, not from chopping the presenter.\n";
+        "- Aim for 25 to 35 segments in a 60 second film. Most of that count comes from the montage blocks, not from chopping the presenter.\n" +
+        "\n" +
+        "IF FRAMES ARE ATTACHED, THEY ARE THE POINT OF THIS STYLE.\n" +
+        "- WORK OUT WHAT EACH SHOT IS. Kitchen, bathroom, bedroom, exterior, pool, view, a detail like a tap or a countertop or a light fitting. The montage blocks are silent, so the pictures are the ONLY thing that can tell you — the transcript cannot.\n" +
+        "- Build each montage block out of DIFFERENT rooms and different scales. A wide, then a detail, then somewhere else. Two shots of the same worktop back to back waste the block.\n" +
+        "- Put the effects on what deserves them. The slow-motion goes on the best reveal in the property — the pool, the view, the main living space — not on whatever shot happens to be next. The push goes on a detail. The roll goes on a move into a new room. The flash goes where the picture crosses from inside to outside.\n" +
+        "- The CLOSING shot should be the most impressive frame you can see, and the OPENING should be the exterior or the approach if one exists.\n";
 
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
@@ -460,7 +496,7 @@ export default async function handler(req, res) {
       "- This is not the same as repetition for emphasis. \"It is really, really good\" is deliberate and stays.\n";
 
     const cutRules =
-      (style === "fashion" ? fashionRules : style === "entrepreneur" ? entrepreneurRules : style === "realestate" ? realestateRules : processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
+      (style === "fashion" ? (fashionRules + fashionSeeing) : style === "entrepreneur" ? entrepreneurRules : style === "realestate" ? realestateRules : processUsable ? processRules : style === "cinematic" ? cinematicRules : style === "tutorial" ? tutorialRules : style === "vlog"
       ? ("Decide which time segments to KEEP so the vlog is punchy and keeps moving — but respect that vlogs have VISUAL moments:\n" +
          "- IMPORTANT: in a vlog, silence is NOT automatically dead air — quiet gaps under ~4 seconds are usually the person showing something, walking, or letting a moment breathe. KEEP those (extend the surrounding kept segment across them) unless they clearly drag.\n" +
          "- REMOVE filler words (um, uh, like when used as filler), false starts, repeated takes (keep the best take), and only truly long dead air (over ~4-5s of nothing).\n" +
@@ -486,6 +522,14 @@ export default async function handler(req, res) {
            "=== END OF THE CREATOR'S DIRECTION ===\n\n")
         : "") +
       "Below is the transcript as word|startSeconds|endSeconds lines. Total length: " + duration + "s.\n" +
+      (canSee
+        ? ("YOU CAN SEE THIS FOOTAGE. " + frames.length + " frames are attached, each labelled with its timestamp on the same timeline as everything else above.\n" +
+           "Use them. This is the difference between arranging a video and editing one:\n" +
+           "- Judge frames on how they LOOK. Composition, light, colour, whether the subject is well placed, whether the shot is worth showing. A technically busy shot that looks bad is not a keep.\n" +
+           "- Notice what each shot actually CONTAINS, and let that drive both what you keep and where anything lands. A detail shot of a countertop and a wide shot of a room are different material and want different treatment.\n" +
+           "- Prefer the better-looking of two similar moments. That judgement is the whole point of attaching these.\n" +
+           "- The frames are samples, not every frame. Something can happen between two of them, so treat them as evidence rather than as the complete record.\n\n")
+        : "") +
       (frame ? "A still frame from the footage is attached — use it ONLY for the color analysis below.\n" : "") +
       (activity && activity.length
         ? ("\nACTIVITY TRACK — measured from the footage itself, one reading per second, " +
@@ -594,6 +638,15 @@ export default async function handler(req, res) {
       const m = frame.match(/^data:(.*?);base64,(.*)$/);
       if (m) parts.push({ inlineData: { mimeType: m[1] || "image/jpeg", data: m[2] || "" } });
     }
+    // A LABEL BEFORE EACH IMAGE. Without it the model sees a pile of pictures with no
+    // way to say when any of them happened, which makes the timestamps it returns
+    // guesses — and a keep range built on a guessed timestamp cuts the wrong moment.
+    for (const f of frames) {
+      const m = f.data.match(/^data:(.*?);base64,(.*)$/);
+      if (!m) continue;
+      parts.push({ text: "Frame at " + f.t.toFixed(1) + "s:" });
+      parts.push({ inlineData: { mimeType: m[1] || "image/jpeg", data: m[2] || "" } });
+    }
     parts.push({ text: prompt });
 
     // The same prompt, the same frame, the same JSON contract — only the engine
@@ -611,6 +664,12 @@ export default async function handler(req, res) {
       if (frame) {
         const m = frame.match(/^data:(.*?);base64,(.*)$/);
         if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1] || "image/jpeg", data: m[2] || "" } });
+      }
+      for (const f of frames) {
+        const m = f.data.match(/^data:(.*?);base64,(.*)$/);
+        if (!m) continue;
+        content.push({ type: "text", text: "Frame at " + f.t.toFixed(1) + "s:" });
+        content.push({ type: "image", source: { type: "base64", media_type: m[1] || "image/jpeg", data: m[2] || "" } });
       }
       content.push({ type: "text", text: prompt });
       return callClaude(AKEY, {
