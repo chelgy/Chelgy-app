@@ -131,6 +131,13 @@ export default async function handler(req, res) {
         // one caption track for the whole ad and slices it per shot, so anything
         // still in source time lands on the wrong shot.
         words: Array.isArray(body.words) ? body.words : null,
+        // Sound design. Times are already on the finished ad's clock — the planner
+        // wrote the timeline, so unlike the video editor nothing needs remapping.
+        ambience: isUrl(body.ambienceUrl) ? body.ambienceUrl : null,
+        sfx: (Array.isArray(body.sfx) ? body.sfx : [])
+          .filter((x) => x && Number.isFinite(Number(x.at)) && isUrl(x.url))
+          .slice(0, 8)
+          .map((x) => ({ at: Math.max(0, Number(x.at)), path: x.url })),
       }),
     });
 

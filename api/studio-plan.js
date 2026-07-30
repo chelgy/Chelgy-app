@@ -280,7 +280,7 @@ export default async function handler(req, res) {
       showcase:     { chapters: false, broll: false, activity: false, needsWords: false, fx: null },
       fashion:      { chapters: false, broll: false, activity: true,  needsWords: false, fx: ["slowmo", "ramp"] },
       entrepreneur: { chapters: false, broll: false, activity: false, needsWords: true,  fx: ["whip", "push", "flash", "drain", "echo"] },
-      realestate:   { chapters: false, broll: false, activity: false, needsWords: true,  fx: ["roll", "push", "flash", "slowmo"] },
+      realestate:   { chapters: false, broll: false, activity: true,  needsWords: false, fx: ["roll", "push", "flash", "slowmo"] },
     };
 
     // AN UNKNOWN STYLE IS AN ERROR, NOT A TALKING HEAD.
@@ -436,7 +436,12 @@ export default async function handler(req, res) {
     const realestateRules =
         "This is a PROPERTY FILM. It has a structure, and the structure is the style.\n" +
         "\n" +
-        "ALTERNATE PRESENTER AND MONTAGE. That is the whole idea:\n" +
+        "IF NOBODY SPEAKS IN THIS FOOTAGE, IT IS A SILENT TOUR — a normal way to make one, a walkthrough with music over it. In that case the structure below collapses to its montage half:\n" +
+        "  Cut the WHOLE video as montage. Short shots, 0.6 to 2.0 seconds. Different rooms and different scales — wide, then a detail, then somewhere else. Open on the exterior or the approach, close on the widest shot you can see.\n" +
+        "  Use the frames to tell the rooms apart and the movement track to find where the camera is actually travelling through the property.\n" +
+        "  Everything below about presenter blocks does not apply. Do not invent a presenter that is not there.\n" +
+        "\n" +
+        "OTHERWISE, ALTERNATE PRESENTER AND MONTAGE. That is the whole idea:\n" +
         "- PRESENTER blocks: the agent is talking, on camera. Keep these LONG — 4 to 9 seconds, uncut, so a thought lands whole.\n" +
         "- MONTAGE blocks: no speech, just the property. Keep these SHORT and MANY — 0.4 to 1.5 seconds each, four to eight in a row.\n" +
         "- Then back to the presenter. The reference runs presenter, montage, presenter, montage, presenter across a minute, and the contrast between the two paces is what makes it feel produced.\n" +

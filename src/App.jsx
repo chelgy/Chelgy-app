@@ -8126,6 +8126,8 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const [captions,setCaptions] = useState(true);
   const [vo,setVo]             = useState(null);    // { url, words, seconds }
   const [music,setMusic]       = useState("");      // url
+  const [useSound,setUseSound] = useState(false);  // sound effects + room tone
+  const [sfxAudio,setSfxAudio] = useState(null);   // { list:[{at,url}], ambience }
 
   // The same nine looks the video editor uses. These ids are wire values — the render
   // server keys its .cube files off them — so the label is free to change and the id
@@ -8189,7 +8191,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     // shot nine is no reason to lose shot one.
     // The voice is written to fit the plan, so a new plan invalidates it. Keeping
     // the old take would caption the new cut with the previous script.
-    setVo(null); setMusic("");
+    setVo(null); setMusic(""); setSfxAudio(null);
     if(!revising){ setPlan(null); setShots([]); }
     try{
       const tok = await freshToken();
@@ -8352,6 +8354,33 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     setBusy(false);
   }
 
+  async function makeSound(){
+    setErr(""); setBusy(true);
+    try{
+      const uid = (user && user.id) || "anon";
+      const wanted = Array.isArray(plan.sfx) ? plan.sfx.slice(0, 6) : [];
+      const list = [];
+      for(let i=0;i<wanted.length;i++){
+        setAudioMsg("Making sound " + (i+1) + " of " + wanted.length + " — " + wanted[i].sound);
+        const r = await studioSfx(wanted[i].sound, 1.2, false, uid);
+        if(r && r.url) list.push({ at: Number(wanted[i].at)||0, url: r.url });
+        if(r && typeof r.balance === "number") onBalance(r.balance);
+      }
+      let ambience = null;
+      if(plan.ambience){
+        setAudioMsg("Making the room tone…");
+        // Loopable, so a short generation covers an ad of any length with no click at
+        // the seam.
+        const r = await studioSfx(plan.ambience, 20, true, uid);
+        if(r && r.url) ambience = r.url;
+        if(r && typeof r.balance === "number") onBalance(r.balance);
+      }
+      setSfxAudio({ list, ambience });
+      setAudioMsg(list.length || ambience ? "" : "None of those sounds came back — the ad will render without them.");
+    }catch(e){ setAudioMsg((e&&e.message)||"Couldn't make the sounds."); }
+    setBusy(false);
+  }
+
   // ── 3. assembly ────────────────────────────────────────────────────────────
   //
   // Its own poll loop rather than pollVideo's. That helper sends no auth token for
@@ -8393,6 +8422,8 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
         body: JSON.stringify({
           plan: filledPlan,
           voUrl: useVo && vo ? vo.url : null,
+          ambienceUrl: useSound && sfxAudio ? sfxAudio.ambience : null,
+          sfx: useSound && sfxAudio ? sfxAudio.list : [],
           musicUrl: useMusic && music ? music : null,
           // Captions are built from the VO's word timings and burn per shot. No
           // voice, no words, no captions — there is nothing to caption.
@@ -8543,6 +8574,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
             <button disabled={busy||!useVo} style={pill(useVo&&captions)}
               onClick={()=>setCaptions(c=>!c)}>Captions</button>
             <button disabled={busy} onClick={()=>setUseMusic(m=>!m)} style={pill(useMusic)}>Score</button>
+            <button disabled={busy} onClick={()=>setUseSound(v=>!v)} style={pill(useSound)}>Sound effects</button>
           </div>
           <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:11, color:B.mid, marginTop:2, lineHeight:1.5 }}>
             Turn all three off for a silent cut — the honest test of whether the edit holds up on its own.
@@ -8611,6 +8643,30 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
                 </Btn>
               )}
               </>)}
+            </div>
+          )}
+
+          {useSound && (
+            <div style={{ marginTop:14, borderTop:"1px solid "+B.stone, paddingTop:14 }}>
+              {(plan.sfx && plan.sfx.length) || plan.ambience ? (
+                <div>
+                  <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:B.mid, lineHeight:1.7, marginBottom:10 }}>
+                    {(plan.sfx||[]).map((x,i)=>(
+                      <div key={i}>· {Number(x.at).toFixed(1)}s — {x.sound}</div>
+                    ))}
+                    {plan.ambience && <div>· throughout — {plan.ambience}</div>}
+                  </div>
+                  {sfxAudio
+                    ? <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:12, color:"#2E7D32" }}>
+                        {sfxAudio.list.length} sound{sfxAudio.list.length===1?"":"s"} ready{sfxAudio.ambience ? " · room tone ready" : ""}
+                      </div>
+                    : <Btn small dark onClick={makeSound} disabled={busy}>MAKE THE SOUNDS</Btn>}
+                </div>
+              ) : (
+                <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.mid, lineHeight:1.6 }}>
+                  This plan didn&rsquo;t call for any sound effects. Rewrite it asking for them if you want some.
+                </div>
+              )}
             </div>
           )}
 

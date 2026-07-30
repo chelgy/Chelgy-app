@@ -141,6 +141,26 @@ Pick an anchor that can genuinely survive a change of setting: a line, a horizon
 doorway, a colour, a repeated object, a hand entering frame from the same side. If you
 cannot name one that works across all your settings, change the settings.
 
+SOUND
+Return up to SIX sound effects and one line of ambience.
+
+  sfx[].at    — the second in the FINISHED AD where the sound lands. You are writing
+                the timeline, so you already know when every shot starts; add up the
+                entries before it. This is not the source footage's clock.
+  sfx[].sound — what the sound IS, in five words or fewer. "boot striking wet grass",
+                "ball hitting a hardwood floor", "a single keyboard key". Describe the
+                SOUND, never the picture.
+  ambience    — the space the ad lives in, as one continuous bed. "packed stadium
+                crowd", "empty room tone". Empty string if it has no sense of place.
+
+Put them on IMPACTS — the moment something is struck, lands, or arrives. That is what
+sound design is: the picture already shows the movement, the sound confirms it. Do not
+put one on every cut; a handful across the whole ad is what makes the rest feel real.
+
+The anti-cyberbullying film does something worth copying here: the sport half is loud
+and physical, and the digital half is unnaturally quiet. If your ad has a pivot, let
+the sound change with it rather than running the same bed throughout.
+
 CUTTING
 Default to hard cuts. Effects are seasoning, not structure. A commercial with
 zero effects and good cutting beats one with an effect on every shot.
@@ -160,6 +180,8 @@ function schemaBlock(duration, aspect, hasRefs) {
 {
   "rationale": "one sentence naming the idea that connects the settings",
   "throughline": "the story in one sentence",
+  "ambience": "one short description of the room tone under the whole ad, or empty",
+  "sfx": [{"at": number, "sound": "short description of the sound"}],
   "look": {
     "camera": "the ONE camera spec every source shares — height, angle, lens, composition",
     "anchor": "the ONE visual element held in the same screen position in every source",
@@ -393,6 +415,25 @@ function validate(edl, opts) {
   // the most common thing to be missing and the easiest to fix by rewriting.
   if (!edl.timeline.some((e) => e && e.card && String(e.card.text || "").trim())) {
     warnings.push("no end card — the ad stops rather than ends; rewrite asking for a closing brand card");
+  }
+
+  // Sound. Times are already on the finished ad's clock — the planner writes the
+  // timeline, so unlike the video editor there is no remapping to do. Clamped to the
+  // ad's actual length, spaced, and capped.
+  {
+    const total = Number(edl.totalSeconds) || 0;
+    const seenAt = [];
+    edl.sfx = (Array.isArray(edl.sfx) ? edl.sfx : [])
+      .map((x) => ({ at: Number(x && x.at), sound: String((x && x.sound) || "").trim().slice(0, 60) }))
+      .filter((x) => Number.isFinite(x.at) && x.at >= 0 && (!total || x.at <= total) && x.sound.length > 2)
+      .sort((a, b) => a.at - b.at)
+      .filter((x) => {
+        if (seenAt.some((t) => Math.abs(t - x.at) < 0.4)) return false;
+        seenAt.push(x.at);
+        return true;
+      })
+      .slice(0, 6);
+    edl.ambience = String(edl.ambience || "").trim().slice(0, 80);
   }
 
   const seen = new Set();
