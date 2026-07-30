@@ -378,7 +378,17 @@ export default async function handler(req, res) {
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
               grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style,
               chapters, broll, transitions, music, showcase, narration,
-              captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {},
+              captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
+                : style === "entrepreneur"
+                  // ONE WORD AT A TIME, each arriving with a scale punch. This is the
+                  // founder-film signature, and the reference sets it small around the
+                  // torso rather than as a subtitle line at the bottom of the frame.
+                  ? { perLine: 1, wordPunch: true, fontScale: 0.042, marginScale: 0.28 }
+                : style === "realestate"
+                  // Phrase by phrase, not word by word — the property reference sets
+                  // whole captions like "QUARTZ COUNTERTOPS" as one unit.
+                  ? { perLine: 3, fontScale: 0.040, marginScale: 0.20 }
+                : {},
               uploadPath
             }
           })
@@ -422,7 +432,17 @@ export default async function handler(req, res) {
           uploadPath,
           grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style,
           chapters, broll, transitions, music, showcase, narration,
-          captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 } : {}
+          captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
+                : style === "entrepreneur"
+                  // ONE WORD AT A TIME, each arriving with a scale punch. This is the
+                  // founder-film signature, and the reference sets it small around the
+                  // torso rather than as a subtitle line at the bottom of the frame.
+                  ? { perLine: 1, wordPunch: true, fontScale: 0.042, marginScale: 0.28 }
+                : style === "realestate"
+                  // Phrase by phrase, not word by word — the property reference sets
+                  // whole captions like "QUARTZ COUNTERTOPS" as one unit.
+                  ? { perLine: 3, fontScale: 0.040, marginScale: 0.20 }
+                : {}
         })
       });
       started = await r.json();
