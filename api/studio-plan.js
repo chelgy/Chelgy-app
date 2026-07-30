@@ -600,17 +600,35 @@ export default async function handler(req, res) {
       // styles the words say what is on screen: "quartz countertops" means the next shot
       // is a countertop. So the planner places the effects and the renderer stops
       // guessing. Where the words say nothing, no effect — silence is the correct answer.
+      // FASHION'S SPEED, CHOSEN FROM THE PICTURES.
+      //
+      // This used to fire on every ninth shot regardless of what was in it, which is the
+      // same blind placement that made the other styles feel arbitrary. Fashion can see
+      // the footage now, so the moment worth holding is a thing it can actually judge:
+      // the turn, the flare of a hem, the moment a look lands.
+      //
+      // Only speed. Fashion's other effects — the burns, the grain, the echo — are
+      // TEXTURE rather than commentary. They are not about anything, so spacing them
+      // evenly is right, the way a film lab would.
+      ((style === "fashion")
+        ? ("\nALSO RETURN \"fx\": the moments worth slowing down. AT MOST THREE IN THE WHOLE FILM, and two is usually better.\n" +
+           "- at: the second on the ORIGINAL timeline. It must be inside a segment you kept.\n" +
+           "- effect: \"slowmo\" for a held half-speed shot, or \"ramp\" for a shot that rushes in and settles.\n" +
+           "- USE THE FRAMES. Slow the moment that is worth looking at longer — a turn, a hem or a coat opening out, the moment the whole outfit reads, a piece of movement that is genuinely beautiful. Not merely the moment with the most motion in it: the activity track already found those and most of them are not worth holding.\n" +
+           "- ramp suits an entrance or a reveal; slowmo suits the peak of a movement.\n" +
+           "- Return an empty list if nothing in this footage deserves it. Most footage does not, and slowing an ordinary moment makes it look longer rather than better.\n\n")
+        : "") +
       ((style === "entrepreneur" || style === "realestate")
         ? ("\nALSO RETURN \"fx\": where the transitions go. AT MOST ONE PER FIVE SECONDS OF FINISHED VIDEO, and fewer is better.\n" +
            "- at: the second on the ORIGINAL timeline. It must be the START of something you kept, because a transition belongs at a cut, not in the middle of a shot.\n" +
            "- effect: exactly one of " + (style === "realestate"
-              ? "\"roll\" | \"push\" | \"flash\""
+              ? "\"roll\" | \"push\" | \"flash\" | \"slowmo\""
               : "\"whip\" | \"push\" | \"flash\" | \"drain\" | \"echo\"") + ".\n" +
            (style === "realestate"
              ? "- roll: a rotating camera. Use it moving INTO a new room or a new part of the property.\n" +
                "- push: a fast push with blur. Use it arriving at a detail the speech just named — a countertop, a range, a light fitting.\n" +
                "- flash: a bright exposure ramp. Use it ONLY going from inside to outside, or outside to inside.\n" +
-               ""
+               "- slowmo: a held slow-motion shot. Use it on the single best reveal in the whole tour — the pool, the view, the main room. Once, at most twice.\n"
              : "- whip: a fast blurred camera snap. Use it where the argument turns — a but, a however, a contradiction.\n" +
                "- push: a fast push with blur. Use it arriving at the most important claim in a sentence.\n" +
                "- flash: a bright exposure ramp. Use it on the hardest break between two ideas.\n" +
@@ -832,10 +850,12 @@ export default async function handler(req, res) {
     // does not know would silently do nothing, which looks identical to the planner
     // having chosen nothing.
     {
-      const FX_OK = style === "realestate"
-        ? ["roll", "push", "flash"]
-        : ["whip", "push", "flash", "drain", "echo"];
-      const cap = Math.max(1, Math.round(duration / 5));
+      const FX_OK = style === "realestate" ? ["roll", "push", "flash", "slowmo"]
+                  : style === "fashion"    ? ["slowmo", "ramp"]
+                  : ["whip", "push", "flash", "drain", "echo"];
+      // Fashion cuts every few tenths of a second, so a per-five-seconds cap would allow
+      // dozens. Three in a whole film is the point of the effect.
+      const cap = style === "fashion" ? 3 : Math.max(1, Math.round(duration / 5));
       const seen = [];
       plan.fx = (Array.isArray(plan.fx) ? plan.fx : [])
         .map((x) => ({ at: Number(x && x.at), effect: String((x && x.effect) || "").trim().toLowerCase() }))
@@ -844,7 +864,8 @@ export default async function handler(req, res) {
         // Two transitions within a second of each other is the stacking that made this
         // chaotic in the first place.
         .filter((x) => {
-          if (seen.some((t) => Math.abs(t - x.at) < 1.0)) return false;
+          const gap = style === "fashion" ? 3.0 : 1.0;
+          if (seen.some((t) => Math.abs(t - x.at) < gap)) return false;
           seen.push(x.at);
           return true;
         })
