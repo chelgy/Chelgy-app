@@ -130,11 +130,21 @@ in EVERY sport — the surface changes from track to grass to water to hardwood 
 while the line barely moves. That is why the cuts read as one continuous idea.
 
   look.grade — the photographic quality every shot shares. A STILL is generated from
-    this first and then animated, so write it as you would brief a photographer:
-    stock or sensor, light quality, contrast, colour. Real and cinematic, never
-    illustrated or rendered.
-    e.g. "shot on 35mm, natural stadium floodlight, deep contrast, rich saturated
-    colour, fine film grain, photographic realism"
+    this first and then animated, so write it as you would brief a PHOTOGRAPHER on a
+    real shoot: camera and stock, the actual light source, how the shadows behave.
+
+    WRITE AGAINST THE HOUSE STYLE OF IMAGE MODELS. Left alone they produce a very
+    recognisable look — tone-mapped HDR, everything warm and golden, crunchy
+    micro-contrast, a glossy rim light on every edge, shadows lifted until nothing is
+    truly dark. It reads as generated at a glance, and it will read that way across
+    all twelve shots at once.
+
+    So name REAL photographic conditions instead of a mood: one light source and
+    where it is, what the shadows do, whether the day is overcast or hard sun.
+    e.g. "shot on 35mm, single hard source from camera left, deep shadows that fall
+    to black, neutral colour, natural skin texture, fine grain, editorial photography"
+    NOT: "cinematic, dramatic, stunning, vibrant, high contrast, golden hour" — those
+    are the words that summon the look above.
 
   look.camera — height, angle, lens, composition. Identical in every shot.
     e.g. "camera a few centimetres off the ground, ultra-wide lens, one-point
@@ -454,7 +464,7 @@ function validate(edl, opts) {
     // Plain, real, and the same everywhere. Generation models drift toward illustration
     // when nothing pins them down, and one illustrated shot among eight photographic
     // ones is far more obvious than eight consistently plain ones.
-    look.grade = "photographic realism, natural light, cinematic contrast, fine film grain, no illustration or 3D render look";
+    look.grade = "shot on 35mm film, one natural light source, shadows allowed to fall to black, neutral colour, unretouched texture, fine grain, editorial photography";
     warnings.push("no shared photographic grade returned — used a neutral realistic default");
   }
   if (!look.camera) {

@@ -8215,6 +8215,28 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   // carries the shared camera, anchor and photographic grade from the planner.
   const imageFirst = true;
 
+  // APPENDED TO EVERY STILL, regardless of what the planner wrote.
+  //
+  // GPT Image has a strong default look: tone-mapped HDR, everything pushed warm,
+  // crunchy micro-contrast, a glossy rim light on every edge, and shadows lifted until
+  // nothing is genuinely dark. One image like that is fine. Twelve in a row is the
+  // reason a thing reads as generated at a glance.
+  //
+  // The planner is told to write against this too, but that is a request to a model
+  // and this is a guarantee. It goes on last, where image models weight it most.
+  //
+  // Phrased as what a real photograph HAS rather than as a list of things to avoid —
+  // negatives are unreliable in image prompts, and "not HDR" still puts HDR in front of
+  // the model. Describing real optics gets there more reliably than forbidding fake ones.
+  const PHOTO_REAL =
+    "Photographed on a real camera with a real lens. Natural dynamic range — the shadows " +
+    "go genuinely dark and hold no detail, the highlights are allowed to clip. One " +
+    "consistent light source with believable falloff. Unretouched surfaces: real skin " +
+    "texture, real dust, real wear on materials. Neutral white balance, no warm or teal " +
+    "cast. Ordinary contrast, no tone mapping, no glow, no halo around edges. Slight " +
+    "optical imperfection — mild grain, a touch of lens softness away from the centre. " +
+    "Looks like a frame from a documentary photographer's contact sheet, not a render.";
+
   const setShot = (i, patch)=> setShots(prev => prev.map((s,n)=> n===i ? { ...s, ...patch } : s));
 
   // ── 1. the plan ────────────────────────────────────────────────────────────
@@ -8272,7 +8294,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
         // because generating from text alone loses the shared look entirely.
         let img = null;
         try{
-          const r = await generateOpenAIImage(s.scene, [], aspect === "16:9" ? "16:9" : "9:16", "high");
+          const r = await generateOpenAIImage(s.scene + " " + PHOTO_REAL, [], aspect === "16:9" ? "16:9" : "9:16", "high");
           if(r && r.image){
             const path = uid + "/commercial-" + Date.now() + "-" + Math.random().toString(36).slice(2,6) + ".png";
             const url = await uploadSiteImage(r.image, path);
@@ -8281,7 +8303,7 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
         }catch(e){
           console.warn("[commercial] gpt image failed for " + s.id + ": " + ((e&&e.message)||"unknown"));
         }
-        if(!img) img = await studioBrollImage(s.scene, orientation, uid);
+        if(!img) img = await studioBrollImage(s.scene + " " + PHOTO_REAL, orientation, uid);
         if(img && img.url){
           startFrame = img.url;
           if(typeof img.balance === "number") onBalance(img.balance);
