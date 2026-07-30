@@ -8044,6 +8044,8 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   // which is off-screen once the shot list is long — so a failure down here looked
   // exactly like the click doing nothing at all.
   const [audioMsg,setAudioMsg] = useState("");
+  const [voices,setVoices]     = useState([]);
+  const [voiceId,setVoiceId]   = useState("");
   const [useVo,setUseVo]       = useState(true);
   const [useMusic,setUseMusic] = useState(false);
   const [captions,setCaptions] = useState(true);
@@ -8061,6 +8063,22 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     ["movie5", "Amber Dusk"], ["screen2", "High Key"], ["screen3", "Editorial"],
     ["timeless", "Timeless"],
   ];
+
+  // Loaded from the account rather than hardcoded — see api/voices.js. Failing to load
+  // is not an error state: the picker just does not appear and the default voice is
+  // used, which is exactly the behaviour before this existed.
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const tok = await freshToken();
+        const r = await fetch("/api/voices", { headers: tok ? { Authorization: "Bearer " + tok } : {} });
+        const d = await r.json();
+        if (!dead && d && Array.isArray(d.voices)) setVoices(d.voices);
+      } catch (_) {}
+    })();
+    return () => { dead = true; };
+  }, []);
 
   const TIER = { "480p":"seedance480", "720p":"seedance720", "1080p":"seedance1080", "4k":"seedance4k" };
   const orientation = aspect === "16:9" ? "landscape" : "portrait";
@@ -8175,7 +8193,10 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
     }
     setErr(""); setAudioMsg("Recording the voice…"); setBusy(true); setStage("Recording the voice…");
     try{
-      const spoken = await generateVoiceover(script, (plan.vo && plan.vo.voice) || undefined);
+      // The person's choice wins over whatever the planner suggested — they can hear it
+      // and it cannot.
+      const chosen = voiceId || (plan.vo && plan.vo.voice) || undefined;
+      const spoken = await generateVoiceover(script, chosen);
       if(typeof spoken.balance === "number") onBalance(spoken.balance);
       setStage("Saving the take…");
       const url = await uploadVoice(spoken.url);
@@ -8438,6 +8459,29 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
               <div style={{ fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.mid, lineHeight:1.6, marginBottom:10 }}>
                 &ldquo;{plan.vo.script}&rdquo;
               </div>
+              {voices.length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={lbl}>Voice</div>
+                  <select value={voiceId} onChange={e=>setVoiceId(e.target.value)} disabled={busy}
+                    style={{ width:"100%", padding:"9px 10px", border:"1px solid "+B.stone, background:B.white,
+                             fontFamily:"Jost,Helvetica,Arial,sans-serif", fontSize:13, color:B.charcoal }}>
+                    <option value="">Default voice</option>
+                    {voices.map(v=>(
+                      <option key={v.id} value={v.id}>
+                        {v.name}{[v.gender, v.accent, v.age].filter(Boolean).length
+                          ? " · " + [v.gender, v.accent, v.age].filter(Boolean).join(", ")
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {(()=>{
+                    const v = voices.find(x=>x.id===voiceId);
+                    return v && v.preview
+                      ? <audio src={v.preview} controls style={{ width:"100%", display:"block", marginTop:8 }} />
+                      : null;
+                  })()}
+                </div>
+              )}
               {vo ? (
                 <div>
                   <audio src={vo.url} controls style={{ width:"100%", display:"block", marginBottom:8 }} />

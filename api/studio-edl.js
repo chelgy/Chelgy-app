@@ -71,10 +71,68 @@ Two worked examples of the form:
 
 So: vary the settings hard. Find one idea that carries across them.
 
-STRUCTURE THAT WORKS
-Hook (the finished promise) -> body -> payoff -> brand card. Or: repetition of
-an idea across many contexts -> a turn where the idea transforms -> the message.
-Use whichever fits the brief. Do not force either.
+STRUCTURE — FOUR ACTS, IN THIS ORDER, EVERY TIME
+This is not a suggestion. The reference film is 33 seconds and splits almost
+exactly like this, and the proportions are what make it feel produced rather
+than assembled. Scale them to the duration you are given.
+
+  ACT 1 — THE MONTAGE          ~50% of the running time
+    The same idea repeated across completely different settings. Eight shots in
+    the reference: track, soccer, pool, basketball, handball, volleyball, rugby,
+    tennis. Every one a different surface, crowd and motion; the anchor holds
+    dead centre through all of them.
+    Shots run 1.0 to 2.5 seconds. HARD CUTS ONLY — no dissolves, no fades.
+    ACCELERATE toward the end: the reference runs 2.3, 2.3, 2.5, 2.3, then 1.5,
+    1.1, 1.7, and holds the last at 2.5. Getting faster is what builds pressure.
+    THE LAST SHOT OF THIS ACT ENDS WITH SOMETHING CROSSING THE LENS — a ball, a
+    hand, a body — filling frame and blacking it out. Write that into the scene
+    prompt. It is what hides the cut into Act 2 and it costs nothing.
+
+  ACT 2 — THE PIVOT            ~10%, and never more than 3 seconds
+    One or two entries where the idea TRANSFORMS into something else. In the
+    reference the sports line becomes a typing cursor. This is the whole point of
+    the film and it is very short. Do not linger.
+
+  ACT 3 — THE PAYOFF           ~25%
+    The transformed idea plays out and the message lands. Slower than Act 1 —
+    longer holds, fewer cuts. The audience has to read something here.
+
+  ACT 4 — THE END CARD         ~15%, ALWAYS PRESENT
+    At least one timeline entry with a "card": the brand line, then the message.
+    The reference gives this six seconds of a thirty-three second film. A
+    commercial that stops without a card is not a commercial.
+
+Every act is mandatory. If the brief does not obviously suit a transformation,
+find one — a change of scale, of place, of time of day, of who is holding the
+thing. The turn is what separates an ad from a montage.
+
+THE LOCKED LOOK — THE RULE THAT MAKES OR BREAKS THIS
+The connective idea must exist IN THE FRAMES, not just in the story. This is the
+single most common way these plans fail: the throughline is written as a sentence,
+every source is then described with its own camera, lens and lighting, and the
+finished ad looks like eight unrelated clips with one caption track over them.
+
+So you must also return a LOOK: one camera specification and one visual anchor that
+EVERY source shares. The anti-cyberbullying film works because the camera sits a few
+centimetres off the ground with an ultra-wide lens, centred on a white boundary line,
+in EVERY sport — the surface changes from track to grass to water to hardwood to clay
+while the line barely moves. That is why the cuts read as one continuous idea.
+
+  look.camera — height, angle, lens, composition. Identical in every shot.
+    e.g. "camera a few centimetres off the ground, ultra-wide lens, one-point
+    perspective, subject approaching the lens head-on, shallow foreground focus"
+
+  look.anchor — the element held in the same screen position throughout.
+    e.g. "a bright white boundary line running from bottom centre to the vanishing
+    point, held dead centre"
+
+Write each source's scene as SETTING, SUBJECT and ACTION only. Do not restate the
+camera — it is appended to every source automatically, so anything you write about
+framing will fight it.
+
+Pick an anchor that can genuinely survive a change of setting: a line, a horizon, a
+doorway, a colour, a repeated object, a hand entering frame from the same side. If you
+cannot name one that works across all your settings, change the settings.
 
 CUTTING
 Default to hard cuts. Effects are seasoning, not structure. A commercial with
@@ -95,6 +153,10 @@ function schemaBlock(duration, aspect, hasRefs) {
 {
   "rationale": "one sentence naming the idea that connects the settings",
   "throughline": "the story in one sentence",
+  "look": {
+    "camera": "the ONE camera spec every source shares — height, angle, lens, composition",
+    "anchor": "the ONE visual element held in the same screen position in every source"
+  },
   "vo": {
     "script": "the full voiceover, spoken as one continuous read",
     "emphasis": ["words", "that", "get", "oversized", "treatment"]
@@ -107,7 +169,7 @@ function schemaBlock(duration, aspect, hasRefs) {
     {
       "id": "s1",
       "seconds": ${CLIP_SECONDS},
-      "scene": "a full generation prompt: setting, subject, action, camera position and movement, lens, lighting, mood",
+      "scene": "SETTING, SUBJECT and ACTION only — no camera, no lens, no framing. The shared look is appended for you.",
       "useRefs": ${hasRefs ? "true or false — true only where the product must actually appear" : "false"}
     }
   ],
@@ -293,6 +355,30 @@ function validate(edl, opts) {
     warnings.push(`trimmed to ${MAX_SOURCES} sources`);
   }
 
+  // The shared look. A model that skips it gets a neutral default rather than a failed
+  // plan — but the default is deliberately plain, because a bland consistent look still
+  // beats twelve inconsistent good ones, and the warning says what happened.
+  const look = {
+    camera: String((edl.look && edl.look.camera) || "").trim(),
+    anchor: String((edl.look && edl.look.anchor) || "").trim(),
+  };
+  if (!look.camera) {
+    look.camera = "consistent camera height and framing across every shot, single-point " +
+                  "composition, subject centred, shallow foreground focus";
+    warnings.push("no shared camera returned — used a neutral default, so the shots will match but plainly");
+  }
+  if (!look.anchor) {
+    warnings.push("no visual anchor returned — the cuts will rely on the story alone to connect");
+  }
+  edl.look = look;
+
+  // An end card is structural, not decoration, so its absence is worth saying out
+  // loud. Not fatal — a commercial without one is still a rendered video — but it is
+  // the most common thing to be missing and the easiest to fix by rewriting.
+  if (!edl.timeline.some((e) => e && e.card && String(e.card.text || "").trim())) {
+    warnings.push("no end card — the ad stops rather than ends; rewrite asking for a closing brand card");
+  }
+
   const seen = new Set();
   edl.sources = edl.sources.map((s, i) => {
     let id = String(s.id || `s${i + 1}`);
@@ -302,12 +388,24 @@ function validate(edl, opts) {
     if (!s.scene || String(s.scene).trim().length < 20) {
       throw new Error(`source ${id} has no usable scene prompt`);
     }
+    // THE LOOK IS APPENDED HERE, not asked for per source.
+    //
+    // Instructing a model to "keep the camera consistent" across a dozen independently
+    // written prompts does not survive contact with a dozen independently written
+    // prompts. Appending one spec to all of them does, and it costs nothing. If the
+    // model ignores the instruction and writes its own framing anyway, the appended
+    // spec still lands last, which is where generation models weight it most.
+    const scene = [
+      String(s.scene).trim().replace(/[.\s]+$/, ""),
+      look.camera,
+      look.anchor ? ("held throughout: " + look.anchor) : null,
+    ].filter(Boolean).join(". ") + ".";
     return {
       id,
       engine: "seedance",
       res: opts.res,
       seconds,
-      scene: String(s.scene).trim(),
+      scene,
       useRefs: !!s.useRefs && !!opts.refs?.length,
       refs: s.useRefs && opts.refs?.length ? opts.refs : [],
     };
