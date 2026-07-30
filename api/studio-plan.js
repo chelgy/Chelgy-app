@@ -672,17 +672,21 @@ export default async function handler(req, res) {
               ? "\"roll\" | \"push\" | \"flash\" | \"slowmo\""
               : "\"whip\" | \"push\" | \"flash\" | \"drain\" | \"echo\"") + ".\n" +
            (style === "realestate"
-             ? "- roll: a rotating camera. Use it moving INTO a new room or a new part of the property.\n" +
-               "- push: a fast push with blur. Use it arriving at a detail the speech just named — a countertop, a range, a light fitting.\n" +
-               "- flash: a bright exposure ramp. Use it ONLY going from inside to outside, or outside to inside.\n" +
-               "- slowmo: a held slow-motion shot. Use it on the single best reveal in the whole tour — the pool, the view, the main room. Once, at most twice.\n"
+             ? "- roll: the camera turning. Use it MOVING BETWEEN SPACES — outside to inside, one room to the next, through a doorway. The reference rolls clockwise on the driveway and resolves inside the living room.\n" +
+               "- push: a fast push with blur. Use it ARRIVING somewhere — landing in a room, or coming to rest on a detail like a tap, a range, a pendant light.\n" +
+               "- flash: a bright exposure ramp. Use it ONLY where the picture crosses between interior and exterior, either direction. The brightness genuinely changes there, so it reads as the light rather than as an effect.\n" +
+               "- slowmo: the single best-looking frame in the whole tour — the pool, the view, the main living space. Once, at most twice.\n"
              : "- whip: a fast blurred camera snap. Use it where the argument turns — a but, a however, a contradiction.\n" +
                "- push: a fast push with blur. Use it arriving at the most important claim in a sentence.\n" +
                "- flash: a bright exposure ramp. Use it on the hardest break between two ideas.\n" +
                "- drain: colour draining to black and white. Use it leaving a sombre or negative idea.\n" +
                "- echo: a ghosted trail of the subject. Striking and expensive-looking; use it ONCE in the whole film, on the biggest moment.\n") +
-           "- THE WORDS DECIDE. Place an effect only where the speech gives you a reason. If a stretch is just someone talking evenly, return nothing for it — a plain hard cut is the correct edit and most cuts should be plain.\n" +
-           "- Return an empty list if nothing in this script earns a transition.\n\n")
+           (style === "realestate"
+             ? "- THE PICTURES DECIDE, NOT THE WORDS. Look at what CHANGES between one shot and the next: a different room, a doorway, inside to outside, ground level to aerial, a wide to a detail. Those changes are where a transition belongs, and you can see every one of them whether or not anybody is talking. A silent tour needs these MORE than a narrated one, not less.\n" +
+               "- A one minute tour should carry FOUR to EIGHT of these. Returning none means you have not looked at the frames — every property tour moves between spaces, and that is what these mark.\n" +
+               "- Still leave plenty of plain hard cuts. Within a single montage block of the same room, plain cuts are right.\n\n"
+             : "- THE WORDS DECIDE HERE. This is a person talking to camera, so the argument is the only structure there is. Place an effect where the speech gives you a reason — a turn, a contradiction, the line that matters — and nowhere else. A plain hard cut is the correct edit for most cuts.\n" +
+               "- Return an empty list if nothing in this script earns one.\n\n"))
         : "") +
       // SOUND EFFECTS, appended for the styles that carry them.
       //
