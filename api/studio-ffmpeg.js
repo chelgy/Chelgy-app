@@ -323,7 +323,20 @@ export default async function handler(req, res) {
     const FONT_PACK_IDS = ["editorial","bold","classic","modern"];
     const fontPack = FONT_PACK_IDS.includes(String(body.fontPack || "")) ? String(body.fontPack) : "editorial";
     // Where the beat detector starts looking. Clamped, not trusted.
-    const bpmHint = Math.max(40, Math.min(200, Math.round(Number(body.bpmHint) || 100)));
+    // 0 means "the tempo is genuinely unknown" — a customer's own uploaded track, where
+    // there is no hint to refine around and the beat finder must sweep the whole range.
+    //
+    // That signal is fragile and this line destroyed it twice: Number(0) || 100 is 100,
+    // and Math.max(40, 0) is 40. Either one sends the finder hunting near the wrong
+    // tempo, which returns a confidently wrong answer rather than no answer — and every
+    // cut then lands progressively further off the beat.
+    // Only an EXPLICIT zero means unknown. Number(null) is also 0, so testing the
+    // coerced value would turn a missing hint into a full sweep — which is worse for a
+    // score we commissioned, because sweeping can settle on half or double the tempo we
+    // actually asked for.
+    const rawHint = Number(body.bpmHint);
+    const bpmHint = body.bpmHint === 0 ? 0
+      : Math.max(40, Math.min(200, Math.round(Number.isFinite(rawHint) && rawHint > 0 ? rawHint : 100)));
 
     const clipRotate = (Array.isArray(body.clipRotate) ? body.clipRotate : [])
       .map((r) => ([0, 90, 180, 270].includes(Math.round(Number(r) || 0)) ? Math.round(Number(r) || 0) : 0));
