@@ -8260,7 +8260,28 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
       if(imageFirst && !startFrame){
         setShot(i, { pct: 1 });
         const uid = (user && user.id) || "anon";
-        const img = await studioBrollImage(s.scene, orientation, uid);
+        // GPT IMAGE, NOT GEMINI.
+        //
+        // The still decides the look of the shot and the video inherits it, so the
+        // whole point of generating one first is lost if the still is mediocre. Gemini
+        // is the right engine for product and UGC imagery elsewhere in the app; for
+        // this it produces flatter, less photographic frames than GPT Image, and every
+        // clip in the ad is built on top of one.
+        //
+        // Falls back to Gemini rather than failing: a plainer still beats no still,
+        // because generating from text alone loses the shared look entirely.
+        let img = null;
+        try{
+          const r = await generateOpenAIImage(s.scene, [], aspect === "16:9" ? "16:9" : "9:16", "high");
+          if(r && r.image){
+            const path = uid + "/commercial-" + Date.now() + "-" + Math.random().toString(36).slice(2,6) + ".png";
+            const url = await uploadSiteImage(r.image, path);
+            if(url) img = { url, balance: (typeof r.balance === "number" ? r.balance : null) };
+          }
+        }catch(e){
+          console.warn("[commercial] gpt image failed for " + s.id + ": " + ((e&&e.message)||"unknown"));
+        }
+        if(!img) img = await studioBrollImage(s.scene, orientation, uid);
         if(img && img.url){
           startFrame = img.url;
           if(typeof img.balance === "number") onBalance(img.balance);
