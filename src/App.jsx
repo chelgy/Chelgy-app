@@ -1312,7 +1312,7 @@ const GENRE_BPM = { classical:70, orchestral:80, piano:68, ambient:60, acoustic:
                     // the one worth snapping cuts to. 118 matches the reference track.
                     downtempo:118, runway:124, frenchclassical:66 };
 
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx){
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx, fx){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1321,7 +1321,7 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
       headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
       body: JSON.stringify({
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
-        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[],
+        style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[], fx: Array.isArray(fx)?fx:[],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null
       })
@@ -6751,7 +6751,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         // instead of refining around a number. We know what we asked Lyria for; we
         // know nothing about a track someone uploaded.
         ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100),
-        ambienceUrl, sfxList
+        ambienceUrl, sfxList,
+        // The planner's transition choices. Without this they never leave the app.
+        Array.isArray(plan && plan.fx) ? plan.fx : []
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");

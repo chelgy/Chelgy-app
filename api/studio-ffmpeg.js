@@ -266,6 +266,19 @@ export default async function handler(req, res) {
       .slice(0, 12)
       .map((x) => ({ at: Math.max(0, Number(x.at)), url: x.url }));
 
+    // TRANSITIONS THE PLANNER PLACED, from what is being said and what it can see.
+    //
+    // This was the missing link and it made the whole feature invisible: the planner
+    // chose them, the app received them, and they stopped here. job-plan.js has been
+    // reading edl.fx all along and finding nothing, so property and founder have never
+    // applied a single planner-placed effect.
+    //
+    // Times are on the SOURCE timeline; job-plan.js maps them onto pieces.
+    const fx = (Array.isArray(body.fx) ? body.fx : [])
+      .filter((x) => x && Number.isFinite(Number(x.at)) && typeof x.effect === "string" && x.effect.length < 20)
+      .slice(0, 24)
+      .map((x) => ({ at: Math.max(0, Number(x.at)), effect: x.effect }));
+
     const STYLES = ["talkinghead", "vlog", "tutorial", "process", "fashion", "showcase", "cinematic", "entrepreneur", "realestate"];
     const style = STYLES.includes(body.style) ? body.style : "talkinghead";
     const footage = ["sony", "canon", "standard", "none"].includes(body.footage) ? body.footage : "standard";
@@ -398,7 +411,7 @@ export default async function handler(req, res) {
             edl: {
               sources: urls, segments: keep, words, title, subtitle, orientation,
               fps: 30, size: orientation === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 },
-              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx,
+              grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx, fx,
               chapters, broll, transitions, music, showcase, narration,
               captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
                 : style === "entrepreneur"
@@ -452,7 +465,7 @@ export default async function handler(req, res) {
           title, subtitle,
           orientation,
           uploadPath,
-          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx,
+          grade: { footage, look, clipFootage }, clipRotate, fontPack, bpmHint, style, ambience, sfx, fx,
           chapters, broll, transitions, music, showcase, narration,
           captionStyle: style === "vlog" ? { fontScale: 0.040, marginScale: 0.20 }
                 : style === "entrepreneur"
