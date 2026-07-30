@@ -8,7 +8,7 @@
 //
 // Costs nothing to call. Nothing is generated here.
 //
-// GPT primary, Gemini fallback (same convention as the old commercial planner).
+// Gemini primary, GPT fallback. Override with EDL_ENGINE=openai.
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-pro";
@@ -500,13 +500,29 @@ export default async function handler(req, res) {
       ? revisionBrief(b.priorEdl, String(b.revision))
       : `${userBrief({ ...b, ...opts })}\n\n${schemaBlock(opts.duration, opts.aspect, !!opts.refs.length)}`;
 
-    let raw, engine = "openai";
+    // ENGINE IS CONFIGURABLE, and Gemini is the default.
+    //
+    // GPT was hardcoded first with no switch. In practice it writes scene descriptions
+    // far more elaborate than this planner wants — the prompt asks for a shot list and
+    // gets prose — and the elaboration is what makes the resulting edits read as
+    // arbitrary. Gemini stays closer to the brief.
+    //
+    // EDL_ENGINE=openai puts it back. PLANNER_FALLBACK=off disables the second engine
+    // entirely, the same knob studio-plan.js uses, so a failure is a clean error rather
+    // than an edit silently planned by the engine you turned off.
+    const preferred = (process.env.EDL_ENGINE || "gemini").trim().toLowerCase() === "openai"
+      ? "openai" : "gemini";
+    const fallbackOff = (process.env.PLANNER_FALLBACK || "").trim().toLowerCase() === "off";
+
+    let raw, engine = preferred;
     try {
-      raw = await callOpenAI(system, user);
+      raw = preferred === "gemini" ? await callGemini(system, user) : await callOpenAI(system, user);
     } catch (e1) {
-      console.warn("[edl] openai failed, falling back to gemini:", e1.message);
-      engine = "gemini";
-      raw = await callGemini(system, user);
+      if (fallbackOff) throw e1;
+      const other = preferred === "gemini" ? "openai" : "gemini";
+      console.warn("[edl] " + preferred + " failed, falling back to " + other + ":", e1.message);
+      engine = other;
+      raw = other === "gemini" ? await callGemini(system, user) : await callOpenAI(system, user);
     }
 
     let parsed;
@@ -515,6 +531,7 @@ export default async function handler(req, res) {
     } catch {
       // one retry against the other engine before giving up
       console.warn("[edl] unparseable JSON from", engine, "— retrying on the other engine");
+      if (fallbackOff) throw new Error(engine + " returned unparseable JSON and fallback is off");
       raw = engine === "openai" ? await callGemini(system, user) : await callOpenAI(system, user);
       engine = engine === "openai" ? "gemini" : "openai";
       parsed = parseJson(raw);
