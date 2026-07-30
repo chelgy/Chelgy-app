@@ -389,7 +389,7 @@ export default async function handler(req, res) {
         "- THE LOOP: the LAST segment should come from the SAME framing as the FIRST, so the film restarts without a visible ending. Prefer the opening setup near its end.\n";
 
     const fashionSeeing = canSee && style === "fashion"
-      ? "\nYOU CAN SEE THE FOOTAGE. The activity track still decides WHERE the movement is — that is what it is for and it is more precise than the frames. Use the pictures for the judgement it cannot make:\n" +
+      ? "\nYOU CAN SEE THE FOOTAGE. Nothing here replaces the activity track — it decides WHERE the movement is and it is more precise than sampled frames. The pictures add the judgement it cannot make:\n" +
         "- Between two moments with similar movement, keep the one that LOOKS better. Framing, light, whether the outfit reads clearly, whether the pose has landed.\n" +
         "- Drop moments where the movement is real but the frame is not worth showing — the subject half out of shot, an unflattering angle, a dead background.\n" +
         "- The opening and closing shot should be the two strongest frames in the footage, not merely the first and last movement.\n"
@@ -413,7 +413,7 @@ export default async function handler(req, res) {
         "- Aim for 25 to 35 segments in a 60 second film. Most of that count comes from the montage blocks, not from chopping the presenter.\n" +
         "\n" +
         "IF FRAMES ARE ATTACHED, THEY ARE THE POINT OF THIS STYLE.\n" +
-        "- WORK OUT WHAT EACH SHOT IS. Kitchen, bathroom, bedroom, exterior, pool, view, a detail like a tap or a countertop or a light fitting. The montage blocks are silent, so the pictures are the ONLY thing that can tell you — the transcript cannot.\n" +
+        "- WORK OUT WHAT EACH SHOT IS. Kitchen, bathroom, bedroom, exterior, pool, view, a detail like a tap or a countertop or a light fitting. In the montage blocks the pictures are the only thing that can tell you, because nobody is speaking. In the presenter blocks the agent usually names what is coming — \"let me show you the kitchen\" — and that naming is the better signal for what follows, so use it and let the frames confirm which shot is which.\n" +
         "- Build each montage block out of DIFFERENT rooms and different scales. A wide, then a detail, then somewhere else. Two shots of the same worktop back to back waste the block.\n" +
         "- Put the effects on what deserves them. The slow-motion goes on the best reveal in the property — the pool, the view, the main living space — not on whatever shot happens to be next. The push goes on a detail. The roll goes on a move into a new room. The flash goes where the picture crosses from inside to outside.\n" +
         "- The CLOSING shot should be the most impressive frame you can see, and the OPENING should be the exterior or the approach if one exists.\n";
@@ -421,7 +421,7 @@ export default async function handler(req, res) {
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
         "- The TRANSCRIPT below, as usual. This is the stronger of the two signals: if someone is talking, that moment matters.\n" +
-        "- THE FRAMES, if they are attached. They are the only thing that can say WHAT is being done. The activity track says a lot is moving; the transcript says whatever was spoken aloud, which on a silent working stretch is nothing. Only the pictures distinguish washing up from wiping a counter from putting shopping away — so every step label comes from them, and a step you cannot see in a frame does not get named.\n" +
+        "- THE FRAMES, if they are attached. These cover what the transcript cannot: the silent working stretches, which in this style are most of the video. The activity track says a lot is moving but not what — it cannot separate washing up from wiping a counter from putting shopping away. Where someone SAYS what they are doing, that still wins; the frames confirm it, extend it across the silence that follows, and name the steps nobody narrated.\n" +
         "- An ACTIVITY TRACK: how much of the picture is moving, measured from the footage itself, given above as timestamped spans with a peak value of 0 to 9. still means genuinely nothing is moving — an empty counter, an abandoned tripod, someone out of frame. ACTION (4-6) is a person working within a fixed shot: hands chopping, wiping, folding, assembling. STRONG ACTION (7-9) is large movement — the camera moving, or something carried across the frame. The span times are on the same timeline as the word timings, so an ACTION span is a keep range you can quote directly. UNMEASURED means the read failed for that stretch, NOT that nothing happened — keep those unless speech says otherwise.\n" +
         "\n" +
         "THE RULE THAT MATTERS: silence is NOT dead air in this video. A silent stretch with HIGH activity is the most valuable footage there is — it is the actual work being done, and it must be KEPT even though nobody is speaking over it. A silent stretch with activity at or near 0 is genuinely dead and should go.\n" +
@@ -527,9 +527,14 @@ export default async function handler(req, res) {
       // as fact on screen, so a wrong one is not a duller edit, it is a caption that
       // says something the video does not show.
       (canSee
-        ? ("NAME WHAT YOU CAN SEE, NOT WHAT YOU ASSUME.\n" +
-           "Any label, title or chapter you write must describe what is actually visible in the frames at that timestamp. If the frames show someone at a sink with plates, that is washing up. Do not infer the activity from the words or from how much movement there is — movement cannot tell washing up from wiping a counter, and someone silent is not doing nothing.\n" +
-           "If the frames do not make an activity clear, write a plainer label that is true rather than a specific one that might not be. \"Kitchen\" is a better label than a confident guess at the wrong task.\n\n")
+        ? ("USE EVERY SIGNAL. EACH ONE KNOWS SOMETHING THE OTHERS DO NOT.\n" +
+           "- SPEECH names things a picture cannot. What something IS, what is ABOUT to happen, why it matters. \"I'm about to mash the potatoes\" tells you what the next stretch is before anything visible has happened, and no frame could. When someone says what they are doing, believe them — they know and you are looking at one sampled moment of it.\n" +
+           "- FRAMES show what is actually happening, and they cover the silent stretches where the transcript says nothing at all. Someone working quietly is not doing nothing.\n" +
+           "- THE ACTIVITY TRACK says WHERE the action is, more precisely than either.\n" +
+           "\n" +
+           "COMBINE THEM. Where two disagree, prefer the one that can actually know: a spoken \"mashing the potatoes\" beats an ambiguous frame of a pan, and a clear frame of a sink full of plates beats ninety seconds of silence. Use the frames to CONFIRM or CORRECT what the words suggest, not to replace them.\n" +
+           "\n" +
+           "Any label, title or chapter must be supported by at least one of these. If none of them makes an activity clear, write a plainer label that is true rather than a specific one that might not be — \"kitchen\" beats a confident guess at the wrong task. Being confidently specific with nothing to go on is the one failure that shows on screen.\n\n")
         : "") +
       (canSee
         ? ("YOU CAN SEE THIS FOOTAGE. " + frames.length + " frames are attached, each labelled with its timestamp on the same timeline as everything else above.\n" +
