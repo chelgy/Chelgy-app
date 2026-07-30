@@ -531,6 +531,27 @@ export default async function handler(req, res) {
         : style !== "talkinghead"
         ? '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
+      // SOUND EFFECTS, appended for the styles that carry them.
+      //
+      // Asked for HERE rather than in a separate vision call, because this request
+      // already has everything needed: the activity track says when something moved,
+      // and a still frame says what the video looks like. A second model call to name
+      // sounds would cost real money on every edit forever, for information already on
+      // the table.
+      //
+      // Times are on the ORIGINAL timeline, like `keep` and `chapters`, and get remapped
+      // to the finished edit downstream. Six is a hard ceiling: the fashion reference
+      // uses a handful of accents across a whole film, and a sound on every movement
+      // stops reading as design and starts reading as a soundboard.
+      ((style === "fashion" || style === "entrepreneur" || style === "realestate")
+        ? ("\nALSO RETURN \"sfx\": up to 6 sound effects that land on real movement.\n" +
+           "- at: the second on the ORIGINAL timeline where the sound should hit. It must fall INSIDE a segment you kept, or it will never be heard.\n" +
+           "- sound: a short plain description of the sound that movement makes — \"fabric whoosh\", \"heel step on concrete\", \"door swinging open\". Five words at most. Describe the SOUND, not the picture.\n" +
+           "- Pick the moments with the MOST movement" + (activityOn || style === "fashion" ? " using the activity track above" : "") + ". A sound over stillness is worse than silence.\n" +
+           "- Never two closer than half a second apart. One gesture is one sound, not a burst.\n" +
+           "- Return an empty list if nothing in this footage genuinely makes a sound. That is a normal answer.\n" +
+           "- ALSO RETURN \"ambience\": one short description of the room tone this footage was shot in — \"quiet apartment room tone\", \"busy city street\", \"echoing indoor pool\". This is a single continuous bed under the whole video, not an event. Empty string if the footage has no obvious sense of place.\n\n")
+        : "") +
       // Appended rather than folded into the shapes above so it travels with whichever
       // style the person picked, instead of needing a fourth and fifth variant.
       (brollClips.length
@@ -704,6 +725,29 @@ export default async function handler(req, res) {
 
     // Sanitize chapters (tutorial only): valid times, short labels, max 6.
     let chapters = [];
+    // Sound effects. Clamped, de-duplicated by proximity, capped, and dropped entirely
+    // if they fall outside the footage — a sound at a timestamp that was cut is charged
+    // for and never heard.
+    if (Array.isArray(plan.sfx)) {
+      const seen = [];
+      plan.sfx = plan.sfx
+        .map((x) => ({
+          at: Number(x && x.at),
+          sound: String((x && x.sound) || "").trim().slice(0, 60),
+        }))
+        .filter((x) => Number.isFinite(x.at) && x.at >= 0 && x.at <= duration && x.sound.length > 2)
+        .sort((a, b) => a.at - b.at)
+        .filter((x) => {
+          if (seen.some((t) => Math.abs(t - x.at) < 0.5)) return false;
+          seen.push(x.at);
+          return true;
+        })
+        .slice(0, 6);
+    } else {
+      plan.sfx = [];
+    }
+    plan.ambience = String(plan.ambience || "").trim().slice(0, 80);
+
     if (style !== "talkinghead" && Array.isArray(plan.chapters)) {
       chapters = plan.chapters
         .map(c => ({ s: Math.max(0, Number(c.s) || 0), label: String(c.label || "").trim().slice(0, 40) }))
