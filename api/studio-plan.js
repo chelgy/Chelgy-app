@@ -531,6 +531,36 @@ export default async function handler(req, res) {
         : style !== "talkinghead"
         ? '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","chapters":[{"s":number,"label":"string"}],"music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n'
         : '{"keep":[{"s":number,"e":number}],"title":"string","subtitle":"string","music":{"prompt":"string"},"look":{"temperature":"warm|neutral|cool","exposure":"dark|balanced|bright"}}\n\n') +
+      // EFFECT PLACEMENT, BY THE PLANNER, FROM WHAT IS BEING SAID.
+      //
+      // These effects used to be assigned by POSITION — every fourth cut, every fifth
+      // cut — which means nothing knows what is in the shot. A speed ramp landed on
+      // whichever shot happened to be fourth rather than on the kitchen reveal that
+      // earns it. That is decoration, not editing, and it reads as random because it is.
+      //
+      // The planner cannot see the footage, but it can read the words, and for these two
+      // styles the words say what is on screen: "quartz countertops" means the next shot
+      // is a countertop. So the planner places the effects and the renderer stops
+      // guessing. Where the words say nothing, no effect — silence is the correct answer.
+      ((style === "entrepreneur" || style === "realestate")
+        ? ("\nALSO RETURN \"fx\": where the transitions go. AT MOST ONE PER FIVE SECONDS OF FINISHED VIDEO, and fewer is better.\n" +
+           "- at: the second on the ORIGINAL timeline. It must be the START of something you kept, because a transition belongs at a cut, not in the middle of a shot.\n" +
+           "- effect: exactly one of " + (style === "realestate"
+              ? "\"roll\" | \"push\" | \"flash\" | \"slowmo\""
+              : "\"whip\" | \"push\" | \"flash\" | \"drain\" | \"echo\"") + ".\n" +
+           (style === "realestate"
+             ? "- roll: a rotating camera. Use it moving INTO a new room or a new part of the property.\n" +
+               "- push: a fast push with blur. Use it arriving at a detail the speech just named — a countertop, a range, a light fitting.\n" +
+               "- flash: a bright exposure ramp. Use it ONLY going from inside to outside, or outside to inside.\n" +
+               "- slowmo: a held slow-motion shot. Use it on the single best reveal in the whole tour — the pool, the view, the main room. Once, at most twice.\n"
+             : "- whip: a fast blurred camera snap. Use it where the argument turns — a but, a however, a contradiction.\n" +
+               "- push: a fast push with blur. Use it arriving at the most important claim in a sentence.\n" +
+               "- flash: a bright exposure ramp. Use it on the hardest break between two ideas.\n" +
+               "- drain: colour draining to black and white. Use it leaving a sombre or negative idea.\n" +
+               "- echo: a ghosted trail of the subject. Striking and expensive-looking; use it ONCE in the whole film, on the biggest moment.\n") +
+           "- THE WORDS DECIDE. Place an effect only where the speech gives you a reason. If a stretch is just someone talking evenly, return nothing for it — a plain hard cut is the correct edit and most cuts should be plain.\n" +
+           "- Return an empty list if nothing in this script earns a transition.\n\n")
+        : "") +
       // SOUND EFFECTS, appended for the styles that carry them.
       //
       // Asked for HERE rather than in a separate vision call, because this request
@@ -725,6 +755,36 @@ export default async function handler(req, res) {
 
     // Sanitize chapters (tutorial only): valid times, short labels, max 6.
     let chapters = [];
+    // Planner-placed transitions. Vocabulary is closed — an effect name the renderer
+    // does not know would silently do nothing, which looks identical to the planner
+    // having chosen nothing.
+    {
+      const FX_OK = style === "realestate"
+        ? ["roll", "push", "flash", "slowmo"]
+        : ["whip", "push", "flash", "drain", "echo"];
+      const cap = Math.max(1, Math.round(duration / 5));
+      const seen = [];
+      plan.fx = (Array.isArray(plan.fx) ? plan.fx : [])
+        .map((x) => ({ at: Number(x && x.at), effect: String((x && x.effect) || "").trim().toLowerCase() }))
+        .filter((x) => Number.isFinite(x.at) && x.at >= 0 && x.at <= duration && FX_OK.includes(x.effect))
+        .sort((a, b) => a.at - b.at)
+        // Two transitions within a second of each other is the stacking that made this
+        // chaotic in the first place.
+        .filter((x) => {
+          if (seen.some((t) => Math.abs(t - x.at) < 1.0)) return false;
+          seen.push(x.at);
+          return true;
+        })
+        .slice(0, cap);
+      // echo and slowmo are once-per-film effects. The prompt says so; this enforces it.
+      let usedEcho = false, usedSlow = false;
+      plan.fx = plan.fx.filter((x) => {
+        if (x.effect === "echo") { if (usedEcho) return false; usedEcho = true; }
+        if (x.effect === "slowmo") { if (usedSlow) return false; usedSlow = true; }
+        return true;
+      });
+    }
+
     // Sound effects. Clamped, de-duplicated by proximity, capped, and dropped entirely
     // if they fall outside the footage — a sound at a timestamp that was cut is charged
     // for and never heard.
