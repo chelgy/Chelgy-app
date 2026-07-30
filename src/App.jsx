@@ -139,7 +139,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, commercial, videoedit.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -3329,6 +3329,22 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
 // generic, check those before anything else.
 const THUMBNAILS_ENABLED = true;
 
+// Commercial: HIDDEN. Set to true to bring the tab back on the Video Studio card.
+// Nothing is removed — CommercialFilm, /api/studio-commercial-render, the tools/commercial
+// route and the render branch all stay exactly where they are, so the tool still works if
+// you land on it directly. This only takes the tab off the card.
+// NOTE: `commercial` was also pulled out of the AI Advisor's valid-tools list (the
+// NAVIGATION SUPERPOWER block near the top of this file) so it can't route members to a
+// hidden tab. If you flip this back to true, add it back there by hand too.
+const COMMERCIAL_ENABLED = false;
+
+// Sound effects in the AI Video Editor: HIDDEN. Set to true to bring the "Add sound
+// effects" checkbox back. The generator (studioSfx), the plan-time SFX pass and the
+// render-server wiring are all untouched — this only hides the checkbox. `useSfx`
+// initialises to false, so with the box hidden the SFX branch simply never runs and
+// the edit is byte-for-byte what it was with the box left unticked.
+const SFX_ENABLED = false;
+
 // The original Fake It (preset restaging), High Fashion and Beauty are hidden. The
 // Backdrop tool — describe any setting in words — does the same job better and without
 // the preset list, so it has taken the Fake It name and the first slot.
@@ -5850,8 +5866,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     { id:"fashion",     label:"Fashion Film",  note:"An outfit, shot from every angle and cut fast to music \u2014 no talking, no captions, no labels. Give it two or three minutes of footage from a few positions and it finds the movement, cuts on it, and opens and closes on the same frame so it loops seamlessly on a feed.", ready:true },
     { id:"showcase",    label:"Showcase",     note:"Outfit-of-the-day, jewelry, product hauls — no talking needed. Tell Chelgy what to show and it WATCHES your footage to find each product, keeps that moment, and labels it on screen (e.g. “Jewelry · cherosi.com”) right next to the item so it never gets buried under TikTok's captions.", ready:true },
     { id:"cinematic",   label:"Cinematic",    note:"Scorsese-energy storytelling — hard kinetic cuts and scene cards that punctuate the story. Golden Hour grade by default.", ready:true },
-    { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true },
-    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true },
+    // `hidden:true` takes a style off the picker WITHOUT removing it. The entry stays in
+    // the array on purpose so the note lookup below, the style-specific planner rules and
+    // the render-server branches keyed on these ids all keep working — and so anyone
+    // mid-session on a hidden style doesn't hit a blank. Delete the word `hidden` to
+    // bring one back. `ready:false` is the other axis: that greys a style out and labels
+    // it "· soon"; `hidden` removes it from view entirely.
+    { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true, hidden:true },
+    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true, hidden:true },
   ];
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
@@ -6829,7 +6851,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 8px"}}>Style</p>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
-        {STYLES.map(s=>(
+        {STYLES.filter(s=>!s.hidden).map(s=>(
           <button key={s.id} disabled={!s.ready} onClick={()=>{ if(!s.ready) return; setStyle(s.id); setGrade(s.id==="vlog"||s.id==="tutorial"||s.id==="process"?"luxury":"wolf"); }} style={{padding:"9px 16px",border:"1px solid "+(style===s.id?B.charcoal:B.stone),background:style===s.id?B.inkBlock:B.white,color:style===s.id?B.inkText:(s.ready?B.charcoal:B.mid),fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:s.ready?"pointer":"default",opacity:s.ready?1:0.55,whiteSpace:"nowrap"}}>
             {s.label}{!s.ready && " · soon"}
           </button>
@@ -7147,6 +7169,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       </p>
 
       {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#B00",marginBottom:12}}>{err}</p>}
+      {SFX_ENABLED && (
       <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:12,cursor:"pointer"}}>
         <input type="checkbox" checked={useSfx} disabled={busy} onChange={e=>setUseSfx(e.target.checked)} style={{marginTop:3}} />
         <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.charcoal,lineHeight:1.5}}>
@@ -7156,6 +7179,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           </span>
         </span>
       </label>
+      )}
       {activityNote && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:"#8A6D3B",background:"#FCF8E3",border:"1px solid #E8DCB5",padding:"10px 12px",lineHeight:1.5,marginTop:6}}>{activityNote}</p>}
       {notice && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,marginBottom:12,paddingLeft:10,borderLeft:"2px solid "+B.stone}}>{notice}</p>}
 
@@ -12231,7 +12255,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, {label:"Commercial",tool:"commercial"}, {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
