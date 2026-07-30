@@ -361,7 +361,7 @@ export default async function handler(req, res) {
         "- Segments run 1.5 to 7 seconds; most sit between 2 and 5. Aim for 8 to 12 segments in 30 seconds. This is NOT a fast montage — a talking film cut every half second reads as panic.\n" +
         "- REMOVE filler (um, uh, filler 'like'), false starts, repeated takes (keep the best), and any pause over ~1.5 seconds where nothing is said and nothing is shown.\n" +
         "- Never cut mid-word. Start each segment ~0.15s before its first word and end ~0.35s after its last, so the delivery lands before the picture changes.\n" +
-        "- ALTERNATE MOTION AND STILLNESS. The reference goes walking, seated, walking, standing, seated, walking. If the footage offers both moving and static setups, alternate them rather than running two of the same kind together — that is what keeps a talking film visually alive without needing more locations.\n" +
+        "- DO NOT TRY TO ARRANGE THE SHOTS. You cannot see the footage — you have the words and nothing else. The person filming this worked from a script and already positioned themselves for each line, so the sequence of setups is a decision they have made. Your job is to assemble what they said, in order, cleanly. Any attempt to order or vary the visuals here is guesswork and makes the edit worse.\n" +
         "- THE PAYOFF LINES EARN THEIR OWN SEGMENT. Where a sentence turns on one idea, give that idea its own cut rather than burying it mid-segment.\n" +
         "- THE LOOP: the LAST segment should come from the SAME framing as the FIRST, so the film restarts without a visible ending. Prefer the opening setup near its end.\n";
 
