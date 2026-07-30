@@ -11,7 +11,18 @@
 // Gemini primary, GPT fallback. Override with EDL_ENGINE=openai.
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+// MODELS, MATCHING api/studio-plan.js.
+//
+// This said gemini-2.5-pro, which Google has since closed to new users — a hard 404,
+// not a capacity error. It sat harmless while GPT was primary and Gemini was a rarely
+// hit fallback; making Gemini the default walked the whole pipeline onto a dead model.
+//
+// studio-plan.js was migrated off 2.5 already and these are the same two it uses. They
+// are duplicated rather than shared because these are separate serverless functions —
+// so if one is ever changed, CHANGE BOTH. A model name that only half the app knows
+// about is the same drift that has bitten this repo all week.
+const GEMINI_PRIMARY = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const GEMINI_FALLBACK = "gemini-3.1-flash-lite";
 
 // ---------------------------------------------------------------------------
 // Costs
@@ -336,8 +347,32 @@ async function callGemini(system, user) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing");
 
+  // Two tries on the primary, then the fallback. Capacity errors are transient and
+  // worth retrying; a 404 for a retired model is not, so that drops through to the
+  // fallback immediately rather than waiting twice for an answer that cannot come.
+  const models = [GEMINI_PRIMARY, GEMINI_PRIMARY, GEMINI_FALLBACK];
+  let lastErr = "The planner is busy. Please try again in a moment.";
+  for (let attempt = 0; attempt < models.length; attempt++) {
+    const model = models[attempt];
+    const out = await callGeminiOnce(model, key, system, user).catch((e) => ({ ok: false, error: (e && e.message) || "network error" }));
+    if (out.ok) return out.text;
+    lastErr = out.error;
+    const retryable = /overloaded|high demand|try again later|unavailable|resource[_ ]?exhausted|rate limit|quota|50\d/i.test(String(lastErr));
+    const gone = /no longer available|not_found|NOT_FOUND|404/i.test(String(lastErr));
+    if (gone) {
+      console.warn("[edl] model " + model + " is retired — moving to the fallback");
+      attempt = models.length - 2;   // skip the remaining primary tries
+      continue;
+    }
+    if (!retryable) break;
+    await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+  }
+  throw new Error(lastErr);
+}
+
+async function callGeminiOnce(model, key, system, user) {
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -352,11 +387,16 @@ async function callGemini(system, user) {
     }
   );
 
-  if (!r.ok) throw new Error(`gemini ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  const j = await r.json();
+  // Returns a RESULT rather than throwing, so the wrapper above can read the message
+  // and decide whether it is worth another attempt. The 404 for a retired model and a
+  // 503 for a busy one need opposite responses, and both arrive here as failures.
+  if (!r.ok) {
+    return { ok: false, error: `gemini ${r.status}: ${(await r.text()).slice(0, 300)}` };
+  }
+  const j = await r.json().catch(() => ({}));
   const txt = j.candidates?.[0]?.content?.parts?.map((p) => p.text).join("");
-  if (!txt) throw new Error("gemini returned no content");
-  return txt;
+  if (!txt) return { ok: false, error: "gemini returned no content" };
+  return { ok: true, text: txt };
 }
 
 function parseJson(txt) {
