@@ -8158,11 +8158,11 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   const [voicesErr,setVoicesErr] = useState("");
   const [voiceId,setVoiceId]   = useState("");
   const [useVo,setUseVo]       = useState(true);
-  const [useMusic,setUseMusic] = useState(true);
+  const [useMusic,setUseMusic] = useState(false);
   const [captions,setCaptions] = useState(true);
   const [vo,setVo]             = useState(null);    // { url, words, seconds }
   const [music,setMusic]       = useState("");      // url
-  const [useSound,setUseSound] = useState(true);   // sound effects + room tone
+  const [useSound,setUseSound] = useState(false);  // sound effects + room tone
   const [sfxAudio,setSfxAudio] = useState(null);   // { list:[{at,url}], ambience }
 
   // The same nine looks the video editor uses. These ids are wire values — the render
@@ -8522,54 +8522,6 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
   async function assemble(){
     setErr(""); setBusy(true); setPct(0); setStage("Sending the plan…"); setFilm("");
     try{
-      // ── ANYTHING SWITCHED ON THAT HAS NOT BEEN MADE YET, MAKE IT NOW ─────────
-      //
-      // The score and the sound effects are on by default, so requiring a separate
-      // button press before assembling would mean an ad quietly rendering without the
-      // things the toggles say it has. The preview buttons still exist for hearing
-      // them first; this is the safety net for when they were not used.
-      //
-      // Reusing whatever was already made rather than regenerating, so pressing the
-      // preview buttons and then assembling does not pay twice.
-      let useMusicUrl = music, useSfx = sfxAudio;
-
-      if(useSound && !useSfx){
-        const uid = (user && user.id) || "anon";
-        const wanted = Array.isArray(plan.sfx) ? plan.sfx.slice(0, 6) : [];
-        const list = [];
-        for(let i=0;i<wanted.length;i++){
-          setStage("Making sound " + (i+1) + " of " + wanted.length + "…");
-          const r = await studioSfx(wanted[i].sound, 1.2, false, uid);
-          if(r && r.url) list.push({ at: Number(wanted[i].at)||0, url: r.url });
-          if(r && typeof r.balance === "number") onBalance(r.balance);
-        }
-        let ambience = null;
-        if(plan.ambience){
-          setStage("Making the room tone…");
-          const r = await studioSfx(plan.ambience, 20, true, uid);
-          if(r && r.url) ambience = r.url;
-          if(r && typeof r.balance === "number") onBalance(r.balance);
-        }
-        useSfx = { list, ambience };
-        setSfxAudio(useSfx);
-      }
-
-      if(useMusic && !useMusicUrl){
-        setStage("Composing the score…");
-        try{
-          const started = await studioMusic((plan.music && plan.music.brief) || "", "commercial", "wolf", "auto");
-          if(started && started.id){
-            if(typeof started.balance === "number") onBalance(started.balance);
-            const url = await pollVideo(started.id, (p)=> setStage("Composing the score — " + Math.round(p||0) + "%…"));
-            useMusicUrl = typeof url === "string" ? url : (url && url.url) || "";
-            if(useMusicUrl) setMusic(useMusicUrl);
-          }
-        }catch(e){
-          // Never fatal. An ad without a score is still an ad.
-          setNotes(n=>[...n, "score skipped: " + ((e&&e.message)||"unknown")]);
-        }
-      }
-
       // The plan goes over with the filmed urls written back onto its sources. The
       // render server refuses a plan whose sources have no url, which is the check
       // that catches a half-filmed ad before any work starts.
@@ -8581,9 +8533,9 @@ function CommercialFilm({ credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCr
         body: JSON.stringify({
           plan: filledPlan,
           voUrl: useVo && vo ? vo.url : null,
-          ambienceUrl: useSound && useSfx ? useSfx.ambience : null,
-          sfx: useSound && useSfx ? useSfx.list : [],
-          musicUrl: useMusic && useMusicUrl ? useMusicUrl : null,
+          ambienceUrl: useSound && sfxAudio ? sfxAudio.ambience : null,
+          sfx: useSound && sfxAudio ? sfxAudio.list : [],
+          musicUrl: useMusic && music ? music : null,
           // Captions are built from the VO's word timings and burn per shot. No
           // voice, no words, no captions — there is nothing to caption.
           words: useVo && captions && vo && vo.words ? vo.words : null
