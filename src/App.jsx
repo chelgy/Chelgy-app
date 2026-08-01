@@ -1589,15 +1589,56 @@ async function downloadPic(src, filename){
 // a plain <a download> is ignored by the browser and just opens a tab. Fetching it
 // as a blob first lets us force a real download; if CORS blocks the fetch we fall
 // back to opening it so the person can still save it manually.
-async function downloadVideo(src, filename){
+//
+// PROGRESS: a finished edit is tens to hundreds of megabytes, and `res.blob()`
+// resolves only once every byte has arrived. On a normal connection that is a
+// silent thirty-to-ninety-second gap in which the button looks dead, nothing
+// moves, and the honest reading of the screen is that the download didn't work —
+// so the person taps it again and starts a second full transfer. Reading the body
+// as a stream costs nothing and lets the caller show what's happening.
+//
+// onProgress is optional and every existing caller omits it, in which case this
+// behaves exactly as it did before. It receives:
+//   { state:"start"|"downloading"|"done"|"fallback", pct, loaded, total }
+// `total` is 0 when the server sends no content-length (chunked responses), so a
+// caller should show megabytes rather than a percentage in that case.
+async function downloadVideo(src, filename, onProgress){
   const name = /\.(mp4|webm|mov|m4v)$/i.test(filename||"") ? filename : ((filename||"chelgy").replace(/\.[^./]+$/,"") + ".mp4");
+  const report = typeof onProgress === "function" ? onProgress : null;
+  const say = (o)=>{ if(report){ try{ onProgress(o); }catch(_){} } };
   try{
+    say({ state:"start", pct:0, loaded:0, total:0 });
     const res = await fetch(src, { mode: "cors" });
     if(!res.ok) throw new Error("bad status");
-    const blob = await res.blob();
+    const total = Number(res.headers.get("content-length")) || 0;
+    let blob;
+    // Older Safari has no readable body on a fetch Response. There the whole
+    // point is unavailable, so fall back to the one-shot blob — the file still
+    // saves, just without a percentage.
+    if(report && res.body && typeof res.body.getReader === "function"){
+      const reader = res.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+      for(;;){
+        const { done, value } = await reader.read();
+        if(done) break;
+        chunks.push(value);
+        loaded += value.length;
+        // Capped at 99: 100 belongs to the moment the file actually lands, not
+        // to the last chunk arriving.
+        say({ state:"downloading", loaded, total, pct: total ? Math.min(99, Math.round(loaded/total*100)) : 0 });
+      }
+      blob = new Blob(chunks, { type: res.headers.get("content-type") || "video/mp4" });
+    } else {
+      blob = await res.blob();
+    }
     saveBlobUrl(URL.createObjectURL(blob), name, true);
+    say({ state:"done", pct:100, loaded: blob.size, total: blob.size || total });
+    return true;
   }catch(_){
     window.open(src, "_blank", "noopener");
+    say({ state:"fallback", pct:0, loaded:0, total:0 });
+    return false;
   }
 }
 
@@ -5824,6 +5865,57 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   const [url,setUrl]               = useState("");
   const [outTitle,setOutTitle]     = useState("");
 
+  // ─── SAVING THE FINISHED FILE ──────────────────────────────────────────────
+  //
+  // The render is the slow part everyone expects to wait for. The DOWNLOAD is the
+  // slow part nobody warns you about: the file is on storage, cross-origin, and
+  // has to come down in full before the browser will write it to disk. A hundred
+  // megabytes over ordinary wifi is the better part of a minute in which the
+  // button does not move and nothing on screen says a transfer is running. It
+  // reads as broken, and the reasonable response — tap it again — starts a second
+  // transfer alongside the first and makes it slower still.
+  //
+  // One `dl` at a time, keyed so the main edit and each viral clip each get their
+  // own label without needing separate state for every row.
+  const [dl,setDl] = useState(null);   // { key, state, pct, loaded, total }
+  const dlBusy = !!(dl && (dl.state==="start" || dl.state==="downloading"));
+  async function saveVideo(key, src, filename){
+    if(dlBusy) return;               // one at a time; a queue here helps nobody
+    setDl({ key, state:"start", pct:0, loaded:0, total:0 });
+    await downloadVideo(src, filename, (p)=>setDl({ key, ...p }));
+    // Leave the outcome on screen long enough to be read, then go quiet. Guarded
+    // so a second download started in the meantime doesn't get its label wiped.
+    setTimeout(()=>{ setDl(cur => (cur && cur.key===key) ? null : cur); }, 4000);
+  }
+  const dlMB = (n)=> (Number(n)||0) >= 1048576 ? ((Number(n)/1048576).toFixed(1)+" MB") : Math.max(0,Math.round((Number(n)||0)/1024))+" KB";
+  function dlLabel(key){
+    if(!dl || dl.key!==key) return "DOWNLOAD ↓";
+    if(dl.state==="done")     return "SAVED ✓";
+    if(dl.state==="fallback") return "OPENED IN A NEW TAB — SAVE IT FROM THERE";
+    if(dl.state==="start")    return "STARTING THE DOWNLOAD…";
+    // No content-length means no percentage to show, so show the honest thing:
+    // how much has actually arrived.
+    return dl.total ? ("DOWNLOADING… "+dl.pct+"%") : ("DOWNLOADING… "+dlMB(dl.loaded));
+  }
+  // A thin rule under the button. Only drawn when there is a real percentage to
+  // draw; an indeterminate bar that fills at a made-up rate is a lie about
+  // progress, and the megabyte counter already says the transfer is alive.
+  function DlBar({ dkey }){
+    if(!dl || dl.key!==dkey || !dl.total || dl.state==="done" || dl.state==="fallback") return null;
+    return (
+      <div style={{maxWidth:260,margin:"8px auto 0",height:2,background:B.stone}}>
+        <div style={{height:"100%",width:dl.pct+"%",background:B.charcoal,transition:"width .2s linear"}} />
+      </div>
+    );
+  }
+  const dlBtnStyle = (key)=>({
+    display:"inline-block", marginTop:10, fontFamily:"Jost,Helvetica,Arial,sans-serif",
+    fontSize:11, letterSpacing:"0.1em", fontWeight:700,
+    color:(dlBusy && (!dl || dl.key!==key)) ? B.mid : B.charcoal,
+    background:"none", border:"none", padding:0,
+    cursor:dlBusy ? "default" : "pointer"
+  });
+
   // Each extra clip is its own audio extraction, its own transcription and its
   // own set of cuts on the render box, so the cost scales past the first one.
   const totalDur = clips.reduce((a,c)=>a+(Number(c.dur)||0), 0);
@@ -7200,7 +7292,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <div style={{marginTop:26,textAlign:"center"}}>
           {outTitle && <p style={{fontFamily:"serif",fontSize:16,margin:"0 0 10px"}}>{outTitle}</p>}
           <video src={url} controls playsInline style={{maxWidth:"100%",border:"1px solid "+B.stone}} />
-          <button onClick={()=>downloadVideo(url,"chelgy-edited.mp4")} style={{display:"inline-block",marginTop:10,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button>
+          <button disabled={dlBusy} onClick={()=>saveVideo("main",url,"chelgy-edited.mp4")} style={dlBtnStyle("main")}>{dlLabel("main")}</button>
+          <DlBar dkey="main" />
         </div>
       )}
       {mode==="edit" && shClips.length>0 && (
@@ -7210,7 +7303,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
             <div key={i} style={{marginBottom:22,textAlign:"center"}}>
               {c.hook && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
               <video src={c.url} controls playsInline style={{maxWidth:"100%",maxHeight:420,border:"1px solid "+B.stone}} />
-              <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
+              <div>
+                <button disabled={dlBusy} onClick={()=>saveVideo("clip"+i,c.url,"chelgy-clip-"+(i+1)+".mp4")} style={dlBtnStyle("clip"+i)}>{dlLabel("clip"+i)}</button>
+                <DlBar dkey={"clip"+i} />
+              </div>
             </div>
           ))}
         </div>
@@ -7298,7 +7394,10 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
               <div key={i} style={{marginBottom:26,textAlign:"center"}}>
                 {c.hook && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,margin:"0 0 8px",color:B.charcoal}}>“{c.hook}”</p>}
                 <video src={c.url} controls playsInline style={{maxWidth:"100%",maxHeight:420,border:"1px solid "+B.stone}} />
-                <div><button onClick={()=>downloadVideo(c.url,"chelgy-clip-"+(i+1)+".mp4")} style={{display:"inline-block",marginTop:8,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em",fontWeight:700,color:B.charcoal,background:"none",border:"none",padding:0,cursor:"pointer"}}>DOWNLOAD ↓</button></div>
+                <div>
+                  <button disabled={dlBusy} onClick={()=>saveVideo("sh"+i,c.url,"chelgy-clip-"+(i+1)+".mp4")} style={dlBtnStyle("sh"+i)}>{dlLabel("sh"+i)}</button>
+                  <DlBar dkey={"sh"+i} />
+                </div>
               </div>
             ))}
           </div>
