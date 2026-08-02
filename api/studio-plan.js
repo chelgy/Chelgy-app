@@ -750,7 +750,19 @@ export default async function handler(req, res) {
       // produces a lot of keep ranges, and a truncated response is unparseable JSON —
       // which surfaces as "couldn't produce a valid plan" rather than as a length
       // problem. Set explicitly so the ceiling is visible and matches Claude's 8000.
-      generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 8192 }
+      // 32768, up from 8192. THIS WAS SILENTLY DELETING EVERY TRANSITION.
+      //
+      // A property tour asks for 25-35 keep segments, then 4-8 fx, then up to 6 sfx,
+      // then ambience — in that order. 8192 tokens covered the keep array and ran out
+      // partway through what followed. The response then failed to parse, the salvage
+      // path below recovered `keep` and nothing else, and the edit rendered with no
+      // effects at all. No error, because from the renderer's side an empty fx list is
+      // indistinguishable from a film that wanted none.
+      //
+      // The ceiling was set to 8192 to match Claude's, which is a reason to make them
+      // agree, not a reason to keep a number that truncates the styles that need the
+      // most output.
+      generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 32768 }
     });
     const runClaude = () => {
       const content = [];
@@ -847,7 +859,33 @@ export default async function handler(req, res) {
       // and shipping it would look like the tool ignored most of the footage.
       if (salvaged.length >= 4) {
         console.warn("[plan] salvaged " + salvaged.length + " segments from the truncated response");
+        // SALVAGE THE REST OF THE PLAN TOO, not just the cuts.
+        //
+        // Recovering only `keep` is why a truncated response produced a technically
+        // fine edit with every transition missing. If the arrays that follow it are
+        // complete — and on a mild truncation they usually are — they are as usable
+        // as the segments were.
+        const grabArray = (key) => {
+          const at = raw.indexOf('"' + key + '"');
+          if (at < 0) return null;
+          const open = raw.indexOf("[", at);
+          if (open < 0) return null;
+          let depth = 0;
+          for (let i = open; i < raw.length; i++) {
+            if (raw[i] === "[") depth++;
+            else if (raw[i] === "]") { depth--; if (!depth) { try { return JSON.parse(raw.slice(open, i + 1)); } catch { return null; } } }
+          }
+          return null;   // never closed — this is where truncation landed
+        };
+        const sFx = grabArray("fx"), sCards = grabArray("chapters"), sSfx = grabArray("sfx");
+        console.warn("[plan] salvage recovered: keep " + salvaged.length +
+                     ", fx " + (sFx ? sFx.length : "LOST") +
+                     ", chapters " + (sCards ? sCards.length : "LOST") +
+                     ", sfx " + (sSfx ? sSfx.length : "LOST"));
         plan = { keep: salvaged, salvaged: true };
+        if (sFx) plan.fx = sFx;
+        if (sCards) plan.chapters = sCards;
+        if (sSfx) plan.sfx = sSfx;
       } else {
         return res.status(502).json({
           error: looksTruncated
