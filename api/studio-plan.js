@@ -468,7 +468,9 @@ export default async function handler(req, res) {
         "- Jerky, snatched or corrective movement is a reject. So is the moment a move starts or stops, where the camera jolts. Trim into the middle of a move where it has settled, not the ends.\n" +
         "- Given two shots of the same room, ALWAYS keep the steadier one.\n" +
         "- A locked-off still shot is good. Motion is not the goal — CONTROLLED motion is. Do not mistake a shaky camera for an interesting one.\n" +
-        "- Between consecutive frames, a scene that shifts smoothly and predictably is a smooth move; one that jumps unpredictably is shake. Cut the second kind.\n";
+        "- YOU CAN SEE SHAKE IN A STILL FRAME, and this is how. A jolted handheld frame carries directional MOTION BLUR — edges smeared, a doorframe or worktop doubled. A tilted horizon, a wall leaning when it should be upright, is a camera being fought rather than carried. A steady frame is crisp: clean edges, level verticals.\n" +
+        "- Compare consecutive frames from the same stretch. A carried camera moves the scene a little and in ONE consistent direction. A shaken one jumps position and angle unpredictably between frames. Keep the first, cut the second.\n" +
+        "- When every shot of a room is soft or crooked, keep the least bad one and keep it SHORT. Do not drop the room — the owner filmed it and it belongs in the tour.\n";
 
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
@@ -928,6 +930,7 @@ export default async function handler(req, res) {
     // having chosen nothing.
     {
       const FX_OK = SPEC.fx || [];
+      const rawFxCount = Array.isArray(plan.fx) ? plan.fx.length : 0;
       // Fashion cuts every few tenths of a second, so a per-five-seconds cap would allow
       // dozens. Three in a whole film is the point of the effect.
       const cap = style === "fashion" ? 3 : Math.max(1, Math.round(duration / 5));
@@ -952,6 +955,16 @@ export default async function handler(req, res) {
         if (x.effect === "slowmo") { if (usedSlow) return false; usedSlow = true; }
         return true;
       });
+      // WHAT THE MODEL ASKED FOR vs WHAT SURVIVED.
+      //
+      // Effects have gone missing three separate times and each investigation stalled
+      // at the same question: did the planner return none, or did something downstream
+      // discard them? Nothing logged either number, so every answer was a guess. This
+      // line costs nothing and ends that: `raw` is what came back from the model,
+      // `kept` is what leaves here. Both zero means the prompt; raw high and kept zero
+      // means this validator; both high and nothing on screen means the renderer.
+      console.log("[plan] " + style + " fx: raw " + rawFxCount + ", kept " + plan.fx.length +
+                  (plan.fx.length ? " (" + plan.fx.map((x) => x.effect + "@" + x.at).join(", ") + ")" : ""));
     }
 
     // Sound effects. Clamped, de-duplicated by proximity, capped, and dropped entirely
