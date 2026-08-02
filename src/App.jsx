@@ -6362,49 +6362,82 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const speechOptional = skipListening || style==="realestate";
       let heardAnything = false;
       let extractionFailed = false;
-      for(let i = 0; i < n && !skipListening; i++){
+
+      // ── EXTRACT SEVERAL CLIPS AT ONCE ──────────────────────────────────────
+      //
+      // This was a plain `for` loop with an `await` in it: clip 1 finished entirely
+      // before clip 2 was even requested. That made sense when extraction ran on the
+      // render box, where a single lane meant a queue either way.
+      //
+      // It doesn't now. With AUDIO_ON_PODS the render server queues each clip and
+      // api/studio-ffmpeg calls ensurePods(1, { additive: true }) — A NEW POD PER
+      // CLIP. So seventeen clips spin up seventeen machines at $0.40/hr each, and the
+      // serial loop then uses exactly one of them at a time while the rest sit at 0%
+      // utilisation, billing. Measured on a real 17-clip tour: pods appeared roughly
+      // 22 seconds apart, each doing one clip, every other pod idle throughout.
+      //
+      // Running several at once doesn't cost a penny more — those machines are being
+      // created and paid for regardless. It just stops throwing away what they are.
+      //
+      // FIVE, not seventeen. The pods are already being created one per clip, so the
+      // ceiling here is about how many uploads and polls this browser should have in
+      // flight, not about the fleet. Unbounded would open seventeen concurrent poll
+      // loops against one serverless endpoint and trade a slow render for a rate limit.
+      const EXTRACT_LANES = Math.min(5, Math.max(1, n));
+      // Indexed writes, NOT push. The old loop appended in iteration order and every
+      // later stage — mergeClipWords, the broll role mask, the activity offsets —
+      // reads these by clip index. Out of order, clip 4's words land on clip 1's
+      // timeline and every caption after it is wrong, silently. Pre-filled so a clip
+      // that throws still holds a slot rather than shifting everything after it.
+      for(let i = 0; i < n; i++){ perClipWords[i] = []; }
+      let extractDone = 0;
+      // One clip's whole journey: extract, poll, transcribe. Nothing here touches
+      // shared state except through its own index, apart from the two flags below —
+      // and both are only ever set to true, so concurrent writes can't disagree.
+      const extractOne = async (i) => {
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
-
-        // Normally only worth it on a big file — on a small clip the extra pass is
-        // pure added wait. But Process reads the ACTIVITY track out of this same
-        // pass, so on that style it has to run on every clip whatever the size.
         const needsExtraction = wantsActivity || (c.size||0) > 200 * 1024 * 1024;
         if(needsExtraction){
-          setStage((wantsActivity ? "Watching your footage…" : "Reading the audio from your footage…") + ofN(i));
           const au = await studioAudio(uploaded[i].url, wantsActivity, c.dur||0);
           if(au && au.id){
-            const done = await pollAudioJob(au.id, (pct)=>setStage(
-              (wantsActivity ? "Reading your footage — " : "Reading the audio from your footage — ") + pct + "%…" + ofN(i)));
+            const done = await pollAudioJob(au.id, ()=>{});
             if(done && done.url){
               listenUrl = done.url;
               try{ audioPath = decodeURIComponent(done.url.split("/sites/")[1]||""); }catch(_){}
-              // Clip-local, exactly like words. It gets laid onto the global timeline
-              // below, in the one place every other timeline conversion happens.
               if(done.activity) perClipActivity[i] = done.activity.activity;
             }
           }
-          // Falling back to transcribing the raw video is only worth trying on a file
-          // small enough for it to succeed. On a multi-gigabyte camera file it cannot
-          // work, and the failure then arrives as "there is no speech in your video"
-          // — blaming someone's footage for our render server being down. Remember
-          // that extraction failed so the message below can tell the truth.
           if(listenUrl === uploaded[i].url) extractionFailed = true;
         }
-
-        setStage(many ? ("Listening to clip " + (i+1) + " of " + n + "…") : "Listening to your video…");
         const tr = await studioTranscribe(listenUrl);
         if(audioPath) deleteSiteObject(audioPath);
-
-        // A clip with no talking is normal in a vlog — b-roll, walking, showing
-        // something. It still belongs in the edit, it just contributes no words.
-        // Only an entirely silent set of clips is a real failure.
         if(tr && !tr.error && Array.isArray(tr.words) && tr.words.length){
-          perClipWords.push(tr.words);
+          perClipWords[i] = tr.words;
           heardAnything = true;
-        } else {
-          perClipWords.push([]);
         }
+        // Progress by COUNT FINISHED, because with several in flight there is no
+        // meaningful "current clip" any more — and a counter that jumped between 3
+        // and 11 as different lanes reported would read as a fault.
+        extractDone++;
+        setStage((wantsActivity ? "Reading your footage" : "Reading the audio from your footage") +
+                 (many ? (" — " + extractDone + " of " + n + " done…") : "…"));
+      };
+      if(!skipListening){
+        setStage(wantsActivity ? "Reading your footage…" : "Reading the audio from your footage…");
+        // A shared index is the whole pool: each lane takes the next clip when it
+        // finishes one, so a fast clip doesn't sit waiting on a slow one in a fixed
+        // slice. One clip failing must not abandon the other sixteen, so each lane
+        // swallows its own error and leaves that clip's empty slot in place.
+        let next = 0;
+        await Promise.all(Array.from({ length: EXTRACT_LANES }, async () => {
+          for(;;){
+            const i = next++;
+            if(i >= n) return;
+            try{ await extractOne(i); }
+            catch(_){ extractionFailed = true; extractDone++; }
+          }
+        }));
       }
       // Every other style cuts from speech and cannot proceed without it. Process
       // can: a silent cooking video is a completely normal thing to hand us, and the
