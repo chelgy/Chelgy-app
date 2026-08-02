@@ -459,7 +459,9 @@ export default async function handler(req, res) {
         "- The footage is several separate recordings laid end to end into one timeline. Most are only a few seconds long, and each one was shot because it shows something the others do not.\n" +
         "- Take AT LEAST ONE shot from every part of the timeline. Walk the whole duration from 0 to the end and satisfy yourself that no stretch longer than a few seconds has been skipped entirely.\n" +
         "- Skipping a stretch means a room the owner filmed never appears in their tour. That is the worst thing you can do here.\n" +
-        "- If a recording is only two or three seconds long, keep most of it. A short recording is not a worse shot, it is a shorter one.\n" +
+        "- MANY OF THESE RECORDINGS ARE ONE OR TWO SECONDS LONG. That is normal and deliberate — each one is a single move through a doorway, or one look at a detail. A one second recording is NOT too short to use.\n" +
+        "- On a recording of one or two seconds, KEEP IT ALMOST WHOLE. Trim only the jolt at the very start or end of the move and keep the rest as one shot. Do not hunt for a shorter shot inside it — on a clip that brief, the whole clip IS the shot.\n" +
+        "- A kept shot may be as short as 0.5 seconds. Below half a second it is a flicker rather than a shot, so leave those out.\n" +
         "\n" +
         "PREFER SMOOTH FOOTAGE. THIS IS WHAT MAKES IT LOOK EXPENSIVE.\n" +
         "- The frames are your evidence. A gliding move — the camera travelling steadily through a doorway, panning evenly across a room, floating toward a detail — is the material this style is made of. Keep those.\n" +
@@ -869,7 +871,7 @@ export default async function handler(req, res) {
       // The floor exists for a real reason on speech styles — a 0.3s fragment of a
       // sentence is a glitch, not a cut. It just has no business applying to a silent
       // montage, where a short shot IS the format.
-      .filter(k => k.e - k.s >= ((style === "realestate" || style === "fashion") ? 0.4 : 0.8))
+      .filter(k => k.e - k.s >= ((style === "realestate" || style === "fashion") ? 0.3 : 0.8))
       .sort((a, b) => a.s - b.s);
     // Fashion merges almost nothing: 0.12s. The whole style IS the cut rate, and a
     // merge gap that tidies away short gaps would quietly undo it - two 0.4s segments
