@@ -433,37 +433,40 @@ export default async function handler(req, res) {
         "- The opening and closing shot should be the two strongest frames in the footage, not merely the first and last movement.\n"
       : "";
 
+    // PURE MONTAGE. The presenter half is deliberately gone.
+    //
+    // This used to describe a film that ALTERNATES a presenter talking to camera with
+    // silent bursts of the property, with a fallback branch for when nobody speaks.
+    // Two problems. The app no longer sends a transcript for this style at all, so the
+    // presenter half was unreachable in every case — and leaving it in the prompt gave
+    // the model a structure it could not build and no way to tell which half applied.
+    // A tour is a thing you WATCH. Fashion Film proves the shape works: no transcript,
+    // frames only, and the most coherent edits the tool makes.
     const realestateRules =
-        "This is a PROPERTY FILM. It has a structure, and the structure is the style.\n" +
+        "This is a PROPERTY FILM, and it is SILENT. Nobody narrates it. You are cutting pictures to music.\n" +
         "\n" +
-        "IF NOBODY SPEAKS IN THIS FOOTAGE, IT IS A SILENT TOUR — a normal way to make one, a walkthrough with music over it. In that case the structure below collapses to its montage half:\n" +
-        "  Cut the WHOLE video as montage. Short shots, 0.6 to 2.0 seconds. Different rooms and different scales — wide, then a detail, then somewhere else. Open on the exterior or the approach, close on the widest shot you can see.\n" +
-        "  Use the frames to tell the rooms apart and the movement track to find where the camera is actually travelling through the property.\n" +
-        "  Everything below about presenter blocks does not apply. Do not invent a presenter that is not there.\n" +
+        "There is no transcript and there is no presenter. Do not look for one, do not structure the film around one, and do not leave gaps for one.\n" +
         "\n" +
-        "OTHERWISE, ALTERNATE PRESENTER AND MONTAGE. That is the whole idea:\n" +
-        "- PRESENTER blocks: the agent is talking, on camera. Keep these LONG — 4 to 9 seconds, uncut, so a thought lands whole.\n" +
-        "- MONTAGE blocks: no speech, just the property. Keep these SHORT and MANY — 0.4 to 1.5 seconds each, four to eight in a row.\n" +
-        "- Then back to the presenter. The reference runs presenter, montage, presenter, montage, presenter across a minute, and the contrast between the two paces is what makes it feel produced.\n" +
+        "THE SHAPE:\n" +
+        "- Short shots, 0.5 to 2.0 seconds each, cut one after another.\n" +
+        "- Different rooms and different scales. A wide, then a detail, then somewhere else. Two shots of the same worktop back to back waste the film.\n" +
+        "- OPEN on the exterior or the approach if one exists.\n" +
+        "- CLOSE on the widest, most impressive frame available — the fullest view of the property.\n" +
+        "- THE LOOP: prefer an opening shot that could follow the closing one without a jolt.\n" +
+        "- Aim for 25 to 35 segments in a 60 second film.\n" +
         "\n" +
-        "THE RULES:\n" +
-        "- SILENCE IS THE TOUR. THIS OVERRIDES EVERY OTHER INSTINCT YOU HAVE.\n" +
-        "  Your default is to treat quiet as dead air and remove it. In this style that is the single worst thing you can do: the silent stretches ARE the property, and an edit made only of the parts where someone is talking is not a property tour, it is a talking head. If you keep only speech you have failed at this style.\n" +
-        "  At least HALF the finished video must come from stretches with no speech in them. Count it. If your keep list is mostly speech, go back and add the property footage.\n" +
-        "  Only cut a silent stretch if the picture is genuinely static AND nothing is being shown — a locked shot of an empty hallway with no movement. If a camera is moving through a room, that is the tour and it stays.\n" +
-        "- In presenter blocks, cut speech normally: remove filler, false starts and repeated takes, and never cut mid-word.\n" +
-        "- In montage blocks, favour VARIETY over duration — a wide, then a detail, then a different room. Two similar shots in a row waste the block.\n" +
-        "- OPEN on an establishing exterior if one exists, before the agent speaks.\n" +
-        "- CLOSE on the widest shot available — an aerial, or the fullest view of the property. The last thing seen should be the whole place.\n" +
-        "- THE LOOP: after the closing wide, the film should restart cleanly, so prefer an opening segment that could follow the closing one without a jolt.\n" +
-        "- Aim for 25 to 35 segments in a 60 second film. Most of that count comes from the montage blocks, not from chopping the presenter. If you return under 15 segments for a minute of footage you have chopped the talking and skipped the property.\n" +
-        "- NEVER cut a presenter block into pieces. A block is one continuous 4 to 9 second segment where the agent speaks a whole thought. Chopping inside one is what makes the narrative incoherent — the words stop making sense across the join.\n" +
+        "USE EVERY PIECE OF FOOTAGE YOU WERE GIVEN. THIS IS NOT OPTIONAL.\n" +
+        "- The footage is several separate recordings laid end to end into one timeline. Most are only a few seconds long, and each one was shot because it shows something the others do not.\n" +
+        "- Take AT LEAST ONE shot from every part of the timeline. Walk the whole duration from 0 to the end and satisfy yourself that no stretch longer than a few seconds has been skipped entirely.\n" +
+        "- Skipping a stretch means a room the owner filmed never appears in their tour. That is the worst thing you can do here.\n" +
+        "- If a recording is only two or three seconds long, keep most of it. A short recording is not a worse shot, it is a shorter one.\n" +
         "\n" +
-        "IF FRAMES ARE ATTACHED, THEY ARE THE POINT OF THIS STYLE.\n" +
-        "- WORK OUT WHAT EACH SHOT IS. Kitchen, bathroom, bedroom, exterior, pool, view, a detail like a tap or a countertop or a light fitting. In the montage blocks the pictures are the only thing that can tell you, because nobody is speaking. In the presenter blocks the agent usually names what is coming — \"let me show you the kitchen\" — and that naming is the better signal for what follows, so use it and let the frames confirm which shot is which.\n" +
-        "- Build each montage block out of DIFFERENT rooms and different scales. A wide, then a detail, then somewhere else. Two shots of the same worktop back to back waste the block.\n" +
-        "- Put the effects on what deserves them. The slow-motion goes on the best reveal in the property — the pool, the view, the main living space — not on whatever shot happens to be next. The push goes on a detail. The roll goes on a move into a new room. The flash goes where the picture crosses from inside to outside.\n" +
-        "- The CLOSING shot should be the most impressive frame you can see, and the OPENING should be the exterior or the approach if one exists.\n";
+        "PREFER SMOOTH FOOTAGE. THIS IS WHAT MAKES IT LOOK EXPENSIVE.\n" +
+        "- The frames are your evidence. A gliding move — the camera travelling steadily through a doorway, panning evenly across a room, floating toward a detail — is the material this style is made of. Keep those.\n" +
+        "- Jerky, snatched or corrective movement is a reject. So is the moment a move starts or stops, where the camera jolts. Trim into the middle of a move where it has settled, not the ends.\n" +
+        "- Given two shots of the same room, ALWAYS keep the steadier one.\n" +
+        "- A locked-off still shot is good. Motion is not the goal — CONTROLLED motion is. Do not mistake a shaky camera for an interesting one.\n" +
+        "- Between consecutive frames, a scene that shifts smoothly and predictably is a smooth move; one that jumps unpredictably is shake. Cut the second kind.\n";
 
     const processRules =
         "You have TWO tracks to cut from, and this is the whole job:\n" +
@@ -682,9 +685,12 @@ export default async function handler(req, res) {
                "- drain: colour draining to black and white. Use it leaving a sombre or negative idea.\n" +
                "- echo: a ghosted trail of the subject. Striking and expensive-looking; use it ONCE in the whole film, on the biggest moment.\n") +
            (style === "realestate"
-             ? "- THE PICTURES DECIDE, NOT THE WORDS. Look at what CHANGES between one shot and the next: a different room, a doorway, inside to outside, ground level to aerial, a wide to a detail. Those changes are where a transition belongs, and you can see every one of them whether or not anybody is talking. A silent tour needs these MORE than a narrated one, not less.\n" +
+             ? "- THE PICTURES DECIDE. Look at what CHANGES between one shot and the next: a different room, a doorway, inside to outside, ground level to aerial, a wide to a detail. Those changes are where a transition belongs, and you can see every one of them in the frames.\n" +
+               "- AN EFFECT NAMES A SHOT, NOT A MOMENT IN TIME. Set `at` to the EXACT start second of the kept segment the effect plays on — copy the number from your own keep list, do not estimate it. An effect a fraction of a second off lands on the shot before or after and decorates the wrong thing.\n" +
+               "- CHOOSE THE EFFECT FROM WHAT THAT SHOT SHOWS. A roll where the camera turns into a new space. A push where it arrives and settles on a detail. A flash ONLY where the picture genuinely crosses between interior and exterior. Slowmo on the single best-looking shot in the tour.\n" +
+               "- If the effect does not match what is visible in that exact shot, leave it out. A push on a static wall, or a flash on two indoor shots, reads as a fault rather than a flourish — worse than a plain cut.\n" +
                "- A one minute tour should carry FOUR to EIGHT of these. Returning none means you have not looked at the frames — every property tour moves between spaces, and that is what these mark.\n" +
-               "- Still leave plenty of plain hard cuts. Within a single montage block of the same room, plain cuts are right.\n\n"
+               "- Still leave plenty of plain hard cuts. Within a run of shots of the same room, plain cuts are right.\n\n"
              : "- THE WORDS DECIDE HERE. This is a person talking to camera, so the argument is the only structure there is. Place an effect where the speech gives you a reason — a turn, a contradiction, the line that matters — and nowhere else. A plain hard cut is the correct edit for most cuts.\n" +
                "- Return an empty list if nothing in this script earns one.\n\n"))
         : "") +
@@ -851,7 +857,19 @@ export default async function handler(req, res) {
     let keep = Array.isArray(plan.keep) ? plan.keep : [];
     keep = keep
       .map(k => ({ s: Math.max(0, Number(k.s) || 0), e: Math.min(duration || 1e9, Number(k.e) || 0) }))
-      .filter(k => k.e - k.s >= 0.8)
+      // MINIMUM SEGMENT LENGTH, PER STYLE.
+      //
+      // A flat 0.8s floor here silently deleted most of a property tour. The prompt for
+      // that style asks for montage shots of half a second to two seconds; anything
+      // under 0.8 was then dropped before it reached the timeline, so the model did
+      // exactly as instructed and had most of its work thrown away. The finished edit
+      // came back a few seconds long with whole rooms missing, and nothing anywhere
+      // said a segment had been discarded.
+      //
+      // The floor exists for a real reason on speech styles — a 0.3s fragment of a
+      // sentence is a glitch, not a cut. It just has no business applying to a silent
+      // montage, where a short shot IS the format.
+      .filter(k => k.e - k.s >= ((style === "realestate" || style === "fashion") ? 0.4 : 0.8))
       .sort((a, b) => a.s - b.s);
     // Fashion merges almost nothing: 0.12s. The whole style IS the cut rate, and a
     // merge gap that tidies away short gaps would quietly undo it - two 0.4s segments
@@ -859,7 +877,13 @@ export default async function handler(req, res) {
     // was trying not to be.
     // realestate needs the widest gap of any speech style: its montage blocks are
     // silent by design and must survive as kept footage rather than being closed up.
-    const mergeGap = style === "fashion" ? 0.12 : style === "vlog" ? 4.0 : style === "realestate" ? 1.2 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "entrepreneur" ? 0.8 : style === "cinematic" ? 0.4 : 0.3; // vlogs bridge visual moments; tutorials breathe; cinematic and talking-head cut tight
+    // realestate was 1.2s, chosen when the style alternated a presenter with silent
+    // stretches — a wide gap kept those silences as footage instead of closing them up.
+    // With the presenter gone the style is a pure montage, and a wide gap now does the
+    // damage it was avoiding: two distinct 0.8s shots a second apart become one 2.6s
+    // block, the cut rate collapses, and every transition timestamp that pointed at the
+    // second shot's start now lands mid-block. Same reasoning as fashion, same number.
+    const mergeGap = style === "fashion" ? 0.12 : style === "vlog" ? 4.0 : style === "realestate" ? 0.15 : style === "process" ? 1.5 : style === "tutorial" ? 1.0 : style === "entrepreneur" ? 0.8 : style === "cinematic" ? 0.4 : 0.3; // vlogs bridge visual moments; tutorials breathe; cinematic and talking-head cut tight
     // A gap between two kept ranges means one of two completely different things,
     // and merging on time alone treated them identically:
     //
