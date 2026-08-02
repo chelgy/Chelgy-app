@@ -5965,7 +5965,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     // bring one back. `ready:false` is the other axis: that greys a style out and labels
     // it "· soon"; `hidden` removes it from view entirely.
     { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true, hidden:true },
-    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true, hidden:true },
+    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true },
   ];
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
@@ -6341,10 +6341,28 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Styles that do not REQUIRE speech. Property belongs here: plenty of tours are
       // shot silent and scored, and refusing them because nobody narrated is refusing a
       // completely normal way to make one. It still uses speech happily when it exists.
-      const noSpeech = style==="showcase" || style==="fashion" || style==="realestate";
+      // TWO DIFFERENT QUESTIONS, which this used to answer with one flag.
+      //
+      //   skipListening  — don't extract audio or transcribe at all
+      //   speechOptional — don't ERROR when nothing was heard
+      //
+      // Collapsing them is why Property Tour could only ever produce half of itself.
+      // The planner's rules for it describe a film that ALTERNATES presenter blocks
+      // (the agent talking, kept long and uncut) with silent montage bursts — and it
+      // has a separate branch for when nobody speaks at all. But `realestate` sitting
+      // in the combined flag meant the loop below never ran, so no transcript was ever
+      // produced, so the planner could only ever take its silent branch. Half the
+      // style was unreachable, and the half that ran had no word boundaries to cut on,
+      // which is what made the results wrong rather than merely plain.
+      //
+      // Fashion and Showcase genuinely don't listen: fashion has no speech by
+      // definition, and showcase finds products by sight. Property Tour listens, and
+      // simply doesn't mind if it hears nothing.
+      const skipListening  = style==="showcase" || style==="fashion";
+      const speechOptional = skipListening || style==="realestate";
       let heardAnything = false;
       let extractionFailed = false;
-      for(let i = 0; i < n && !noSpeech; i++){
+      for(let i = 0; i < n && !skipListening; i++){
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
 
@@ -6414,7 +6432,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         for(const p of cleanup) await deleteSiteObject(p);
         setBusy(false); setStage(""); return;
       }
-      if(!noSpeech && !heardAnything && !(wantsActivity && haveActivity)){
+      if(!speechOptional && !heardAnything && !(wantsActivity && haveActivity)){
         setErr(extractionFailed
           ? "We couldn't pull the audio out of " + (many ? "your clips" : "your video") + ", so there was nothing to transcribe. This is on our side, not your footage — the render engine may be restarting. Nothing has been charged; please try again in a minute."
           : style==="process"
