@@ -248,6 +248,23 @@ export default async function handler(req, res) {
           .map((f) => ({ t: Math.max(0, Number(f.t)), data: f.data }))
       : [];
     const canSee = frames.length > 0;
+    // THE SINGLE MOST IMPORTANT LINE FOR DIAGNOSING A BAD EDIT.
+    //
+    // Everything the frame-based styles do — placing effects on visible changes,
+    // telling rooms apart to use every clip, judging which shots are steady — is
+    // gated on `canSee`. If the app sends no frames, the planner silently drops to a
+    // blind fallback that can do none of it, and the result is exactly the reported
+    // symptom set: no effects, clips skipped, shaky shots kept. No error is raised
+    // because a blind plan is still a valid plan.
+    //
+    // The frames come from the browser sampling the uploaded footage, which is the
+    // fragile step — Safari cannot always seek Sony files. So this logs, on EVERY
+    // edit, whether the planner could actually see. A tour that comes back wrong and
+    // shows `canSee=false` here is a frame-sampling failure in the app, not a prompt
+    // problem, and no amount of prompt tuning will touch it.
+    console.log("[plan] " + (body.style || "?") + ": frames received=" +
+                (Array.isArray(body.frames) ? body.frames.length : 0) +
+                ", valid=" + frames.length + ", canSee=" + canSee);
     // Every style the planner knows. A style missing from this list does not error —
     // it silently becomes talkinghead, which is worse: fashion arrived here, was
     // quietly renamed, and was then rejected for having no transcript by a check its
