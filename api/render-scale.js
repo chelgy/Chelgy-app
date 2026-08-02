@@ -79,6 +79,23 @@ const REGISTRY_AUTH = (process.env.RUNPOD_REGISTRY_AUTH_ID || "").trim();
 // hand. The scaler only ever counts and terminates its own.
 const POD_PREFIX = "chelgy-auto-";
 
+// HOW LONG AGO A POD WAS ASKED FOR, read out of its own name.
+//
+// createPod() names every machine `chelgy-auto-<Date.now()>-<n>`, so the request
+// time is already recorded and needs no second source. RunPod's own createdAt is
+// not reliably present on the list response, and a pod that exists but has not
+// finished pulling its image looks identical to an idle one.
+const POD_NAME_TIME = new RegExp("^" + POD_PREFIX + "(\\d+)-");
+function podRequestedMsAgo(pod) {
+  const m = POD_NAME_TIME.exec(String((pod && pod.name) || ""));
+  const t = m ? Number(m[1]) : NaN;
+  return Number.isFinite(t) ? Math.max(0, Date.now() - t) : Infinity;
+}
+// Measured cold start on an L4: 61 seconds from create to "start container: begin",
+// almost all of it image pull. 100s gives that headroom without holding a real
+// second job back for long.
+const BOOTING_MS = 100 * 1000;
+
 async function rp(path, init) {
   const r = await fetch(RP + path, {
     ...init,
@@ -201,8 +218,10 @@ export async function ensurePods(demand, reason, opts) {
   // "bring the fleet up to desired, never past the cap" in the header requires, and
   // it is what makes the `running` figure the handler returns mean anything.
   let running = 0;
+  let pods = [];
   try {
-    running = (await listOurPods()).length;
+    pods = await listOurPods();
+    running = pods.length;
   } catch (e) {
     // Counting failed even after a retry. Creating BLIND risks pods piling up; creating
     // NOTHING strands a paying customer's render on whatever is already up — which is
@@ -212,6 +231,34 @@ export async function ensurePods(demand, reason, opts) {
     console.error("[scale] " + reason + ": could not list pods after retry (" + ((e && e.message) || e) + ") — creating 1 to keep the render moving");
     try { await createPod(0); return { ok: true, created: 1, running: 1, degraded: true }; }
     catch (e2) { return { ok: false, created: 0, running: 0, error: "could not count or create" }; }
+  }
+
+  // A MACHINE THAT IS STILL BOOTING ALREADY COUNTS.
+  //
+  // `additive` means "this job wants a worker of its own", and it is called once per
+  // audio clip — so a three clip edit fires three of these within about a second. All
+  // three ask for one more machine than they can see, and a pod requested 200ms ago
+  // has not claimed anything yet, so each call concludes the queue is unserved.
+  //
+  // Observed on a three clip run: three POST /pods, ONE pod, THREE RunPod API keys.
+  // RunPod mints a scoped key while processing the request and only deletes it with
+  // its pod, so the two that failed to get a GPU left their keys behind permanently.
+  // Live credentials accumulating on every render is the real cost here; the wasted
+  // machines are the visible half.
+  //
+  // And when the extra pods DO get created, they are worse than useless: a 61 second
+  // boot means the first one up drains the whole queue before the others arrive, so
+  // they wake to an empty queue and bill at $0.40/hr doing nothing. That is exactly
+  // what the console showed — one pod at 22%, four at 0%.
+  //
+  // So: count anything requested in the last hundred seconds as already serving this
+  // demand. If it turns out one machine genuinely cannot keep up, the NEXT call after
+  // the boot window adds a second — the fleet still grows, it just stops growing by
+  // one per clip in the first second.
+  const booting = pods.filter(p => podRequestedMsAgo(p) < BOOTING_MS).length;
+  if (additive && booting > 0) {
+    console.log("[scale] " + reason + ": " + booting + " pod(s) still booting — creating none");
+    return { ok: true, created: 0, running };
   }
 
   // Fleet target vs per-job target. Additive asks for `want` MORE machines than are
