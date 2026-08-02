@@ -6358,8 +6358,26 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Fashion and Showcase genuinely don't listen: fashion has no speech by
       // definition, and showcase finds products by sight. Property Tour listens, and
       // simply doesn't mind if it hears nothing.
-      const skipListening  = style==="showcase" || style==="fashion";
-      const speechOptional = skipListening || style==="realestate";
+      // FASHION, SHOWCASE AND PROPERTY TOUR PLAN FROM PICTURES, NOT SOUND.
+      //
+      // This briefly excluded realestate, on the reasoning that the planner's Property
+      // Tour rules describe presenter blocks and therefore want a transcript. That was
+      // right on paper and wrong in practice, and Fashion Film is the proof: it skips
+      // this loop entirely, plans from sampled frames alone, and produces the most
+      // coherent edits the tool makes. A property tour is the same shape of problem —
+      // rooms, moves and reveals, all of it visible, none of it spoken.
+      //
+      // Sending it down the audio path bought nothing and cost everything: every clip
+      // queues a pod job, and when that job fails the edit waits out a thirty-minute
+      // timeout per clip before continuing with no transcript anyway. Same final
+      // information, half an hour later.
+      //
+      // If narrated tours are wanted later, the way in is NOT to add realestate back
+      // here. It is to make the audio extraction survivable — motion and speech as
+      // separate outputs, so a silent file still yields a motion track instead of
+      // failing both — and only then to opt this style in.
+      const skipListening  = style==="showcase" || style==="fashion" || style==="realestate";
+      const speechOptional = skipListening;
       let heardAnything = false;
       let extractionFailed = false;
 
