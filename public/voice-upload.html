@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice upload — Chelgy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#fff;--offwhite:#F7F6F4;--stone:#E8E6E1;--mid:#6B6B6B;--ink:#111;--green:#4CAF82;--red:#C0392B;
+        --display:'Outfit',Helvetica,Arial,sans-serif;--body:'Jost',Helvetica,Arial,sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 20px 90px}
+  h1{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.02em;margin:0 0 12px}
+  .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:var(--mid);margin-bottom:10px}
+  p{font-size:15.5px;line-height:1.6;color:var(--mid);margin:0 0 20px}
+  label{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--mid);margin-bottom:6px}
+  input[type=text],input[type=email],input[type=password]{width:100%;padding:12px 14px;border:1px solid var(--stone);
+    background:var(--cream);color:var(--ink);font-family:var(--body);font-size:15px;margin-bottom:16px;border-radius:0;outline:none}
+  input:focus{border-color:var(--ink)}
+  button{font-family:var(--body);font-size:15px;font-weight:600;padding:13px 26px;cursor:pointer;
+    border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:0}
+  button.fill{background:var(--ink);color:#fff}
+  button:disabled{opacity:.35;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .drop{border:1px dashed var(--stone);padding:34px 20px;text-align:center;margin-bottom:20px;cursor:pointer}
+  .drop.over{border-color:var(--ink);background:var(--offwhite)}
+  .drop .big{font-family:var(--display);font-size:18px;font-weight:500;margin-bottom:6px;color:var(--ink)}
+  .drop .sm{font-size:13.5px;color:var(--mid)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px}
+  th{text-align:left;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);
+     font-weight:700;padding:8px 6px;border-bottom:1px solid var(--stone)}
+  td{padding:7px 6px;border-bottom:1px solid var(--stone);color:var(--ink)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--mid)}
+  td.st{width:88px;font-weight:600}
+  .ok{color:var(--green)} .bad{color:var(--red)} .wait{color:var(--mid)}
+  .bar{height:3px;background:var(--stone);margin-bottom:18px}
+  .bar span{display:block;height:100%;width:0;background:var(--ink);transition:width .2s}
+  .err{color:var(--red);font-size:14px;margin-bottom:16px;line-height:1.5}
+  .note{border:1px solid var(--stone);padding:16px;margin-bottom:20px;font-size:13.5px;line-height:1.6;color:var(--mid)}
+  .sum{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:22px}
+  .sum div span{display:block;font-family:var(--display);font-size:24px;font-weight:600;color:var(--ink)}
+  .sum div em{font-style:normal;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid)}
+  @media (prefers-color-scheme:dark){
+    :root{--cream:#0a0705;--offwhite:#141010;--stone:#2a2320;--mid:#8f867b;--ink:#efe9df;--green:#5fcf94;--red:#e0685f}
+    button.fill{color:#0a0705}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
+
+// Range targets, so coverage can be measured later without re-analysing audio.
+const TARGET_HZ = {tnC3:130.81,"tnD_3":155.56,"tnF_3":185.0,tnA3:220.0,tnC4:261.63,
+  "tnD_4":311.13,"tnF_4":369.99,tnA4:440.0,tnC5:523.25,
+  tv0:220.0,tv1:261.63,tv2:311.13,tv3:220.0,tv4:261.63,tv5:311.13};
+
+let token=null, userId=null, email="", profileId=null, files=[], busy=false, err="", done=false;
+
+const $ = s => document.querySelector(s);
+const mmss = s => Math.floor(s/60)+":"+String(Math.round(s%60)).padStart(2,"0");
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+async function signIn(){
+  err=""; busy=true; render();
+  try{
+    const em=$("#em").value.trim(), pw=$("#pw").value;
+    const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
+      method:"POST", headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({email:em,password:pw})
+    });
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error_description||d.msg||d.error||("sign in failed ("+r.status+")"));
+    token=d.access_token; userId=d.user.id; email=d.user.email;
+  }catch(e){ err=e.message; }
+  busy=false; render();
+}
+
+// ── FILE READING + MEASUREMENT ───────────────────────────────────────────────
+// Measured in the browser and stored alongside each clip so the training
+// service can reject a bad dataset before spending an hour of GPU on it.
+async function measure(file){
+  const buf=await file.arrayBuffer();
+  const AC=window.AudioContext||window.webkitAudioContext;
+  const ctx=new AC();
+  const audio=await ctx.decodeAudioData(buf.slice(0));
+  const d=audio.getChannelData(0), sr=audio.sampleRate;
+  let peak=0,sq=0;
+  for(let i=0;i<d.length;i++){ const a=Math.abs(d[i]); if(a>peak) peak=a; sq+=d[i]*d[i]; }
+  const fl=Math.floor(sr*0.02), nf=Math.floor(d.length/fl), frames=[];
+  for(let k=0;k<nf;k++){
+    let s=0;
+    for(let i=k*fl;i<(k+1)*fl;i++) s+=d[i]*d[i];
+    frames.push(Math.sqrt(s/fl));
+  }
+  frames.sort((a,b)=>a-b);
+  const db=v=>v<=0?-100:20*Math.log10(v);
+  ctx.close();
+  return {
+    duration: audio.duration,
+    sampleRate: sr,
+    channels: audio.numberOfChannels,
+    peakDb: db(peak),
+    rmsDb: db(Math.sqrt(sq/d.length)),
+    floorDb: db(frames[Math.floor(frames.length*0.1)] || 0)
+  };
+}
+
+// Filenames come off the enrollment pages as NN-section-takeid.wav
+function parseName(n){
+  const m=String(n).replace(/\.wav$/i,"").match(/^(\d+)-([a-z]+)-(.+)$/i);
+  if(!m) return null;
+  return {seq:parseInt(m[1],10), section:m[2].toLowerCase(), takeId:m[3]};
+}
+
+async function pickFiles(list){
+  err=""; files=[];
+  const arr=Array.from(list).filter(f=>/\.wav$/i.test(f.name));
+  for(const f of arr){
+    const p=parseName(f.name);
+    if(!p){ files.push({file:f,name:f.name,status:"skip",reason:"unrecognised filename"}); continue; }
+    files.push({file:f,name:f.name,...p,status:"reading"});
+  }
+  files.sort((a,b)=>(a.seq||999)-(b.seq||999));
+  render();
+  for(const it of files){
+    if(it.status==="skip") continue;
+    try{
+      it.m=await measure(it.file);
+      it.status = it.m.sampleRate===48000 ? "ready" : "ready";
+      if(it.m.channels>1) it.warn="stereo";
+    }catch(e){ it.status="skip"; it.reason="couldn't decode"; }
+    render();
+  }
+}
+
+// ── UPLOAD ───────────────────────────────────────────────────────────────────
+// Originals go up untouched. Cleaning (DC offset, high-pass, trim, gain) runs
+// server-side at training time on purpose: those are processing decisions we
+// will want to revisit, and keeping the raw audio means revisiting them never
+// costs anyone another recording session.
+async function uploadAll(){
+  busy=true; err=""; render();
+  try{
+    const H={apikey:SUPABASE_KEY, Authorization:"Bearer "+token};
+
+    if(!profileId){
+      const r=await fetch(SUPABASE_URL+"/rest/v1/voice_profiles",{
+        method:"POST", headers:{...H,"Content-Type":"application/json",Prefer:"return=representation"},
+        body:JSON.stringify({
+          user_id:userId,
+          name:$("#nm").value.trim()||"My voice",
+          status:"capturing",
+          consent_name:$("#cn").value.trim()||null,
+          consent_at:new Date().toISOString()
+        })
+      });
+      const rows=await r.json();
+      if(!r.ok) throw new Error((rows&&rows.message)||("couldn't create the profile ("+r.status+")"));
+      profileId=rows[0].id;
+      render();
+    }
+
+    for(const it of files){
+      if(it.status!=="ready") continue;
+      it.status="uploading"; render();
+      const path=userId+"/"+profileId+"/"+it.name;
+      const up=await fetch(SUPABASE_URL+"/storage/v1/object/voice/"+path,{
+        method:"POST", headers:{...H,"x-upsert":"true","Content-Type":"audio/wav"}, body:it.file
+      });
+      if(!up.ok){ it.status="failed"; it.reason="upload "+up.status; render(); continue; }
+
+      const ins=await fetch(SUPABASE_URL+"/rest/v1/voice_clips?on_conflict=profile_id,take_id",{
+        method:"POST",
+        headers:{...H,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},
+        body:JSON.stringify({
+          user_id:userId, profile_id:profileId, take_id:it.takeId, section:it.section,
+          seq:it.seq, storage_path:path, duration:it.m.duration, sample_rate:it.m.sampleRate,
+          peak_db:+it.m.peakDb.toFixed(2), rms_db:+it.m.rmsDb.toFixed(2), floor_db:+it.m.floorDb.toFixed(2),
+          target_hz: TARGET_HZ[it.takeId] || null
+        })
+      });
+      if(!ins.ok){ it.status="failed"; it.reason="row "+ins.status; render(); continue; }
+      it.status="done"; render();
+    }
+
+    const okCount=files.filter(f=>f.status==="done").length;
+    if(okCount){
+      await fetch(SUPABASE_URL+"/rest/v1/voice_profiles?id=eq."+profileId,{
+        method:"PATCH", headers:{...H,"Content-Type":"application/json"},
+        body:JSON.stringify({name:$("#nm").value.trim()||"My voice"})
+      });
+      done=true;
+    }
+  }catch(e){ err=e.message; }
+  busy=false; render();
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render(){
+  const app=$("#app");
+
+  if(!token){
+    app.innerHTML=`
+      <div class="eyebrow">Song Studio</div>
+      <h1>Put your voice in your account</h1>
+      <p>Sign in with your Chelgy login. The takes upload to a private bucket only you can read.</p>
+      ${err?`<div class="err">${err}</div>`:""}
+      <label>Email</label><input id="em" type="email" autocomplete="username" placeholder="you@example.com">
+      <label>Password</label><input id="pw" type="password" autocomplete="current-password">
+      <button class="fill" onclick="signIn()" ${busy?"disabled":""}>${busy?"Signing in\u2026":"Sign in"}</button>`;
+    const em=$("#em"); if(em && !em.value) em.focus();
+    const pw=$("#pw"); if(pw) pw.onkeydown=e=>{ if(e.key==="Enter") signIn(); };
+    return;
+  }
+
+  const ready=files.filter(f=>f.status==="ready"||f.status==="done"||f.status==="uploading");
+  const totalSec=ready.reduce((n,f)=>n+(f.m?f.m.duration:0),0);
+  const doneN=files.filter(f=>f.status==="done").length;
+  const progress=files.length?doneN/files.filter(f=>f.status!=="skip").length:0;
+
+  app.innerHTML=`
+    <div class="eyebrow">Signed in as ${email}</div>
+    <h1>${done?"Uploaded":"Upload your takes"}</h1>
+    ${done?`<p>${doneN} clips are in your account, ${mmss(totalSec)} of audio. The profile is marked ready to train.</p>`
+          :`<p>Select all 35 WAV files from your Downloads. They're measured here, then uploaded exactly as recorded \u2014 no processing.</p>`}
+    ${err?`<div class="err">${err}</div>`:""}
+
+    ${!done?`
+      <label>Name this voice</label>
+      <input id="nm" type="text" value="My voice" placeholder="My voice">
+      <label>Whose voice is this? (consent record)</label>
+      <input id="cn" type="text" placeholder="Your full name">
+      <div class="note">This is recorded against the profile. Only upload a voice you own or have permission to clone.</div>
+
+      <div class="drop" id="drop" onclick="document.getElementById('fi').click()">
+        <div class="big">${files.length?files.length+" files selected":"Choose your WAV files"}</div>
+        <div class="sm">Or drag them here. Named like 01-speech-rd0.wav</div>
+      </div>
+      <input id="fi" type="file" accept=".wav,audio/wav" multiple style="display:none">
+    `:""}
+
+    ${files.length?`
+      <div class="sum">
+        <div><span>${ready.length}</span><em>Clips</em></div>
+        <div><span>${mmss(totalSec)}</span><em>Audio</em></div>
+        <div><span>${doneN}</span><em>Uploaded</em></div>
+      </div>
+      ${busy?`<div class="bar"><span style="width:${Math.round(progress*100)}%"></span></div>`:""}
+      <table>
+        <thead><tr><th>File</th><th>Section</th><th style="text-align:right">Sec</th>
+          <th style="text-align:right">Peak</th><th style="text-align:right">Floor</th><th>Status</th></tr></thead>
+        <tbody>${files.map(f=>`<tr>
+          <td>${f.name}</td>
+          <td>${f.section||"\u2014"}</td>
+          <td class="num">${f.m?f.m.duration.toFixed(1):"\u2014"}</td>
+          <td class="num">${f.m?Math.round(f.m.peakDb):"\u2014"}</td>
+          <td class="num">${f.m?Math.round(f.m.floorDb):"\u2014"}</td>
+          <td class="st ${f.status==="done"?"ok":(f.status==="failed"||f.status==="skip")?"bad":"wait"}">
+            ${f.status}${f.reason?" \u00b7 "+f.reason:""}${f.warn?" \u00b7 "+f.warn:""}</td>
+        </tr>`).join("")}</tbody>
+      </table>`:""}
+
+    ${(!done&&files.some(f=>f.status==="ready"))?`
+      <div class="row">
+        <button class="fill" onclick="uploadAll()" ${busy?"disabled":""}>
+          ${busy?"Uploading\u2026":"Upload "+files.filter(f=>f.status==="ready").length+" clips"}</button>
+      </div>`:""}`;
+
+  const fi=$("#fi");
+  if(fi) fi.onchange=e=>pickFiles(e.target.files);
+  const dz=$("#drop");
+  if(dz){
+    dz.ondragover=e=>{e.preventDefault();dz.classList.add("over");};
+    dz.ondragleave=()=>dz.classList.remove("over");
+    dz.ondrop=e=>{e.preventDefault();dz.classList.remove("over");pickFiles(e.dataTransfer.files);};
+  }
+}
+render();
+</script>
+</body>
+</html>
