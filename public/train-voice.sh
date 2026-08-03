@@ -50,11 +50,26 @@ cd "$ROOT"
 
 if [ ! -f .deps-done ]; then
   pip install -q --upgrade pip
-  # cu118, and no cu128 fallback. The pods report driver 12.0, and the cu128
-  # wheels install perfectly cleanly and then cannot see the GPU — no error, no
-  # warning, everything just runs on CPU. Falling back the other way (cu128
-  # first, cu118 if it errors) never triggers, because cu128 does not error.
-  pip install -q -r requirments_cu118_py312.txt
+  # This file does NOT install torch. Upstream says so in its own header and
+  # installs torch separately — which means torch has always come from the pod
+  # template, and the CUDA assertion below is the only thing that has ever
+  # actually guarded it.
+  #
+  # cu128, not cu118. The two files are identical apart from one block: cu118
+  # pins nvidia-cudnn-cu11==8.9.5.29 for ONNX Runtime, and PyPI no longer
+  # carries that version. It is permanently dead, not temporarily missing.
+  # "Use cu118" is a rule about which torch build the template ships, and this
+  # file has nothing to do with torch.
+  #
+  # pymss is the MSST separation backend and publishes no wheel below Python
+  # 3.12, so on a 3.10/3.11 template it blocks the whole install. Nothing in
+  # the training or render path imports it, but it is only dropped on failure
+  # rather than pre-emptively, so a 3.12 pod still gets the complete set.
+  pip install -q -r requirments_cu128_py312.txt || {
+    say "retrying without pymss (needs Python 3.12; unused here)"
+    grep -viE '^pymss' requirments_cu128_py312.txt > /tmp/rvc-reqs.txt
+    pip install -q -r /tmp/rvc-reqs.txt
+  }
   # Pinned, not upgraded. A blanket --upgrade pulls huggingface_hub 1.x, which
   # breaks transformers with a traceback that names transformers.
   pip install -q "huggingface_hub>=0.26,<1.0" requests soundfile
@@ -65,11 +80,11 @@ fi
 
 # Asserted, not assumed. A silent drop to CPU is the most expensive failure
 # this pod has: it looks like a slow success for forty minutes.
-python - <<'PY' || die "torch cannot see the GPU. The CUDA wheels are wrong — delete .deps-done and rerun."
+python - <<'PY' || die "torch cannot use this GPU. Wrong pod template — relaunch on a CUDA PyTorch image, not ROCm/CPU."
 import sys, torch
 ok = torch.cuda.is_available()
 print("  torch %s / cuda %s / %s" % (torch.__version__, torch.version.cuda,
-      torch.cuda.get_device_name(0) if ok else "NO DEVICE"))
+      torch.cuda.get_device_name(0) if ok else "NO USABLE DEVICE"))
 sys.exit(0 if ok else 1)
 PY
 
@@ -95,10 +110,13 @@ EOF
 # most RVC tutorials still tell you to download.
 if [ ! -f assets/hubert_base/pytorch_model.bin ]; then
   say "Downloading model assets (one time, a few GB)"
-  hf download lj1995/VoiceConversionWebUI --revision main --include "hubert_base/*" --local-dir assets -q
-  hf download lj1995/VoiceConversionWebUI rmvpe.pt --revision main --local-dir assets/rmvpe -q
-  hf download lj1995/VoiceConversionWebUI --revision main --include "pretrained_v2/*" --local-dir assets -q
-  hf download lj1995/VoiceConversionWebUI mute.zip --revision main --local-dir .model-downloads -q
+  # No -q on these. The hf CLI's quiet flag is --quiet and has no short form,
+  # so -q is an argparse error and exit code 2 — which reads exactly like a
+  # failed download. Caught by the song image build on 3 Aug.
+  hf download lj1995/VoiceConversionWebUI --revision main --include "hubert_base/*" --local-dir assets
+  hf download lj1995/VoiceConversionWebUI rmvpe.pt --revision main --local-dir assets/rmvpe
+  hf download lj1995/VoiceConversionWebUI --revision main --include "pretrained_v2/*" --local-dir assets
+  hf download lj1995/VoiceConversionWebUI mute.zip --revision main --local-dir .model-downloads
   python -m zipfile -e .model-downloads/mute.zip logs
 fi
 [ -f assets/pretrained_v2/f0G${SR}.pth ] || die "Missing assets/pretrained_v2/f0G${SR}.pth"
