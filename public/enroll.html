@@ -16,11 +16,11 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--cream);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:640px;margin:0 auto;padding:32px 20px 80px}
+  .wrap{max-width:660px;margin:0 auto;padding:28px 20px 90px}
   h1{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.02em;margin:0 0 12px}
   .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:var(--mid);margin-bottom:10px}
   p{font-size:16px;line-height:1.65;color:var(--mid);margin:0 0 22px}
-  .panel{border:1px solid var(--stone);padding:20px;margin-bottom:26px}
+  .panel{border:1px solid var(--stone);padding:20px;margin-bottom:24px}
   .bullet{display:flex;gap:12px;margin-bottom:11px}
   .bullet:last-child{margin-bottom:0}
   .dot{width:5px;height:5px;background:var(--ink);margin-top:8px;flex-shrink:0}
@@ -29,31 +29,44 @@
     border:1px solid var(--ink);background:transparent;color:var(--ink);letter-spacing:.02em;border-radius:0}
   button.fill{background:var(--ink);color:#fff}
   button.stop{background:var(--red);border-color:var(--red);color:#fff}
-  button:disabled{opacity:.4;cursor:default}
+  button.ghost{border-color:var(--stone);color:var(--mid);font-weight:500;padding:13px 18px}
+  button:disabled{opacity:.35;cursor:default}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .meter{position:relative;height:10px;background:var(--stone);overflow:hidden}
-  .meter .fill{position:absolute;inset:0;width:0;background:var(--ink);transition:width 60ms linear}
+  .meter{position:relative;height:12px;background:var(--stone);overflow:hidden}
+  .meter .zone{position:absolute;top:0;bottom:0;left:75%;width:15%;background:var(--green);opacity:.25}
+  .meter .fill{position:absolute;top:0;bottom:0;left:0;width:0;background:var(--ink);transition:width 60ms linear}
   .meter .fill.hot{background:var(--red)}
   .meter .hold{position:absolute;top:0;bottom:0;width:2px;background:var(--mid);left:0}
-  .meter .redline{position:absolute;top:0;bottom:0;left:93.3%;width:1px;background:var(--red);opacity:.55}
   .mscale{display:flex;justify-content:space-between;font-size:10px;color:var(--mid);margin-top:5px;letter-spacing:.08em}
-  .rail{display:flex;gap:3px;margin-bottom:20px}
-  .rail i{flex:1;height:3px;background:var(--stone)}
+  .rail{display:flex;gap:2px;margin-bottom:8px}
+  .rail i{flex:1;height:4px;background:var(--stone);cursor:pointer}
   .rail i.now{background:var(--mid)}
   .rail i.done{background:var(--ink)}
-  .prompt{border:1px solid var(--stone);padding:28px 24px;margin-bottom:20px;background:var(--offwhite)}
-  .ptext{font-family:var(--display);font-size:21px;font-weight:500;line-height:1.45;letter-spacing:-.01em;margin-bottom:14px;color:var(--ink)}
-  .ptext.big{font-size:52px;font-weight:700;line-height:1;letter-spacing:.08em;text-align:center}
+  .rail i.skip{background:repeating-linear-gradient(45deg,var(--stone),var(--stone) 2px,var(--mid) 2px,var(--mid) 4px)}
+  .tally{display:flex;justify-content:space-between;font-size:11px;color:var(--mid);letter-spacing:.06em;margin-bottom:22px}
+  .prompt{border:1px solid var(--stone);padding:26px 24px;margin-bottom:18px;background:var(--offwhite)}
+  .ptext{font-family:var(--display);font-size:18px;font-weight:400;line-height:1.6;letter-spacing:-.005em;margin-bottom:14px;color:var(--ink)}
+  .ptext.lead{font-size:22px;font-weight:500;line-height:1.5}
+  .ptext.huge{font-size:56px;font-weight:700;line-height:1;letter-spacing:.06em;text-align:center;margin-bottom:6px}
   .phint{font-size:14px;color:var(--mid);line-height:1.55}
   .phint.center{text-align:center}
+  .notebox{text-align:center;padding:6px 0 2px}
+  .notelabel{font-family:var(--display);font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--mid);font-weight:700}
+  .tuner{height:52px;position:relative;margin:16px 0 6px;border-top:1px solid var(--stone);border-bottom:1px solid var(--stone)}
+  .tuner .center{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--ink);opacity:.35}
+  .tuner .needle{position:absolute;top:6px;bottom:6px;width:4px;background:var(--red);left:50%;transition:left 70ms linear}
+  .tuner .needle.on{background:var(--green)}
+  .tunerlabel{text-align:center;font-size:12px;color:var(--mid);letter-spacing:.08em}
   .verdict{border:1px solid var(--stone);padding:16px;margin-bottom:18px}
   .verdict.bad{border-color:var(--red)}
   .vtitle{font-size:15px;font-weight:600;margin-bottom:4px}
   .vbody{font-size:13.5px;color:var(--mid);line-height:1.5}
-  .why{font-size:13.5px;color:var(--mid);line-height:1.55;margin-bottom:24px}
+  .why{font-size:13.5px;color:var(--mid);line-height:1.55;margin-bottom:20px}
   .err{color:var(--red);font-size:14px;margin-bottom:16px;line-height:1.5}
   .bar{height:3px;background:var(--stone)}
   .bar span{display:block;height:100%;width:0;background:var(--ink)}
+  .timer{font-family:var(--display);font-size:34px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+  .timer.short{color:var(--mid)}
   audio{height:34px}
   .hide{display:none}
   @media (prefers-color-scheme:dark){
@@ -67,287 +80,390 @@
 <div class="wrap" id="app"></div>
 
 <script>
-// ── CAPTURE SCRIPT ───────────────────────────────────────────────────────────
-const SECTIONS = [
-  { id:"speech", name:"Speaking",
-    why:"Covers the sounds your voice makes. This teaches the model your accent and how you shape words.",
-    takes:[
-      {id:"sp1",text:"The blue sky above the quiet harbor turned a deep orange just before the storm rolled in from the west.",hint:"Read it how you'd say it to a friend. Not a newsreader."},
-      {id:"sp2",text:"She judged the vintage fabric carefully, then paid with exact change and walked six blocks home in the rain.",hint:"Same energy. Don't perform it."},
-      {id:"sp3",text:"Every August my father would fix the same broken gate, and every winter the wind would break it again.",hint:"Slow down slightly. Let the ends of words finish."},
-      {id:"sp4",text:"Which path you choose matters less than whether you actually walk it, month after month, without anyone watching.",hint:"Last speaking one. Relax your jaw."}
-    ]},
-  { id:"range", name:"Your range",
-    why:"Held notes, low to high. The cleanest pitch data the model will ever get — this section matters most.",
-    takes:[
-      {id:"r1",text:"AH",hint:"Lowest note you can hold comfortably. Hold 5 seconds. Not your lowest possible — your lowest comfortable."},
-      {id:"r2",text:"AH",hint:"A bit higher. Hold 5 seconds."},
-      {id:"r3",text:"AH",hint:"Middle of your range, where talking lives. Hold 5 seconds."},
-      {id:"r4",text:"OO",hint:"Same middle note, different vowel. Hold 5 seconds."},
-      {id:"r5",text:"EE",hint:"Same middle note again, on EE. Hold 5 seconds."},
-      {id:"r6",text:"AH",hint:"Higher. Still comfortable — no straining. Hold 5 seconds."},
-      {id:"r7",text:"AH",hint:"Highest you can hold without it hurting. Hold 5 seconds."}
-    ]},
-  { id:"sung", name:"Singing",
-    why:"Doesn't need to be good. It needs to be you, singing. The model learns what changes when you stop talking and start singing.",
-    takes:[
-      {id:"sg1",text:"Happy birthday to you, happy birthday to you",hint:"Any key that feels easy. Off-key is completely fine."},
-      {id:"sg2",text:"Twinkle twinkle little star, how I wonder what you are",hint:"Same. Don't try to sing it well."},
-      {id:"sg3",text:"Row, row, row your boat, gently down the stream",hint:"Slightly louder than the last one."},
-      {id:"sg4",text:"Hmmmm",hint:"Hum any melody you like for 10 seconds. Made up is fine."}
-    ]},
-  { id:"dynamics", name:"Soft and loud",
-    why:"Your voice changes character at different volumes. Without this the model only knows one version of you.",
-    takes:[
-      {id:"d1",text:"I didn't think it would happen this fast",hint:"Almost a whisper. Close to the mic."},
-      {id:"d2",text:"I didn't think it would happen this fast",hint:"Normal speaking volume."},
-      {id:"d3",text:"I didn't think it would happen this fast",hint:"Loud, like calling across a room. Back off the mic a little."}
-    ]}
+// ─────────────────────────────────────────────────────────────────────────────
+// TARGET: 20 minutes of recorded audio.
+// v1 shipped eighteen short prompts that summed to 2.5 minutes — enough for a
+// weak model and nothing more. Total length is the single biggest lever on how
+// much the finished voice actually sounds like the person.
+// ─────────────────────────────────────────────────────────────────────────────
+const TARGET_SEC = 1200;
+
+// Minor thirds, C3 to C5. Any usable range sits inside this; the notes outside
+// yours get skipped, and which ones you skip is itself useful information.
+const TONES = [
+  {n:"C3",hz:130.81},{n:"D#3",hz:155.56},{n:"F#3",hz:185.00},{n:"A3",hz:220.00},
+  {n:"C4",hz:261.63},{n:"D#4",hz:311.13},{n:"F#4",hz:369.99},{n:"A4",hz:440.00},
+  {n:"C5",hz:523.25}
 ];
-const TAKES = SECTIONS.flatMap(s => s.takes.map(t => ({...t, section:s.id, sectionName:s.name, why:s.why})));
+
+const READS = [
+  "The harbour road floods twice a year, always in the same two places, and every autumn the council promises to fix it. My grandmother lived at the end of that road for forty-one years and never once complained about the water. She kept a pair of tall rubber boots by the door from September onward, and said that anyone who chose to live beside the sea had already agreed to the terms. When she finally moved inland she took the boots with her, which I thought was funny at the time and think about differently now.",
+  "There is a particular quiet that happens in a kitchen at the end of a long dinner, after the plates are stacked but before anyone has started washing up. Someone is always still talking. The oven ticks as it cools. Whoever cooked is sitting down for the first time in three hours, holding a glass, half listening. I have never managed to photograph it and I doubt anyone has, because the moment you point a camera at it the room changes, and it becomes a picture of people at a table.",
+  "Judge the equipment by what it does when things go wrong, not when they go right. Any cheap microphone sounds acceptable in a treated room with a quiet source. The difference shows up when a truck goes past outside, when the singer steps back, when the room is boxier than you would like. Expensive gear buys you a wider margin for error, not a better result on a perfect take. Most people buy it hoping for the second thing, and are quietly disappointed.",
+  "She examined the zipper, the lining, and the stitching along the shoulder seam, then decided the jacket was worth exactly what they were asking. The vendor watched without saying anything. Six blocks later it started raining hard enough that she gave up on the umbrella entirely, walked the rest of the way with her hood up, and arrived home genuinely happy about a purchase for the first time in months. The jacket is still in the hall cupboard. It has outlasted two phones and one apartment."
+];
+
+const TALKS = [
+  {p:"Describe the last meal you actually enjoyed.", h:"What was on the plate, where you were, who cooked it. Two minutes. Ramble \u2014 rambling is the point."},
+  {p:"Tell the story of the worst job you ever had.", h:"Start from how you got it. Two minutes. Let yourself get annoyed if it was annoying."},
+  {p:"Explain what you do for work to someone who's never heard of it.", h:"Like you're at a party and they asked politely. Two minutes."},
+  {p:"Talk about a place you'd go back to tomorrow.", h:"Two minutes. Why that one and not somewhere else."}
+];
+
+const SEC_META = {
+  speech:{name:"Speaking", why:"The bulk of the data. This teaches the model your accent, your rhythm, and the way you shape words."},
+  range:{name:"Your range", why:"Sing the note you hear. This is the only section that captures pitch \u2014 and without a tone to sing against, people sing their speaking pitch every time."},
+  sung:{name:"Singing", why:"Doesn't need to be good. The model learns what changes in your voice when you stop talking and start singing."},
+  dynamics:{name:"Soft and loud", why:"Your voice changes character with volume. Without this the model only knows one version of you."}
+};
+
+// ── BUILD TAKE LIST ──────────────────────────────────────────────────────────
+const TAKES = [];
+READS.forEach((t,i)=>TAKES.push({id:"rd"+i,section:"speech",kind:"read",text:t,
+  hint:"Read it out loud the way you'd say it, not the way a newsreader would. Take your time.",minDur:35}));
+TALKS.forEach((t,i)=>TAKES.push({id:"tk"+i,section:"speech",kind:"talk",text:t.p,hint:t.h,minDur:75}));
+TONES.forEach(t=>TAKES.push({id:"tn"+t.n,section:"range",kind:"tone",text:"AH",note:t.n,hz:t.hz,
+  hint:"Play the note, then sing AH on it and hold for six seconds.",minDur:4,skippable:true}));
+[{n:"A3",hz:220,v:"EE"},{n:"C4",hz:261.63,v:"EE"},{n:"D#4",hz:311.13,v:"EE"},
+ {n:"A3",hz:220,v:"OO"},{n:"C4",hz:261.63,v:"OO"},{n:"D#4",hz:311.13,v:"OO"}]
+ .forEach((t,i)=>TAKES.push({id:"tv"+i,section:"range",kind:"tone",text:t.v,note:t.n,hz:t.hz,
+   hint:"Same idea, different vowel. Hold six seconds.",minDur:4,skippable:true}));
+[
+  {id:"sg0",text:"Happy birthday to you \u2014 twice through",hint:"Any key that feels easy. Off-key is completely fine.",minDur:15},
+  {id:"sg1",text:"Twinkle twinkle little star \u2014 the whole verse",hint:"Don't try to sing it well. Just get to the end.",minDur:20},
+  {id:"sg2",text:"Sing a verse of any song you know by heart",hint:"Whatever you'd sing in the car. Forty seconds or so.",minDur:30},
+  {id:"sg3",text:"Hum any melody \u2014 made up is fine",hint:"Thirty seconds. Wander around, go high and low.",minDur:25},
+  {id:"sg4",text:"La la la, up and down",hint:"Slide up as high as feels easy, then back down. Thirty seconds.",minDur:25}
+].forEach(t=>TAKES.push({...t,section:"sung",kind:"sing"}));
+[
+  {id:"d0",text:"I didn't think it would happen this fast, and now I can't remember what it was like before.",hint:"Almost a whisper. Close to the mic."},
+  {id:"d1",text:"I didn't think it would happen this fast, and now I can't remember what it was like before.",hint:"Normal speaking volume."},
+  {id:"d2",text:"I didn't think it would happen this fast, and now I can't remember what it was like before.",hint:"Loud, like calling across a room. Back off the mic a little."}
+].forEach(t=>TAKES.push({...t,section:"dynamics",kind:"dyn",minDur:4}));
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let stage="intro", roomFloor=null, idx=0, recording=false, verdict=null, err="";
-let takes={}, level=-100, hold=-100;
-let ctx=null, stream=null, analyser=null, proc=null, chunks=[], recFlag=false, raf=null;
+let takes={}, skipped={}, level=-100, hold=-100, recStart=0, livePitch=0;
+let ctx=null, stream=null, analyser=null, proc=null, chunks=[], recFlag=false, raf=null, osc=null;
 
 const dbfs = a => a<=0 ? -100 : Math.max(-100, 20*Math.log10(a));
+const capturedSec = () => Object.values(takes).reduce((n,t)=>n+t.dur,0);
+const mmss = s => Math.floor(s/60)+":"+String(Math.round(s%60)).padStart(2,"0");
 
-// ── WAV ENCODER ──────────────────────────────────────────────────────────────
-// Raw PCM, not MediaRecorder's Opus. Training a voice model on lossy audio
+// ── WAV ──────────────────────────────────────────────────────────────────────
+// Raw PCM. MediaRecorder would hand back Opus, and training on lossy audio
 // bakes the codec's artifacts permanently into the voice.
-function encodeWAV(samples, sr){
-  const buf = new ArrayBuffer(44 + samples.length*2);
-  const v = new DataView(buf);
-  const w = (o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
-  w(0,"RIFF"); v.setUint32(4, 36+samples.length*2, true); w(8,"WAVE"); w(12,"fmt ");
+function encodeWAV(s,sr){
+  const b=new ArrayBuffer(44+s.length*2), v=new DataView(b);
+  const w=(o,t)=>{for(let i=0;i<t.length;i++) v.setUint8(o+i,t.charCodeAt(i));};
+  w(0,"RIFF"); v.setUint32(4,36+s.length*2,true); w(8,"WAVE"); w(12,"fmt ");
   v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
   v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
-  w(36,"data"); v.setUint32(40, samples.length*2, true);
+  w(36,"data"); v.setUint32(40,s.length*2,true);
   let o=44;
-  for(let i=0;i<samples.length;i++,o+=2){
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    v.setInt16(o, s<0 ? s*0x8000 : s*0x7fff, true);
-  }
-  return new Blob([v], {type:"audio/wav"});
+  for(let i=0;i<s.length;i++,o+=2){ const x=Math.max(-1,Math.min(1,s[i])); v.setInt16(o, x<0?x*0x8000:x*0x7fff, true); }
+  return new Blob([v],{type:"audio/wav"});
 }
 
-// ── QUALITY GATE ─────────────────────────────────────────────────────────────
-// Rejecting a bad clip costs thirty seconds. Letting one through degrades the
-// model permanently, and nobody can hear afterwards which clip did it.
-function judge(samples, sr, floor){
-  const dur = samples.length/sr;
-  let peak=0, sq=0, clip=0;
-  for(let i=0;i<samples.length;i++){
-    const a=Math.abs(samples[i]);
-    if(a>peak) peak=a;
-    if(a>0.985) clip++;
-    sq += samples[i]*samples[i];
+// ── PITCH ────────────────────────────────────────────────────────────────────
+// Autocorrelation on a decimated buffer. Only needs to answer "are you on the
+// note", so accuracy to a few cents is plenty and speed matters more.
+function detectPitch(buf,sr){
+  const D=2, n=Math.floor(buf.length/D);
+  const m=new Float32Array(n);
+  let mean=0;
+  for(let i=0;i<n;i++){ m[i]=buf[i*D]; mean+=m[i]; }
+  mean/=n;
+  let c0=0;
+  for(let i=0;i<n;i++){ m[i]-=mean; c0+=m[i]*m[i]; }
+  if(Math.sqrt(c0/n) < 0.006) return 0;
+  const esr=sr/D;
+  const lo=Math.max(2,Math.floor(esr/700)), hi=Math.min(Math.floor(esr/70), n-2);
+  let best=-1,bv=0;
+  for(let lag=lo;lag<hi;lag++){
+    let s=0;
+    for(let i=0;i<n-lag;i++) s+=m[i]*m[i+lag];
+    s/=(n-lag);
+    if(s>bv){bv=s;best=lag;}
   }
-  const rmsDb = dbfs(Math.sqrt(sq/samples.length)), peakDb = dbfs(peak);
-  if(dur < 1.6) return {ok:false, reason:"Too short. Hold until you've finished the whole line."};
-  if(clip > sr*0.004) return {ok:false, reason:"Distorted — too close to the mic or too loud. Move back and go again."};
-  if(peakDb < -34) return {ok:false, reason:"Too quiet to use. Move closer to the mic."};
-  if(rmsDb < floor+14) return {ok:false, reason:"Your room is nearly as loud as your voice. Find somewhere quieter."};
-  return {ok:true, dur, peakDb, note: (-3-peakDb) < 3 ? "Good, but close to distorting. Ease back on the next one." : null};
+  if(best<0 || bv/(c0/n) < 0.4) return 0;
+  return esr/best;
 }
+const centsOff = (f,t) => (!f||!t) ? null : 1200*Math.log2(f/t);
 
 // ── MIC ──────────────────────────────────────────────────────────────────────
 async function openMic(){
   err=""; render();
   try{
-    // All three are ON by default and all three wreck training data. Auto gain
-    // is the worst — it flattens the exact dynamics that make a voice yours.
+    // Echo cancellation, noise suppression and auto gain are all on by default
+    // and all three damage training data. Auto gain is the worst: it flattens
+    // exactly the dynamics that make a voice identifiable as one person's.
     stream = await navigator.mediaDevices.getUserMedia({audio:{
       echoCancellation:false, noiseSuppression:false, autoGainControl:false,
       channelCount:1, sampleRate:48000
     }});
-    const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC({sampleRate:48000});
-    if(ctx.state === "suspended") await ctx.resume();
-    const src = ctx.createMediaStreamSource(stream);
-    analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+    const AC=window.AudioContext||window.webkitAudioContext;
+    ctx=new AC({sampleRate:48000});
+    if(ctx.state==="suspended") await ctx.resume();
+    const src=ctx.createMediaStreamSource(stream);
+    analyser=ctx.createAnalyser(); analyser.fftSize=4096;
     src.connect(analyser);
-    proc = ctx.createScriptProcessor(4096,1,1);
-    proc.onaudioprocess = e => { if(recFlag) chunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    proc=ctx.createScriptProcessor(4096,1,1);
+    proc.onaudioprocess=e=>{ if(recFlag) chunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
     src.connect(proc); proc.connect(ctx.destination);
-    const buf = new Float32Array(analyser.fftSize);
+    const buf=new Float32Array(analyser.fftSize);
+    let fc=0;
     (function tick(){
       analyser.getFloatTimeDomainData(buf);
       let pk=0; for(let i=0;i<buf.length;i++){ const a=Math.abs(buf[i]); if(a>pk) pk=a; }
-      level = dbfs(pk); hold = level>hold ? level : hold-0.6;
-      paintMeters();
-      raf = requestAnimationFrame(tick);
+      level=dbfs(pk); hold = level>hold ? level : hold-0.6;
+      if(++fc % 3 === 0) livePitch=detectPitch(buf,ctx.sampleRate);
+      paint();
+      raf=requestAnimationFrame(tick);
     })();
     stage="room"; render();
   }catch(e){
-    err = "Couldn't open the microphone. In Safari: Settings \u2192 Websites \u2192 Microphone, set this site to Allow, then reload.";
+    err="Couldn't open the microphone. In Safari: Settings \u2192 Websites \u2192 Microphone, set this site to Allow, then reload.";
     render();
   }
 }
-
 function teardown(){
   if(raf) cancelAnimationFrame(raf);
-  if(proc) try{ proc.disconnect(); }catch(e){}
+  if(proc) try{proc.disconnect();}catch(e){}
   if(stream) stream.getTracks().forEach(t=>t.stop());
-  if(ctx) try{ ctx.close(); }catch(e){}
+  if(ctx) try{ctx.close();}catch(e){}
   ctx=stream=proc=null;
 }
 
+// ── REFERENCE TONE ───────────────────────────────────────────────────────────
+// Triangle, not sine. A pure sine is genuinely hard to pitch against — the ear
+// wants harmonics to lock onto.
+function playTone(hz){
+  if(!ctx) return;
+  if(osc){ try{osc.stop();}catch(e){} }
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type="triangle"; o.frequency.value=hz;
+  const t0=ctx.currentTime;
+  g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(0.16,t0+0.03);
+  g.gain.setValueAtTime(0.16,t0+2.2);
+  g.gain.linearRampToValueAtTime(0,t0+2.6);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t0); o.stop(t0+2.7);
+  osc=o;
+}
+
 function roomCheck(){
-  const btn = document.getElementById("checkBtn");
-  if(btn) btn.disabled = true;
-  const bar = document.getElementById("checkBar");
-  const wrapEl = document.getElementById("checkWrap");
-  if(wrapEl) wrapEl.classList.remove("hide");
-  const buf = new Float32Array(analyser.fftSize), reads=[], t0=Date.now();
-  const iv = setInterval(()=>{
+  const btn=document.getElementById("checkBtn"); if(btn) btn.disabled=true;
+  const wrapEl=document.getElementById("checkWrap"); if(wrapEl) wrapEl.classList.remove("hide");
+  const bar=document.getElementById("checkBar");
+  const buf=new Float32Array(analyser.fftSize), reads=[], t0=Date.now();
+  const iv=setInterval(()=>{
     analyser.getFloatTimeDomainData(buf);
-    let sq=0; for(let i=0;i<buf.length;i++) sq += buf[i]*buf[i];
+    let sq=0; for(let i=0;i<buf.length;i++) sq+=buf[i]*buf[i];
     reads.push(dbfs(Math.sqrt(sq/buf.length)));
-    const p = Math.min(1,(Date.now()-t0)/4000);
-    if(bar) bar.style.width = (p*100)+"%";
-    if(p>=1){
-      clearInterval(iv);
-      reads.sort((a,b)=>a-b);
-      roomFloor = reads[Math.floor(reads.length/2)];
-      render();
-    }
+    const p=Math.min(1,(Date.now()-t0)/4000);
+    if(bar) bar.style.width=(p*100)+"%";
+    if(p>=1){ clearInterval(iv); reads.sort((a,b)=>a-b); roomFloor=reads[Math.floor(reads.length/2)]; render(); }
   },100);
 }
 
-function startRec(){ verdict=null; chunks=[]; recFlag=true; recording=true; render(); }
+// ── QUALITY GATE ─────────────────────────────────────────────────────────────
+// Rejecting a bad clip costs thirty seconds. Letting one through degrades the
+// model permanently, and afterwards nobody can hear which clip did it.
+function judge(s,sr,floor,take){
+  const dur=s.length/sr;
+  let peak=0,sq=0,clip=0;
+  for(let i=0;i<s.length;i++){ const a=Math.abs(s[i]); if(a>peak) peak=a; if(a>0.985) clip++; sq+=s[i]*s[i]; }
+  const rmsDb=dbfs(Math.sqrt(sq/s.length)), peakDb=dbfs(peak), min=take.minDur||4;
+  if(dur<min) return {ok:false,reason:"Only "+Math.round(dur)+" seconds \u2014 this one needs at least "+min+". Keep going longer."};
+  if(clip>sr*0.004) return {ok:false,reason:"Distorted. Move back from the mic and go again."};
+  if(peakDb<-34) return {ok:false,reason:"Too quiet to use. Move closer to the mic."};
+  if(rmsDb<floor+14) return {ok:false,reason:"Your room is nearly as loud as your voice. Find somewhere quieter."};
+  let note=null;
+  if(peakDb<-20) note="Usable, but quiet. Move closer and the rest of the session will be better data.";
+  else if(peakDb>-5) note="Close to distorting. Ease back slightly.";
+  return {ok:true,dur,peakDb,note};
+}
 
+function startRec(){ verdict=null; chunks=[]; recFlag=true; recording=true; recStart=Date.now(); render(); }
 function stopRec(){
   recFlag=false; recording=false;
-  const total = chunks.reduce((n,c)=>n+c.length,0);
+  const total=chunks.reduce((n,c)=>n+c.length,0);
   if(!total){ verdict={ok:false,reason:"Nothing came through. Check the mic is still connected."}; render(); return; }
-  const merged = new Float32Array(total);
-  let o=0; for(const c of chunks){ merged.set(c,o); o+=c.length; }
-  const sr = ctx.sampleRate;
-  verdict = judge(merged, sr, roomFloor);
+  const m=new Float32Array(total); let o=0;
+  for(const c of chunks){ m.set(c,o); o+=c.length; }
+  const sr=ctx.sampleRate, t=TAKES[idx];
+  verdict=judge(m,sr,roomFloor,t);
   if(verdict.ok){
-    const blob = encodeWAV(merged, sr);
-    takes[TAKES[idx].id] = {blob, url:URL.createObjectURL(blob), dur:verdict.dur};
+    const blob=encodeWAV(m,sr);
+    takes[t.id]={blob, url:URL.createObjectURL(blob), dur:verdict.dur};
+    delete skipped[t.id];
   }
   render();
 }
-
+function skipTake(){ skipped[TAKES[idx].id]=true; verdict=null; advance(); }
 function advance(){
   verdict=null;
-  if(idx < TAKES.length-1){ idx++; }
-  else { teardown(); stage="done"; }
+  if(idx<TAKES.length-1) idx++; else { teardown(); stage="done"; }
   render();
 }
-
+function jump(i){ if(recording) return; idx=i; verdict=null; render(); }
 function downloadAll(){
   TAKES.forEach((t,i)=>{
-    const rec = takes[t.id]; if(!rec) return;
+    const r=takes[t.id]; if(!r) return;
     setTimeout(()=>{
       const a=document.createElement("a");
-      a.href=rec.url; a.download=String(i+1).padStart(2,"0")+"-"+t.section+"-"+t.id+".wav";
+      a.href=r.url; a.download=String(i+1).padStart(2,"0")+"-"+t.section+"-"+t.id+".wav";
       document.body.appendChild(a); a.click(); a.remove();
     }, i*350);
   });
 }
 
-function paintMeters(){
-  const pct = Math.max(0,Math.min(1,(level+60)/60))*100;
-  const hpct = Math.max(0,Math.min(1,(hold+60)/60))*100;
+// ── LIVE PAINT ───────────────────────────────────────────────────────────────
+function paint(){
+  const pct=Math.max(0,Math.min(1,(level+60)/60))*100;
+  const hpct=Math.max(0,Math.min(1,(hold+60)/60))*100;
   document.querySelectorAll(".meter").forEach(m=>{
-    const f=m.querySelector(".fill"), h=m.querySelector(".hold"), r=m.querySelector(".readout");
-    if(f){ f.style.width = pct+"%"; f.classList.toggle("hot", level > -4); }
-    if(h) h.style.left = hpct+"%";
-    if(r) r.textContent = level > -99 ? Math.round(level)+" dB" : "\u2014";
+    const f=m.querySelector(".fill"), h=m.querySelector(".hold");
+    if(f){ f.style.width=pct+"%"; f.classList.toggle("hot",level>-4); }
+    if(h) h.style.left=hpct+"%";
   });
+  const ro=document.querySelector(".readout");
+  if(ro) ro.textContent = level>-99 ? Math.round(level)+" dB" : "\u2014";
+
+  const t=TAKES[idx];
+  if(stage==="record" && t && t.kind==="tone"){
+    const nd=document.getElementById("needle"), lb=document.getElementById("tunerLabel");
+    if(nd){
+      const c=centsOff(livePitch,t.hz);
+      if(c===null){ nd.style.left="50%"; nd.classList.remove("on"); if(lb) lb.textContent="Sing the note"; }
+      else{
+        const cl=Math.max(-100,Math.min(100,c));
+        nd.style.left=(50+cl/2.4)+"%";
+        const on=Math.abs(c)<35;
+        nd.classList.toggle("on",on);
+        if(lb) lb.textContent = on ? "On the note" : (c<0 ? Math.round(-c)+" cents flat" : Math.round(c)+" cents sharp");
+      }
+    }
+  }
+  if(recording){
+    const el=document.getElementById("recTimer");
+    if(el){
+      const s=(Date.now()-recStart)/1000;
+      el.textContent=mmss(s);
+      el.classList.toggle("short", s < (TAKES[idx].minDur||4));
+    }
+  }
 }
 
-const meterHTML = `<div class="meter"><div class="fill"></div><div class="hold"></div><div class="redline"></div></div>
-<div class="mscale"><span>QUIET</span><span class="readout">&mdash;</span><span>DISTORTING</span></div>`;
+const meterHTML=`<div class="meter"><div class="zone"></div><div class="fill"></div><div class="hold"></div></div>
+<div class="mscale"><span>QUIET</span><span class="readout">&mdash;</span><span>TOO LOUD</span></div>`;
 
 // ── RENDER ───────────────────────────────────────────────────────────────────
 function render(){
-  const app = document.getElementById("app");
+  const app=document.getElementById("app");
 
   if(stage==="intro"){
-    app.innerHTML = `
+    app.innerHTML=`
       <div class="eyebrow">Song Studio</div>
       <h1>Teach it your voice</h1>
-      <p>Eighteen short recordings, about fifteen minutes. You'll talk, hold a few notes, and sing four easy things badly. Singing badly is expected &mdash; nothing here is judged on performance.</p>
+      <p>About forty minutes, which produces roughly twenty minutes of usable audio. That gap is normal &mdash; most of the time goes on reading, thinking and redoing takes. The counter at the top tracks the number that actually matters.</p>
+      <p>Four passages to read, four things to talk about for two minutes, fifteen notes to sing, five short things to sing badly, and one line said three ways. Nothing here is judged on performance.</p>
       <div class="panel">
         <div class="eyebrow" style="margin-bottom:12px">Before you start</div>
-        <div class="bullet"><div class="dot"></div><div>Use wired earbuds with a mic, or your phone held a hand's width away. Bluetooth earbuds sound worse than you'd think.</div></div>
-        <div class="bullet"><div class="dot"></div><div>Find the quietest room you have. Turn off the AC and any fan.</div></div>
-        <div class="bullet"><div class="dot"></div><div>Don't clear your throat mid-take. Stop, then start again.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Wired earbuds with a mic, or your phone a hand's width from your mouth. Bluetooth is worse than you'd think.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Quietest room you have. AC and fans off.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Aim for the green band on the meter. Recording too quietly is the most common mistake and it costs real quality.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Keep your volume up &mdash; you'll need to hear the reference notes.</div></div>
       </div>
-      ${err ? `<div class="err">${err}</div>` : ""}
+      ${err?`<div class="err">${err}</div>`:""}
       <button class="fill" onclick="openMic()">Turn on my mic</button>`;
     return;
   }
 
   if(stage==="room"){
-    let v = null;
-    if(roomFloor !== null){
-      v = roomFloor < -58 ? {ok:1,label:"Quiet enough",detail:"Good room. Start recording."}
-        : roomFloor < -48 ? {ok:1,label:"Usable",detail:"Some background noise. It'll work, but quieter would be better."}
-        : {ok:0,label:"Too noisy",detail:"Turn off fans, AC, or anything humming. Move away from windows."};
+    let v=null;
+    if(roomFloor!==null){
+      v = roomFloor<-58 ? {ok:1,label:"Quiet enough",detail:"Good room. Start recording."}
+        : roomFloor<-48 ? {ok:1,label:"Usable",detail:"Some background noise. It'll work, but quieter would be better."}
+        : {ok:0,label:"Too noisy",detail:"Turn off fans, AC, anything humming. Move away from windows."};
     }
-    app.innerHTML = `
+    app.innerHTML=`
       <div class="eyebrow">Step 1 of 2</div>
       <h1>Check your room</h1>
-      <p>Stay quiet for four seconds so we can hear how loud your room is on its own. Background noise gets learned as part of your voice and can't be removed later.</p>
+      <p>Stay quiet for four seconds so we can measure how loud your room is on its own. Background noise gets learned as part of your voice and can't be removed later.</p>
       <div style="margin-bottom:26px">${meterHTML}</div>
       <div id="checkWrap" class="hide" style="margin-bottom:22px">
         <div class="bar"><span id="checkBar"></span></div>
         <div style="font-size:13px;color:var(--mid);margin-top:9px">Listening &mdash; don't speak.</div>
       </div>
-      ${v ? `<div class="verdict${v.ok?"":" bad"}">
+      ${v?`<div class="verdict${v.ok?"":" bad"}">
         <div class="vtitle" style="font-family:var(--display);color:${v.ok?"var(--green)":"var(--red)"}">${v.label}</div>
         <div class="vbody">${v.detail}</div>
         <div style="font-size:11px;color:var(--mid);margin-top:9px;letter-spacing:.06em">NOISE FLOOR ${Math.round(roomFloor)} dB</div>
-      </div>` : ""}
+      </div>`:""}
       <div class="row">
         <button id="checkBtn" class="${v?"":"fill"}" onclick="roomCheck()">${roomFloor===null?"Start the check":"Check again"}</button>
-        ${v && v.ok ? `<button class="fill" onclick="stage='record';render()">Start recording</button>` : ""}
+        ${v&&v.ok?`<button class="fill" onclick="stage='record';render()">Start recording</button>`:""}
       </div>`;
     return;
   }
 
   if(stage==="done"){
-    const n = Object.keys(takes).length;
-    const secs = Math.round(Object.values(takes).reduce((a,t)=>a+t.dur,0));
-    app.innerHTML = `
+    const n=Object.keys(takes).length, sec=capturedSec(), short=sec<TARGET_SEC*0.7;
+    app.innerHTML=`
       <div class="eyebrow">Complete</div>
-      <h1>That's your voice captured</h1>
-      <p>${n} clips, ${secs} seconds of clean audio. Every one passed the noise and level checks.</p>
-      <button class="fill" onclick="downloadAll()">Download all ${n} files</button>
-      <div style="font-size:12.5px;color:var(--mid);margin-top:12px;line-height:1.5">Your browser will ask to allow multiple downloads &mdash; say yes. They'll land in Downloads as numbered WAV files.</div>`;
+      <h1>${short?"Captured, but light":"That's your voice captured"}</h1>
+      <p>${n} clips, ${mmss(sec)} of clean audio.
+        ${short?"That's under the twenty-minute target. It'll train, but the finished voice will sound less like you than it could. Going back and talking longer on the four speaking prompts is the cheapest way to close the gap."
+               :"That's a solid dataset."}</p>
+      <div class="row">
+        <button class="fill" onclick="downloadAll()">Download all ${n} files</button>
+        <button class="ghost" onclick="stage='record';idx=0;render()">Go back and add more</button>
+      </div>
+      <div style="font-size:12.5px;color:var(--mid);margin-top:12px;line-height:1.5">Your browser will ask to allow multiple downloads &mdash; say yes.</div>`;
     return;
   }
 
-  const t = TAKES[idx];
-  const isRange = t.section === "range";
-  const rec = takes[t.id];
-  app.innerHTML = `
-    <div class="rail">${TAKES.map((x,i)=>`<i class="${takes[x.id]?"done":(i===idx?"now":"")}"></i>`).join("")}</div>
-    <div class="eyebrow">${t.sectionName} &mdash; ${idx+1} of ${TAKES.length}</div>
-    <div class="why">${t.why}</div>
-    <div class="prompt">
-      <div class="ptext${isRange?" big":""}">${t.text}</div>
-      <div class="phint${isRange?" center":""}">${t.hint}</div>
+  const t=TAKES[idx], meta=SEC_META[t.section], rec=takes[t.id], sec=capturedSec();
+  const isTone=t.kind==="tone";
+  const body = isTone
+    ? `<div class="notebox">
+         <div class="notelabel">Sing this vowel</div>
+         <div class="ptext huge">${t.text}</div>
+         <div class="notelabel" style="color:var(--ink)">on ${t.note}</div>
+       </div>
+       <div class="tuner"><div class="center"></div><div class="needle" id="needle"></div></div>
+       <div class="tunerlabel" id="tunerLabel">Sing the note</div>
+       <div class="phint center" style="margin-top:14px">${t.hint}</div>`
+    : `<div class="ptext${(t.kind==="talk"||t.kind==="sing")?" lead":""}">${t.text}</div>
+       <div class="phint">${t.hint}</div>`;
+
+  app.innerHTML=`
+    <div class="rail">${TAKES.map((x,i)=>`<i class="${takes[x.id]?"done":(skipped[x.id]?"skip":(i===idx?"now":""))}" onclick="jump(${i})"></i>`).join("")}</div>
+    <div class="tally">
+      <span>${meta.name.toUpperCase()} &mdash; ${idx+1} OF ${TAKES.length}</span>
+      <span>${mmss(sec)} OF 20:00 CAPTURED</span>
     </div>
-    <div style="margin-bottom:20px">${meterHTML}</div>
-    ${verdict ? `<div class="verdict${verdict.ok?"":" bad"}">
+    <div class="why">${meta.why}</div>
+    <div class="prompt">${body}</div>
+    ${isTone?`<div class="row" style="margin-bottom:16px"><button class="ghost" onclick="playTone(${t.hz})">&#9654; Play the note</button></div>`:""}
+    <div style="margin-bottom:18px">${meterHTML}</div>
+    ${recording?`<div class="timer" id="recTimer">0:00</div>
+      <div style="font-size:12.5px;color:var(--mid);margin-bottom:16px">Needs at least ${t.minDur||4} seconds.</div>`:""}
+    ${verdict?`<div class="verdict${verdict.ok?"":" bad"}">
       <div class="vtitle" style="color:${verdict.ok?"var(--green)":"var(--red)"}">${verdict.ok?"Got it":"Not usable"}</div>
       <div class="vbody">${verdict.ok
-        ? verdict.dur.toFixed(1)+"s, peaked at "+Math.round(verdict.peakDb)+" dB"+(verdict.note?" \u2014 "+verdict.note:"")
+        ? Math.round(verdict.dur)+"s, peaked at "+Math.round(verdict.peakDb)+" dB"+(verdict.note?" \u2014 "+verdict.note:"")
         : verdict.reason}</div>
-    </div>` : ""}
+    </div>`:""}
     <div class="row">
-      ${!recording ? `<button class="${(!verdict||!verdict.ok)?"fill":""}" onclick="startRec()">${verdict?"Record again":"Start recording"}</button>` : ""}
-      ${recording ? `<button class="stop" onclick="stopRec()">Stop</button>` : ""}
-      ${verdict && verdict.ok && !recording ? `<button class="fill" onclick="advance()">${idx===TAKES.length-1?"Finish":"Next"}</button>` : ""}
-      ${rec && !recording ? `<audio src="${rec.url}" controls></audio>` : ""}
+      ${!recording?`<button class="${(!verdict||!verdict.ok)?"fill":""}" onclick="startRec()">${(verdict||rec)?"Record again":"Start recording"}</button>`:""}
+      ${recording?`<button class="stop" onclick="stopRec()">Stop</button>`:""}
+      ${(((verdict&&verdict.ok)||rec)&&!recording)?`<button class="fill" onclick="advance()">${idx===TAKES.length-1?"Finish":"Next"}</button>`:""}
+      ${(t.skippable&&!recording&&!rec)?`<button class="ghost" onclick="skipTake()">Out of my range</button>`:""}
+      ${(rec&&!recording)?`<audio src="${rec.url}" controls></audio>`:""}
     </div>`;
 }
 
