@@ -5965,7 +5965,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     // bring one back. `ready:false` is the other axis: that greys a style out and labels
     // it "· soon"; `hidden` removes it from view entirely.
     { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true, hidden:true },
-    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true },
+    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true, hidden:true },
   ];
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
