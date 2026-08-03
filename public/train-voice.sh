@@ -22,6 +22,7 @@
 set -euo pipefail
 
 SUPABASE_URL="${SUPABASE_URL:-https://yuzvpmxbtjpqtapborhr.supabase.co}"
+SETUP_ONLY="${SETUP_ONLY:-0}"
 EXP="${EXP:-voice}"
 SR="48k"; SR_HZ=48000
 EPOCHS="${EPOCHS:-200}"
@@ -31,26 +32,63 @@ ROOT=/workspace/rvc
 say(){ printf "\n\033[1m▸ %s\033[0m\n" "$*"; }
 die(){ printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
 
-[ -n "${SUPABASE_SERVICE_KEY:-}" ] || die "SUPABASE_SERVICE_KEY is not set."
-[ -n "${PROFILE_ID:-}" ]          || die "PROFILE_ID is not set."
+if [ "$SETUP_ONLY" != "1" ]; then
+  [ -n "${SUPABASE_SERVICE_KEY:-}" ] || die "SUPABASE_SERVICE_KEY is not set."
+  [ -n "${PROFILE_ID:-}" ]          || die "PROFILE_ID is not set."
+fi
 nvidia-smi -L >/dev/null 2>&1     || die "No GPU visible. This needs a GPU pod."
 
 # ── 0 · ENVIRONMENT ────────────────────────────────────────────────────────
 say "Stage 0/7 — environment"
 if [ ! -d "$ROOT" ]; then
-  apt-get update -qq && apt-get install -y -qq ffmpeg unzip >/dev/null
+  # rubberband is for the render side: it time-stretches the generated beat
+  # onto the vocal with better transients than the ffmpeg atempo fallback.
+  apt-get update -qq && apt-get install -y -qq ffmpeg unzip rubberband-cli >/dev/null
   git clone -q --depth 1 https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI.git "$ROOT"
 fi
 cd "$ROOT"
 
 if [ ! -f .deps-done ]; then
   pip install -q --upgrade pip
-  # cu128 list matches the CUDA on current RunPod images. If torch fails to see
-  # the GPU later, this is the line to change.
-  pip install -q -r requirments_cu128_py312.txt || pip install -q -r requirments_cu118_py312.txt
-  pip install -q --upgrade huggingface_hub requests soundfile
+  # cu118, and no cu128 fallback. The pods report driver 12.0, and the cu128
+  # wheels install perfectly cleanly and then cannot see the GPU — no error, no
+  # warning, everything just runs on CPU. Falling back the other way (cu128
+  # first, cu118 if it errors) never triggers, because cu128 does not error.
+  pip install -q -r requirments_cu118_py312.txt
+  # Pinned, not upgraded. A blanket --upgrade pulls huggingface_hub 1.x, which
+  # breaks transformers with a traceback that names transformers.
+  pip install -q "huggingface_hub>=0.26,<1.0" requests soundfile
+  # Render-time extras, so one setup leaves the pod ready for both jobs.
+  pip install -q pyworld librosa
   touch .deps-done
 fi
+
+# Asserted, not assumed. A silent drop to CPU is the most expensive failure
+# this pod has: it looks like a slow success for forty minutes.
+python - <<'PY' || die "torch cannot see the GPU. The CUDA wheels are wrong — delete .deps-done and rerun."
+import sys, torch
+ok = torch.cuda.is_available()
+print("  torch %s / cuda %s / %s" % (torch.__version__, torch.version.cuda,
+      torch.cuda.get_device_name(0) if ok else "NO DEVICE"))
+sys.exit(0 if ok else 1)
+PY
+
+# These five are read directly by the RVC code and are unset by default; unset,
+# every path becomes the literal string "None". Written to a file rather than
+# just exported, because the render step runs in a different shell.
+mkdir -p "$ROOT/assets/weights" "$ROOT/assets/indices" "$ROOT/assets/rmvpe" \
+         "$ROOT/assets/pymss_weights" "$ROOT/logs/$EXP"
+cat > /workspace/rvc-env.sh <<EOF
+export RVC_ROOT=$ROOT
+export PYTHONPATH=$ROOT
+export weight_root=$ROOT/assets/weights
+export index_root=$ROOT/assets/indices
+export outside_index_root=$ROOT/assets/indices
+export rmvpe_root=$ROOT/assets/rmvpe
+export weight_pymss_root=$ROOT/assets/pymss_weights
+export SUPABASE_URL=$SUPABASE_URL
+EOF
+. /workspace/rvc-env.sh
 
 # Asset paths come from the repo's own README, not from older guides — this
 # version keeps HuBERT as a transformers folder, not the single .pt file that
@@ -65,6 +103,20 @@ if [ ! -f assets/hubert_base/pytorch_model.bin ]; then
 fi
 [ -f assets/pretrained_v2/f0G${SR}.pth ] || die "Missing assets/pretrained_v2/f0G${SR}.pth"
 [ -d logs/mute ]                          || die "Missing logs/mute — training needs the silence samples."
+
+if [ "$SETUP_ONLY" = "1" ]; then
+  say "Setup complete. Nothing was trained."
+  cat <<EOF
+  The pod is ready. To render a song:
+
+    source /workspace/rvc-env.sh
+    cd $ROOT && curl -sO https://chelgy.app/tune.py \
+      && curl -sO https://chelgy.app/align.py \
+      && curl -sO https://chelgy.app/render_song.py
+
+EOF
+  exit 0
+fi
 
 # ── 1 · FETCH THE CLIPS ────────────────────────────────────────────────────
 say "Stage 1/7 — fetching clips for profile $PROFILE_ID"
