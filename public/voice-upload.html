@@ -67,9 +67,12 @@ const mmss = s => Math.floor(s/60)+":"+String(Math.round(s%60)).padStart(2,"0");
 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 async function signIn(){
+  // Read the fields BEFORE render(), because render() replaces innerHTML and
+  // the inputs it reads from stop existing the moment it runs.
+  const em=$("#em").value.trim(), pw=$("#pw").value;
+  if(!em || !pw){ err="Enter both your email and password."; render(); return; }
   err=""; busy=true; render();
   try{
-    const em=$("#em").value.trim(), pw=$("#pw").value;
     const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
       method:"POST", headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},
       body:JSON.stringify({email:em,password:pw})
@@ -145,6 +148,9 @@ async function pickFiles(list){
 // will want to revisit, and keeping the raw audio means revisiting them never
 // costs anyone another recording session.
 async function uploadAll(){
+  // Same trap as signIn: grab the fields first, render second.
+  const vName=($("#nm")&&$("#nm").value.trim())||"My voice";
+  const vConsent=($("#cn")&&$("#cn").value.trim())||null;
   busy=true; err=""; render();
   try{
     const H={apikey:SUPABASE_KEY, Authorization:"Bearer "+token};
@@ -154,9 +160,9 @@ async function uploadAll(){
         method:"POST", headers:{...H,"Content-Type":"application/json",Prefer:"return=representation"},
         body:JSON.stringify({
           user_id:userId,
-          name:$("#nm").value.trim()||"My voice",
+          name:vName,
           status:"capturing",
-          consent_name:$("#cn").value.trim()||null,
+          consent_name:vConsent,
           consent_at:new Date().toISOString()
         })
       });
@@ -193,7 +199,7 @@ async function uploadAll(){
     if(okCount){
       await fetch(SUPABASE_URL+"/rest/v1/voice_profiles?id=eq."+profileId,{
         method:"PATCH", headers:{...H,"Content-Type":"application/json"},
-        body:JSON.stringify({name:$("#nm").value.trim()||"My voice"})
+        body:JSON.stringify({name:vName})
       });
       done=true;
     }
