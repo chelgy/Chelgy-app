@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Four more — Chelgy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#fff;--offwhite:#F7F6F4;--stone:#E8E6E1;--mid:#6B6B6B;--ink:#111;--green:#4CAF82;--red:#C0392B;
+        --display:'Outfit',Helvetica,Arial,sans-serif;--body:'Jost',Helvetica,Arial,sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--cream);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:660px;margin:0 auto;padding:28px 20px 90px}
+  h1{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.02em;margin:0 0 12px}
+  .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:var(--mid);margin-bottom:10px}
+  p{font-size:16px;line-height:1.65;color:var(--mid);margin:0 0 22px}
+  button{font-family:var(--body);font-size:15px;font-weight:600;padding:13px 26px;cursor:pointer;
+    border:1px solid var(--ink);background:transparent;color:var(--ink);letter-spacing:.02em;border-radius:0}
+  button.fill{background:var(--ink);color:#fff}
+  button.stop{background:var(--red);border-color:var(--red);color:#fff}
+  button.ghost{border-color:var(--stone);color:var(--mid);font-weight:500;padding:13px 18px}
+  button:disabled{opacity:.35;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .meter{position:relative;height:12px;background:var(--stone);overflow:hidden}
+  .meter .zone{position:absolute;top:0;bottom:0;left:75%;width:15%;background:var(--green);opacity:.25}
+  .meter .fill{position:absolute;top:0;bottom:0;left:0;width:0;background:var(--ink);transition:width 60ms linear}
+  .meter .fill.hot{background:var(--red)}
+  .meter .hold{position:absolute;top:0;bottom:0;width:2px;background:var(--mid);left:0}
+  .mscale{display:flex;justify-content:space-between;font-size:10px;color:var(--mid);margin-top:5px;letter-spacing:.08em}
+  .rail{display:flex;gap:2px;margin-bottom:8px}
+  .rail i{flex:1;height:4px;background:var(--stone);cursor:pointer}
+  .rail i.now{background:var(--mid)}
+  .rail i.done{background:var(--ink)}
+  .tally{display:flex;justify-content:space-between;font-size:11px;color:var(--mid);letter-spacing:.06em;margin-bottom:22px}
+  .prompt{border:1px solid var(--stone);padding:26px 24px;margin-bottom:18px;background:var(--offwhite)}
+  .ptext{font-family:var(--display);font-size:22px;font-weight:500;line-height:1.5;margin-bottom:14px;color:var(--ink)}
+  .phint{font-size:14px;color:var(--mid);line-height:1.55}
+  .verdict{border:1px solid var(--stone);padding:16px;margin-bottom:18px}
+  .verdict.bad{border-color:var(--red)}
+  .vtitle{font-size:15px;font-weight:600;margin-bottom:4px}
+  .vbody{font-size:13.5px;color:var(--mid);line-height:1.5}
+  .why{font-size:13.5px;color:var(--mid);line-height:1.55;margin-bottom:20px}
+  .err{color:var(--red);font-size:14px;margin-bottom:16px;line-height:1.5}
+  .timer{font-family:var(--display);font-size:40px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+  .timer.short{color:var(--mid)}
+  .panel{border:1px solid var(--stone);padding:20px;margin-bottom:24px}
+  .bullet{display:flex;gap:12px;margin-bottom:11px}
+  .bullet:last-child{margin-bottom:0}
+  .dot{width:5px;height:5px;background:var(--ink);margin-top:8px;flex-shrink:0}
+  .bullet div:last-child{font-size:14.5px;line-height:1.55;color:var(--ink)}
+  audio{height:34px}
+  @media (prefers-color-scheme:dark){
+    :root{--cream:#0a0705;--offwhite:#141010;--stone:#2a2320;--mid:#8f867b;--ink:#efe9df;--green:#5fcf94;--red:#e0685f}
+    button.fill{color:#0a0705} button.stop{color:#fff}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+// Four prompts, deliberately pulling four different emotional registers. The
+// first session's four all sat in the same register — describing things calmly.
+// Prosodic variety is what's thin in the dataset, not raw minutes.
+const TAKES = [
+  {id:"tk4", n:32, text:"Tell the funniest thing that's happened to you in the last year.",
+   hint:"Two minutes. Laughing is good data \u2014 don't hold it in."},
+  {id:"tk5", n:33, text:"What do people get wrong about your industry?",
+   hint:"Two minutes. Argue your side. Get worked up if you want to."},
+  {id:"tk6", n:34, text:"Walk someone through making your favourite drink or meal, step by step.",
+   hint:"Two minutes. Slower, instructional \u2014 like they're writing it down."},
+  {id:"tk7", n:35, text:"Describe someone you miss.",
+   hint:"Two minutes. Quieter than the others. Take your time."}
+];
+const MIN_DUR = 90, TARGET_SEC = 480;
+
+let stage="intro", roomFloor=null, idx=0, recording=false, verdict=null, err="";
+let takes={}, level=-100, hold=-100, recStart=0;
+let ctx=null, stream=null, analyser=null, proc=null, chunks=[], recFlag=false, raf=null;
+
+const dbfs = a => a<=0 ? -100 : Math.max(-100, 20*Math.log10(a));
+const captured = () => Object.values(takes).reduce((n,t)=>n+t.dur,0);
+const mmss = s => Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
+
+function encodeWAV(s,sr){
+  const b=new ArrayBuffer(44+s.length*2), v=new DataView(b);
+  const w=(o,t)=>{for(let i=0;i<t.length;i++) v.setUint8(o+i,t.charCodeAt(i));};
+  w(0,"RIFF"); v.setUint32(4,36+s.length*2,true); w(8,"WAVE"); w(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,"data"); v.setUint32(40,s.length*2,true);
+  let o=44;
+  for(let i=0;i<s.length;i++,o+=2){ const x=Math.max(-1,Math.min(1,s[i])); v.setInt16(o, x<0?x*0x8000:x*0x7fff, true); }
+  return new Blob([v],{type:"audio/wav"});
+}
+
+async function openMic(){
+  err=""; render();
+  try{
+    // Same three switches off as the main page. Auto gain in particular flattens
+    // the dynamics that make a voice identifiable.
+    stream = await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:false, noiseSuppression:false, autoGainControl:false,
+      channelCount:1, sampleRate:48000
+    }});
+    const AC=window.AudioContext||window.webkitAudioContext;
+    ctx=new AC({sampleRate:48000});
+    if(ctx.state==="suspended") await ctx.resume();
+    const src=ctx.createMediaStreamSource(stream);
+    analyser=ctx.createAnalyser(); analyser.fftSize=2048;
+    src.connect(analyser);
+    proc=ctx.createScriptProcessor(4096,1,1);
+    proc.onaudioprocess=e=>{ if(recFlag) chunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    src.connect(proc); proc.connect(ctx.destination);
+    const buf=new Float32Array(analyser.fftSize);
+    (function tick(){
+      analyser.getFloatTimeDomainData(buf);
+      let pk=0; for(let i=0;i<buf.length;i++){ const a=Math.abs(buf[i]); if(a>pk) pk=a; }
+      level=dbfs(pk); hold = level>hold ? level : hold-0.6;
+      paint(); raf=requestAnimationFrame(tick);
+    })();
+    stage="room"; render();
+  }catch(e){
+    err="Couldn't open the microphone. In Safari: Settings \u2192 Websites \u2192 Microphone, set this site to Allow, then reload.";
+    render();
+  }
+}
+function teardown(){
+  if(raf) cancelAnimationFrame(raf);
+  if(proc) try{proc.disconnect();}catch(e){}
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  if(ctx) try{ctx.close();}catch(e){}
+  ctx=stream=proc=null;
+}
+function roomCheck(){
+  const btn=document.getElementById("checkBtn"); if(btn) btn.disabled=true;
+  const buf=new Float32Array(analyser.fftSize), reads=[], t0=Date.now();
+  const iv=setInterval(()=>{
+    analyser.getFloatTimeDomainData(buf);
+    let sq=0; for(let i=0;i<buf.length;i++) sq+=buf[i]*buf[i];
+    reads.push(dbfs(Math.sqrt(sq/buf.length)));
+    if(Date.now()-t0>=4000){ clearInterval(iv); reads.sort((a,b)=>a-b); roomFloor=reads[Math.floor(reads.length/2)]; render(); }
+  },100);
+}
+function judge(s,sr,floor){
+  const dur=s.length/sr;
+  let peak=0,sq=0,clip=0;
+  for(let i=0;i<s.length;i++){ const a=Math.abs(s[i]); if(a>peak) peak=a; if(a>0.985) clip++; sq+=s[i]*s[i]; }
+  const rmsDb=dbfs(Math.sqrt(sq/s.length)), peakDb=dbfs(peak);
+  if(dur<MIN_DUR) return {ok:false,reason:"Only "+Math.round(dur)+" seconds \u2014 needs at least "+MIN_DUR+". Keep talking."};
+  if(clip>sr*0.004) return {ok:false,reason:"Distorted. Move back from the mic and go again."};
+  if(peakDb<-34) return {ok:false,reason:"Too quiet to use. Move closer to the mic."};
+  if(rmsDb<floor+14) return {ok:false,reason:"Your room is nearly as loud as your voice. Somewhere quieter."};
+  let note=null;
+  if(peakDb<-20) note="Usable, but quieter than last session. Move a little closer.";
+  else if(peakDb>-5) note="Close to distorting. Ease back slightly.";
+  return {ok:true,dur,peakDb,note};
+}
+function startRec(){ verdict=null; chunks=[]; recFlag=true; recording=true; recStart=Date.now(); render(); }
+function stopRec(){
+  recFlag=false; recording=false;
+  const total=chunks.reduce((n,c)=>n+c.length,0);
+  if(!total){ verdict={ok:false,reason:"Nothing came through. Check the mic is connected."}; render(); return; }
+  const m=new Float32Array(total); let o=0;
+  for(const c of chunks){ m.set(c,o); o+=c.length; }
+  const sr=ctx.sampleRate;
+  verdict=judge(m,sr,roomFloor);
+  if(verdict.ok){
+    const blob=encodeWAV(m,sr);
+    takes[TAKES[idx].id]={blob, url:URL.createObjectURL(blob), dur:verdict.dur};
+  }
+  render();
+}
+function advance(){
+  verdict=null;
+  if(idx<TAKES.length-1) idx++; else { teardown(); stage="done"; }
+  render();
+}
+function jump(i){ if(recording) return; idx=i; verdict=null; render(); }
+function downloadAll(){
+  TAKES.forEach((t,i)=>{
+    const r=takes[t.id]; if(!r) return;
+    setTimeout(()=>{
+      const a=document.createElement("a");
+      a.href=r.url; a.download=t.n+"-speech-"+t.id+".wav";
+      document.body.appendChild(a); a.click(); a.remove();
+    }, i*350);
+  });
+}
+function paint(){
+  const pct=Math.max(0,Math.min(1,(level+60)/60))*100;
+  const hpct=Math.max(0,Math.min(1,(hold+60)/60))*100;
+  document.querySelectorAll(".meter").forEach(m=>{
+    const f=m.querySelector(".fill"), h=m.querySelector(".hold");
+    if(f){ f.style.width=pct+"%"; f.classList.toggle("hot",level>-4); }
+    if(h) h.style.left=hpct+"%";
+  });
+  const ro=document.querySelector(".readout");
+  if(ro) ro.textContent = level>-99 ? Math.round(level)+" dB" : "\u2014";
+  if(recording){
+    const el=document.getElementById("recTimer");
+    if(el){ const s=(Date.now()-recStart)/1000; el.textContent=mmss(s); el.classList.toggle("short", s<MIN_DUR); }
+  }
+}
+const meterHTML=`<div class="meter"><div class="zone"></div><div class="fill"></div><div class="hold"></div></div>
+<div class="mscale"><span>QUIET</span><span class="readout">&mdash;</span><span>TOO LOUD</span></div>`;
+
+function render(){
+  const app=document.getElementById("app");
+
+  if(stage==="intro"){
+    app.innerHTML=`
+      <div class="eyebrow">Song Studio &mdash; top up</div>
+      <h1>Four more</h1>
+      <p>Your first session came out at 12 minutes of audio against a 20-minute target. Four two-minute answers closes the gap, and speech is the part the model leans on hardest.</p>
+      <p>These four pull different registers from the first set \u2014 one to laugh through, one to argue, one to explain slowly, one to say quietly. That variety is what's actually thin in the data, more than the raw minutes.</p>
+      <div class="panel">
+        <div class="eyebrow" style="margin-bottom:12px">Same rules</div>
+        <div class="bullet"><div class="dot"></div><div>Same mic, same room as last time \u2014 consistency across the set matters.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Aim for the green band. You ran a touch quiet last session.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Cough or stumble? Pause, wait a beat, carry on. Don't restart a two-minute take.</div></div>
+      </div>
+      ${err?`<div class="err">${err}</div>`:""}
+      <button class="fill" onclick="openMic()">Turn on my mic</button>`;
+    return;
+  }
+
+  if(stage==="room"){
+    let v=null;
+    if(roomFloor!==null){
+      v = roomFloor<-58 ? {ok:1,label:"Quiet enough",detail:"Matches last session. Go."}
+        : roomFloor<-48 ? {ok:1,label:"Usable",detail:"Noisier than last time. Quieter would be better \u2014 the set should be consistent."}
+        : {ok:0,label:"Too noisy",detail:"Turn off fans, AC, anything humming."};
+    }
+    app.innerHTML=`
+      <div class="eyebrow">Room check</div>
+      <h1>Four seconds of quiet</h1>
+      <p>Same check as last time. Stay silent so we can measure the room.</p>
+      <div style="margin-bottom:26px">${meterHTML}</div>
+      ${v?`<div class="verdict${v.ok?"":" bad"}">
+        <div class="vtitle" style="font-family:var(--display);color:${v.ok?"var(--green)":"var(--red)"}">${v.label}</div>
+        <div class="vbody">${v.detail}</div>
+        <div style="font-size:11px;color:var(--mid);margin-top:9px;letter-spacing:.06em">NOISE FLOOR ${Math.round(roomFloor)} dB &mdash; LAST SESSION RAN &minus;62 TO &minus;68</div>
+      </div>`:""}
+      <div class="row">
+        <button id="checkBtn" class="${v?"":"fill"}" onclick="roomCheck()">${roomFloor===null?"Start the check":"Check again"}</button>
+        ${v&&v.ok?`<button class="fill" onclick="stage='record';render()">Start recording</button>`:""}
+      </div>`;
+    return;
+  }
+
+  if(stage==="done"){
+    const n=Object.keys(takes).length, sec=captured();
+    app.innerHTML=`
+      <div class="eyebrow">Done</div>
+      <h1>That closes it</h1>
+      <p>${n} clips, ${mmss(sec)} of new audio. Added to the first session that puts the set at roughly ${mmss(732+sec)} \u2014 ${sec>=TARGET_SEC?"target met.":"close enough to train on properly."}</p>
+      <div class="row">
+        <button class="fill" onclick="downloadAll()">Download all ${n} files</button>
+        <button class="ghost" onclick="stage='record';idx=0;render()">Redo one</button>
+      </div>
+      <div style="font-size:12.5px;color:var(--mid);margin-top:12px;line-height:1.5">They'll save as 32 through 35 so they slot in after the first set.</div>`;
+    return;
+  }
+
+  const t=TAKES[idx], rec=takes[t.id], sec=captured();
+  app.innerHTML=`
+    <div class="rail">${TAKES.map((x,i)=>`<i class="${takes[x.id]?"done":(i===idx?"now":"")}" onclick="jump(${i})"></i>`).join("")}</div>
+    <div class="tally"><span>SPEAKING &mdash; ${idx+1} OF ${TAKES.length}</span><span>${mmss(sec)} OF 8:00 ADDED</span></div>
+    <div class="why">Unscripted speech carries prosody that reading can't. Ramble, backtrack, trail off \u2014 all of it is better data than a clean recital.</div>
+    <div class="prompt">
+      <div class="ptext">${t.text}</div>
+      <div class="phint">${t.hint}</div>
+    </div>
+    <div style="margin-bottom:18px">${meterHTML}</div>
+    ${recording?`<div class="timer" id="recTimer">0:00</div>
+      <div style="font-size:12.5px;color:var(--mid);margin-bottom:16px">Needs ${MIN_DUR} seconds minimum. The clock turns dark when you're past it.</div>`:""}
+    ${verdict?`<div class="verdict${verdict.ok?"":" bad"}">
+      <div class="vtitle" style="color:${verdict.ok?"var(--green)":"var(--red)"}">${verdict.ok?"Got it":"Not usable"}</div>
+      <div class="vbody">${verdict.ok
+        ? Math.round(verdict.dur)+"s, peaked at "+Math.round(verdict.peakDb)+" dB"+(verdict.note?" \u2014 "+verdict.note:"")
+        : verdict.reason}</div>
+    </div>`:""}
+    <div class="row">
+      ${!recording?`<button class="${(!verdict||!verdict.ok)?"fill":""}" onclick="startRec()">${(verdict||rec)?"Record again":"Start recording"}</button>`:""}
+      ${recording?`<button class="stop" onclick="stopRec()">Stop</button>`:""}
+      ${(((verdict&&verdict.ok)||rec)&&!recording)?`<button class="fill" onclick="advance()">${idx===TAKES.length-1?"Finish":"Next"}</button>`:""}
+      ${(rec&&!recording)?`<audio src="${rec.url}" controls></audio>`:""}
+    </div>`;
+}
+render();
+</script>
+</body>
+</html>
