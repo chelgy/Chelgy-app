@@ -12,7 +12,7 @@ so a failure at the mix step doesn't cost the two expensive stages before it.
   python render_song.py guide.wav --genre rnb --instruments "Rhodes, no hi-hats"
 """
 
-import os, sys, json, argparse, subprocess, tempfile, shutil
+import os, sys, json, math, argparse, subprocess, tempfile, shutil
 import numpy as np, requests, soundfile as sf
 
 ROOT = os.environ.get("RVC_ROOT", "/workspace/rvc")
@@ -100,6 +100,12 @@ def stage_beat(out, genre, instruments, key, tempo, seconds, app_base):
     Calls the app's own endpoint rather than ElevenLabs directly, so the
     composition rules live in exactly one place and the pod never needs a
     music API key.
+
+    Asks for more beat than the vocal needs. Alignment folds whatever comes
+    back into the vocal's metrical octave, which can mean speeding it up by as
+    much as 29% — and a beat that runs out early leaves the last phrase
+    hanging over silence. Overshooting costs a few seconds of generation;
+    undershooting costs the ending.
     """
     r = requests.post(f"{app_base}/api/song-beat", timeout=300, json={
         "action": "compose", "genre": genre, "instruments": instruments,
@@ -109,37 +115,92 @@ def stage_beat(out, genre, instruments, key, tempo, seconds, app_base):
     if r.status_code != 200:
         raise RuntimeError(f"Beat generation failed ({r.status_code}): {r.text[:300]}")
     open(out, "wb").write(r.content)
-    print(f"  {len(r.content)//1024} KB")
+    print(f"  {len(r.content)//1024} KB, {int(seconds)}s requested")
 
 
-# ── 4 · MIX ─────────────────────────────────────────────────────────────────
-def stage_mix(vocal, beat, out, vocal_db, beat_db):
+# ── 4 · ALIGN ───────────────────────────────────────────────────────────────
+def stage_align(beat, vocal, out, info, tempo_override, key_override,
+                min_key_conf, enabled):
     """
-    A vocal chain in one ffmpeg graph.
+    Make the beat match the vocal instead of hoping it does.
 
-    highpass    — clears the mud below the voice so the bass has room
-    compand     — evens out the loud and quiet parts of an untrained take
-    aecho       — a short slap, not a wash; long reverb buries diction
-    sidechain   — ducks the beat under the voice, which is what makes a mix
-                  sound produced rather than layered
-    loudnorm    — one pass to −14 LUFS, the streaming target
+    The music engine treats the requested tempo and key as a vibe, not a spec —
+    148 in G# came back as 166 in something else. Everything here is measured
+    off the audio that actually arrived. See align.py for why folding the
+    tempo octave first is what keeps the stretch inaudible.
     """
-    sh("ffmpeg", "-y", "-i", vocal, "-i", beat,
+    if not enabled:
+        print("  alignment disabled — copying the beat through untouched")
+        shutil.copy(beat, out)
+        return {"disabled": True}
+    from align import align_beat
+    key = key_override or info["key"]
+    conf = 1.0 if key_override else float(info["key"].get("confidence") or 0.0)
+    return align_beat(beat, vocal, out,
+                      vocal_tempo=tempo_override or info["tempo"],
+                      vocal_key=key, key_confidence=conf,
+                      min_key_confidence=min_key_conf)
+
+
+# ── 5 · MIX ─────────────────────────────────────────────────────────────────
+def _rms_db(path):
+    x, _ = sf.read(path, always_2d=True)
+    if not len(x):
+        return -100.0
+    r = float(np.sqrt((x.mean(axis=1) ** 2).mean()))
+    return 20.0 * math.log10(r) if r > 0 else -100.0
+
+
+def stage_vocal_chain(vocal, out):
+    """
+    highpass  — clears the mud below the voice so the bass has room
+    compand   — evens out the loud and quiet parts of an untrained take
+    aecho     — a short slap, not a wash; long reverb buries diction
+
+    Rendered on its own rather than inline in the mix graph so the next stage
+    can measure the vocal as it will actually be heard. Measuring the raw take
+    would set the balance against a level that no longer exists by the time
+    the two stems meet.
+    """
+    sh("ffmpeg", "-y", "-v", "error", "-i", vocal, "-af",
+       "highpass=f=90,"
+       "compand=attacks=0.01:decays=0.25:points=-70/-70|-24/-14|-6/-6|0/-4,"
+       "aecho=0.8:0.85:45:0.12",
+       "-ar", "44100", "-c:a", "pcm_s16le", out)
+
+
+def stage_mix(vocal_proc, beat, out, lead_db, vocal_db, beat_db):
+    """
+    The balance is measured, not dialled in.
+
+    Fixed dB offsets are how the beat ended up 13 dB over the vocal: they were
+    chosen against one beat, and every beat since has come back at whatever
+    level the music engine felt like. Setting the beat relative to the
+    measured vocal makes the balance hold no matter what arrives.
+
+    sidechain — ducks the beat under the voice, which is what makes a mix
+                sound produced rather than layered
+    loudnorm  — one pass to −14 LUFS, the streaming target
+    """
+    v_db, b_db = _rms_db(vocal_proc), _rms_db(beat)
+    gain = (v_db - lead_db) - b_db + beat_db
+    print(f"  vocal {v_db:.1f} dB RMS, beat {b_db:.1f} dB — beat {gain:+.1f} dB "
+          f"so the vocal leads by {lead_db:.1f} dB")
+
+    fmt = "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo"
+    sh("ffmpeg", "-y", "-v", "error", "-i", vocal_proc, "-i", beat,
        "-filter_complex",
-       f"[0:a]highpass=f=90,"
-       f"compand=attacks=0.01:decays=0.25:points=-70/-70|-24/-14|-6/-6|0/-4,"
-       f"aecho=0.8:0.85:45:0.12,"
-       f"volume={vocal_db}dB,asplit=2[v][vkey];"
-       f"[1:a]volume={beat_db}dB[b];"
+       f"[0:a]{fmt},volume={vocal_db}dB,asplit=2[v][vkey];"
+       f"[1:a]{fmt},volume={gain:.2f}dB[b];"
        f"[b][vkey]sidechaincompress=threshold=0.05:ratio=4:attack=8:release=260[bduck];"
        f"[v][bduck]amix=inputs=2:duration=longest:normalize=0,"
        f"alimiter=limit=0.95,"
-       f"loudnorm=I=-14:TP=-1.5:LRA=11",
-       "-ar", "44100", "-b:a", "320k", out)
+       f"loudnorm=I=-14:TP=-1.5:LRA=11[mix]",
+       "-map", "[mix]", "-ar", "44100", "-b:a", "320k", out)
     print(f"  {os.path.getsize(out)//1024} KB")
 
 
-# ── 5 · SHIP ────────────────────────────────────────────────────────────────
+# ── 6 · SHIP ────────────────────────────────────────────────────────────────
 def stage_upload(path, profile_id, meta):
     prof = requests.get(f"{SUPABASE_URL}/rest/v1/voice_profiles",
                         params={"select": "user_id", "id": f"eq.{profile_id}"},
@@ -168,11 +229,34 @@ def main():
     # in its quirks; lower keeps the guide's delivery and sounds less like you.
     p.add_argument("--index-rate", type=float, default=0.75)
     p.add_argument("--protect", type=float, default=0.33)
-    p.add_argument("--vocal-db", type=float, default=0.0)
-    p.add_argument("--beat-db", type=float, default=-4.0)
+    # Detection off a solo vocal is the least certain number in the pipeline.
+    # These make it a suggestion rather than a fact.
+    p.add_argument("--tempo", type=float, default=None,
+                   help="override the detected tempo, in BPM")
+    p.add_argument("--key", default=None,
+                   help='override the detected key, e.g. "G# minor"')
+    p.add_argument("--no-align", action="store_true",
+                   help="skip beat alignment entirely (for A/B comparison)")
+    p.add_argument("--min-key-confidence", type=float, default=0.5,
+                   help="below this, the beat is not pitch-shifted at all")
+    # How far the vocal sits above the beat, in dB RMS. The absolute levels are
+    # measured at mix time; this is the only number that is taste.
+    p.add_argument("--vocal-lead-db", type=float, default=3.0)
+    p.add_argument("--vocal-db", type=float, default=0.0, help="trim on the vocal")
+    p.add_argument("--beat-db", type=float, default=0.0, help="trim on the beat")
     p.add_argument("--app", default="https://chelgy.app")
     p.add_argument("--no-upload", action="store_true")
     a = p.parse_args()
+
+    key_override = None
+    if a.key:
+        from tune import NAMES
+        bits = a.key.split()
+        if bits[0] not in NAMES:
+            sys.exit('--key should look like "G# minor". Names: ' + " ".join(NAMES))
+        key_override = {"tonic": NAMES.index(bits[0]), "name": bits[0],
+                        "mode": (bits[1].lower() if len(bits) > 1 else "major"),
+                        "confidence": 1.0}
 
     pid = os.environ.get("PROFILE_ID")
     if not pid: sys.exit("PROFILE_ID is not set.")
@@ -188,10 +272,17 @@ def main():
     work = tempfile.mkdtemp(prefix="song-")
     def w(n): return os.path.join(work, n)
 
-    print("▸ 1/5  tuning the guide take")
+    print("▸ 1/6  tuning the guide take")
     info = stage_tune(a.guide, w("tuned.wav"), a.tune_strength)
+    if info.get("tempo_candidates"):
+        print("  tempo options: " + ", ".join(
+            f"{c['bpm']} ({c['relation']})" for c in info["tempo_candidates"]))
+    if a.tempo:
+        print(f"  using your tempo override: {a.tempo}")
+    if key_override:
+        print(f"  using your key override: {a.key}")
 
-    print("▸ 2/5  fetching your voice model")
+    print("▸ 2/6  fetching your voice model")
     for field, dest in (("model_path", "model.pth"), ("index_path", "model.index")):
         if not prof.get(field): continue
         d = requests.get(f"{SUPABASE_URL}/storage/v1/object/voice/{prof[field]}",
@@ -199,26 +290,40 @@ def main():
         d.raise_for_status()
         open(w(dest), "wb").write(d.content)
 
-    print("▸ 3/5  singing it in your voice")
+    print("▸ 3/6  singing it in your voice")
     stage_voice(w("tuned.wav"), w("vocal.wav"), w("model.pth"),
                 w("model.index") if prof.get("index_path") else None,
                 a.index_rate, a.protect)
 
     dur = sf.info(w("vocal.wav")).duration
-    print("▸ 4/5  making the beat")
-    stage_beat(w("beat.mp3"), a.genre, a.instruments, info["key"], info["tempo"], dur, a.app)
+    tempo = a.tempo or info["tempo"]
+    key = key_override or info["key"]
 
-    print("▸ 5/5  mixing")
-    stage_mix(w("vocal.wav"), w("beat.mp3"), a.out, a.vocal_db, a.beat_db)
+    print("▸ 4/6  making the beat")
+    # 35% longer than the vocal, because alignment may have to speed the beat
+    # up to reach the vocal's tempo and a beat that ends early is worse than a
+    # beat that gets trimmed.
+    stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
+               min(300, dur * 1.35 + 4), a.app)
+
+    print("▸ 5/6  aligning the beat to your vocal")
+    align_info = stage_align(w("beat.mp3"), w("vocal.wav"), w("beat-aligned.wav"),
+                             info, a.tempo, key_override, a.min_key_confidence,
+                             not a.no_align)
+
+    print("▸ 6/6  mixing")
+    stage_vocal_chain(w("vocal.wav"), w("vocal-proc.wav"))
+    stage_mix(w("vocal-proc.wav"), w("beat-aligned.wav"), a.out,
+              a.vocal_lead_db, a.vocal_db, a.beat_db)
 
     if not a.no_upload:
         import datetime
         stage_upload(a.out, pid, {"stamp": datetime.datetime.now().strftime("%Y%m%d-%H%M%S")})
 
     print(f"\n✓ {a.out}")
-    print(json.dumps({"key": info["key"]["name"] + " " + info["key"]["mode"],
-                      "tempo": info["tempo"], "seconds": round(dur, 1),
-                      "genre": a.genre}, indent=2))
+    print(json.dumps({"key": key["name"] + " " + key["mode"],
+                      "tempo": tempo, "seconds": round(dur, 1),
+                      "genre": a.genre, "alignment": align_info}, indent=2))
 
 
 if __name__ == "__main__":

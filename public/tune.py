@@ -11,6 +11,8 @@ handed to it directly. Correcting the audio first and letting RVC read pitch
 off already-tuned audio gets the same result with stock RVC and nothing to fork.
 """
 
+import math
+
 import numpy as np
 import pyworld as pw
 import soundfile as sf
@@ -155,30 +157,171 @@ def correct(f0, key, strength=0.85, preserve_vibrato=True):
     return corrected, notes
 
 
-def estimate_tempo(x, sr):
+# ── TEMPO ───────────────────────────────────────────────────────────────────
+# The previous estimator returned 148 for a 74 BPM take: it locked onto the
+# eighth notes, which is the classic metrical octave error. Autocorrelation
+# alone cannot resolve it — a signal that repeats every half beat also repeats
+# every beat, so both lags peak. What resolves it is accent: on a real take the
+# syllables that land on the beat are louder than the ones between. That is
+# what the fold below measures.
+
+ONSET_HOP = 512
+
+
+def onset_envelope(x, sr, hop=ONSET_HOP):
     """
-    Onset strength autocorrelation. Coarse by design — this is a starting
-    suggestion for the beat, and the person can override it. Guessing precisely
-    wrong is worse than offering a round number they can correct.
+    Half-wave-rectified frame-to-frame RMS rise.
+
+    Shared with the beat aligner rather than reimplemented there, so the vocal
+    and the beat are always measured on the same clock. Cross-correlating two
+    envelopes built with different hops lines up to the wrong place silently.
     """
-    hop = 512
     n = len(x) // hop
-    if n < 40:
-        return None
+    if n < 16:
+        return None, sr / float(hop)
     frames = x[:n * hop].reshape(n, hop)
     env = np.sqrt((frames ** 2).mean(axis=1))
-    env = np.maximum(0, np.diff(env, prepend=env[0]))
-    env -= env.mean()
-    if not env.any():
-        return None
+    env = np.maximum(0.0, np.diff(env, prepend=env[0]))
+    if env.any():
+        env = env - env.mean()
+    return env, sr / float(hop)
+
+
+def _autocorr(env):
     ac = np.correlate(env, env, "full")[len(env) - 1:]
-    fps = sr / hop
-    lo, hi = int(fps * 60 / 180), int(fps * 60 / 60)   # 60–180 BPM
-    hi = min(hi, len(ac) - 1)
-    if hi <= lo:
+    return ac / ac[0] if ac[0] > 0 else ac
+
+
+def _smear_score(ac):
+    """
+    A period of 32.3 frames splits its autocorrelation peak across bins 32 and
+    33, while its own third multiple at 96.9 lands almost exactly on a bin and
+    therefore looks stronger — which is how a 160 BPM take gets read as 53.
+    Summing a window that grows with the lag puts the split energy back
+    together; dividing by the square root of the window stops the wider
+    windows at long lags from winning on width alone.
+    """
+    out = np.zeros(len(ac))
+    for j in range(2, len(ac)):
+        w = max(1, int(round(0.02 * j)))
+        a, b = max(0, j - w), min(len(ac), j + w + 1)
+        out[j] = ac[a:b].sum() / math.sqrt(b - a)
+    return out
+
+
+def _comb(e, axis, lag, start=0.0, kmax=48):
+    """Mean envelope height on a beat grid of period `lag` starting at `start`."""
+    k = min(kmax, int((len(e) - 1 - start) / lag)) if lag > 0 else 0
+    if k < 2:
+        return -1.0
+    return float(np.interp(start + lag * np.arange(k + 1), axis, e).mean())
+
+
+def _refine(env, lag):
+    """
+    Bin resolution is only good to about 2%, and a 2% error walks the grid a
+    full beat out of phase across twenty seconds — which then makes the octave
+    test below read noise instead of accent. Search fractional lags nearby.
+    """
+    e = env - env.min()
+    axis = np.arange(len(e))
+    span, step = max(1.5, 0.06 * lag), 0.02
+    best, best_lag = -1e9, float(lag)
+    for L in np.arange(max(2.0, lag - span), lag + span + 1e-9, step):
+        # Score across several start phases so this measures the period rather
+        # than whether frame zero happens to land on a beat.
+        s = max(_comb(e, axis, L, p) for p in (0.0, L / 3.0, 2.0 * L / 3.0))
+        if s > best:
+            best, best_lag = s, float(L)
+    return best_lag
+
+
+def _off_beat_ratio(env, lag):
+    """
+    How loud the midpoints of `lag` are compared with its beats.
+
+    Near 1 means both levels are accented equally and `lag` is not obviously
+    the beat. Well below 1 means the faster level is a weak subdivision and
+    `lag` is the real beat — which is the case this whole section exists for.
+    """
+    if lag < 2 or lag * 3 >= len(env):
         return None
-    lag = lo + int(np.argmax(ac[lo:hi]))
-    return round(60.0 * fps / lag, 1)
+    e = env - env.min()
+    axis = np.arange(len(e))
+    phases = (0.0, lag / 4.0, lag / 2.0, 3.0 * lag / 4.0)
+    ph = max(phases, key=lambda p: _comb(e, axis, lag, p))
+    on = _comb(e, axis, lag, ph)
+    off = _comb(e, axis, lag, ph + lag / 2.0)
+    return (off / on) if on > 0 else None
+
+
+def tempo_candidates(x, sr, lo_bpm=50.0, hi_bpm=200.0, alternation=0.8):
+    """
+    Best first. The leading entry is the pipeline's answer; the rest are its
+    metrical octaves, returned so the person can override a detection that
+    heard eighth notes as beats without having to guess what else to try.
+    """
+    env, fps = onset_envelope(x, sr)
+    if env is None or not env.any():
+        return []
+    ac = _autocorr(env)
+    sc = _smear_score(ac)
+    lo = max(2, int(fps * 60.0 / hi_bpm))
+    hi = min(len(sc) - 1, int(fps * 60.0 / lo_bpm))
+    if hi <= lo:
+        return []
+
+    lag = _refine(env, float(lo + int(np.argmax(sc[lo:hi]))))
+    trail = []
+    for _ in range(3):
+        dbl = lag * 2.0
+        if 60.0 * fps / dbl < lo_bpm or int(round(dbl)) >= len(sc):
+            break
+        r = _off_beat_ratio(env, dbl)
+        if r is None or r >= alternation:
+            break
+        if sc[int(round(dbl))] < 0.35 * sc[int(round(lag))]:
+            break
+        trail.append(round(60.0 * fps / lag, 1))
+        lag = _refine(env, dbl)
+
+    out, seen = [], set()
+    for rel, L in (("detected", lag), ("double", lag / 2.0), ("half", lag * 2.0)):
+        bpm = round(60.0 * fps / L, 1)
+        if not (lo_bpm <= bpm <= hi_bpm) or bpm in seen:
+            continue
+        seen.add(bpm)
+        j = int(round(L))
+        out.append({"bpm": bpm, "relation": rel,
+                    "score": round(float(sc[j]) if j < len(sc) else 0.0, 4)})
+    if trail:
+        out[0]["folded_from"] = trail
+    return out
+
+
+def fold_tempo_to(bpm, target, max_octaves=3):
+    """
+    Move a tempo into the same metrical octave as `target` by halving or
+    doubling.
+
+    Used on the generated beat. Asking for 148 and getting 166 is one kind of
+    disagreement; 166 measured against a 74 BPM vocal is that same
+    disagreement plus an octave. Folding first turns a 124% time-stretch into
+    a 12% one, and 12% is inaudible where 124% turns drums into wet cardboard.
+    """
+    if not bpm or not target or bpm <= 0 or target <= 0:
+        return bpm
+    best = float(bpm)
+    for e in range(-max_octaves, max_octaves + 1):
+        c = float(bpm) * (2.0 ** e)
+        if abs(math.log2(c / target)) < abs(math.log2(best / target)):
+            best = c
+    return best
+
+
+def estimate_tempo(x, sr):
+    c = tempo_candidates(x, sr)
+    return c[0]["bpm"] if c else None
 
 
 def tune_file(in_path, out_path, strength=0.85):
@@ -200,9 +343,14 @@ def tune_file(in_path, out_path, strength=0.85):
 
     voiced = f0 > 0
     moved = [abs(n["cents_moved"]) for n in notes]
+    cands = tempo_candidates(x, sr)
     return {
         "key": key,
-        "tempo": estimate_tempo(x, sr),
+        "tempo": cands[0]["bpm"] if cands else None,
+        # Offered, not hidden. Tempo off a solo vocal is the least certain
+        # number this stage produces, and the alternatives are almost always
+        # the exact halves and doubles — cheap to show, expensive to guess.
+        "tempo_candidates": cands,
         "notes": len(notes),
         "median_correction_cents": int(np.median(moved)) if moved else 0,
         "max_correction_cents": int(max(moved)) if moved else 0,
