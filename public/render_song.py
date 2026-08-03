@@ -64,8 +64,17 @@ def stage_voice(tuned, out, model_pth, model_index, index_rate, protect):
     from configs.config import Config
     from infer.vc.modules import VC
 
-    vc = VC(Config())
-    vc.get_vc("songvoice.pth")
+    # RVC's Config runs argparse on sys.argv when constructed — it expects the
+    # web UI's flags (--port, --pycmd, --colab) and hard-exits on anything else.
+    # Ours look like garbage to it. Hide the command line for the duration of
+    # the import and put it back afterwards.
+    saved_argv = sys.argv
+    sys.argv = [saved_argv[0]]
+    try:
+        vc = VC(Config())
+        vc.get_vc("songvoice.pth")
+    finally:
+        sys.argv = saved_argv
 
     _, wav = vc.vc_single(
         0, tuned,
