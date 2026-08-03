@@ -46,45 +46,29 @@ function skeleton(seconds) {
   return [["Intro",0.08],["Verse",0.2],["Chorus",0.22],["Verse",0.17],["Chorus",0.21],["Outro",0.12]];
 }
 
-function buildPlan({ genre, instruments, key, tempo, seconds }) {
+function buildPrompt({ genre, instruments, key, tempo, seconds }) {
   const g = GENRES[genre] || GENRES.pop;
+  const bits = [g.styles.join(", ")];
 
   // Key and tempo come from the guide take, so the beat lands under the vocal
   // instead of the vocal having to be dragged onto the beat.
-  const technical = [];
-  if (tempo) technical.push(Math.round(tempo) + " BPM");
-  if (key)   technical.push(key.name + " " + key.mode);
+  if (tempo) bits.push(Math.round(tempo) + " BPM");
+  if (key)   bits.push("in " + key.name + " " + key.mode);
 
-  // Free text from the person, split on commas. Their words go in verbatim —
-  // rewriting "no hi-hats" into something tidier is how you lose the request.
+  // The person's own words, verbatim. Rewriting "no hi-hats" into something
+  // tidier is how you lose the thing they actually asked for.
   const asked = String(instruments || "")
-    .split(/[,;]+/).map(s => s.trim()).filter(Boolean).slice(0, 8);
+    .split(/[,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 8);
+  if (asked.length) bits.push(asked.join(", "));
 
-  const positive = [...g.styles, ...technical, ...asked, "instrumental", "no vocals"];
+  bits.push(skeleton(seconds).map(([n]) => n.toLowerCase()).join(" then "));
 
-  const parts = skeleton(seconds);
-  const sections = parts.map(([name, share], i) => ({
-    section_name: name,
-    positive_local_styles:
-      name === "Chorus" ? ["fuller arrangement", "lift"]
-      : name === "Intro" ? ["sparse", "sets up the groove"]
-      : name === "Outro" ? ["winding down"]
-      : ["steady groove", "leaves room on top"],
-    negative_local_styles: NO_VOCALS,
-    // Clamped to Eleven's 3–120s per-section limit. Rounding down on the last
-    // section rather than up keeps the total inside the requested length.
-    duration_ms: Math.max(3000, Math.min(120000, Math.round(seconds * share) * 1000)),
-    // "lines", not "lyrics". The API rejects a section without it, and the
-    // error names composition_plan rather than the field, so it reads like the
-    // whole plan is malformed. Empty array = instrumental, which is what we want.
-    lines: [],
-  }));
+  // Stated three ways on purpose. The vocal is the person's own voice, and a
+  // generated singer underneath it is the worst failure this feature has.
+  bits.push("instrumental only, no vocals, no singing, no human voice");
+  bits.push("leaves space in the middle for a lead vocal on top");
 
-  return {
-    positive_global_styles: positive,
-    negative_global_styles: NO_VOCALS,
-    sections,
-  };
+  return bits.join(". ") + ".";
 }
 
 export default async function handler(req, res) {
@@ -107,20 +91,32 @@ export default async function handler(req, res) {
     // the key and tempo we measured off the guide take — the whole point.
     if (action === "plan") {
       return res.status(200).json({
-        plan: buildPlan({ genre, instruments, key, tempo, seconds: dur }),
+        prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur }),
+        structure: skeleton(dur).map(([n, sh]) => n + " " + Math.round(dur * sh) + "s"),
         genre: (GENRES[genre] || GENRES.pop).label,
         cost: BEAT_COST,
       });
     }
 
     // ── COMPOSE ────────────────────────────────────────────────────────────
+    // The prompt endpoint, not the composition-plan one.
+    //
+    // Two attempts at hand-building a plan were rejected: first for using
+    // `lyrics` where sections want `lines`, then for a plan shape music_v2
+    // doesn't accept at all. Their errors name composition_plan rather than the
+    // offending field, so each round costs a full render to discover. The
+    // prompt path is what their own examples use and it takes everything we
+    // need — genre, instruments, key, tempo — as words.
     if (action === "compose") {
-      const composition_plan = plan || buildPlan({ genre, instruments, key, tempo, seconds: dur });
-
-      const r = await fetch(EL + "/music/compose", {
+      const r = await fetch(EL + "/music", {
         method: "POST",
         headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ composition_plan, model_id: MODEL, output_format: "mp3_44100_128" }),
+        body: JSON.stringify({
+          prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur }),
+          music_length_ms: dur * 1000,
+          model_id: MODEL,
+          output_format: "mp3_44100_128",
+        }),
       });
 
       if (!r.ok) {
@@ -143,4 +139,4 @@ export default async function handler(req, res) {
 }
 
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
-export { GENRES, buildPlan };
+export { GENRES, buildPrompt };
