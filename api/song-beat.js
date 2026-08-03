@@ -74,7 +74,10 @@ function buildPlan({ genre, instruments, key, tempo, seconds }) {
     // Clamped to Eleven's 3–120s per-section limit. Rounding down on the last
     // section rather than up keeps the total inside the requested length.
     duration_ms: Math.max(3000, Math.min(120000, Math.round(seconds * share) * 1000)),
-    lyrics: "",
+    // "lines", not "lyrics". The API rejects a section without it, and the
+    // error names composition_plan rather than the field, so it reads like the
+    // whole plan is malformed. Empty array = instrumental, which is what we want.
+    lines: [],
   }));
 
   return {
