@@ -16,6 +16,10 @@
     {
       "path": "/api/retention",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron-reap-song-pods",
+      "schedule": "0 5 * * *"
     }
   ]
 }
