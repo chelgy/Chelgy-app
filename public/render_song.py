@@ -366,6 +366,13 @@ def main():
     p.add_argument("--genre", default="pop")
     p.add_argument("--beat-url", default="",
                    help="a pre-chosen or uploaded beat; when set, skip generation and use this")
+    p.add_argument("--voice-mode", default="converter", choices=["converter", "generator"],
+                   help="converter = RVC repaints the tuned take (default); "
+                        "generator = DiffSinger SINGS the score from scratch (needs a trained generator)")
+    p.add_argument("--lyrics", default="",
+                   help="the words sung in the guide take (generator mode needs them)")
+    p.add_argument("--generator-model", default="",
+                   help="path to the trained acoustic.ckpt (generator mode)")
     p.add_argument("--instruments", default="")
     p.add_argument("--style", default="",
                    help="production style from an inspo track (feel only, not key/tempo)")
@@ -440,7 +447,23 @@ def main():
         open(w(dest), "wb").write(d.content)
 
     print("▸ 3/6  singing it in your voice")
-    stage_voice(w("tuned.wav"), w("vocal.wav"), w("model.pth"),
+    if a.voice_mode == "generator":
+        # THE GENERATOR PATH. Instead of repainting the tuned take (RVC), the
+        # trained DiffSinger model SINGS the melody from scratch — a genuinely
+        # generated vocal in the person's voice. Needs: the note list from the
+        # tune analysis, the lyrics that were sung, and the trained ckpt.
+        print("\u25b8 voice (generator)")
+        if not a.lyrics.strip():
+            raise SystemExit("generator mode needs --lyrics (the words sung in the guide)")
+        if not a.generator_model or not os.path.isfile(a.generator_model):
+            raise SystemExit("generator mode needs --generator-model pointing at the trained ckpt")
+        notes_path = w("notes.json")
+        json.dump(info.get("note_list") or [], open(notes_path, "w"))
+        sh(sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "sing.py"),
+           "--notes", notes_path, "--lyrics", a.lyrics,
+           "--model", a.generator_model, "--out", w("vocal.wav"))
+    else:
+        stage_voice(w("tuned.wav"), w("vocal.wav"), w("model.pth"),
                 w("model.index") if prof.get("index_path") else None,
                 a.index_rate, a.protect)
 

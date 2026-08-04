@@ -455,6 +455,16 @@ def tune_file(in_path, out_path, strength=0.85):
         "tempo_candidates": cands,
         "chords": chords,
         "notes": len(notes),
+        # The melody itself, for the generator path: each sung note with its
+        # pitch and timing. sing.py builds the score (syllables onto notes)
+        # from exactly this. `target` is the tuned note name (e.g. "D4") —
+        # the note the vocal was corrected TO, which is what should be sung.
+        "note_list": [
+            {"name": n["target"],
+             "start": n["start"],
+             "dur": round(n["end"] - n["start"], 3)}
+            for n in notes
+        ],
         "median_correction_cents": int(np.median(moved)) if moved else 0,
         "max_correction_cents": int(max(moved)) if moved else 0,
         "range": {
