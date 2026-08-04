@@ -10748,6 +10748,12 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
             setPct(100); setStage(""); setBusy(false);
             setSong({ path: st.storagePath, url: st.audioUrl || null, key: st.key, tempo: st.tempo });
             onBalance && onBalance();
+            // Auto-save to the Library so the song is never only in storage.
+            if(st.audioUrl){
+              const gl = GENRES.find(g=>g[0]===genre);
+              const title = "Song \u2014 " + (gl?gl[1]:genre) + (st.key?" ("+st.key+")":"");
+              saveToLibrary(user, "song", title, st.audioUrl).catch(()=>{});
+            }
           } else if(st.status === "failed" || st.status === "error"){
             clearInterval(pollRef.current); pollRef.current = null;
             setBusy(false); setStage("");
@@ -10879,6 +10885,19 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               {song.url
                 ? <audio src={song.url} controls style={{width:"100%"}} />
                 : <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>Your song is saved. Reload to play it.</p>}
+              {song.url && (
+                <div style={{display:"flex",gap:10,alignItems:"center",marginTop:12}}>
+                  <button onClick={async()=>{
+                    try{
+                      const r = await fetch(song.url);
+                      const b = await r.blob();
+                      const u = URL.createObjectURL(b);
+                      saveBlobUrl(u, "chelgy-song.mp3", true);
+                    }catch(_){ window.open(song.url, "_blank"); }
+                  }} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,letterSpacing:"0.04em",padding:"10px 20px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Download</button>
+                  <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid}}>Saved to your Library</span>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -22891,6 +22910,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
                            <div key={it.id} style={{background:B.white,border:"1px solid "+B.stone,overflow:"hidden"}}>
                              {it.kind==="image" ? <img src={it.url} alt="" style={{width:"100%",height:104,objectFit:"cover",display:"block",background:B.offwhite}} />
                               : it.kind==="video" ? <video src={it.url} controls style={{width:"100%",height:104,objectFit:"cover",display:"block",background:"#000"}} />
+                              : (it.kind==="song"||it.kind==="audio") ? <div style={{height:104,background:B.inkBlock,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 12px"}}><audio src={it.url} controls style={{width:"100%"}} /></div>
                               : <div style={{height:104,background:B.offwhite,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",color:B.mid,textTransform:"uppercase"}}>Link</div>}
                              <div style={{padding:"9px 11px"}}>
                                <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,fontWeight:600,color:B.charcoal,lineHeight:1.35,marginBottom:7}}>{it.title||"Untitled"}</div>
