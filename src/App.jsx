@@ -10584,6 +10584,261 @@ function OrdersPanel({ user }){
     </div>
   );
 }
+
+// ── SONG STUDIO ─────────────────────────────────────────────────────────────
+// Sing a rough guide take of your own melody; get it back sung in your own
+// voice, in tune, over a beat built to match what you sang.
+//
+// The melody is YOURS. Singing to a pre-made beat was rejected as the default
+// because it makes the tune a derivative of the loop — the beat follows the
+// voice here, not the other way round.
+//
+// Everything expensive happens on a song pod. This room uploads a guide take,
+// queues a job, and polls. It deliberately knows nothing about RVC, tuning or
+// beat alignment: the six-stage progress it shows comes from the worker.
+function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null }){
+  const [profile,setProfile]   = useState(undefined);   // undefined = still loading
+  const [file,setFile]         = useState(null);
+  const [clipUrl,setClipUrl]   = useState("");
+  const [recording,setRec]     = useState(false);
+  const [genre,setGenre]       = useState("rnb");
+  const [instruments,setInst]  = useState("");
+  const [tuneStrength,setTune] = useState(0.85);
+  const [indexRate,setIndex]   = useState(0.75);
+  const [busy,setBusy]         = useState(false);
+  const [stage,setStage]       = useState("");
+  const [pct,setPct]           = useState(0);
+  const [song,setSong]         = useState(null);
+  const [err,setErr]           = useState("");
+  const recRef  = useRef(null);
+  const chunks  = useRef([]);
+  const pollRef = useRef(null);
+
+  const COST = CREDIT_COSTS.songBeat;
+
+  // The twelve in api/song-beat.js. Kept in the same order so the picker and the
+  // prompt builder never drift into disagreeing about what "rnb" means.
+  const GENRES = [
+    ["rnb","R&B"], ["trap","Trap"], ["pop","Pop"], ["afrobeat","Afrobeats"],
+    ["drill","Drill"], ["house","House"], ["soul","Soul"], ["country","Country"],
+    ["rock","Rock"], ["lofi","Lo-fi"], ["ballad","Ballad"], ["gospel","Gospel"],
+  ];
+
+  useEffect(()=>{
+    let alive = true;
+    (async()=>{
+      try{
+        const token = await freshToken();
+        if(!token){ if(alive) setProfile(null); return; }
+        const r = await fetch(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status&order=created_at.desc&limit=1",
+          { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
+        const rows = await r.json();
+        if(alive) setProfile((Array.isArray(rows) && rows[0]) || null);
+      }catch{ if(alive) setProfile(null); }
+    })();
+    return ()=>{ alive = false; };
+  }, []);
+
+  // Stop polling when the room closes. Without this a finished render keeps
+  // calling a status endpoint forever on a page nobody is looking at.
+  useEffect(()=> ()=>{ if(pollRef.current) clearInterval(pollRef.current); }, []);
+
+  async function startRec(){
+    setErr("");
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:{
+        // All three default ON and all three hurt a sung take. Auto gain is the
+        // worst — it flattens exactly the dynamics that carry a melody.
+        echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+      chunks.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if(e.data && e.data.size) chunks.current.push(e.data); };
+      mr.onstop = ()=>{
+        try{ stream.getTracks().forEach(t=>t.stop()); }catch{}
+        const blob = new Blob(chunks.current, { type: mr.mimeType || "audio/webm" });
+        // Whatever the browser produced. The song worker transcodes to mono 48k
+        // WAV before Python sees it, so the container here does not matter.
+        setFile(new File([blob], "guide.webm", { type: blob.type }));
+        setClipUrl(URL.createObjectURL(blob));
+      };
+      mr.start();
+      recRef.current = mr;
+      setRec(true);
+    }catch{ setErr("Couldn't reach your microphone. Check the browser's permission for this site."); }
+  }
+
+  function stopRec(){
+    try{ recRef.current && recRef.current.stop(); }catch{}
+    setRec(false);
+  }
+
+  function pick(e){
+    const f = (e.target.files||[])[0]; e.target.value = "";
+    if(!f) return;
+    setErr(""); setSong(null);
+    setFile(f); setClipUrl(URL.createObjectURL(f));
+  }
+
+  async function makeSong(){
+    setErr(""); setSong(null);
+    if(!file){ setErr("Sing a guide take or choose an audio file first."); return; }
+    if(!profile || profile.status!=="ready"){ setErr("Your voice model isn't ready yet."); return; }
+    if(credits < COST){ onBuyCredits(); return; }
+    if(!useCredits(COST)) return;
+
+    setBusy(true); setPct(3); setStage("Uploading your take…");
+    try{
+      const ext = (file.name.split(".").pop()||"webm").toLowerCase().slice(0,5);
+      const path = "songs/" + (user && user.id ? user.id : "anon") + "/" + Date.now() + "." + ext;
+      const url = await uploadSiteAudioFile(file, path);
+      if(!url) throw new Error("That take couldn't be uploaded. Check your connection and try again.");
+
+      const token = await freshToken();
+      const r = await fetch("/api/studio-song", { method:"POST",
+        headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+        body: JSON.stringify({ guideUrl:url, profileId:profile.id, genre,
+          instruments, tuneStrength, indexRate }) });
+      const j = await r.json();
+      if(!r.ok || !j.jobId) throw new Error(j.error || "Couldn't start the song.");
+
+      setPct(8); setStage("Waiting for a machine…");
+      onToolUse && onToolUse("songstudio");
+
+      // Polled, not pushed. A song outlives any single request and a browser
+      // that reloads mid-render must be able to pick the job back up.
+      pollRef.current = setInterval(async()=>{
+        try{
+          const t2 = await freshToken();
+          const s = await fetch("/api/studio-song?jobId=" + encodeURIComponent(j.jobId),
+            { headers: t2?{Authorization:"Bearer "+t2}:{} });
+          const st = await s.json();
+          if(!s.ok) return;
+          if(typeof st.progress === "number") setPct(Math.max(8, st.progress));
+          if(st.stage) setStage(st.stage.charAt(0).toUpperCase() + st.stage.slice(1) + "…");
+          if(st.status === "done" && st.storagePath){
+            clearInterval(pollRef.current); pollRef.current = null;
+            setPct(100); setStage(""); setBusy(false);
+            setSong({ path: st.storagePath, key: st.key, tempo: st.tempo });
+            onBalance && onBalance();
+          } else if(st.status === "failed" || st.status === "error"){
+            clearInterval(pollRef.current); pollRef.current = null;
+            setBusy(false); setStage("");
+            setErr(st.error || "The render didn't finish. Your credits have not been used up by a failed job.");
+          }
+        }catch{}
+      }, 4000);
+    }catch(e){
+      setBusy(false); setStage("");
+      setErr((e && e.message) || "Something went wrong starting the song.");
+    }
+  }
+
+  const Slider = ({label,value,set,hint}) => (
+    <div style={{flex:"1 1 200px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:5}}>
+        <span>{label}</span><span>{Math.round(value*100)}%</span>
+      </div>
+      <input type="range" min={0} max={1} step={0.01} value={value}
+        onChange={e=>set(parseFloat(e.target.value))} style={{width:"100%"}} />
+      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid,marginTop:4,lineHeight:1.45}}>{hint}</div>
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:860,margin:"0 auto"}}>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Song Studio</h3>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
+        Sing your own melody, roughly, however it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang — so the song follows your tune instead of your tune following a loop.
+      </p>
+
+      {profile === undefined && (
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Checking your voice…</p>
+      )}
+
+      {profile === null && (
+        <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:0}}>
+            Song Studio needs a model of your voice before it can sing anything. Voice training isn't open yet — it's still run by hand while we get it right.
+          </p>
+        </div>
+      )}
+
+      {profile && profile.status !== "ready" && (
+        <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:0}}>
+            Your voice is still training (currently: {profile.status}). This page will work once it's ready.
+          </p>
+        </div>
+      )}
+
+      {profile && profile.status === "ready" && (
+        <>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+            <button onClick={recording?stopRec:startRec} disabled={busy}
+              style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"11px 20px",border:"1px solid "+B.charcoal,background:recording?B.inkBlock:B.white,color:recording?B.inkText:B.charcoal,cursor:busy?"default":"pointer"}}>
+              {recording ? "Stop singing" : "Sing a guide take"}
+            </button>
+            <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"11px 20px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
+              <input type="file" accept="audio/*" onChange={pick} style={{display:"none"}} disabled={busy} />
+              {file ? "Choose a different file" : "Or upload one"}
+            </label>
+          </div>
+
+          {clipUrl && <audio src={clipUrl} controls style={{width:"100%",marginBottom:14}} />}
+
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Genre</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+            {GENRES.map(([id,label])=>(
+              <button key={id} onClick={()=>setGenre(id)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 12px",border:"1px solid "+(genre===id?B.charcoal:B.stone),background:genre===id?B.inkBlock:B.white,color:genre===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
+            ))}
+          </div>
+
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Instruments (optional)</div>
+          <input value={instruments} onChange={e=>setInst(e.target.value)} disabled={busy}
+            placeholder="Rhodes, no hi-hats"
+            style={{width:"100%",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,padding:"11px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:16,boxSizing:"border-box"}} />
+
+          <div style={{display:"flex",gap:20,flexWrap:"wrap",marginBottom:18}}>
+            <Slider label="Tuning" value={tuneStrength} set={setTune}
+              hint="How hard notes are pulled onto the scale. 100% is the robotic sound." />
+            <Slider label="Voice match" value={indexRate} set={setIndex}
+              hint="Higher locks onto your trained voice; lower keeps more of this take's delivery." />
+          </div>
+
+          {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#B00",marginBottom:12,lineHeight:1.5}}>{err}</p>}
+
+          <button onClick={makeSong} disabled={busy||!file}
+            style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,letterSpacing:"0.06em",padding:"13px 28px",border:"1px solid "+B.charcoal,background:(busy||!file)?B.white:B.inkBlock,color:(busy||!file)?B.mid:B.inkText,cursor:(busy||!file)?"default":"pointer"}}>
+            {busy ? "Making your song…" : "Make my song \u2014 " + COST + " credits"}
+          </button>
+
+          {busy && (
+            <div style={{marginTop:16}}>
+              <div style={{height:3,background:B.stone,marginBottom:8}}>
+                <div style={{height:"100%",width:pct+"%",background:B.charcoal,transition:"width .4s"}} />
+              </div>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>{stage || "Working…"} {pct}%</p>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"6px 0 0",lineHeight:1.5}}>
+                The first song after a quiet spell waits a few minutes for a machine to start. You can leave this page — the song keeps rendering.
+              </p>
+            </div>
+          )}
+
+          {song && (
+            <div style={{marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:18}}>
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px"}}>
+                Done{song.key?" \u2014 "+song.key:""}{song.tempo?" at "+Math.round(song.tempo)+" BPM":""}.
+              </p>
+              <audio src={SUPABASE_URL+"/storage/v1/object/public/voice/"+song.path} controls style={{width:"100%"}} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, lutMedia={}, isAdmin=false, startType=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
@@ -11862,6 +12117,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="filmroom"&&<FilmRoom />}
+      {tool==="songstudio"&&<SongStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} user={user} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -12231,6 +12487,7 @@ const ADMIN_PASSWORD = "chelochelo1";
 const MAX_EDIT_SECONDS = 2700;
 
 const CREDIT_COSTS = {
+  songBeat: 400,   // Song Studio — must match BEAT_COST in api/song-beat.js
   image: 120,      // Standard — Nano Banana (Gemini 2.5 Flash Image) ~$0.039
   imageHD: 420,    // HD 2K — Nano Banana Pro ~$0.134
   image4K: 750,    // 4K — Nano Banana Pro ~$0.24
@@ -12423,7 +12680,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"}, {label:"Song Studio",tool:"songstudio"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
