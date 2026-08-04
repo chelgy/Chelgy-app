@@ -10696,7 +10696,14 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     setBusy(true); setPct(3); setStage("Uploading your take…");
     try{
       const ext = (file.name.split(".").pop()||"webm").toLowerCase().slice(0,5);
-      const path = "songs/" + (user && user.id ? user.id : "anon") + "/" + Date.now() + "." + ext;
+      // The user id must be the FIRST path segment. The sites bucket's insert
+      // policy only lets a member write into a folder named after their own id —
+      // "songs/<id>/..." put songs first and was refused with a 400. No "anon"
+      // fallback: that path would fail the same policy, so a missing id is caught
+      // here with a clear message instead of a confusing upload error.
+      const uid = (user && user.id) ? user.id : null;
+      if(!uid){ setBusy(false); setStage(""); setErr("Please sign in again before making a song."); return; }
+      const path = uid + "/songs/" + Date.now() + "." + ext;
       const url = await uploadSiteAudioFile(file, path);
       if(!url) throw new Error("That take couldn't be uploaded. Check your connection and try again.");
 
