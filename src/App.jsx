@@ -10611,6 +10611,11 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [instruments,setInst]  = useState("");
   const [tuneStrength,setTune] = useState(0.85);
   const [harmony,setHarmony]   = useState("off");  // off | subtle | lush
+  const [beatMode,setBeatMode] = useState("auto");   // auto | pick | upload
+  const [previews,setPreviews] = useState([]);       // [{id,audio,label}]
+  const [chosenBeat,setChosen] = useState(null);     // preview audio (data url) or uploaded File
+  const [beatFile,setBeatFile] = useState(null);     // an uploaded instrumental
+  const [genBusy,setGenBusy]   = useState(false);
   const [indexRate,setIndex]   = useState(0.75);
   const [busy,setBusy]         = useState(false);
   const [stage,setStage]       = useState("");
@@ -10709,6 +10714,20 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const url = await uploadSiteAudioFile(file, path);
       if(!url) throw new Error("That take couldn't be uploaded. Check your connection and try again.");
 
+      // If a beat was picked or uploaded, put it in storage and pass its URL;
+      // the render then uses it instead of generating one. Best-effort.
+      let beatUrl = null;
+      try {
+        if(beatFile){
+          const bext = (beatFile.name.split(".").pop()||"mp3").toLowerCase().slice(0,5);
+          beatUrl = await uploadSiteAudioFile(beatFile, uid + "/beats/" + Date.now() + "." + bext);
+        } else if(chosenBeat && typeof chosenBeat === "string" && chosenBeat.startsWith("data:")){
+          const bl = await (await fetch(chosenBeat)).blob();
+          const bf = new File([bl], "beat.mp3", {type:"audio/mpeg"});
+          beatUrl = await uploadSiteAudioFile(bf, uid + "/beats/" + Date.now() + ".mp3");
+        }
+      } catch(_){ beatUrl = null; }
+
       // Optional inspo track. Uploaded the same way (user-id-first path), its
       // URL rides in the request and the worker asks Gemini to describe its
       // feel before the beat is built. A failed inspo upload is not fatal to
@@ -10725,7 +10744,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const r = await fetch("/api/studio-song", { method:"POST",
         headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
         body: JSON.stringify({ guideUrl:url, profileId:profile.id, genre,
-          instruments, tuneStrength, indexRate, harmony, ...(inspoUrl?{inspoUrl}:{}) }) });
+          instruments, tuneStrength, indexRate, harmony, ...(inspoUrl?{inspoUrl}:{}), ...(beatUrl?{beatUrl}:{}) }) });
       const j = await r.json();
       if(!r.ok || !j.jobId) throw new Error(j.error || "Couldn't start the song.");
 
@@ -10829,6 +10848,48 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
           {clipUrl && <audio src={clipUrl} controls style={{width:"100%",marginBottom:14}} />}
 
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Beat</div>
+          <div style={{display:"flex",gap:6,marginBottom:10}}>
+            {[["auto","Auto"],["pick","Pick from options"],["upload","Upload my own"]].map(([id,label])=>(
+              <button key={id} onClick={()=>{setBeatMode(id);setChosen(null);setBeatFile(null);setPreviews([]);}} disabled={busy||genBusy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.04em",padding:"7px 14px",border:"1px solid "+(beatMode===id?B.charcoal:B.stone),background:beatMode===id?B.inkBlock:B.white,color:beatMode===id?B.inkText:B.mid,cursor:(busy||genBusy)?"default":"pointer"}}>{label}</button>
+            ))}
+          </div>
+          {beatMode==="pick" && (
+            <div style={{marginBottom:14}}>
+              <button disabled={busy||genBusy} onClick={async()=>{
+                setGenBusy(true); setPreviews([]); setChosen(null);
+                try{
+                  const token = await freshToken();
+                  const r = await fetch("/api/song-beat", { method:"POST",
+                    headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+                    body: JSON.stringify({ action:"previews", genre, instruments, count:3 }) });
+                  const j = await r.json();
+                  if(r.ok && j.previews) setPreviews(j.previews);
+                  else setErr(j.error||"Couldn\u2019t generate beats.");
+                }catch(_){ setErr("Couldn\u2019t generate beats."); }
+                setGenBusy(false);
+              }} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:genBusy?B.white:B.inkBlock,color:genBusy?B.mid:B.inkText,cursor:(busy||genBusy)?"default":"pointer"}}>{genBusy?"Making beats\u2026":(previews.length?"Make new options":"Generate beat options")}</button>
+              {previews.map((p)=>(
+                <div key={p.id} onClick={()=>setChosen(p.audio)} style={{display:"flex",alignItems:"center",gap:10,marginTop:8,padding:"8px 10px",border:"1px solid "+(chosenBeat===p.audio?B.charcoal:B.stone),background:chosenBeat===p.audio?B.offwhite:B.white,cursor:"pointer"}}>
+                  <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:chosenBeat===p.audio?B.charcoal:B.mid,minWidth:70,textTransform:"capitalize"}}>{chosenBeat===p.audio?"\u2713 ":""}{p.label}</span>
+                  <audio src={p.audio} controls style={{height:32,flex:1}} onClick={e=>e.stopPropagation()} />
+                </div>
+              ))}
+              {previews.length>0 && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"8px 0 0"}}>Tap one to choose it, then sing your melody over it.</p>}
+            </div>
+          )}
+          {beatMode==="upload" && (
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:14}}>
+              <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 16px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
+                <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f)setBeatFile(f);}} style={{display:"none"}} disabled={busy} />
+                {beatFile ? "Beat: "+(beatFile.name.length>22?beatFile.name.slice(0,22)+"\u2026":beatFile.name) : "Choose an instrumental"}
+              </label>
+              {beatFile && <button onClick={()=>setBeatFile(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
+            </div>
+          )}
+
+          {beatMode==="auto" && (<>
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Genre</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
             {GENRES.map(([id,label])=>(
@@ -10836,6 +10897,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
                 style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 12px",border:"1px solid "+(genre===id?B.charcoal:B.stone),background:genre===id?B.inkBlock:B.white,color:genre===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
             ))}
           </div>
+          </>)}
 
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Instruments (optional)</div>
           <input value={instruments} onChange={e=>setInst(e.target.value)} disabled={busy}

@@ -95,6 +95,17 @@ def stage_voice(tuned, out, model_pth, model_index, index_rate, protect):
 
 
 # ── 3 · BEAT ────────────────────────────────────────────────────────────────
+def fetch_to(url, dst):
+    """Download a URL to a local file. Used to pull a chosen/uploaded beat."""
+    r = requests.get(url, timeout=120)
+    r.raise_for_status()
+    with open(dst, "wb") as f:
+        f.write(r.content)
+    if os.path.getsize(dst) < 1000:
+        raise RuntimeError("downloaded beat is empty")
+    return dst
+
+
 def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=None, style=None):
     """
     Calls the app's own endpoint rather than ElevenLabs directly, so the
@@ -353,6 +364,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("guide")
     p.add_argument("--genre", default="pop")
+    p.add_argument("--beat-url", default="",
+                   help="a pre-chosen or uploaded beat; when set, skip generation and use this")
     p.add_argument("--instruments", default="")
     p.add_argument("--style", default="",
                    help="production style from an inspo track (feel only, not key/tempo)")
@@ -440,13 +453,26 @@ def main():
     # up to reach the vocal's tempo and a beat that ends early is worse than a
     # beat that gets trimmed.
     chords = (info.get("chords") or {}).get("progression") if isinstance(info.get("chords"), dict) else None
-    stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
-               min(300, dur * 1.35 + 4), a.app, chords=chords,
-               style=(a.style or None))
-    if a.style:
-        print(f"  inspo feel: {a.style[:70]}")
-    if chords:
-        print(f"  built on the melody's chords: {' '.join(chords[:8])}")
+    if a.beat_url:
+        # Bring-your-own-beat: the person picked a generated option or uploaded
+        # their own instrumental, so we DON'T generate. We still tune and align
+        # the vocal to it — the beat is now the fixed thing the voice fits to,
+        # which is exactly the beat-first idea (and sidesteps chord-matching).
+        print(f"  using the chosen beat: {a.beat_url[:70]}")
+        try:
+            fetch_to(a.beat_url, w("beat.mp3"))
+        except Exception as e:
+            print(f"  couldn't fetch the chosen beat ({e}); generating instead")
+            stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
+                       min(300, dur * 1.35 + 4), a.app, chords=chords, style=(a.style or None))
+    else:
+        stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
+                   min(300, dur * 1.35 + 4), a.app, chords=chords,
+                   style=(a.style or None))
+        if a.style:
+            print(f"  inspo feel: {a.style[:70]}")
+        if chords:
+            print(f"  built on the melody's chords: {' '.join(chords[:8])}")
 
     print("▸ 5/6  aligning the beat to your vocal")
     align_info = stage_align(w("beat.mp3"), w("vocal.wav"), w("beat-aligned.wav"),

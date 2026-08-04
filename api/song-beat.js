@@ -129,6 +129,56 @@ export default async function handler(req, res) {
       });
     }
 
+    // ── PREVIEWS ───────────────────────────────────────────────────────────
+    // Generate several SHORT beats to pick from — the browse step of beat-first
+    // mode and the marketplace. Short and cheap on purpose: the person auditions
+    // snippets, picks one, and only THEN do we spend a full-length compose on
+    // the winner. Four full renders up front would be slow and burn 4x credits
+    // before they've even sung a note.
+    if (action === "previews") {
+      const count = Math.max(1, Math.min(4, Number(req.body.count) || 3));
+      const previewSec = 18;   // long enough to feel the vibe, short enough to be cheap
+      // Vary the prompt slightly per preview so the options actually differ
+      // rather than being four near-identical takes.
+      const variants = [
+        "", "warmer and more intimate", "brighter and more energetic",
+        "more spacious and atmospheric",
+      ];
+      const jobs = [];
+      for (let i = 0; i < count; i++) {
+        const styleI = [style, variants[i]].filter(Boolean).join(", ");
+        jobs.push(
+          fetch(EL + "/music", {
+            method: "POST",
+            headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: buildPrompt({ genre, instruments, key, tempo, seconds: previewSec, chords, style: styleI }),
+              music_length_ms: previewSec * 1000,
+              model_id: MODEL,
+              output_format: "mp3_44100_128",
+            }),
+          }).then(async (r) => {
+            if (!r.ok) return { ok: false, error: (await r.text().catch(() => "")).slice(0, 200) };
+            const buf = Buffer.from(await r.arrayBuffer());
+            return { ok: true, audio: "data:audio/mpeg;base64," + buf.toString("base64"),
+                     variant: variants[i] || "signature" };
+          }).catch((e) => ({ ok: false, error: String((e && e.message) || e) }))
+        );
+      }
+      const results = await Promise.all(jobs);
+      const good = results.filter((r) => r.ok);
+      if (!good.length) {
+        return res.status(502).json({ error: "Couldn't generate beats: " + (results[0] && results[0].error || "unknown") });
+      }
+      // Echo back the key/tempo/chords so the client can carry them into the
+      // full render of whichever preview the person picks — same beat spec,
+      // just longer.
+      return res.status(200).json({
+        previews: good.map((r, i) => ({ id: i, audio: r.audio, label: r.variant })),
+        spec: { genre, instruments, key, tempo, chords, style, seconds: dur },
+      });
+    }
+
     // ── COMPOSE ────────────────────────────────────────────────────────────
     // The prompt endpoint, not the composition-plan one.
     //
