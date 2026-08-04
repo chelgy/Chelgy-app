@@ -212,7 +212,7 @@ def _shift_and_fit(path, out_path, delay_samples, target_samples):
 
 def align_beat(beat_path, vocal_path, out_path,
                vocal_tempo=None, vocal_key=None, key_confidence=0.0,
-               min_key_confidence=0.5, max_semitones=4.0,
+               min_key_confidence=0.5, max_semitones=6.0,
                do_stretch=True, do_shift=True, log=print):
     """
     Returns everything it measured. Nothing here is inferred or assumed — if a
@@ -263,31 +263,63 @@ def align_beat(beat_path, vocal_path, out_path,
         log("  not stretching (%s)" % info["stretch_skipped"])
 
     # ── key ─────────────────────────────────────────────────────────────────
-    if do_shift and vocal_key and key_confidence >= min_key_confidence:
+    # ALWAYS attempt the shift when we have a vocal key, regardless of how
+    # confident the vocal-key detection was. The old code skipped shifting below
+    # a confidence threshold, reasoning "don't shift toward a guess" — but that
+    # is backwards here. The shift closes the gap between the BEAT'S key and the
+    # VOCAL'S key; the goal is "make the beat match the vocal", not "put the beat
+    # in the objectively right key". Skipping leaves the beat in whatever key the
+    # music engine happened to pick, which is a guaranteed clash. Shifting toward
+    # even an uncertain vocal key can only reduce that clash.
+    #
+    # The beat's own key is read from the finished instrumental, which is
+    # polyphonic and clean and detects far more reliably than a bare vocal — so
+    # the measured GAP is trustworthy even when the vocal key alone is shaky.
+    #
+    # Two rails remain:
+    #   • an explicit override (key_confidence >= 1.0) is always honoured
+    #   • a required shift larger than max_semitones means the two key readings
+    #     genuinely disagree — more likely detection noise than a real interval
+    #     that large — so we leave it rather than lurch the beat into a third
+    #     wrong key. The floor for this is relaxed at low confidence, because a
+    #     shaky reading shouldn't get the benefit of the doubt on a big move.
+    if do_shift and vocal_key:
         bk = detect_beat_key(_mono(_decode(current, w("key-m.wav"), channels=1))[0],
                              ANALYSIS_SR)
         if bk is None:
             info["shift_skipped"] = "could not read the beat's key"
         else:
             info["beat_key"] = bk["name"] + " " + bk["mode"]
+            info["beat_key_confidence"] = bk.get("confidence")
             d = (int(vocal_key["tonic"]) - int(bk["tonic"])) % 12
             if d > 6:
                 d -= 12
             info["semitones_needed"] = d
-            if abs(d) > max_semitones:
-                # Clamping would leave it in a different wrong key, which is
-                # worse than an honest clash.
-                info["shift_skipped"] = "%d semitones is too far to shift cleanly" % d
+            # How far we'll trust the shift. A confident vocal key (or an
+            # explicit override) earns the full range; a shaky one only earns
+            # small, safe moves — a semitone or two, which fixes the common
+            # near-miss clash without betting the render on a wild reading.
+            # A moderate shift toward an uncertain key still lands closer than
+            # no shift at all — a 3-semitone clash (say A vs C) is common and
+            # worth fixing even on a shaky read. Only a large move (5+) suggests
+            # one of the two readings is genuinely wrong, and that is what the
+            # low-confidence floor guards against — not moderate, ordinary
+            # clashes. Confident or overridden keys get the full range.
+            conf = float(key_confidence or 0.0)
+            limit = max_semitones if conf >= min_key_confidence else min(4, max_semitones)
+            if d == 0:
+                info["shift_skipped"] = "beat already in the vocal's key"
+            elif abs(d) > limit:
+                info["shift_skipped"] = ("needs %+d semitones but vocal-key "
+                    "confidence %.2f only trusts ±%d" % (d, conf, limit))
             else:
                 info["shift_engine"] = pitch_shift(current, w("shifted.wav"), float(d))
                 current = w("shifted.wav")
                 info["shifted"] = info["shift_engine"] != "none"
-                log("  beat in %s, vocal in %s %s — shifting %+d semitones"
-                    % (info["beat_key"], vocal_key["name"], vocal_key["mode"], d))
+                log("  beat in %s, vocal in %s %s (vocal conf %.2f) — shifting %+d semitones"
+                    % (info["beat_key"], vocal_key["name"], vocal_key["mode"], conf, d))
     else:
-        info["shift_skipped"] = ("key confidence %.3f is below %.2f"
-                                 % (key_confidence, min_key_confidence)) \
-            if do_shift else "disabled"
+        info["shift_skipped"] = "no vocal key" if do_shift else "disabled"
     if info.get("shift_skipped"):
         log("  not pitch-shifting (%s)" % info["shift_skipped"])
 
