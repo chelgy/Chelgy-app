@@ -86,11 +86,72 @@ function fmtMin(s){ const m=Math.floor(s/60), r=Math.round(s%60); return m+":"+S
 // don't need studio fidelity: mono 16kHz is what speech models eat anyway.
 // Decoding + re-encoding here also turns any format (AIFF, M4A) into plain
 // WAV, which the transcriber always accepts. A 3:45 song: ~70MB -> ~7MB.
+// Minimal AIFF/AIFF-C PCM decoder for when the browser won't. Reads the COMM
+// chunk (channels, sample rate as an 80-bit float, bit depth) and the SSND
+// chunk (the samples), returns an AudioBuffer the rest of the path can use.
+function decodeAIFF(buf, ctx){
+  try{
+    const dv=new DataView(buf);
+    const tag=(o)=>String.fromCharCode(dv.getUint8(o),dv.getUint8(o+1),dv.getUint8(o+2),dv.getUint8(o+3));
+    if(tag(0)!=="FORM") return null;
+    const form=tag(8);
+    if(form!=="AIFF"&&form!=="AIFC") return null;
+    let off=12, channels=0, frames=0, bits=0, rate=0, ssndOff=-1, ssndLen=0;
+    while(off+8<=dv.byteLength){
+      const id=tag(off), size=dv.getUint32(off+4);
+      if(id==="COMM"){
+        channels=dv.getInt16(off+8);
+        frames=dv.getUint32(off+10);
+        bits=dv.getInt16(off+14);
+        // 80-bit IEEE 754 extended float for the sample rate
+        const ex=off+16;
+        const sign=dv.getUint8(ex)&0x80?-1:1;
+        const exp=((dv.getUint8(ex)&0x7f)<<8)|dv.getUint8(ex+1);
+        let mant=0;
+        for(let i=0;i<8;i++) mant=mant*256+dv.getUint8(ex+2+i);
+        rate = exp===0?0:sign*mant*Math.pow(2,exp-16383-63);
+      }else if(id==="SSND"){
+        ssndOff=off+8+8+dv.getUint32(off+8); // skip offset+blocksize fields
+        ssndLen=size-8;
+      }
+      off+=8+size+(size&1); // chunks are word-aligned
+    }
+    if(!channels||!rate||ssndOff<0) return null;
+    const bytesPer=bits/8;
+    const out=ctx.createBuffer(channels, frames, rate);
+    for(let ch=0; ch<channels; ch++){
+      const data=out.getChannelData(ch);
+      for(let i=0;i<frames;i++){
+        const pos=ssndOff + (i*channels+ch)*bytesPer;
+        let v=0;
+        if(bits===16) v=dv.getInt16(pos)/32768;
+        else if(bits===24) v=((dv.getInt8(pos)<<16)|(dv.getUint8(pos+1)<<8)|dv.getUint8(pos+2))/8388608;
+        else if(bits===8) v=(dv.getInt8(pos))/128;
+        else if(bits===32) v=dv.getInt32(pos)/2147483648;
+        data[i]=v;
+      }
+    }
+    return out;
+  }catch(_){ return null; }
+}
+
 async function shrinkForTranscription(file){
   const buf=await file.arrayBuffer();
   const AC=window.AudioContext||window.webkitAudioContext;
   const probe=new AC();
-  const decoded=await probe.decodeAudioData(buf.slice(0));
+  let decoded;
+  try{
+    decoded=await probe.decodeAudioData(buf.slice(0));
+  }catch(e){
+    // Safari/Chrome frequently can't decode AIFF. AIFF is just big-endian PCM
+    // in a chunked container, so parse it by hand as a fallback — that's what
+    // was throwing the cryptic "string did not match the expected pattern".
+    decoded=decodeAIFF(buf, probe);
+    if(!decoded){
+      probe.close&&probe.close();
+      throw new Error("Couldn't read "+(file.name.split(".").pop()||"that").toUpperCase()+" in this browser. Save the clip as WAV or MP3, or type the lyrics in.");
+    }
+  }
   probe.close&&probe.close();
   const rate=16000;
   const frames=Math.ceil(decoded.duration*rate);
