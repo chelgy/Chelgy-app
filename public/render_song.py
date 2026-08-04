@@ -95,7 +95,7 @@ def stage_voice(tuned, out, model_pth, model_index, index_rate, protect):
 
 
 # ── 3 · BEAT ────────────────────────────────────────────────────────────────
-def stage_beat(out, genre, instruments, key, tempo, seconds, app_base):
+def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=None):
     """
     Calls the app's own endpoint rather than ElevenLabs directly, so the
     composition rules live in exactly one place and the pod never needs a
@@ -111,6 +111,10 @@ def stage_beat(out, genre, instruments, key, tempo, seconds, app_base):
         "action": "compose", "genre": genre, "instruments": instruments,
         "key": {"name": key["name"], "mode": key["mode"]} if key else None,
         "tempo": tempo, "seconds": int(seconds),
+        # The melody's implied progression, so the beat is built on the vocal's
+        # own harmony rather than a genre-word guess. This is the fix for beats
+        # that clash with the sung line.
+        "chords": chords,
     })
     if r.status_code != 200:
         raise RuntimeError(f"Beat generation failed ({r.status_code}): {r.text[:300]}")
@@ -303,8 +307,11 @@ def main():
     # 35% longer than the vocal, because alignment may have to speed the beat
     # up to reach the vocal's tempo and a beat that ends early is worse than a
     # beat that gets trimmed.
+    chords = (info.get("chords") or {}).get("progression") if isinstance(info.get("chords"), dict) else None
     stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
-               min(300, dur * 1.35 + 4), a.app)
+               min(300, dur * 1.35 + 4), a.app, chords=chords)
+    if chords:
+        print(f"  built on the melody's chords: {' '.join(chords[:8])}")
 
     print("▸ 5/6  aligning the beat to your vocal")
     align_info = stage_align(w("beat.mp3"), w("vocal.wav"), w("beat-aligned.wav"),

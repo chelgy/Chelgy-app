@@ -57,7 +57,7 @@ function skeleton(seconds) {
   return [["Intro",0.08],["Verse",0.2],["Chorus",0.22],["Verse",0.17],["Chorus",0.21],["Outro",0.12]];
 }
 
-function buildPrompt({ genre, instruments, key, tempo, seconds }) {
+function buildPrompt({ genre, instruments, key, tempo, seconds, chords }) {
   const g = GENRES[genre] || GENRES.pop;
   const bits = [g.styles.join(", ")];
 
@@ -65,6 +65,19 @@ function buildPrompt({ genre, instruments, key, tempo, seconds }) {
   // instead of the vocal having to be dragged onto the beat.
   if (tempo) bits.push(Math.round(tempo) + " BPM");
   if (key)   bits.push("in " + key.name + " " + key.mode);
+
+  // THE CHORD PROGRESSION OF THE SUNG MELODY.
+  //
+  // This is the difference between a beat that sits under the voice and one
+  // that fights it. Without it, the engine hears a genre word and invents its
+  // own harmony in its own key — which has no relationship to what was sung,
+  // and that mismatch is exactly the clash. Handed the melody's own chords,
+  // the beat is built on the same harmonic ground the vocal stands on.
+  //
+  // Capped at 8 chords: a prompt is a vibe, not a lead sheet, and a long list
+  // reads as noise. The first phrase's harmony is what sets the feel.
+  const prog = Array.isArray(chords) ? chords.filter(Boolean).slice(0, 8) : [];
+  if (prog.length) bits.push("chord progression " + prog.join(" ") + ", follow this harmony");
 
   // The person's own words, verbatim. Rewriting "no hi-hats" into something
   // tidier is how you lose the thing they actually asked for.
@@ -90,7 +103,7 @@ export default async function handler(req, res) {
 
   const {
     action = "plan", genre = "pop", instruments = "",
-    key = null, tempo = null, seconds = 60, plan = null,
+    key = null, tempo = null, seconds = 60, plan = null, chords = null,
   } = req.body || {};
 
   const dur = Math.max(10, Math.min(300, Number(seconds) || 60));
@@ -102,7 +115,7 @@ export default async function handler(req, res) {
     // the key and tempo we measured off the guide take — the whole point.
     if (action === "plan") {
       return res.status(200).json({
-        prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur }),
+        prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords }),
         structure: skeleton(dur).map(([n, sh]) => n + " " + Math.round(dur * sh) + "s"),
         genre: (GENRES[genre] || GENRES.pop).label,
         cost: BEAT_COST,
@@ -123,7 +136,7 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur }),
+          prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords }),
           music_length_ms: dur * 1000,
           model_id: MODEL,
           output_format: "mp3_44100_128",

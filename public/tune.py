@@ -80,6 +80,104 @@ def detect_key(f0):
     }
 
 
+def detect_chords(f0, key, tempo, seconds_per_bar=None, frame_period_ms=5.0):
+    """
+    The implied chord progression of a sung melody.
+
+    This is the piece that makes a generated beat SIT UNDER the vocal instead of
+    fighting it. A genre word ("dream pop") tells the music engine a vibe; it
+    then invents its own key and chords, which have no relationship to what was
+    sung — that is the clash. Handing it the melody's own progression instead
+    gives the beat the same harmonic ground the voice is standing on.
+
+    Method (the standard melody-harmonisation approach): slice the pitch line
+    into bars, build a per-bar pitch-class histogram weighted by how long each
+    note is held, and pick the triad that best explains each bar. Two things
+    keep it musical rather than jumpy:
+      • a diatonic bonus, so chords in the detected key are preferred over
+        out-of-key ones that happen to fit a passing note
+      • gap-filling, so a bar of rest holds the previous chord rather than
+        emitting a hole — a singer breathing doesn't change the harmony
+
+    Returns a list of {bar, chord, root, quality}, most useful collapsed into a
+    progression string for the beat prompt.
+    """
+    if key is None or not tempo or tempo <= 0:
+        return None
+    fps = 1000.0 / frame_period_ms
+    if seconds_per_bar is None:
+        # Assume 4 beats to a bar — true of nearly all pop/R&B/dream-pop.
+        seconds_per_bar = 4.0 * 60.0 / float(tempo)
+    frames_per_bar = max(1, int(seconds_per_bar * fps))
+
+    m = hz_to_midi(f0)
+    scale = set(key["scale"])
+
+    def triad(root, quality):
+        ints = (0, 4, 7) if quality == "major" else (0, 3, 7)
+        v = np.zeros(12)
+        for i in ints:
+            v[(root + i) % 12] = 1.0
+        return v
+
+    templates = []
+    for root in range(12):
+        for quality in ("major", "minor"):
+            templates.append((root, quality, triad(root, quality)))
+
+    def best_for(pcv):
+        best = None
+        for root, quality, tmpl in templates:
+            tn = tmpl / tmpl.sum()
+            # reward chord tones, mildly penalise notes outside the triad, and
+            # tilt toward the key so a stray passing note can't yank the chord
+            # out of key for a whole bar
+            s = float((pcv * tn).sum() * 3.0 - 0.15 * (pcv * (1.0 - tmpl)).sum())
+            if root in scale:
+                s += 0.15
+            if best is None or s > best[3]:
+                best = (root, quality, tmpl, s)
+        return best
+
+    bars, last = [], None
+    n_bars = int(np.ceil(len(m) / frames_per_bar))
+    for b in range(n_bars):
+        seg = m[b * frames_per_bar:(b + 1) * frames_per_bar]
+        seg = seg[~np.isnan(seg)]
+        # A bar needs enough sung frames to trust; below that it's a rest or a
+        # breath, and it inherits the previous chord rather than guessing.
+        if len(seg) < max(10, frames_per_bar // 8):
+            if last is None:
+                continue
+            root, quality = last
+        else:
+            root, quality, _, _ = best_for(
+                _pc_hist(seg))
+            last = (root, quality)
+        name = NAMES[root] + ("" if quality == "major" else "m")
+        bars.append({"bar": b, "chord": name, "root": root, "quality": quality})
+
+    if not bars:
+        return None
+
+    # Collapse consecutive repeats into the progression a musician would write.
+    prog = []
+    for x in bars:
+        if not prog or prog[-1] != x["chord"]:
+            prog.append(x["chord"])
+    return {"bars": bars, "progression": prog,
+            "seconds_per_bar": round(seconds_per_bar, 3)}
+
+
+def _pc_hist(seg_midi):
+    """Pitch-class histogram of a bar, weighted by note duration (frame count)."""
+    pcv = np.zeros(12)
+    for mm in seg_midi:
+        pcv[int(round(mm)) % 12] += 1.0
+    total = pcv.sum()
+    return pcv / total if total > 0 else pcv
+
+
 def segment_notes(m, min_frames=6, max_jump=1.2):
     """
     Split the pitch line into held notes, breaking wherever it moves more than
@@ -344,6 +442,10 @@ def tune_file(in_path, out_path, strength=0.85):
     voiced = f0 > 0
     moved = [abs(n["cents_moved"]) for n in notes]
     cands = tempo_candidates(x, sr)
+    tempo = cands[0]["bpm"] if cands else None
+    # The melody's implied harmony — the piece that lets the beat be built to
+    # sit under the vocal instead of clashing with it.
+    chords = detect_chords(f0, key, tempo)
     return {
         "key": key,
         "tempo": cands[0]["bpm"] if cands else None,
@@ -351,6 +453,7 @@ def tune_file(in_path, out_path, strength=0.85):
         # number this stage produces, and the alternatives are almost always
         # the exact halves and doubles — cheap to show, expensive to guess.
         "tempo_candidates": cands,
+        "chords": chords,
         "notes": len(notes),
         "median_correction_cents": int(np.median(moved)) if moved else 0,
         "max_correction_cents": int(max(moved)) if moved else 0,
