@@ -35,6 +35,17 @@ const GENRES = {
   lofi:     { label: "Lo-fi",      styles: ["lo-fi hip hop", "dusty drums", "jazzy keys", "relaxed"] },
   ballad:   { label: "Ballad",     styles: ["piano ballad", "strings", "slow", "emotional"] },
   gospel:   { label: "Gospel",     styles: ["gospel", "Hammond organ", "live band", "uplifting"] },
+
+  // Guitar-forward, atmosphere-first genres. Each carries a full styles list
+  // because a genre absent from this map is silently rendered as pop — a name
+  // in App.jsx with no entry here would make six buttons that all quietly
+  // produce the same beat.
+  dreampop:     { label: "Dream Pop",       styles: ["dream pop", "washed reverb guitars", "hazy synth pads", "soft steady drums", "airy"] },
+  shoegaze:     { label: "Shoegaze",        styles: ["shoegaze", "walls of distorted guitar", "heavy reverb", "buried melody", "dense"] },
+  indiepop:     { label: "Indie Pop",       styles: ["indie pop", "jangly guitars", "bright melodic bass", "crisp live drums", "warm"] },
+  indierock:    { label: "Indie Rock",      styles: ["indie rock", "driving electric guitars", "melodic bass", "energetic live drums"] },
+  neopsych:     { label: "Neo-Psychedelia", styles: ["neo-psychedelia", "swirling modulated guitars", "phaser and tape echo", "hypnotic groove", "trippy"] },
+  etherealwave: { label: "Ethereal Wave",   styles: ["ethereal wave", "reverb-drenched synths", "gliding chords", "slow atmospheric drums", "dreamlike", "cavernous"] },
 };
 
 // Section shapes by song length. A 30-second clip that tries to be a full song
