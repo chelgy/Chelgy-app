@@ -10610,6 +10610,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [genre,setGenre]       = useState("rnb");
   const [instruments,setInst]  = useState("");
   const [tuneStrength,setTune] = useState(0.85);
+  const [harmony,setHarmony]   = useState("off");  // off | subtle | lush
   const [indexRate,setIndex]   = useState(0.75);
   const [busy,setBusy]         = useState(false);
   const [stage,setStage]       = useState("");
@@ -10724,7 +10725,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const r = await fetch("/api/studio-song", { method:"POST",
         headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
         body: JSON.stringify({ guideUrl:url, profileId:profile.id, genre,
-          instruments, tuneStrength, indexRate, ...(inspoUrl?{inspoUrl}:{}) }) });
+          instruments, tuneStrength, indexRate, harmony, ...(inspoUrl?{inspoUrl}:{}) }) });
       const j = await r.json();
       if(!r.ok || !j.jobId) throw new Error(j.error || "Couldn't start the song.");
 
@@ -10834,6 +10835,15 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           <input value={instruments} onChange={e=>setInst(e.target.value)} disabled={busy}
             placeholder="Rhodes, no hi-hats"
             style={{width:"100%",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,padding:"11px 12px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:16,boxSizing:"border-box"}} />
+
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Backing vocals</div>
+          <div style={{display:"flex",gap:6,marginBottom:6}}>
+            {[["off","None"],["subtle","Subtle"],["lush","Lush"]].map(([id,label])=>(
+              <button key={id} onClick={()=>setHarmony(id)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(harmony===id?B.charcoal:B.stone),background:harmony===id?B.inkBlock:B.white,color:harmony===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
+            ))}
+          </div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 16px",lineHeight:1.5}}>Your voice singing harmony with itself \u2014 a second line that follows the chords. Lush adds a higher voice.</div>
 
           <div style={{display:"flex",gap:20,flexWrap:"wrap",marginBottom:18}}>
             <Slider label="Tuning" value={tuneStrength} set={setTune}

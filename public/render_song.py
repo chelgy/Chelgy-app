@@ -159,6 +159,129 @@ def _rms_db(path):
     return 20.0 * math.log10(r) if r > 0 else -100.0
 
 
+def stage_harmony(vocal, out, info, intensity="lush"):
+    """
+    Backing vocals — the vocal singing harmony with itself.
+
+    NOT a fixed pitch shift of the whole take: that moves the harmony in perfect
+    parallel with the lead and just sounds like an aggressive chorus effect. Real
+    backing vocals hold their OWN note as the melody moves, landing in the chord
+    underneath. So this shifts each phrase by a DIFFERENT interval, chosen per
+    chord, so the harmony line moves independently — a second singer, not a
+    doubler.
+
+    Uses the chord progression already detected from the melody (info["chords"]).
+    Formant-preserved shifting (rubberband -F) keeps the harmony sounding like
+    the same voice rather than thin and chipmunky. Panned and delayed slightly so
+    the layers separate instead of blurring into one another.
+
+    intensity: "subtle" = one soft third; "lush" = third + fifth, wider.
+    Returns True if a harmony was written, False if there wasn't enough to work
+    with (in which case the caller just uses the dry lead).
+    """
+    chords = info.get("chords")
+    if not isinstance(chords, dict) or not chords.get("bars"):
+        print("  no chord map — skipping harmony")
+        return False
+
+    import numpy as _np
+    import soundfile as _sf
+    from tune import hz_to_midi, analyse as _an, NAMES as _NAMES
+
+    x, sr, f0, _t, _sp, _ap = _an(vocal)
+    midi = hz_to_midi(f0)
+    fps = 200.0
+    spb = float(chords.get("seconds_per_bar") or 2.0)
+    fpb = max(1, int(spb * fps))
+    bars = chords["bars"]
+
+    def _tones(name):
+        rn = name[:-1] if name.endswith("m") else name
+        if rn not in _NAMES:
+            return None
+        root = _NAMES.index(rn)
+        ints = (0, 3, 7) if name.endswith("m") else (0, 4, 7)
+        return [(root + i) % 12 for i in ints]
+
+    def _shift_for(lead_note, chord_name, lo, hi):
+        tones = _tones(chord_name)
+        if tones is None:
+            return None
+        best = None
+        for octv in range(-1, 4):
+            for tpc in tones:
+                note = tpc + 12 * (4 + octv)
+                d = note - lead_note
+                if lo <= d <= hi and (best is None or d < best):
+                    best = d
+        return best
+
+    voices = [("third", 2, 6, 0.85, 0.55)]
+    if intensity == "lush":
+        voices.append(("fifth", 6, 11, 0.55, 0.85))   # pan opposite the third
+
+    work = os.path.dirname(out) or "."
+    lead = x / (_np.abs(x).max() or 1.0) * 0.8
+    left = lead.copy()
+    right = lead.copy()
+
+    wrote_any = False
+    for vname, lo, hi, lgain, rgain in voices:
+        harmony = _np.zeros(len(x))
+        last_semi = None
+        for i, bar in enumerate(bars):
+            b0, b1 = i * fpb, (i + 1) * fpb
+            seg = midi[b0:b1]
+            seg = seg[~_np.isnan(seg)]
+            s0 = int(b0 / fps * sr)
+            s1 = min(int(b1 / fps * sr), len(x))
+            if s1 <= s0:
+                continue
+            if len(seg) >= 8:
+                lead_note = int(round(_np.median(seg)))
+                semi = _shift_for(lead_note, bar["chord"], lo, hi)
+                if semi is not None:
+                    last_semi = semi
+            # Hold the last good interval through a rest/breath so the harmony
+            # doesn't drop out for a bar — that gap is what made the prototype
+            # sound intermittent.
+            semi = last_semi
+            if semi is None or semi == 0:
+                continue
+            seg_wav = os.path.join(work, "_hseg.wav")
+            seg_out = os.path.join(work, "_hseg_sh.wav")
+            _sf.write(seg_wav, x[s0:s1].astype("float32"), sr)
+            try:
+                sh("rubberband", "-F", "-p", "%+d" % semi, "-q", seg_wav, seg_out)
+                h, _hr = _sf.read(seg_out)
+                if getattr(h, "ndim", 1) > 1:
+                    h = h.mean(axis=1)
+                n = s1 - s0
+                h = h[:n] if len(h) >= n else _np.pad(h, (0, n - len(h)))
+                harmony[s0:s1] = h
+                wrote_any = True
+            except Exception as e:
+                print("  harmony shift skipped a bar: " + str(e))
+        if harmony.any():
+            peak = _np.abs(harmony).max() or 1.0
+            harmony = harmony / peak * 0.5
+            # small delay so the backing voice sits a hair behind the lead
+            d = int(sr * 0.012)
+            hd = _np.concatenate([_np.zeros(d), harmony])[:len(lead)]
+            left += hd * lgain
+            right += hd * rgain
+
+    if not wrote_any:
+        print("  harmony produced nothing usable — using dry lead")
+        return False
+
+    st = _np.stack([left, right], axis=1)
+    st = st / (_np.abs(st).max() * 1.05 or 1.0)
+    _sf.write(out, st.astype("float32"), sr)
+    print("  backing vocals: %s, %d bars harmonised" % (intensity, len(bars)))
+    return True
+
+
 def stage_vocal_chain(vocal, out):
     """
     highpass  — clears the mud below the voice so the bass has room
@@ -233,6 +356,9 @@ def main():
     p.add_argument("--instruments", default="")
     p.add_argument("--style", default="",
                    help="production style from an inspo track (feel only, not key/tempo)")
+    p.add_argument("--harmony", default="off",
+                   choices=["off", "subtle", "lush"],
+                   help="backing vocals: chord-aware harmony of the lead with itself")
     p.add_argument("--out", default="song.mp3")
     p.add_argument("--tune-strength", type=float, default=0.85)
     # 0.75 is a deliberate middle. Higher locks onto the trained voice but drags
@@ -328,7 +454,12 @@ def main():
                              not a.no_align)
 
     print("▸ 6/6  mixing")
-    stage_vocal_chain(w("vocal.wav"), w("vocal-proc.wav"))
+    vocal_for_chain = w("vocal.wav")
+    if a.harmony != "off":
+        print("▸ backing vocals")
+        if stage_harmony(w("vocal.wav"), w("vocal-harm.wav"), info, intensity=a.harmony):
+            vocal_for_chain = w("vocal-harm.wav")
+    stage_vocal_chain(vocal_for_chain, w("vocal-proc.wav"))
     stage_mix(w("vocal-proc.wav"), w("beat-aligned.wav"), a.out,
               a.vocal_lead_db, a.vocal_db, a.beat_db)
 
