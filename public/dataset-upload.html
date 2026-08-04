@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Singing dataset — Chelgy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#fff;--offwhite:#F7F6F4;--stone:#E8E6E1;--mid:#6B6B6B;--ink:#111;--green:#4CAF82;--red:#C0392B;
+        --display:'Outfit',Helvetica,Arial,sans-serif;--body:'Jost',Helvetica,Arial,sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 90px}
+  h1{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.02em;margin:0 0 12px}
+  .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:var(--mid);margin-bottom:10px}
+  p{font-size:15.5px;line-height:1.6;color:var(--mid);margin:0 0 20px}
+  label{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--mid);margin-bottom:6px}
+  input[type=text],input[type=email],input[type=password],textarea{width:100%;padding:12px 14px;border:1px solid var(--stone);
+    background:var(--cream);color:var(--ink);font-family:var(--body);font-size:15px;margin-bottom:16px;border-radius:0;outline:none;resize:vertical}
+  input:focus,textarea:focus{border-color:var(--ink)}
+  button{font-family:var(--body);font-size:15px;font-weight:600;padding:13px 26px;cursor:pointer;
+    border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:0}
+  button.fill{background:var(--ink);color:#fff}
+  button.sm{font-size:12px;padding:7px 14px}
+  button:disabled{opacity:.35;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .drop{border:1px dashed var(--stone);padding:34px 20px;text-align:center;margin-bottom:20px;cursor:pointer}
+  .drop.over{border-color:var(--ink);background:var(--offwhite)}
+  .drop .big{font-family:var(--display);font-size:18px;font-weight:500;margin-bottom:6px;color:var(--ink)}
+  .drop .sm{font-size:13.5px;color:var(--mid)}
+  .clip{border:1px solid var(--stone);padding:14px;margin-bottom:14px}
+  .clip .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .clip .name{font-weight:600;font-size:14px}
+  .clip audio{width:100%;height:34px;margin-bottom:8px}
+  .clip textarea{margin-bottom:8px;min-height:56px;font-size:14px}
+  .st{font-weight:600;font-size:12px}
+  .ok{color:var(--green)} .bad{color:var(--red)} .wait{color:var(--mid)}
+  .err{color:var(--red);font-size:14px;margin-bottom:16px;line-height:1.5}
+  .note{border:1px solid var(--stone);padding:16px;margin-bottom:20px;font-size:13.5px;line-height:1.6;color:var(--mid)}
+  .sum{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:22px}
+  .sum div span{display:block;font-family:var(--display);font-size:24px;font-weight:600;color:var(--ink)}
+  .sum div em{font-style:normal;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid)}
+  .bar{height:3px;background:var(--stone);margin-bottom:18px}
+  .bar span{display:block;height:100%;width:0;background:var(--ink);transition:width .2s}
+  @media (prefers-color-scheme:dark){
+    :root{--cream:#0a0705;--offwhite:#141010;--stone:#2a2320;--mid:#8f867b;--ink:#efe9df;--green:#5fcf94;--red:#e0685f}
+    button.fill{color:#0a0705}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
+
+// ── The singing-dataset uploader ────────────────────────────────────────────
+// Collects clean solo singing clips + THE LYRICS SUNG IN EACH ONE, and lands
+// them in the private voice bucket at:
+//     voice/<userId>/<profileId>/dataset/clip_NNN.wav   (the audio)
+//     voice/<userId>/<profileId>/dataset/clip_NNN.txt   (its exact lyrics)
+// That side-by-side layout is what the MFA aligner in the training pipeline
+// expects — one transcription per clip — so training can consume it directly.
+//
+// Lyrics are REQUIRED per clip: audio without words can't be aligned and would
+// silently weaken the model. The page refuses to upload a clip without them.
+
+let session=null, userId=null, profileId=null, profileName="";
+let clips=[];   // {file, name, dur, url, lyrics, status, reason}
+let err="", busy=false, nextSeq=1;
+
+const $=(s)=>document.querySelector(s);
+const H=()=>({apikey:SUPABASE_KEY, Authorization:"Bearer "+session.access_token});
+
+function fmtMin(s){ const m=Math.floor(s/60), r=Math.round(s%60); return m+":"+String(r).padStart(2,"0"); }
+
+async function login(email,pass){
+  const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password",{
+    method:"POST",headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify({email,password:pass})});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error_description||j.msg||"login failed");
+  session=j; userId=j.user.id;
+}
+
+async function findProfile(){
+  const r=await fetch(SUPABASE_URL+"/rest/v1/voice_profiles?select=id,name,status&user_id=eq."+userId+"&order=created_at.desc&limit=1",{headers:H()});
+  const rows=await r.json();
+  if(r.ok&&rows.length){ profileId=rows[0].id; profileName=rows[0].name||"your voice"; }
+}
+
+function audioDuration(file){
+  return new Promise((res)=>{
+    const a=document.createElement("audio");
+    a.preload="metadata";
+    a.onloadedmetadata=()=>res(a.duration||0);
+    a.onerror=()=>res(0);
+    a.src=URL.createObjectURL(file);
+  });
+}
+
+async function addFiles(list){
+  for(const f of list){
+    if(!/audio|wav|m4a|mp3|aiff?/i.test(f.type+" "+f.name)) continue;
+    const dur=await audioDuration(f);
+    clips.push({file:f,name:f.name,dur,url:URL.createObjectURL(f),lyrics:"",status:"ready",reason:""});
+  }
+  render();
+}
+
+async function uploadAll(){
+  err="";
+  const missing=clips.filter(c=>c.status==="ready"&&!c.lyrics.trim());
+  if(missing.length){ err=missing.length+" clip"+(missing.length>1?"s need":" needs")+" lyrics before uploading — the trainer aligns each clip to its words, so audio without them can't be used."; render(); return; }
+  busy=true; render();
+  for(const c of clips){
+    if(c.status!=="ready") continue;
+    c.status="uploading"; render();
+    const seq=String(nextSeq).padStart(3,"0");
+    const base=userId+"/"+profileId+"/dataset/clip_"+seq;
+    const ext=(c.name.split(".").pop()||"wav").toLowerCase();
+    try{
+      const up=await fetch(SUPABASE_URL+"/storage/v1/object/voice/"+base+"."+ext,{
+        method:"POST",headers:{...H(),"x-upsert":"true","Content-Type":c.file.type||"audio/wav"},body:c.file});
+      if(!up.ok) throw new Error("audio "+up.status);
+      const tx=await fetch(SUPABASE_URL+"/storage/v1/object/voice/"+base+".txt",{
+        method:"POST",headers:{...H(),"x-upsert":"true","Content-Type":"text/plain"},
+        body:c.lyrics.trim()});
+      if(!tx.ok) throw new Error("lyrics "+tx.status);
+      c.status="done"; nextSeq++;
+    }catch(e){ c.status="failed"; c.reason=String(e.message||e); }
+    render();
+  }
+  busy=false; render();
+}
+
+function totals(){
+  const done=clips.filter(c=>c.status==="done");
+  const ready=clips.filter(c=>c.status==="ready");
+  const secs=[...done,...ready].reduce((a,c)=>a+(c.dur||0),0);
+  return {done:done.length, all:clips.length, secs};
+}
+
+function render(){
+  const app=$("#app");
+  if(!session){
+    app.innerHTML=`
+      <div class="eyebrow">Song Studio</div>
+      <h1>Your singing dataset</h1>
+      <p>Log in with your Chelgy account to upload the recordings that will teach the model to sing as you.</p>
+      ${err?`<div class="err">${err}</div>`:""}
+      <label>Email</label><input type="email" id="em" autocomplete="email">
+      <label>Password</label><input type="password" id="pw" autocomplete="current-password">
+      <button class="fill" id="go">Log in</button>`;
+    $("#go").onclick=async()=>{
+      err="";
+      try{ await login($("#em").value.trim(),$("#pw").value); await findProfile(); }
+      catch(e){ err=String(e.message||e); }
+      render();
+    };
+    return;
+  }
+  if(!profileId){
+    app.innerHTML=`
+      <div class="eyebrow">Song Studio</div>
+      <h1>No voice profile yet</h1>
+      <p>Your account doesn't have a voice profile. Create one through the voice enrollment page first — the dataset attaches to it.</p>`;
+    return;
+  }
+  const t=totals();
+  const target=75*60; // middle of the 60–90 min goal
+  const pct=Math.min(100,Math.round(100*t.secs/target));
+  app.innerHTML=`
+    <div class="eyebrow">Song Studio — ${profileName}</div>
+    <h1>Your singing dataset</h1>
+    <p>Clean, dry, solo singing — short clips, each with the exact words you sang. This is the raw material the model learns your singing voice from.</p>
+    <div class="note">Rules that make the data usable: <b>no beat, no reverb, no effects</b> — bare voice only. One consistent mic and room. Cover your full range across the clips: low, high, soft, loud. And every clip needs its lyrics — the trainer aligns your words to your audio automatically, but only if it has the words.</div>
+    <div class="sum">
+      <div><span>${t.done}/${t.all}</span><em>clips uploaded</em></div>
+      <div><span>${fmtMin(t.secs)}</span><em>minutes gathered</em></div>
+      <div><span>${pct}%</span><em>of the 60–90 min goal</em></div>
+    </div>
+    <div class="bar"><span style="width:${pct}%"></span></div>
+    ${err?`<div class="err">${err}</div>`:""}
+    <div class="drop" id="drop">
+      <div class="big">Drop audio files here</div>
+      <div class="sm">or tap to choose — WAV is best; M4A/MP3 accepted</div>
+      <input type="file" id="pick" accept="audio/*" multiple style="display:none">
+    </div>
+    ${clips.map((c,i)=>`
+      <div class="clip">
+        <div class="head">
+          <span class="name">${c.name} <span style="color:var(--mid);font-weight:400">· ${fmtMin(c.dur||0)}</span></span>
+          <span class="st ${c.status==="done"?"ok":c.status==="failed"?"bad":"wait"}">${c.status}${c.reason?" — "+c.reason:""}</span>
+        </div>
+        <audio src="${c.url}" controls></audio>
+        ${c.status==="done"?`<p style="margin:0;font-size:13px">${c.lyrics}</p>`:`
+        <textarea placeholder="The exact words you sing in this clip…" data-i="${i}" ${busy?"disabled":""}>${c.lyrics}</textarea>
+        <div class="row"><button class="sm" data-rm="${i}" ${busy?"disabled":""}>Remove</button></div>`}
+      </div>`).join("")}
+    ${clips.some(c=>c.status==="ready")?`<button class="fill" id="up" ${busy?"disabled":""}>${busy?"Uploading…":"Upload "+clips.filter(c=>c.status==="ready").length+" clip(s)"}</button>`:""}
+  `;
+  const drop=$("#drop"), pick=$("#pick");
+  if(drop){
+    drop.onclick=()=>pick.click();
+    pick.onchange=(e)=>addFiles([...e.target.files]);
+    drop.ondragover=(e)=>{e.preventDefault();drop.classList.add("over");};
+    drop.ondragleave=()=>drop.classList.remove("over");
+    drop.ondrop=(e)=>{e.preventDefault();drop.classList.remove("over");addFiles([...e.dataTransfer.files]);};
+  }
+  document.querySelectorAll("textarea[data-i]").forEach(t=>{
+    t.oninput=(e)=>{ clips[+e.target.dataset.i].lyrics=e.target.value; };
+  });
+  document.querySelectorAll("button[data-rm]").forEach(b=>{
+    b.onclick=(e)=>{ clips.splice(+e.target.dataset.rm,1); render(); };
+  });
+  const up=$("#up"); if(up) up.onclick=uploadAll;
+}
+render();
+</script>
+</body>
+</html>
