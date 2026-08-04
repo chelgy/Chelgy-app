@@ -95,7 +95,7 @@ def stage_voice(tuned, out, model_pth, model_index, index_rate, protect):
 
 
 # ── 3 · BEAT ────────────────────────────────────────────────────────────────
-def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=None):
+def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=None, style=None):
     """
     Calls the app's own endpoint rather than ElevenLabs directly, so the
     composition rules live in exactly one place and the pod never needs a
@@ -115,6 +115,10 @@ def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=No
         # own harmony rather than a genre-word guess. This is the fix for beats
         # that clash with the sung line.
         "chords": chords,
+        # An inspo track's production description (from Gemini via /api/song-inspo).
+        # Shapes the FEEL — instruments, texture, mix — while the key/tempo/chords
+        # above keep the beat on the melody's own harmonic ground.
+        "style": style,
     })
     if r.status_code != 200:
         raise RuntimeError(f"Beat generation failed ({r.status_code}): {r.text[:300]}")
@@ -227,6 +231,8 @@ def main():
     p.add_argument("guide")
     p.add_argument("--genre", default="pop")
     p.add_argument("--instruments", default="")
+    p.add_argument("--style", default="",
+                   help="production style from an inspo track (feel only, not key/tempo)")
     p.add_argument("--out", default="song.mp3")
     p.add_argument("--tune-strength", type=float, default=0.85)
     # 0.75 is a deliberate middle. Higher locks onto the trained voice but drags
@@ -309,7 +315,10 @@ def main():
     # beat that gets trimmed.
     chords = (info.get("chords") or {}).get("progression") if isinstance(info.get("chords"), dict) else None
     stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
-               min(300, dur * 1.35 + 4), a.app, chords=chords)
+               min(300, dur * 1.35 + 4), a.app, chords=chords,
+               style=(a.style or None))
+    if a.style:
+        print(f"  inspo feel: {a.style[:70]}")
     if chords:
         print(f"  built on the melody's chords: {' '.join(chords[:8])}")
 

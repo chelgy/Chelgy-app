@@ -57,9 +57,16 @@ function skeleton(seconds) {
   return [["Intro",0.08],["Verse",0.2],["Chorus",0.22],["Verse",0.17],["Chorus",0.21],["Outro",0.12]];
 }
 
-function buildPrompt({ genre, instruments, key, tempo, seconds, chords }) {
+function buildPrompt({ genre, instruments, key, tempo, seconds, chords, style }) {
   const g = GENRES[genre] || GENRES.pop;
-  const bits = [g.styles.join(", ")];
+  // An inspo track's description, when present, LEADS the prompt — it is a
+  // richer, more specific reading of the desired feel than a genre label, so it
+  // replaces the canned genre words rather than piling on top of them. The
+  // genre still names the lane; the inspo describes the production within it.
+  const inspo = String(style || "").replace(/\s+/g, " ").trim();
+  const bits = inspo
+    ? [g.label.toLowerCase() + ", " + inspo]
+    : [g.styles.join(", ")];
 
   // Key and tempo come from the guide take, so the beat lands under the vocal
   // instead of the vocal having to be dragged onto the beat.
@@ -103,7 +110,7 @@ export default async function handler(req, res) {
 
   const {
     action = "plan", genre = "pop", instruments = "",
-    key = null, tempo = null, seconds = 60, plan = null, chords = null,
+    key = null, tempo = null, seconds = 60, plan = null, chords = null, style = null,
   } = req.body || {};
 
   const dur = Math.max(10, Math.min(300, Number(seconds) || 60));
@@ -115,7 +122,7 @@ export default async function handler(req, res) {
     // the key and tempo we measured off the guide take — the whole point.
     if (action === "plan") {
       return res.status(200).json({
-        prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords }),
+        prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords, style }),
         structure: skeleton(dur).map(([n, sh]) => n + " " + Math.round(dur * sh) + "s"),
         genre: (GENRES[genre] || GENRES.pop).label,
         cost: BEAT_COST,
@@ -136,7 +143,7 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords }),
+          prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords, style }),
           music_length_ms: dur * 1000,
           model_id: MODEL,
           output_format: "mp3_44100_128",

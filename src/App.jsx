@@ -10605,6 +10605,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [profile,setProfile]   = useState(undefined);   // undefined = still loading
   const [file,setFile]         = useState(null);
   const [clipUrl,setClipUrl]   = useState("");
+  const [inspo,setInspo]       = useState(null);   // an uploaded reference track (feel only)
   const [recording,setRec]     = useState(false);
   const [genre,setGenre]       = useState("rnb");
   const [instruments,setInst]  = useState("");
@@ -10707,11 +10708,23 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const url = await uploadSiteAudioFile(file, path);
       if(!url) throw new Error("That take couldn't be uploaded. Check your connection and try again.");
 
+      // Optional inspo track. Uploaded the same way (user-id-first path), its
+      // URL rides in the request and the worker asks Gemini to describe its
+      // feel before the beat is built. A failed inspo upload is not fatal to
+      // the song — we just proceed without it.
+      let inspoUrl = null;
+      if(inspo){
+        setStage("Uploading your inspo\u2026");
+        const iext = (inspo.name.split(".").pop()||"mp3").toLowerCase().slice(0,5);
+        const ipath = uid + "/inspo/" + Date.now() + "." + iext;
+        try{ inspoUrl = await uploadSiteAudioFile(inspo, ipath); }catch(_){ inspoUrl = null; }
+      }
+
       const token = await freshToken();
       const r = await fetch("/api/studio-song", { method:"POST",
         headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
         body: JSON.stringify({ guideUrl:url, profileId:profile.id, genre,
-          instruments, tuneStrength, indexRate }) });
+          instruments, tuneStrength, indexRate, ...(inspoUrl?{inspoUrl}:{}) }) });
       const j = await r.json();
       if(!r.ok || !j.jobId) throw new Error(j.error || "Couldn't start the song.");
 
@@ -10797,6 +10810,15 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               {file ? "Choose a different file" : "Or upload one"}
             </label>
           </div>
+
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:14}}>
+            <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 16px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
+              <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f)setInspo(f);}} style={{display:"none"}} disabled={busy} />
+              {inspo ? "Inspo: "+(inspo.name.length>22?inspo.name.slice(0,22)+"\u2026":inspo.name) : "Add an inspo track (optional)"}
+            </label>
+            {inspo && <button onClick={()=>setInspo(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
+          </div>
+          {inspo && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"-6px 0 14px",lineHeight:1.5}}>Chelgy will match this track\u2019s feel \u2014 its instruments, texture and mix \u2014 while keeping your own melody.</p>}
 
           {clipUrl && <audio src={clipUrl} controls style={{width:"100%",marginBottom:14}} />}
 
