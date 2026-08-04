@@ -102,6 +102,57 @@ function buildPrompt({ genre, instruments, key, tempo, seconds, chords, style })
   return bits.join(". ") + ".";
 }
 
+
+// ── SCORE-CONDITIONED COMPOSITION PLAN ──────────────────────────────────────
+// When the render sends the score's sections (carved from the sung melody:
+// exact durations, energy, chords per section), the instrumental is generated
+// from a composition PLAN whose structure IS the vocal's structure — section
+// boundaries at the singer's phrase boundaries, chords under each phrase from
+// that phrase's own bars, arrangement energy following the melody's register.
+// This is what "unified, not stacked" means in practice: voice and instruments
+// both descend from one score. A text prompt can say "84 BPM in B minor";
+// only a plan can say "at second 41, when her melody lifts, the arrangement
+// lifts with it".
+function buildCompositionPlan({ genre, instruments, key, tempo, chords, style, sections, seconds }) {
+  const keyName = key ? key.name + (key.mode === "minor" ? " minor" : " major") : null;
+  const global_pos = [
+    genre, "instrumental backing track",
+    Math.round(tempo) + " BPM",
+    keyName, "steady tempo throughout",
+    instruments || null,
+    style || null,
+  ].filter(Boolean).slice(0, 12);
+  const global_neg = ["vocals", "singing", "spoken word", "tempo changes", "key changes"];
+
+  const ENERGY = {
+    sparse: "sparse and minimal, light percussion, lots of space",
+    building: "building energy, fuller groove, added layers",
+    full: "full arrangement, driving, peak energy",
+  };
+
+  const plan_sections = sections.map((sec, i) => {
+    const styles = [ENERGY[sec.energy] || ENERGY.building];
+    if (sec.chords && sec.chords.length)
+      styles.push("harmony: " + sec.chords.join(" "));
+    if (sec.intro) styles.push("intro before the vocal enters");
+    if (sec.outro) styles.push("gentle outro, resolve and fade");
+    return {
+      section_name: sec.intro ? "intro" : sec.outro ? "outro" : "section " + (i + 1),
+      positive_local_styles: styles,
+      negative_local_styles: [],
+      // ElevenLabs wants integer ms, 3s-120s per section.
+      duration_ms: Math.max(3000, Math.min(120000, Math.round(sec.duration * 1000))),
+      lines: [],
+    };
+  });
+
+  return {
+    positive_global_styles: global_pos,
+    negative_global_styles: global_neg,
+    sections: plan_sections,
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
@@ -189,15 +240,23 @@ export default async function handler(req, res) {
     // prompt path is what their own examples use and it takes everything we
     // need — genre, instruments, key, tempo — as words.
     if (action === "compose") {
+      // Score-conditioned path: the render sent the vocal's own sections, so
+      // the instrumental is generated from a plan with that exact structure.
+      // Composition plans and prompts are mutually exclusive in the API.
+      const sections = Array.isArray(req.body.sections) && req.body.sections.length >= 1
+        ? req.body.sections : null;
+      const body = sections
+        ? { composition_plan: buildCompositionPlan({ genre, instruments, key, tempo, chords, style, sections, seconds: dur }),
+            model_id: "music_v2",
+            output_format: "mp3_44100_128" }
+        : { prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords, style }),
+            music_length_ms: dur * 1000,
+            model_id: MODEL,
+            output_format: "mp3_44100_128" };
       const r = await fetch(EL + "/music", {
         method: "POST",
         headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: buildPrompt({ genre, instruments, key, tempo, seconds: dur, chords, style }),
-          music_length_ms: dur * 1000,
-          model_id: MODEL,
-          output_format: "mp3_44100_128",
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!r.ok) {

@@ -106,7 +106,90 @@ def fetch_to(url, dst):
     return dst
 
 
-def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=None, style=None):
+def build_sections(info, total_dur, max_sections=12):
+    """
+    Carve the sung melody into SECTIONS — the score's structure — so the
+    instrumental can be arranged around the vocal's actual shape instead of
+    generated blind and glued on after. This is the difference between
+    "a beat in the right key" and "an arrangement written for this melody".
+
+    Sections split at breath gaps (>0.8s between notes). Each carries:
+      - its exact duration (the instrumental's sections will match it 1:1)
+      - its energy (mean pitch height + note density -> sparse/building/full)
+      - its chords (which bars of the progression fall inside it)
+    """
+    notes = info.get("note_list") or []
+    chords = info.get("chords") if isinstance(info.get("chords"), dict) else {}
+    bars = chords.get("bars") or []
+    spb = float(chords.get("seconds_per_bar") or 2.0)
+    if len(notes) < 4:
+        return None
+
+    # split at gaps
+    phrases, cur = [], [notes[0]]
+    for prev, n in zip(notes, notes[1:]):
+        gap = n["start"] - (prev["start"] + prev["dur"])
+        if gap > 0.8:
+            phrases.append(cur); cur = []
+        cur.append(n)
+    phrases.append(cur)
+
+    # merge tiny phrases forward until each section is >=4s (ElevenLabs
+    # sections must be 3-120s; very short ones make a choppy arrangement).
+    # Close at the BREATH GAP once the running section is long enough —
+    # closing after extending instead would swallow the next phrase and
+    # merge musically distinct passages (a verse into its chorus).
+    sections, cur, start = [], [], phrases[0][0]["start"]
+    for ph in phrases:
+        if cur:
+            cur_end = cur[-1]["start"] + cur[-1]["dur"]
+            if cur_end - start >= 4.0:
+                sections.append((start, cur_end, cur))
+                cur = []; start = ph[0]["start"]
+        cur.extend(ph)
+    if cur:
+        if sections:
+            s0, _, ns = sections[-1]
+            sections[-1] = (s0, cur[-1]["start"] + cur[-1]["dur"], ns + cur)
+        else:
+            sections = [(start, cur[-1]["start"] + cur[-1]["dur"], cur)]
+    sections = sections[:max_sections]
+
+    # energy per section, relative to the whole take
+    import statistics
+    def midi_of(name):
+        NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+        pc = name[:-1]; octv = int(name[-1])
+        return NAMES.index(pc) + 12 * (octv + 1)
+    all_pitches = [midi_of(n["name"]) for n in notes]
+    p_lo, p_hi = min(all_pitches), max(all_pitches)
+
+    out = []
+    for (a, b, ns) in sections:
+        pitches = [midi_of(n["name"]) for n in ns]
+        density = len(ns) / max(0.5, b - a)
+        height = (statistics.mean(pitches) - p_lo) / max(1, p_hi - p_lo)
+        score = 0.6 * height + 0.4 * min(1.0, density / 4.0)
+        energy = "sparse" if score < 0.35 else ("building" if score < 0.65 else "full")
+        # chords whose bars overlap this section
+        i0, i1 = int(a // spb), int(b // spb) + 1
+        sec_chords = [x["chord"] for x in bars[i0:i1]]
+        out.append({
+            "start": round(a, 2), "duration": round(b - a, 2),
+            "energy": energy,
+            "chords": sec_chords[:8],
+        })
+    # lead-in before the first phrase becomes an intro the vocal enters over
+    if out and out[0]["start"] > 2.0:
+        out.insert(0, {"start": 0.0, "duration": round(out[0]["start"], 2),
+                       "energy": "sparse", "chords": out[0]["chords"][:2], "intro": True})
+    # a short tail so the song does not stop dead with the last word
+    out.append({"start": round(total_dur, 2), "duration": 6.0,
+                "energy": "sparse", "chords": (out[-1]["chords"] or [])[-2:], "outro": True})
+    return out
+
+
+def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=None, style=None, sections=None):
     """
     Calls the app's own endpoint rather than ElevenLabs directly, so the
     composition rules live in exactly one place and the pod never needs a
@@ -130,6 +213,11 @@ def stage_beat(out, genre, instruments, key, tempo, seconds, app_base, chords=No
         # Shapes the FEEL — instruments, texture, mix — while the key/tempo/chords
         # above keep the beat on the melody's own harmonic ground.
         "style": style,
+        # The score's structure: the vocal's own sections with exact durations,
+        # energy and chords. When present, the beat endpoint builds a
+        # composition PLAN from it instead of a text prompt — the instrumental
+        # is arranged around this melody, not generated blind.
+        "sections": sections,
     })
     if r.status_code != 200:
         raise RuntimeError(f"Beat generation failed ({r.status_code}): {r.text[:300]}")
@@ -476,6 +564,14 @@ def main():
     # up to reach the vocal's tempo and a beat that ends early is worse than a
     # beat that gets trimmed.
     chords = (info.get("chords") or {}).get("progression") if isinstance(info.get("chords"), dict) else None
+    # The score's structure — sections carved from the vocal itself. This is
+    # what makes the instrumental UNIFIED with the melody instead of stacked
+    # under it: the arrangement's sections, durations, energy and chords all
+    # come from the same score the voice sings.
+    sections = build_sections(info, dur)
+    if sections:
+        print(f"  score structure: {len(sections)} sections "
+              + " ".join(x["energy"][0] for x in sections))
     if a.beat_url:
         # Bring-your-own-beat: the person picked a generated option or uploaded
         # their own instrumental, so we DON'T generate. We still tune and align
@@ -491,7 +587,7 @@ def main():
     else:
         stage_beat(w("beat.mp3"), a.genre, a.instruments, key, tempo,
                    min(300, dur * 1.35 + 4), a.app, chords=chords,
-                   style=(a.style or None))
+                   style=(a.style or None), sections=sections)
         if a.style:
             print(f"  inspo feel: {a.style[:70]}")
         if chords:
