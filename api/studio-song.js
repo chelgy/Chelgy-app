@@ -22,6 +22,28 @@ const RS_URL = (process.env.RENDER_SERVER_URL || "").trim().replace(/\/+$/, "");
 const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
+// The finished song lands in the PRIVATE `voice` bucket (that's where the pod
+// worker writes it), so the browser can't read it directly. This endpoint holds
+// the service key already, so it mints a short-lived signed URL when a job is
+// done — the private bucket never has to be exposed and no path is guessed.
+const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "").trim();
+const SONG_BUCKET = "voice";
+const SIGNED_TTL = 60 * 60;   // an hour; the player only needs one load
+
+async function signSong(storagePath) {
+  if (!storagePath || !SB_SVC) return null;
+  try {
+    const r = await fetch(
+      SB_URL + "/storage/v1/object/sign/" + SONG_BUCKET + "/" + storagePath,
+      { method: "POST",
+        headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresIn: SIGNED_TTL }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    // Supabase returns a root-relative signedURL; make it absolute for the browser.
+    return j && j.signedURL ? SB_URL + "/storage/v1" + j.signedURL : null;
+  } catch { return null; }
+}
 
 async function getUserId(token) {
   if (!token) return null;
@@ -61,6 +83,13 @@ export default async function handler(req, res) {
       const jobId = String((req.query && req.query.jobId) || "").trim();
       if (!jobId) return res.status(400).json({ error: "Missing jobId." });
       const out = await rs("/song/" + encodeURIComponent(jobId), { method: "GET" });
+      // When the render is finished, hand back a ready-to-play signed URL rather
+      // than a private path the browser can't open. Best-effort: if signing
+      // fails the status still returns, just without audioUrl.
+      if (out.ok && out.body && out.body.status === "done" && out.body.storagePath) {
+        const audioUrl = await signSong(out.body.storagePath);
+        if (audioUrl) out.body.audioUrl = audioUrl;
+      }
       return res.status(out.status).json(out.body);
     }
 

@@ -10732,7 +10732,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           if(st.status === "done" && st.storagePath){
             clearInterval(pollRef.current); pollRef.current = null;
             setPct(100); setStage(""); setBusy(false);
-            setSong({ path: st.storagePath, key: st.key, tempo: st.tempo });
+            setSong({ path: st.storagePath, url: st.audioUrl || null, key: st.key, tempo: st.tempo });
             onBalance && onBalance();
           } else if(st.status === "failed" || st.status === "error"){
             clearInterval(pollRef.current); pollRef.current = null;
@@ -10844,7 +10844,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px"}}>
                 Done{song.key?" \u2014 "+song.key:""}{song.tempo?" at "+Math.round(song.tempo)+" BPM":""}.
               </p>
-              <audio src={SUPABASE_URL+"/storage/v1/object/public/voice/"+song.path} controls style={{width:"100%"}} />
+              {song.url
+                ? <audio src={song.url} controls style={{width:"100%"}} />
+                : <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>Your song is saved. Reload to play it.</p>}
             </div>
           )}
         </>
