@@ -37,9 +37,9 @@ const IMAGE = (process.env.RUNPOD_SONG_IMAGE || "ghcr.io/chelgy/chelgy-song:late
 // 2026: A5000 ~$0.27, L4 ~$0.39, A40 ~$0.44/hr. Everything pricier is left off
 // on purpose. Override only if you know what you're paying for.
 const GPU_TYPES = (process.env.RUNPOD_TRAIN_GPU_TYPES || "NVIDIA L4,NVIDIA RTX A5000,NVIDIA A40").split(",").map(s => s.trim()).filter(Boolean);
-// Belt-and-suspenders hard ceiling: even if an env override adds a pricier
-// card, the pod won't be created above this $/hr. Set a hair above A40.
-const MAX_PRICE_HR = Number(process.env.RUNPOD_TRAIN_MAX_PRICE || 0.50);
+// NOTE: RunPod's REST API has no price-cap field, so cost is controlled the
+// only way it can be — GPU_TYPES above lists ONLY cards at or below the L4's
+// price. RunPod cannot hand us an expensive GPU that isn't on that list.
 const COUNTRIES = (process.env.RUNPOD_COUNTRIES || "US").split(",").map(s => s.trim()).filter(Boolean);
 const REGISTRY_AUTH = (process.env.RUNPOD_REGISTRY_AUTH_ID || "").trim();
 // Training writes checkpoints, the MFA env, and the dataset to disk — size for it.
@@ -131,10 +131,6 @@ export default async function handler(req, res) {
       computeType: "GPU",
       countryCodes: COUNTRIES,
       gpuTypePriority: "availability",
-      // Refuse any instance priced above the ceiling, whatever GPU it is.
-      minVcpuCount: 2,
-      supportPublicIp: true,
-      maxPricePerHr: MAX_PRICE_HR,
       dockerStartCmd: ["bash", "-lc",
         "curl -fsSL " + APP_BASE + "/train-diffsinger.sh?v=$(date +%s) | bash"],
       env: {
