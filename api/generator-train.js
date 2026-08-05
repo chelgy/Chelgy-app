@@ -36,7 +36,12 @@ const IMAGE = (process.env.RUNPOD_SONG_IMAGE || "ghcr.io/chelgy/chelgy-song:late
 // RunPod physically cannot hand us an expensive one when L4 is scarce. As of
 // 2026: A5000 ~$0.27, L4 ~$0.39, A40 ~$0.44/hr. Everything pricier is left off
 // on purpose. Override only if you know what you're paying for.
-const GPU_TYPES = (process.env.RUNPOD_TRAIN_GPU_TYPES || "NVIDIA L4,NVIDIA RTX A5000,NVIDIA A40").split(",").map(s => s.trim()).filter(Boolean);
+// Fastest affordable card FIRST. Training time depends on GPU speed, so the
+// A40 (most bandwidth of the cheap tier, ~$0.44/hr) is preferred; L4 and A5000
+// are fallbacks only if the A40 is busy. A faster card that finishes in fewer
+// hours often costs LESS total than a cheap slow one that runs twice as long —
+// and you get the model sooner, which is the point.
+const GPU_TYPES = (process.env.RUNPOD_TRAIN_GPU_TYPES || "NVIDIA A40,NVIDIA L4,NVIDIA RTX A5000").split(",").map(s => s.trim()).filter(Boolean);
 // NOTE: RunPod's REST API has no price-cap field, so cost is controlled the
 // only way it can be — GPU_TYPES above lists ONLY cards at or below the L4's
 // price. RunPod cannot hand us an expensive GPU that isn't on that list.
@@ -44,7 +49,10 @@ const COUNTRIES = (process.env.RUNPOD_COUNTRIES || "US").split(",").map(s => s.t
 const REGISTRY_AUTH = (process.env.RUNPOD_REGISTRY_AUTH_ID || "").trim();
 // Training writes checkpoints, the MFA env, and the dataset to disk — size for it.
 const DISK_GB = Math.max(100, Number(process.env.RUNPOD_TRAIN_DISK_GB) || 150);
-const TRAIN_STEPS = String(Number(process.env.GENERATOR_TRAIN_STEPS) || 60000);
+// 20k for the FIRST run: enough to prove the voice sounds like her in ~4-6h,
+// not the ~day a full 60k takes. Once proven, bump this (or set the env var)
+// to 60000 for the polished final model.
+const TRAIN_STEPS = String(Number(process.env.GENERATOR_TRAIN_STEPS) || 20000);
 
 async function rp(path, init) {
   const r = await fetch(RP + path, {
@@ -130,7 +138,9 @@ export default async function handler(req, res) {
       cloudType: "SECURE",
       computeType: "GPU",
       countryCodes: COUNTRIES,
-      gpuTypePriority: "availability",
+      // "custom" honors our order (fastest-first). Only falls to the next card
+      // if the preferred one has no availability.
+      gpuTypePriority: "custom",
       dockerStartCmd: ["bash", "-lc",
         "curl -fsSL " + APP_BASE + "/train-diffsinger.sh?v=$(date +%s) | bash"],
       env: {
