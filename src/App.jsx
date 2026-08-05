@@ -11203,7 +11203,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Output</div>
           <div style={{display:"flex",gap:6,marginBottom:8}}>
             {[["song","Full song"],["vocal","Just my vocal"],["convert","Convert a vocal"]].map(([id,label])=>(
-              <button key={id} onClick={()=>setOutMode(id)} disabled={busy}
+              <button key={id} onClick={()=>{setOutMode(id); if(id==="convert") setVocalSpace("match");}} disabled={busy}
                 style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(outMode===id?B.charcoal:B.stone),background:outMode===id?B.inkBlock:B.white,color:outMode===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
             ))}
           </div>
@@ -11222,13 +11222,15 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               {convertFile && <button onClick={()=>setConvertFile(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
             </div>
             <div style={{display:"flex",gap:6,marginBottom:8}}>
-              {[["wet","Produced"],["dry","Dry"]].map(([id,label])=>(
+              {[["match","Match Suno"],["wet","Produced"],["dry","Dry"]].map(([id,label])=>(
                 <button key={id} onClick={()=>setVocalSpace(id)} disabled={busy}
                   style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 14px",border:"1px solid "+((vocalSpace===id)?B.charcoal:B.stone),background:(vocalSpace===id)?B.inkBlock:B.white,color:(vocalSpace===id)?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
               ))}
             </div>
             <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 12px",lineHeight:1.5}}>
-              {vocalSpace==="dry" ? "Clean and dry \u2014 no effects, for mixing it yourself." : "Produced \u2014 reverb and EQ so it sits in a mix."}
+              {vocalSpace==="match" ? "Matched to the vocal you uploaded \u2014 restores its exact tone and space onto your voice. Most precise to the original take." :
+               vocalSpace==="dry" ? "Clean and dry \u2014 no effects, for mixing it yourself." :
+               "Produced \u2014 reverb and EQ so it sits in a mix."}
             </p>
           </>)}
 
