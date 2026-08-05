@@ -5970,7 +5970,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     // bring one back. `ready:false` is the other axis: that greys a style out and labels
     // it "· soon"; `hidden` removes it from view entirely.
     { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true, hidden:true },
-    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true, hidden:true },
+    { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true },
   ];
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
@@ -13197,7 +13197,7 @@ const CATEGORIES = [
     tabs:[ {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Film Room",tool:"filmroom"}, {label:"Video Edit",tool:"videoedit"},
            ...(FAKEIT_PRESETS_ENABLED ? [{label:"Presets",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}] : []) ] },
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
-    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Film Room",tool:"filmroom"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Film Room",tool:"filmroom"}, {label:"Video Edit",tool:"videoedit"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Never stare at a blank caption again. Get post ideas worth filming, captions in your voice, creator-style UGC clips, and scroll-stopping flyers and graphics — enough to fill your calendar for the month.",
