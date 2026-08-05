@@ -31,7 +31,10 @@ const APP_BASE = (process.env.APP_BASE_URL || "https://chelgy.app").trim();
 
 const POD_PREFIX = "chelgy-train-";
 const IMAGE = (process.env.RUNPOD_SONG_IMAGE || "ghcr.io/chelgy/chelgy-song:latest").trim();
-const GPU_TYPES = (process.env.RUNPOD_GPU_TYPES || "NVIDIA L4").split(",").map(s => s.trim()).filter(Boolean);
+// Widened on purpose: training only needs a competent CUDA GPU, and asking
+// for L4 ALONE makes "no instances available" a frequent failure at busy times.
+// Any of these trains fine; RunPod picks whichever is free.
+const GPU_TYPES = (process.env.RUNPOD_TRAIN_GPU_TYPES || "NVIDIA L4,NVIDIA L40S,NVIDIA L40,NVIDIA RTX A5000,NVIDIA RTX A4500,NVIDIA A40").split(",").map(s => s.trim()).filter(Boolean);
 const COUNTRIES = (process.env.RUNPOD_COUNTRIES || "US").split(",").map(s => s.trim()).filter(Boolean);
 const REGISTRY_AUTH = (process.env.RUNPOD_REGISTRY_AUTH_ID || "").trim();
 // Training writes checkpoints, the MFA env, and the dataset to disk — size for it.

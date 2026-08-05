@@ -29,7 +29,11 @@
 # below deliberately start modest — a first fine-tune that proves the pipeline
 # beats a perfect one that never finishes.
 # ═══════════════════════════════════════════════════════════════════════════
-set -euo pipefail
+set -uo pipefail
+# NOTE: -e is deliberately OFF. An ERR-trap that self-deletes the pod on ANY
+# non-zero exit killed pods mid-setup on harmless probe commands (command -v,
+# conda checks). We check real failures explicitly and only self-terminate on
+# those — never on an incidental non-zero from a setup line.
 
 SUPABASE_URL="${SUPABASE_URL:-https://yuzvpmxbtjpqtapborhr.supabase.co}"
 ROOT=/workspace/diffsinger
@@ -39,24 +43,19 @@ MAX_STEPS="${MAX_STEPS:-60000}"        # fine-tune length; raise for quality onc
 DICTIONARY="${DICTIONARY:-english}"    # MFA dictionary/language
 
 say(){ printf "\n\033[1m▸ %s\033[0m\n" "$*"; }
-die(){ printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
+die(){ printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; fail_and_stop "$*"; exit 1; }
 
-[ -n "${SUPABASE_SERVICE_KEY:-}" ] || die "SUPABASE_SERVICE_KEY is not set."
-[ -n "${PROFILE_ID:-}" ]          || die "PROFILE_ID is not set."
-nvidia-smi -L >/dev/null 2>&1     || die "No GPU visible. This needs a GPU pod."
-
-# ── Progress + lifecycle ────────────────────────────────────────────────────
+# ── Progress + lifecycle helpers (defined before anything that can fail) ─────
 # The app watches voice/<uid>/<pid>/generator/status.json. Every stage writes
-# it, so "watch the pod" becomes "watch the app". And the pod REMOVES ITSELF
-# when training ends — success or failure — because a training pod nobody is
-# babysitting must never be a pod that bills forever.
-UID_JSON=$(curl -fsSL "$SUPABASE_URL/rest/v1/voice_profiles?select=user_id&id=eq.$PROFILE_ID" \
-  -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
-OWNER_UID=$(printf '%s' "$UID_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d[0]['user_id'] if d else '')")
-[ -n "$OWNER_UID" ] || die "profile $PROFILE_ID not found"
-STATUS_PATH="$OWNER_UID/$PROFILE_ID/generator/status.json"
+# it, so "watch the pod" becomes "watch the app". The pod REMOVES ITSELF when
+# training ends — success or failure — so a training pod nobody babysits never
+# bills forever. But self-terminate fires ONLY on a real checked failure (via
+# die), never on an incidental non-zero exit — that early over-eager trap is
+# what deleted pods mid-setup.
+STATUS_PATH=""   # set once the profile is known; report() no-ops until then
 
 report() { # report <stage-number> <label> [error]
+  [ -n "${STATUS_PATH:-}" ] || return 0
   python3 - "$1" "$2" "${3:-}" <<'PYR'
 import json, os, sys, urllib.request
 stage, label, err = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -72,10 +71,8 @@ try: urllib.request.urlopen(req, timeout=30)
 except Exception as e: print("  (status update failed: %s)" % e)
 PYR
 }
-export SUPABASE_URL SUPABASE_SERVICE_KEY STATUS_PATH
 
 terminate_self() {
-  # RunPod injects RUNPOD_POD_ID; our own key survives under CHELGY_RUNPOD_KEY.
   local key="${CHELGY_RUNPOD_KEY:-}"
   [ -n "$key" ] && [ -n "${RUNPOD_POD_ID:-}" ] || { echo "(no pod credentials — not self-terminating)"; return 0; }
   echo "removing this pod (${RUNPOD_POD_ID})"
@@ -83,12 +80,28 @@ terminate_self() {
     -H "Authorization: Bearer $key" || echo "(self-terminate call failed — the reaper will get it)"
 }
 
-on_fail() {
-  report 0 "failed" "training stopped at: ${CURRENT_STAGE:-unknown} — check the pod log"
+fail_and_stop() {
+  report 0 "failed" "stopped at: ${CURRENT_STAGE:-startup} — $1"
+  echo "[train] FAILED at ${CURRENT_STAGE:-startup}: $1"
+  echo "[train] leaving pod up 10 min so the log can be read, then self-terminating"
+  sleep 600
   terminate_self
 }
-trap on_fail ERR
-CURRENT_STAGE="starting"
+
+# ── Preconditions (now die/fail_and_stop exist) ─────────────────────────────
+CURRENT_STAGE="startup"
+[ -n "${SUPABASE_SERVICE_KEY:-}" ] || die "SUPABASE_SERVICE_KEY is not set."
+[ -n "${PROFILE_ID:-}" ]          || die "PROFILE_ID is not set."
+nvidia-smi -L >/dev/null 2>&1     || die "No GPU visible. This needs a GPU pod."
+
+# Resolve the owning user, then progress can be reported.
+UID_JSON=$(curl -fsSL "$SUPABASE_URL/rest/v1/voice_profiles?select=user_id&id=eq.$PROFILE_ID" \
+  -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
+OWNER_UID=$(printf '%s' "$UID_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d[0]['user_id'] if d else '')")
+[ -n "$OWNER_UID" ] || die "profile $PROFILE_ID not found"
+STATUS_PATH="$OWNER_UID/$PROFILE_ID/generator/status.json"
+export SUPABASE_URL SUPABASE_SERVICE_KEY STATUS_PATH
+
 report 0 "starting up"
 
 # ── 0 · ENVIRONMENT ────────────────────────────────────────────────────────
@@ -327,5 +340,4 @@ PY
 
 report 6 "done — your voice generator is ready"
 say "Done. The voice GENERATOR is trained and uploaded."
-trap - ERR
 terminate_self
