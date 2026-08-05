@@ -10728,8 +10728,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const token=await freshToken();
       const r=await fetch("/api/generator-train",{ method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) } });
       const j=await r.json();
-      if(!r.ok) throw new Error(j.error||"Couldn\u2019t start training.");
-      setGen({ state:"training", stage:0, of:6, label:"starting up" });
+      if(!r.ok) throw new Error(j.error||"Couldn’t start training.");
+      if(j.already){ setGen({ state:"training", stage:0, of:6, label:"training is already running" }); }
+      else { setGen({ state:"training", stage:0, of:6, label:"starting up" }); }
     }catch(e){ setGenErr(String((e&&e.message)||e)); }
   }
   const [indexRate,setIndex]   = useState(0.75);
@@ -10922,8 +10923,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
       <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20}}>
         <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Voice generator</div>
-        {(!gen || gen.state==="none") && (<>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px",lineHeight:1.55}}>Train a model that truly <i>sings</i> as you \u2014 built from the recordings you uploaded at <a href="/dataset-upload.html" target="_blank" style={{color:B.charcoal}}>your singing dataset</a>. Training runs on its own for hours to days; progress shows here.</p>
+        {(!gen || gen.state==="none" || gen.state==="failed") && (<>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px",lineHeight:1.55}}>Train a model that truly <i>sings</i> as you — built from the recordings you uploaded at <a href="/dataset-upload.html" target="_blank" style={{color:B.charcoal}}>your singing dataset</a>. Training runs on its own for hours to days; progress shows here.</p>
+          {gen && gen.state==="failed" && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,margin:"0 0 10px"}}>Last attempt didn’t finish. You can start a fresh run.</p>}
           {genErr && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:"#C0392B",margin:"0 0 10px"}}>{genErr}</p>}
           <button onClick={startTraining} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Train my voice generator</button>
         </>)}
@@ -10932,14 +10934,10 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
             <div style={{flex:1,height:3,background:B.stone}}><div style={{height:"100%",width:(Math.round(100*((gen.stage||0)/(gen.of||6))))+"%",background:B.charcoal,transition:"width .3s"}}/></div>
             <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>{gen.stage||0}/{gen.of||6}</span>
           </div>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:gen.state==="stalled"?"#C0392B":B.mid,margin:0}}>{gen.state==="stalled"?"Training looks stalled \u2014 "+(gen.label||"")+". Check the pod, or start it again.":(gen.label||"Training\u2026")}</p>
-        </>)}
-        {gen && gen.state==="failed" && (<>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#C0392B",margin:"0 0 10px"}}>{gen.label||"Training failed."}</p>
-          <button onClick={startTraining} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Try again</button>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:gen.state==="stalled"?"#C0392B":B.mid,margin:0}}>{gen.state==="stalled"?"Training looks stalled — "+(gen.label||"")+". Check the pod, or start it again.":(gen.label||"Training…")}</p>
         </>)}
         {gen && gen.state==="ready" && (
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>\u2713 Your voice generator is trained and ready. Generator-sung songs are coming next \u2014 this is the voice they\u2019ll use.</p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>✓ Your voice generator is trained and ready. Generator-sung songs are coming next — this is the voice they’ll use.</p>
         )}
       </div>
 
