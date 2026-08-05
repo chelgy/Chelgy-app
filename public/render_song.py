@@ -755,19 +755,19 @@ def main():
         stage_voice(w("src-vocal.wav"), w("vocal.wav"), w("model.pth"),
                     w("model.index") if prof.get("index_path") else None,
                     a.index_rate, a.protect)
-        # Restore the source's tonal character. RVC re-synthesises the voice, so
-        # the EQ/space the input carried (e.g. Suno's production) is flattened
-        # in the output. The input vocal is the ideal reference — same
-        # performance, the exact sound we want back — so match to it. This is
-        # the point of the whole mode: your voice, THEIR finished sound.
-        if a.no_match:
-            if a.vocal_space == "dry":
-                stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="dry")
-            else:
-                stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="wet")
+        # Three finishes, the person's choice:
+        #   dry     — bare conversion, no effects (mix it yourself)
+        #   wet     — our general produced sound (reverb/EQ), the Mix&Master feel
+        #   match   — measure the ACTUAL input vocal and restore its tone/space
+        #             onto the converted voice. RVC flattens the production the
+        #             input carried; this puts it back with precision to the take
+        #             that came in. Highest fidelity to the source.
+        if a.vocal_space == "match":
+            stage_vocal_match(w("vocal.wav"), w("src-vocal.wav"), w("resing.wav"), wet=True)
+        elif a.vocal_space == "dry":
+            stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="dry")
         else:
-            stage_vocal_match(w("vocal.wav"), w("src-vocal.wav"), w("resing.wav"),
-                              wet=(a.vocal_space != "dry"))
+            stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="wet")
         import shutil as _sh
         _sh.copy(w("resing.wav"), a.out)
         if not a.no_upload:
