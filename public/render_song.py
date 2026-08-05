@@ -399,6 +399,184 @@ def stage_vocal_chain(vocal, out):
        "-ar", "44100", "-c:a", "pcm_s16le", out)
 
 
+def _avg_spectrum(path, nbands=32):
+    """Average magnitude spectrum of a mono mixdown, in nbands log-spaced bins."""
+    import numpy as np, soundfile as sf
+    x, sr = sf.read(path, always_2d=True)
+    x = x.mean(axis=1)
+    # Welch-ish: average FFT magnitude over windows
+    win = 4096
+    if len(x) < win:
+        x = np.pad(x, (0, win - len(x)))
+    hop = win // 2
+    mags = []
+    for i in range(0, len(x) - win, hop):
+        seg = x[i:i+win] * np.hanning(win)
+        mags.append(np.abs(np.fft.rfft(seg)))
+    if not mags:
+        mags = [np.abs(np.fft.rfft(x[:win] * np.hanning(win)))]
+    mag = np.mean(mags, axis=0) + 1e-9
+    freqs = np.fft.rfftfreq(win, 1/sr)
+    # log-spaced band edges 60 Hz .. 16 kHz
+    edges = np.logspace(np.log10(60), np.log10(16000), nbands + 1)
+    band_f, band_db = [], []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (freqs >= lo) & (freqs < hi)
+        if m.any():
+            band_f.append(float(np.sqrt(lo*hi)))
+            band_db.append(float(20*np.log10(np.mean(mag[m]))))
+    return band_f, band_db, sr
+
+
+def _detect_phrases(path, silence_db=-38, min_sil=0.4):
+    """Find [start,end] of sung phrases via silence gaps. Returns seconds."""
+    import subprocess, re
+    r = subprocess.run(["ffmpeg", "-i", path, "-af",
+        f"silencedetect=noise={silence_db}dB:d={min_sil}", "-f", "null", "-"],
+        capture_output=True, text=True)
+    log = r.stderr
+    starts = [float(m) for m in re.findall(r"silence_end: ([0-9.]+)", log)]
+    ends = [float(m) for m in re.findall(r"silence_start: ([0-9.]+)", log)]
+    import soundfile as sf
+    dur = sf.info(path).duration
+    # Phrases are the audio BETWEEN silences. Build from the silence markers.
+    # silence_start marks where a phrase ends; silence_end marks where next begins.
+    bounds = []
+    cur_start = 0.0 if (not starts or (ends and ends[0] < (starts[0] if starts else 1e9))) else None
+    # Simpler robust reconstruction:
+    marks = sorted([("end", e) for e in ends] + [("start", s2) for s2 in starts], key=lambda x: x[1])
+    phrases, open_at = [], 0.0
+    silent = False
+    for kind, t in marks:
+        if kind == "end" and not silent:  # a phrase just ended
+            if t > open_at + 0.05:
+                phrases.append([open_at, t]); silent = True
+        elif kind == "start":            # a phrase begins
+            open_at = t; silent = False
+    if not silent and dur > open_at + 0.05:
+        phrases.append([open_at, dur])
+    return phrases or [[0.0, dur]]
+
+
+def stage_vocal_align(vocal, reference, out):
+    """
+    Time-align the re-sung vocal to the reference (Suno vocal stem) so silences
+    and phrase positions LAND on Suno's timeline. Detect phrase blocks in both;
+    for each matched pair, place our phrase at the reference's start and, if the
+    lengths differ, gently stretch ours to fit (atempo, capped so it stays
+    natural). Gaps become silence. Result drops onto Suno's stems in time.
+    """
+    import soundfile as sf, subprocess, os, tempfile
+    ref_p = _detect_phrases(reference)
+    our_p = _detect_phrases(vocal)
+    n = min(len(ref_p), len(our_p))
+    if n == 0:
+        # nothing to align — copy through
+        sh("ffmpeg", "-y", "-v", "error", "-i", vocal, "-ar", "44100",
+           "-c:a", "pcm_s16le", out); return
+    total = sf.info(reference).duration
+    sr = 44100
+    import numpy as np
+    canvas = np.zeros(int(total * sr) + sr, dtype=np.float32)
+    src, ssr = sf.read(vocal, always_2d=True)
+    src = src.mean(axis=1)
+    if ssr != sr:
+        import librosa; src = librosa.resample(src, orig_sr=ssr, target_sr=sr)
+    for i in range(n):
+        r0, r1 = ref_p[i]; o0, o1 = our_p[i]
+        seg = src[int(o0*sr):int(o1*sr)]
+        if len(seg) < 10:
+            continue
+        want = r1 - r0; have = (o1 - o0)
+        ratio = have / want if want > 0 else 1.0
+        # stretch only within a natural range; beyond that, just place it
+        if 0.8 <= ratio <= 1.25 and abs(ratio - 1) > 0.03:
+            tmp_i = tempfile.mktemp(suffix=".wav"); tmp_o = tempfile.mktemp(suffix=".wav")
+            sf.write(tmp_i, seg, sr)
+            subprocess.run(["ffmpeg","-y","-v","error","-i",tmp_i,"-af",
+                f"atempo={ratio:.4f}","-ar",str(sr),tmp_o], check=True)
+            seg, _ = sf.read(tmp_o); os.remove(tmp_i); os.remove(tmp_o)
+        pos = int(r0 * sr)
+        end = min(pos + len(seg), len(canvas))
+        canvas[pos:end] += seg[:end-pos]
+    peak = float(np.max(np.abs(canvas))) or 1.0
+    canvas = (canvas / peak) * 0.97
+    sf.write(out, canvas, sr)
+    print(f"  aligned {n} phrases to the reference timeline")
+
+
+def stage_vocal_match(vocal, reference, out, wet=True, max_boost=9.0):
+    """
+    MATCH the re-sung vocal to a reference (the person's Suno vocal stem) the way
+    Logic's Match EQ does: measure the reference's tonal fingerprint, measure
+    ours, and apply the difference so ours takes on the reference's tone. Then,
+    if wet, place it in a matching space. This is how the output sits in that
+    SPECIFIC Suno song without the person touching an EQ.
+
+    We match EQ (tone), not reverb — reverb is added to taste. Boosts are capped
+    so a wildly different reference can't turn the vocal into noise.
+    """
+    import numpy as np
+    rf, rdb, _ = _avg_spectrum(reference)
+    sf_, sdb, _ = _avg_spectrum(vocal)
+    # align on shared bands, compute reference-minus-source correction
+    n = min(len(rf), len(sf_))
+    rdb, sdb, freqs = np.array(rdb[:n]), np.array(sdb[:n]), np.array(rf[:n])
+    # normalise both to their own mean so we match SHAPE, not absolute level
+    diff = (rdb - rdb.mean()) - (sdb - sdb.mean())
+    diff = np.clip(diff, -max_boost, max_boost)
+    # build a firequalizer curve: gain_entry '(f=GAIN)' pairs
+    entries = ";".join(f"entry({int(f)},{d:.1f})" for f, d in zip(freqs, diff))
+    fireq = "firequalizer=gain_entry='" + entries + "'"
+    space = ("aecho=0.8:0.9:60:0.18,aecho=0.7:0.75:220:0.12" if wet else "")
+    chain = "highpass=f=85," + fireq + ("," + space if space else "")
+    sh("ffmpeg", "-y", "-v", "error", "-i", vocal, "-af",
+       chain, "-ar", "44100", "-c:a", "pcm_s16le", out)
+    print(f"  matched tone to reference across {n} bands"
+          + (", added space" if wet else ", dry"))
+
+
+def stage_vocal_seated(vocal, out, space="wet"):
+    """
+    The re-sing, PRODUCED to sit in a Suno-style mix.
+
+    Suno stems come wet — reverb, EQ, compression already on them. A bone-dry
+    vocal dropped beside them sounds like a different room, and most people
+    (rightly) don't want to become a mixing engineer to fix it. So we seat the
+    vocal in the same sonic world: carve it with EQ, keep it steady with
+    compression, and place it in a real reverb tuned for a modern lead vocal.
+    We can't copy Suno's exact reverb (it lives in their model), but we can put
+    the voice in a matching space so it belongs in the mix as-is.
+
+      space="wet"  — lush plate-ish reverb + delay throw, for dream-pop / pop
+      space="dry"  — clean and close, for users who WILL mix it themselves
+
+    Chain:
+      highpass 85      — clear the sub so it doesn't clash with bass
+      equalizer 250 -2 — trim boxiness
+      equalizer 3.5k +2, 10k +1.5 — presence and air so it cuts
+      compand          — even out an untrained take
+      aecho (short)    — a slap for depth
+      aecho (long)     — the reverb tail that seats it in the room (wet only)
+    """
+    if space == "dry":
+        af = ("highpass=f=90,"
+              "equalizer=f=250:t=q:w=1.2:g=-2,"
+              "equalizer=f=3500:t=q:w=1.4:g=2,"
+              "compand=attacks=0.01:decays=0.25:points=-70/-70|-24/-14|-6/-6|0/-4")
+    else:
+        af = ("highpass=f=85,"
+              "equalizer=f=250:t=q:w=1.2:g=-2,"
+              "equalizer=f=3500:t=q:w=1.4:g=2.2,"
+              "equalizer=f=10000:t=q:w=1:g=1.5,"
+              "compand=attacks=0.01:decays=0.25:points=-70/-70|-24/-14|-6/-6|0/-4,"
+              # short slap for depth, then a longer softer tail for space
+              "aecho=0.8:0.9:60:0.18,"
+              "aecho=0.7:0.75:220:0.12")
+    sh("ffmpeg", "-y", "-v", "error", "-i", vocal, "-af",
+       af, "-ar", "44100", "-c:a", "pcm_s16le", out)
+
+
 def stage_mix(vocal_proc, beat, out, lead_db, vocal_db, beat_db):
     """
     The balance is measured, not dialled in.
@@ -448,9 +626,27 @@ def stage_upload(path, profile_id, meta):
     return key
 
 
+def stage_upload_vocal(path, profile_id, meta):
+    prof = requests.get(f"{SUPABASE_URL}/rest/v1/voice_profiles",
+                        params={"select": "user_id", "id": f"eq.{profile_id}"},
+                        headers=H, timeout=30).json()
+    if not prof:
+        raise RuntimeError("profile not found")
+    uid = prof[0]["user_id"]
+    name = f"resing-{meta['stamp']}.wav"
+    key = f"{uid}/{profile_id}/vocals/{name}"
+    r = requests.post(f"{SUPABASE_URL}/storage/v1/object/voice/{key}",
+                      headers={**H, "x-upsert": "true", "Content-Type": "audio/wav"},
+                      data=open(path, "rb"), timeout=600)
+    r.raise_for_status()
+    print(f"  {key}")
+    return key
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("guide")
+    p.add_argument("guide", nargs="?", default="",
+                   help="the guide take; omit when using --convert-vocal")
     p.add_argument("--genre", default="pop")
     p.add_argument("--beat-url", default="",
                    help="a pre-chosen or uploaded beat; when set, skip generation and use this")
@@ -489,6 +685,24 @@ def main():
     p.add_argument("--vocal-db", type=float, default=0.0, help="trim on the vocal")
     p.add_argument("--beat-db", type=float, default=0.0, help="trim on the beat")
     p.add_argument("--app", default="https://chelgy.app")
+    p.add_argument("--no-match", action="store_true",
+                   help="convert mode: skip matching the output's tone back to "
+                        "the source vocal (matching is on by default)")
+    p.add_argument("--convert-vocal", default="",
+                   help="URL of a finished vocal (e.g. a Suno stem) to convert "
+                        "directly to this voice \u2014 no guide take, keeps the "
+                        "input's exact timing, words and phrasing")
+    p.add_argument("--vocal-only", action="store_true",
+                   help="output ONLY the re-sung vocal (no beat) to sit over your own stems")
+    p.add_argument("--vocal-space", default="wet", choices=["wet", "dry", "match"],
+                   help="wet = generic produced sound (default); dry = clean/raw; "
+                        "match = tone-matched to a reference Suno vocal stem")
+    p.add_argument("--match-ref", default="",
+                   help="URL of the Suno vocal stem to match tone to (vocal-space=match)")
+    p.add_argument("--match-align", dest="match_align", action="store_true", default=True,
+                   help="time-align phrases to the reference stem (default on)")
+    p.add_argument("--no-match-align", dest="match_align", action="store_false",
+                   help="keep my natural timing, only match tone")
     p.add_argument("--no-upload", action="store_true")
     a = p.parse_args()
 
@@ -513,8 +727,55 @@ def main():
     if prof["status"] != "ready":
         sys.exit(f"Profile status is '{prof['status']}' — train the voice first.")
 
+    if not a.guide and not a.convert_vocal:
+        raise SystemExit("need a guide take, or --convert-vocal <url>")
+
     work = tempfile.mkdtemp(prefix="song-")
     def w(n): return os.path.join(work, n)
+
+    # ── DIRECT CONVERSION ───────────────────────────────────────────────────
+    # Suno's vocal in -> your voice out. No guide take, no tune, no beat: fetch
+    # your voice model and run RVC straight on the input, so the melody, timing,
+    # words and phrasing stay exactly as Suno performed them and only the voice
+    # (timbre) becomes yours. The result drops onto Suno's stems in Logic with
+    # perfect alignment, because we never changed the timing.
+    if a.convert_vocal:
+        print("▸ fetching your voice model")
+        for field, dest in (("model_path", "model.pth"), ("index_path", "model.index")):
+            if not prof.get(field): continue
+            d = requests.get(f"{SUPABASE_URL}/storage/v1/object/voice/{prof[field]}",
+                             headers=H, timeout=600)
+            d.raise_for_status()
+            open(w(dest), "wb").write(d.content)
+        print("▸ converting the uploaded vocal to your voice")
+        fetch_to(a.convert_vocal, w("src-vocal.audio"))
+        # normalise to a wav RVC is happy with
+        sh("ffmpeg", "-y", "-v", "error", "-i", w("src-vocal.audio"),
+           "-ar", "44100", "-ac", "1", "-c:a", "pcm_s16le", w("src-vocal.wav"))
+        stage_voice(w("src-vocal.wav"), w("vocal.wav"), w("model.pth"),
+                    w("model.index") if prof.get("index_path") else None,
+                    a.index_rate, a.protect)
+        # Restore the source's tonal character. RVC re-synthesises the voice, so
+        # the EQ/space the input carried (e.g. Suno's production) is flattened
+        # in the output. The input vocal is the ideal reference — same
+        # performance, the exact sound we want back — so match to it. This is
+        # the point of the whole mode: your voice, THEIR finished sound.
+        if a.no_match:
+            if a.vocal_space == "dry":
+                stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="dry")
+            else:
+                stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="wet")
+        else:
+            stage_vocal_match(w("vocal.wav"), w("src-vocal.wav"), w("resing.wav"),
+                              wet=(a.vocal_space != "dry"))
+        import shutil as _sh
+        _sh.copy(w("resing.wav"), a.out)
+        if not a.no_upload:
+            import datetime
+            stage_upload_vocal(w("resing.wav"), pid,
+                               {"stamp": datetime.datetime.now().strftime("%Y%m%d-%H%M%S")})
+        print(f"\n✓ {a.out}  (your voice on Suno’s performance — drops onto the stems in Logic)")
+        return
 
     print("▸ 1/6  tuning the guide take")
     info = stage_tune(a.guide, w("tuned.wav"), a.tune_strength)
@@ -556,6 +817,32 @@ def main():
                 a.index_rate, a.protect)
 
     dur = sf.info(w("vocal.wav")).duration
+
+    # ── Dry re-sing only ────────────────────────────────────────────────────
+    # Everything above already produced w("vocal.wav") — your melody, re-sung in
+    # your voice. For the Logic workflow we stop here: clean it dry (no reverb),
+    # upload the wav, and skip beat/align/mix entirely.
+    if a.vocal_only:
+        if a.vocal_space == "match" and a.match_ref:
+            print("▸ re-sing (vocal only, matched to your Suno stem)")
+            fetch_to(a.match_ref, w("matchref.audio"))
+            src_vocal = w("vocal.wav")
+            if a.match_align:
+                stage_vocal_align(w("vocal.wav"), w("matchref.audio"), w("vocal-aligned.wav"))
+                src_vocal = w("vocal-aligned.wav")
+            stage_vocal_match(src_vocal, w("matchref.audio"), w("resing.wav"), wet=True)
+        else:
+            sp = a.vocal_space if a.vocal_space in ("wet", "dry") else "wet"
+            print(f"▸ re-sing (vocal only, {sp}) — to sit over your stems")
+            stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space=sp)
+        import shutil as _sh
+        _sh.copy(w("resing.wav"), a.out)
+        if not a.no_upload:
+            import datetime
+            stage_upload_vocal(w("resing.wav"), pid,
+                               {"stamp": datetime.datetime.now().strftime("%Y%m%d-%H%M%S")})
+        print(f"\n✓ {a.out}  (dry re-sung vocal — add it over your stems in Logic)")
+        return
     tempo = a.tempo or info["tempo"]
     key = key_override or info["key"]
 
