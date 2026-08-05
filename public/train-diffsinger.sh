@@ -83,8 +83,9 @@ terminate_self() {
 fail_and_stop() {
   report 0 "failed" "stopped at: ${CURRENT_STAGE:-startup} — $1"
   echo "[train] FAILED at ${CURRENT_STAGE:-startup}: $1"
-  echo "[train] leaving pod up 10 min so the log can be read, then self-terminating"
-  sleep 600
+  echo "[train] leaving pod up 3 HOURS so the log survives and nothing is cut short; then self-terminating"
+  echo "[train] (a healthy run never reaches here — this only fires on a real failure)"
+  sleep 10800
   terminate_self
 }
 
