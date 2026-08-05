@@ -36,19 +36,19 @@ const IMAGE = (process.env.RUNPOD_SONG_IMAGE || "ghcr.io/chelgy/chelgy-song:late
 // RunPod physically cannot hand us an expensive one when L4 is scarce. As of
 // 2026: A5000 ~$0.27, L4 ~$0.39, A40 ~$0.44/hr. Everything pricier is left off
 // on purpose. Override only if you know what you're paying for.
-// Fastest affordable card FIRST. Training time depends on GPU speed, so the
-// A40 (most bandwidth of the cheap tier, ~$0.44/hr) is preferred; L4 and A5000
-// are fallbacks only if the A40 is busy. A faster card that finishes in fewer
-// hours often costs LESS total than a cheap slow one that runs twice as long —
-// and you get the model sooner, which is the point.
-const GPU_TYPES = (process.env.RUNPOD_TRAIN_GPU_TYPES || "NVIDIA A40,NVIDIA L4,NVIDIA RTX A5000").split(",").map(s => s.trim()).filter(Boolean);
-// NOTE: RunPod's REST API has no price-cap field, so cost is controlled the
-// only way it can be — GPU_TYPES above lists ONLY cards at or below the L4's
-// price. RunPod cannot hand us an expensive GPU that isn't on that list.
+// Just L4 — the same single card the working song pods use. The multi-GPU
+// list caused more "no instances available" failures than it solved (custom
+// priority, oversized disk, filtering), so this is deliberately back to the
+// simplest thing that has always worked here.
+const GPU_TYPES = (process.env.RUNPOD_TRAIN_GPU_TYPES || "NVIDIA L4").split(",").map(s => s.trim()).filter(Boolean);
 const COUNTRIES = (process.env.RUNPOD_COUNTRIES || "US").split(",").map(s => s.trim()).filter(Boolean);
 const REGISTRY_AUTH = (process.env.RUNPOD_REGISTRY_AUTH_ID || "").trim();
 // Training writes checkpoints, the MFA env, and the dataset to disk — size for it.
-const DISK_GB = Math.max(100, Number(process.env.RUNPOD_TRAIN_DISK_GB) || 150);
+// 100GB matches the proven song-pod sizing. 150 was shrinking the pool —
+// a GPU only qualifies if its host also has this much free disk, so an
+// oversized ask filters out otherwise-available machines. Training's dataset
+// + checkpoints fit comfortably in 100.
+const DISK_GB = Math.max(80, Number(process.env.RUNPOD_TRAIN_DISK_GB) || 100);
 // 60k for the full-quality model. Runs overnight unattended (~a day of GPU
 // time), reports progress to the app, and the pod self-terminates when done.
 const TRAIN_STEPS = String(Number(process.env.GENERATOR_TRAIN_STEPS) || 60000);
@@ -137,9 +137,12 @@ export default async function handler(req, res) {
       cloudType: "SECURE",
       computeType: "GPU",
       countryCodes: COUNTRIES,
-      // "custom" honors our order (fastest-first). Only falls to the next card
-      // if the preferred one has no availability.
-      gpuTypePriority: "custom",
+      // "availability" grabs whichever listed card is free — the same setting the
+      // working song pods use. "custom" (tried briefly) demands the exact order
+      // and FAILS when the top card is busy, which caused "no instances
+      // available" even when other cheap cards were free. A40 is still first in
+      // the list as a soft preference, but we never fail just because it's taken.
+      gpuTypePriority: "availability",
       dockerStartCmd: ["bash", "-lc",
         "curl -fsSL " + APP_BASE + "/train-diffsinger.sh?v=$(date +%s) | bash"],
       env: {
