@@ -10810,6 +10810,10 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [instruments,setInst]  = useState("");
   const [tuneStrength,setTune] = useState(0.85);
   const [harmony,setHarmony]   = useState("off");  // off | subtle | lush
+  const [outMode,setOutMode]   = useState("song");    // song | vocal
+  const [vocalSpace,setVocalSpace] = useState("match"); // produced | match | dry
+  const [matchFile,setMatchFile]   = useState(null);    // Suno vocal stem for match
+  const [matchAlign,setMatchAlign] = useState(true);
   const [beatMode,setBeatMode] = useState("auto");   // auto | pick | upload
   const [previews,setPreviews] = useState([]);       // [{id,audio,label}]
   const [chosenBeat,setChosen] = useState(null);     // preview audio (data url) or uploaded File
@@ -10968,10 +10972,21 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       }
 
       const token = await freshToken();
+      // In "match" mode, upload the Suno vocal stem so the render can
+      // align + tone-match to it.
+      let matchRef = "";
+      if(outMode==="vocal" && vocalSpace==="match" && matchFile){
+        const muid = user && user.id ? user.id : null;
+        const mext=(matchFile.name.split(".").pop()||"mp3").toLowerCase().slice(0,5);
+        matchRef = await uploadSiteAudioFile(matchFile, muid+"/match-ref/"+Date.now()+"."+mext) || "";
+      }
       const r = await fetch("/api/studio-song", { method:"POST",
         headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
         body: JSON.stringify({ guideUrl:url, profileId:profile.id, genre,
-          instruments, tuneStrength, indexRate, harmony, ...(inspoUrl?{inspoUrl}:{}), ...(beatUrl?{beatUrl}:{}) }) });
+          instruments, tuneStrength, indexRate, harmony, ...(inspoUrl?{inspoUrl}:{}), ...(beatUrl?{beatUrl}:{}),
+          ...(outMode==="vocal" ? { vocalOnly:true, vocalSpace,
+                matchAlign: vocalSpace==="match" ? matchAlign : undefined,
+                matchRef } : {}) }) });
       const j = await r.json();
       if(!r.ok || !j.jobId) throw new Error(j.error || "Couldn't start the song.");
 
@@ -11167,11 +11182,54 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               hint="Higher locks onto your trained voice; lower keeps more of this take's delivery." />
           </div>
 
+
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Output</div>
+          <div style={{display:"flex",gap:6,marginBottom:8}}>
+            {[["song","Full song"],["vocal","Just my vocal"]].map(([id,label])=>(
+              <button key={id} onClick={()=>setOutMode(id)} disabled={busy}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(outMode===id?B.charcoal:B.stone),background:outMode===id?B.inkBlock:B.white,color:outMode===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
+            ))}
+          </div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 "+(outMode==="vocal"?"12px":"18px"),lineHeight:1.5}}>
+            {outMode==="song" ? "The finished song \u2014 your voice over a beat, mixed." :
+             "Just the re-sung vocal, to drop over your own stems (e.g. in Logic)."}
+          </div>
+
+          {outMode==="vocal" && (<>
+            <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+              {[["match","Match my Suno track"],["produced","Produced"],["dry","Dry"]].map(([id,label])=>(
+                <button key={id} onClick={()=>setVocalSpace(id)} disabled={busy}
+                  style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 14px",border:"1px solid "+(vocalSpace===id?B.charcoal:B.stone),background:vocalSpace===id?B.inkBlock:B.white,color:vocalSpace===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
+              ))}
+            </div>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 12px",lineHeight:1.5}}>
+              {vocalSpace==="match" ? "Upload your Suno vocal stem \u2014 your voice is time-aligned to its phrasing and tone-matched, so it sits right on your Suno stems." :
+               vocalSpace==="produced" ? "A general mix-ready vocal sound (reverb, EQ) \u2014 not matched to a specific track." :
+               "Clean and dry \u2014 no effects, for mixing it yourself."}
+            </p>
+
+            {vocalSpace==="match" && (
+              <div style={{marginBottom:12}}>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:8}}>
+                  <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 16px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
+                    <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f)setMatchFile(f);}} style={{display:"none"}} disabled={busy} />
+                    {matchFile ? "Stem: "+(matchFile.name.length>24?matchFile.name.slice(0,24)+"\u2026":matchFile.name) : "Upload Suno vocal stem"}
+                  </label>
+                  {matchFile && <button onClick={()=>setMatchFile(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
+                </div>
+                <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={matchAlign} onChange={e=>setMatchAlign(e.target.checked)} disabled={busy} />
+                  Time-align my phrases to the Suno stem (recommended if you sang along to it)
+                </label>
+              </div>
+            )}
+          </>)}
+
           {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#B00",marginBottom:12,lineHeight:1.5}}>{err}</p>}
 
-          <button onClick={makeSong} disabled={busy||!file}
+          <button onClick={makeSong} disabled={busy||!file||(outMode==="vocal"&&vocalSpace==="match"&&!matchFile)}
             style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,letterSpacing:"0.06em",padding:"13px 28px",border:"1px solid "+B.charcoal,background:(busy||!file)?B.white:B.inkBlock,color:(busy||!file)?B.mid:B.inkText,cursor:(busy||!file)?"default":"pointer"}}>
-            {busy ? "Making your song…" : "Make my song \u2014 " + COST + " credits"}
+            {busy ? (outMode==="vocal"?"Re-singing\u2026":"Making your song\u2026") : ((outMode==="vocal"?"Re-sing my vocal \u2014 ":"Make my song \u2014 ") + COST + " credits")}
           </button>
 
           {busy && (
