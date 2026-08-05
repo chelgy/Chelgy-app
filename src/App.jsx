@@ -13208,7 +13208,7 @@ const CATEGORIES = [
            ...(FAKEIT_PRESETS_ENABLED ? [{label:"Presets",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}] : []) ] },
      ======================================================================= */
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
-    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Film Room",tool:"filmroom"}, {label:"Video Edit",tool:"videoedit"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"backdrop",sub:[ {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"} ]}, {label:"Film Room",tool:"filmroom"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Never stare at a blank caption again. Get post ideas worth filming, captions in your voice, creator-style UGC clips, and scroll-stopping flyers and graphics — enough to fill your calendar for the month.",
@@ -13230,8 +13230,18 @@ function orderedCategories(savedOrder){
 }
 function CategoryView({ cat, toolsProps, isLockedTool, onNav }){
   const [ti,setTi]=useState(0);
+  // Second level. A tab carrying `sub` is a GROUP rather than a tool: it renders a
+  // row beneath the main tabs and the selected entry there decides what loads. A
+  // tab without `sub` behaves exactly as it always did, so this is invisible to
+  // every other category.
+  const [si,setSi]=useState(0);
   const tabs=(cat&&cat.tabs)||[];
   const active=tabs[ti]||tabs[0]||{};
+  const subs=Array.isArray(active.sub)?active.sub:[];
+  // Reset to the first child when the parent changes, or a group opened at its
+  // third tab because the last group happened to be sitting there.
+  useEffect(()=>{ setSi(0); },[ti]);
+  const leaf=subs.length?(subs[si]||subs[0]||{}):active;
   const Ic=Icons[cat.icon]||Icons.Star;
   return (
     <div style={{paddingTop:28}}>
@@ -13243,12 +13253,17 @@ function CategoryView({ cat, toolsProps, isLockedTool, onNav }){
         <div style={{display:"flex",gap:2,flexWrap:"wrap",borderBottom:"1px solid "+B.stone}}>
           {tabs.map((t,i)=><Tb key={i} label={t.label} active={i===ti} onClick={()=>setTi(i)} />)}
         </div>
-        {active.note&&<div style={{background:B.offwhite,borderLeft:"2px solid "+B.gold,padding:"12px 14px",margin:"16px 0 0",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.goldDark,lineHeight:1.6}}>{active.note}</div>}
+        {subs.length>0&&(
+          <div style={{display:"flex",flexWrap:"wrap",gap:0,marginTop:14,borderBottom:"1px solid "+B.stone}}>
+            {subs.map((sb,i)=><Tb key={i} label={sb.label} active={i===si} onClick={()=>setSi(i)} />)}
+          </div>
+        )}
+        {leaf.note&&<div style={{background:B.offwhite,borderLeft:"2px solid "+B.gold,padding:"12px 14px",margin:"16px 0 0",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.goldDark,lineHeight:1.6}}>{active.note}</div>}
       </div>
       <div style={{paddingTop:8}}>
-        {active.nav
-          ? <div style={{maxWidth:1100,margin:"0 auto",padding:"36px 20px"}}><div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"32px",textAlign:"center"}}><div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:20,color:B.charcoal,marginBottom:8}}>{active.label}</div><div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,marginBottom:20,maxWidth:460,marginLeft:"auto",marginRight:"auto"}}>{active.navBlurb||"Opens as a full guided experience."}</div><Btn dark onClick={()=>onNav&&onNav(active.nav)}>{("Open "+active.label).toUpperCase()}</Btn></div></div>
-          : <ToolsPage key={active.tool+"-"+(active.startType||"")} {...toolsProps} tool={active.tool} startType={active.startType||null} locked={isLockedTool?isLockedTool(active.tool):false} />}
+        {leaf.nav
+          ? <div style={{maxWidth:1100,margin:"0 auto",padding:"36px 20px"}}><div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:"32px",textAlign:"center"}}><div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:20,color:B.charcoal,marginBottom:8}}>{leaf.label}</div><div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,marginBottom:20,maxWidth:460,marginLeft:"auto",marginRight:"auto"}}>{leaf.navBlurb||"Opens as a full guided experience."}</div><Btn dark onClick={()=>onNav&&onNav(leaf.nav)}>{("Open "+leaf.label).toUpperCase()}</Btn></div></div>
+          : <ToolsPage key={leaf.tool+"-"+(leaf.startType||"")} {...toolsProps} tool={leaf.tool} startType={leaf.startType||null} locked={isLockedTool?isLockedTool(leaf.tool):false} />}
       </div>
     </div>
   );
