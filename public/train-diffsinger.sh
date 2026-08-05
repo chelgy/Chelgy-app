@@ -146,8 +146,20 @@ MFA=/opt/conda/envs/mfa/bin/mfa
 # MFA needs a dictionary + acoustic model for the language.
 if [ ! -f .mfa-models-done ]; then
   say "Downloading MFA $DICTIONARY models"
-  "$MFA" model download dictionary "${DICTIONARY}_us_arpa" || "$MFA" model download dictionary "${DICTIONARY}_mfa"
-  "$MFA" model download acoustic   "${DICTIONARY}_us_arpa" || "$MFA" model download acoustic   "${DICTIONARY}_mfa"
+  # Download a MATCHED dictionary+acoustic pair and record which model name
+  # actually landed, so alignment references the one that exists. Try the
+  # modern "_mfa" pair first (better for singing), fall back to "_us_arpa".
+  MFA_MODEL=""
+  if "$MFA" model download acoustic "${DICTIONARY}_mfa" 2>/dev/null \
+     && "$MFA" model download dictionary "${DICTIONARY}_mfa" 2>/dev/null; then
+    MFA_MODEL="${DICTIONARY}_mfa"
+  elif "$MFA" model download acoustic "${DICTIONARY}_us_arpa" 2>/dev/null \
+       && "$MFA" model download dictionary "${DICTIONARY}_us_arpa" 2>/dev/null; then
+    MFA_MODEL="${DICTIONARY}_us_arpa"
+  else
+    die "Could not download any MFA model for ${DICTIONARY}"
+  fi
+  echo "$MFA_MODEL" > .mfa-model-name
   touch .mfa-models-done
 fi
 
@@ -256,8 +268,12 @@ CURRENT_STAGE="aligning your words to your audio"
 report 3 "aligning your words to your audio"
 say "Stage 3/6 — MFA forced alignment"
 ALIGN="$WORK/textgrids"; rm -rf "$ALIGN"; mkdir -p "$ALIGN"
-DICT="${DICTIONARY}_us_arpa"; "$MFA" model inspect dictionary "$DICT" >/dev/null 2>&1 || DICT="${DICTIONARY}_mfa"
-"$MFA" align --clean --single_speaker "$WORK/wavs" "$DICT" "$DICT" "$ALIGN" \
+# Use the model that was actually downloaded (recorded above), for BOTH the
+# dictionary and the acoustic model — asking for a name that was never fetched
+# is what produced PretrainedModelNotFoundError: "english_mfa".
+MFA_MODEL="$(cat .mfa-model-name 2>/dev/null || echo "${DICTIONARY}_us_arpa")"
+say "Aligning with MFA model: $MFA_MODEL"
+"$MFA" align --clean --single_speaker "$WORK/wavs" "$MFA_MODEL" "$MFA_MODEL" "$ALIGN" \
   || die "MFA alignment failed — usually lyrics not matching what was sung, or too-noisy audio"
 ls "$ALIGN"/*.TextGrid >/dev/null 2>&1 || die "MFA produced no TextGrids"
 echo "  aligned $(ls "$ALIGN"/*.TextGrid | wc -l) clips"
