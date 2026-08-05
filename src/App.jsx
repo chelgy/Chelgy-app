@@ -10705,6 +10705,33 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [chosenBeat,setChosen] = useState(null);     // preview audio (data url) or uploaded File
   const [beatFile,setBeatFile] = useState(null);     // an uploaded instrumental
   const [genBusy,setGenBusy]   = useState(false);
+  const [gen,setGen]           = useState(null);    // voice-generator training status
+  const [genErr,setGenErr]     = useState("");
+  useEffect(()=>{
+    let stop=false, t=null;
+    async function poll(){
+      try{
+        const token=await freshToken();
+        const r=await fetch("/api/generator-status",{ headers: token?{Authorization:"Bearer "+token}:{} });
+        const j=await r.json();
+        if(!stop){ setGen(j); }
+        // While a run is live, poll every 30s; otherwise this one look is enough.
+        if(!stop && j && (j.state==="training"||j.state==="stalled")) t=setTimeout(poll, 30000);
+      }catch(_){ }
+    }
+    poll();
+    return ()=>{ stop=true; if(t) clearTimeout(t); };
+  },[]);
+  async function startTraining(){
+    setGenErr("");
+    try{
+      const token=await freshToken();
+      const r=await fetch("/api/generator-train",{ method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) } });
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.error||"Couldn\u2019t start training.");
+      setGen({ state:"training", stage:0, of:6, label:"starting up" });
+    }catch(e){ setGenErr(String((e&&e.message)||e)); }
+  }
   const [indexRate,setIndex]   = useState(0.75);
   const [busy,setBusy]         = useState(false);
   const [stage,setStage]       = useState("");
@@ -10892,6 +10919,29 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
         Sing your own melody, roughly, however it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang — so the song follows your tune instead of your tune following a loop.
       </p>
+
+      <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20}}>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Voice generator</div>
+        {(!gen || gen.state==="none") && (<>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px",lineHeight:1.55}}>Train a model that truly <i>sings</i> as you \u2014 built from the recordings you uploaded at <a href="/dataset-upload.html" target="_blank" style={{color:B.charcoal}}>your singing dataset</a>. Training runs on its own for hours to days; progress shows here.</p>
+          {genErr && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:"#C0392B",margin:"0 0 10px"}}>{genErr}</p>}
+          <button onClick={startTraining} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Train my voice generator</button>
+        </>)}
+        {gen && (gen.state==="training"||gen.state==="stalled") && (<>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+            <div style={{flex:1,height:3,background:B.stone}}><div style={{height:"100%",width:(Math.round(100*((gen.stage||0)/(gen.of||6))))+"%",background:B.charcoal,transition:"width .3s"}}/></div>
+            <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.mid}}>{gen.stage||0}/{gen.of||6}</span>
+          </div>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:gen.state==="stalled"?"#C0392B":B.mid,margin:0}}>{gen.state==="stalled"?"Training looks stalled \u2014 "+(gen.label||"")+". Check the pod, or start it again.":(gen.label||"Training\u2026")}</p>
+        </>)}
+        {gen && gen.state==="failed" && (<>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#C0392B",margin:"0 0 10px"}}>{gen.label||"Training failed."}</p>
+          <button onClick={startTraining} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Try again</button>
+        </>)}
+        {gen && gen.state==="ready" && (
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>\u2713 Your voice generator is trained and ready. Generator-sung songs are coming next \u2014 this is the voice they\u2019ll use.</p>
+        )}
+      </div>
 
       {profile === undefined && (
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Checking your voice…</p>
