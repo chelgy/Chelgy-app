@@ -10927,14 +10927,16 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
   async function makeSong(){
     setErr(""); setSong(null);
-    if(!file){ setErr("Sing a guide take or choose an audio file first."); return; }
+    if(outMode==="convert"){
+      if(!convertFile){ setErr("Choose the vocal you want converted first."); return; }
+    } else if(!file){ setErr("Sing a guide take or choose an audio file first."); return; }
     if(!profile || profile.status!=="ready"){ setErr("Your voice model isn't ready yet."); return; }
     if(credits < COST){ onBuyCredits(); return; }
     if(!useCredits(COST)) return;
 
-    setBusy(true); setPct(3); setStage("Uploading your take…");
+    setBusy(true); setPct(3); setStage(outMode==="convert" ? "Uploading the vocal\u2026" : "Uploading your take\u2026");
     try{
-      const ext = (file.name.split(".").pop()||"webm").toLowerCase().slice(0,5);
+      const ext = (outMode==="convert" ? "wav" : (file.name.split(".").pop()||"webm").toLowerCase().slice(0,5));
       // The user id must be the FIRST path segment. The sites bucket's insert
       // policy only lets a member write into a folder named after their own id —
       // "songs/<id>/..." put songs first and was refused with a 400. No "anon"
@@ -10943,8 +10945,13 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const uid = (user && user.id) ? user.id : null;
       if(!uid){ setBusy(false); setStage(""); setErr("Please sign in again before making a song."); return; }
       const path = uid + "/songs/" + Date.now() + "." + ext;
-      const url = await uploadSiteAudioFile(file, path);
-      if(!url) throw new Error("That take couldn't be uploaded. Check your connection and try again.");
+      // Convert mode has no guide take to upload — the vocal being converted
+      // is uploaded separately below.
+      let url = "";
+      if(outMode!=="convert"){
+        url = await uploadSiteAudioFile(file, path);
+        if(!url) throw new Error("That take couldn't be uploaded. Check your connection and try again.");
+      }
 
       // If a beat was picked or uploaded, put it in storage and pass its URL;
       // the render then uses it instead of generating one. Best-effort.
