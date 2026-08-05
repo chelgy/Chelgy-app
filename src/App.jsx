@@ -12493,7 +12493,6 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
 
       {tool==="images"&&<div>
         <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>AI Image Creator</h2>
-        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:B.mid,fontSize:14,margin:"0 0 6px",letterSpacing:"0.02em"}}>{["logo","flyer","social","banner"].includes(iType)?"Powered by GPT Image 2 — best for crisp text & logos":"Powered by Nano Banana 2 (Google Gemini)"}</p>
         <div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>Professional AI image generation — turn product photos into high-end ads, plus logos, flyers, social graphics, and banners</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:0,marginBottom:20,borderBottom:"1px solid "+B.stone}}>
           {[["ad","Advertising"],["logo","Logo"],["flyer","Flyer"],["social","Social"],["banner","Banner"],["product","Product"],["set","Photo Set"]].map(([id,l])=><Tb key={id} label={l} active={iType===id} onClick={()=>setIType(id)} />)}
@@ -13203,7 +13202,7 @@ const CATEGORIES = [
            ...(FAKEIT_PRESETS_ENABLED ? [{label:"Presets",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}] : []) ] },
      ======================================================================= */
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
-    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"backdrop",groupTitle:"Fake It Studio",groupPowered:"Powered by Nano Banana 2 (Google Gemini)",groupBlurb:"Put yourself anywhere \u2014 same face, same pose, same outfit, a different world behind you. Match the look of a photo you like, or bring a shot to life as video.",sub:[ {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"} ]}, {label:"Film Room",tool:"filmroom"} ] },
+    tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"backdrop",groupTitle:"Fake It Studio",groupBlurb:"Put yourself anywhere \u2014 same face, same pose, same outfit, a different world behind you. Match the look of a photo you like, or bring a shot to life as video.",sub:[ {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Video Edit",tool:"videoedit"} ]}, {label:"Film Room",tool:"filmroom"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
     tabs:[ {label:"Ad Campaign Builder",tool:"ads"}, {label:"Ad Copy",tool:"content"}, {label:"Product Studio",tool:"productstudio"} ] },
   { id:"cat_social", title:"Social Media", icon:"Flame", blurb:"Never stare at a blank caption again. Get post ideas worth filming, captions in your voice, creator-style UGC clips, and scroll-stopping flyers and graphics — enough to fill your calendar for the month.",
@@ -13251,7 +13250,6 @@ function CategoryView({ cat, toolsProps, isLockedTool, onNav }){
         {subs.length>0&&(
           <div style={{paddingTop:22}}>
             <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>{active.groupTitle||active.label}</h2>
-            {active.groupPowered&&<p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:B.mid,fontSize:14,margin:"0 0 6px",letterSpacing:"0.02em"}}>{active.groupPowered}</p>}
             {active.groupBlurb&&<div style={{background:B.white,border:"1px solid "+B.stone,padding:"8px 14px",marginBottom:18,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.goldDark,letterSpacing:"0.02em"}}>{active.groupBlurb}</div>}
             <div style={{display:"flex",flexWrap:"wrap",gap:0,borderBottom:"1px solid "+B.stone}}>
               {subs.map((sb,i)=><Tb key={i} label={sb.label} active={i===si} onClick={()=>setSi(i)} />)}
@@ -19254,7 +19252,6 @@ const VIDEO_MODELS = [
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 400, fontFamily: "Outfit,Helvetica Neue,Helvetica,Arial,sans-serif", margin: "0 0 4px" }}>Product Studio</h2>
-      <p style={{ fontFamily: "Jost,Helvetica,Arial,sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Powered by Nano Banana 2 (Google Gemini)</p>
       <p style={{ fontFamily: "Jost,Helvetica,Arial,sans-serif", color: B.mid, fontSize: 12, margin: "0 0 6px", letterSpacing: "0.02em" }}>Make studio photos of your product — then turn any shot into a video with the 🎬 Make a Video button.</p>
       <div style={{ background: B.white, border: "1px solid " + B.stone, padding: "8px 14px", marginBottom: 18, fontFamily: "Jost,Helvetica,Arial,sans-serif", fontSize: 11, color: B.goldDark, letterSpacing: "0.02em" }}>Upload your product once, then drop it into premium, on-brand photo studios — clean packshots, marble, editorial, lifestyle, or on a model. Then bring any shot to life as a short video.</div>
 
