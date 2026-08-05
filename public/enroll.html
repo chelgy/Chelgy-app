@@ -80,6 +80,46 @@
 <div class="wrap" id="app"></div>
 
 <script>
+// ── Supabase + session (added: this page now uploads to your account, not just
+// downloads). Same publishable key pattern as dataset-upload.html. ──────────
+const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
+let session=null, userId=null, newProfileId=null, saving=false, saveMsg="", saveErr="";
+const H = () => ({ apikey:SUPABASE_KEY, Authorization:"Bearer "+session.access_token });
+
+async function login(email, pass){
+  const r = await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=password", {
+    method:"POST", headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify({email, password:pass}) });
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.error_description||j.msg||"Login failed");
+  session=j; userId=j.user.id;
+}
+
+// Create a NEW voice profile so "newest wins" makes it active once trained.
+// A failed train leaves it un-ready and the app keeps using the last ready one.
+async function createProfile(name){
+  const r = await fetch(SUPABASE_URL+"/rest/v1/voice_profiles", {
+    method:"POST", headers:{...H(),"Content-Type":"application/json","Prefer":"return=representation"},
+    body:JSON.stringify({ user_id:userId, name:name||"Singing voice", status:"recording" }) });
+  const rows = await r.json();
+  if(!r.ok || !rows.length) throw new Error((rows&&rows.message)||"Could not create a voice profile");
+  return rows[0].id;
+}
+
+// Upload one clip to the bucket and register a voice_clips row (what
+// train-voice.sh reads: take_id, section, storage_path, duration, seq).
+async function saveClip(pid, take_id, section, blob, dur, seq){
+  const path = userId+"/"+pid+"/clips/"+String(seq).padStart(3,"0")+"-"+section+"-"+take_id+".wav";
+  const up = await fetch(SUPABASE_URL+"/storage/v1/object/voice/"+path, {
+    method:"POST", headers:{...H(),"x-upsert":"true","Content-Type":"audio/wav"}, body:blob });
+  if(!up.ok) throw new Error("upload "+up.status);
+  const row = await fetch(SUPABASE_URL+"/rest/v1/voice_clips", {
+    method:"POST", headers:{...H(),"Content-Type":"application/json"},
+    body:JSON.stringify({ profile_id:pid, take_id, section, storage_path:path, duration:dur, seq }) });
+  if(!row.ok){ const e=await row.json().catch(()=>({})); throw new Error("register "+(e.message||row.status)); }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TARGET: 20 minutes of recorded audio.
 // v1 shipped eighteen short prompts that summed to 2.5 minutes — enough for a
@@ -320,6 +360,90 @@ function downloadAll(){
   });
 }
 
+async function doLogin2(){
+  saveErr="";
+  const em=(document.getElementById("em2")||{}).value||"";
+  const pw=(document.getElementById("pw2")||{}).value||"";
+  if(!em||!pw){ saveErr="Enter your email and password."; render(); return; }
+  try{ await login(em.trim(), pw); render(); }
+  catch(e){ saveErr=String(e.message||e); render(); }
+}
+
+async function doLogin(){
+  saveErr="";
+  const em=(document.getElementById("em")||{}).value||"";
+  const pw=(document.getElementById("pw")||{}).value||"";
+  if(!em||!pw){ saveErr="Enter your email and password."; render(); return; }
+  try{ await login(em.trim(), pw); render(); }
+  catch(e){ saveErr=String(e.message||e); render(); }
+}
+
+// ── SAVE TO ACCOUNT + TRAIN ─────────────────────────────────────────────────
+// Uploads the recorded takes to a NEW voice profile and registers each in
+// voice_clips, then the app's "Retrain my voice" button can train it.
+async function saveAllAndTrain(){
+  if(saving) return;
+  saveErr=""; saving=true; saveMsg="Creating your voice profile\u2026"; render();
+  try{
+    newProfileId = await createProfile("Singing voice");
+    const entries = TAKES.map((t,i)=>({t,i})).filter(x=>takes[x.t.id]);
+    let seq=1;
+    for(const {t} of entries){
+      const rec = takes[t.id];
+      saveMsg = "Uploading "+seq+" of "+entries.length+"\u2026"; render();
+      await saveClip(newProfileId, t.id, t.section, rec.blob, rec.dur, seq); seq++;
+    }
+    saveMsg = "Saved. Starting training\u2026"; render();
+    const r = await fetch("/api/voice-train", { method:"POST",
+      headers:{ "Content-Type":"application/json", Authorization:"Bearer "+session.access_token } });
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error||"Could not start training");
+    saveMsg = j.already ? "Your voice is already training." :
+              "Training started \u2014 about 40 minutes. You can close this page; it trains on its own.";
+    saving=false; stage="trained"; render();
+  }catch(e){ saveErr=String(e.message||e); saving=false; saveMsg=""; render(); }
+}
+
+// ── UPLOAD ACAPELLA I ALREADY HAVE ──────────────────────────────────────────
+// Same destination, but from files the person already recorded. RVC wants
+// dry solo vocal — a warning covers backing-track uploads we can't detect.
+let acapella=[];  // {file, dur, name}
+async function addAcapella(files){
+  saveErr="";
+  for(const f of files){
+    if(!/\.(wav|mp3|m4a|aif|aiff|flac|ogg)$/i.test(f.name)) continue;
+    const dur = await new Promise(res=>{ const a=document.createElement("audio");
+      a.preload="metadata"; a.onloadedmetadata=()=>res(a.duration||0);
+      a.onerror=()=>res(0); a.src=URL.createObjectURL(f); });
+    acapella.push({ file:f, dur, name:f.name });
+  }
+  render();
+}
+function removeAcapella(i){ acapella.splice(i,1); render(); }
+async function saveAcapellaAndTrain(){
+  if(saving) return;
+  const total = acapella.reduce((a,c)=>a+(c.dur||0),0);
+  if(total < 600){ saveErr = "That's "+(total/60).toFixed(1)+" min. RVC needs at least 10 minutes of dry, solo singing."; render(); return; }
+  saveErr=""; saving=true; saveMsg="Creating your voice profile\u2026"; render();
+  try{
+    newProfileId = await createProfile("Singing voice");
+    let seq=1;
+    for(const c of acapella){
+      saveMsg = "Uploading "+seq+" of "+acapella.length+"\u2026"; render();
+      // acapella files upload as-is; the trainer slices them into 3s pieces.
+      await saveClip(newProfileId, "acap"+seq, "sung", c.file, c.dur, seq); seq++;
+    }
+    saveMsg = "Saved. Starting training\u2026"; render();
+    const r = await fetch("/api/voice-train", { method:"POST",
+      headers:{ "Content-Type":"application/json", Authorization:"Bearer "+session.access_token } });
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error||"Could not start training");
+    saveMsg = j.already ? "Your voice is already training." :
+              "Training started \u2014 about 40 minutes. You can close this page; it trains on its own.";
+    saving=false; stage="trained"; render();
+  }catch(e){ saveErr=String(e.message||e); saving=false; saveMsg=""; render(); }
+}
+
 // ── LIVE PAINT ───────────────────────────────────────────────────────────────
 function paint(){
   const pct=Math.max(0,Math.min(1,(level+60)/60))*100;
@@ -378,7 +502,41 @@ function render(){
         <div class="bullet"><div class="dot"></div><div>Keep your volume up &mdash; you'll need to hear the reference notes.</div></div>
       </div>
       ${err?`<div class="err">${err}</div>`:""}
-      <button class="fill" onclick="openMic()">Turn on my mic</button>`;
+      <div class="row">
+        <button class="fill" onclick="openMic()">Turn on my mic</button>
+        <button class="ghost" onclick="stage='acapella';render()">I already have singing recorded</button>
+      </div>`;
+    return;
+  }
+
+  if(stage==="acapella"){
+    const total = acapella.reduce((a,c)=>a+(c.dur||0),0);
+    const loginBox = !session ? `
+      <div class="panel">
+        <div class="eyebrow">Sign in to save</div>
+        <div class="row" style="margin-bottom:10px"><input id="em2" type="email" placeholder="email" style="flex:1;min-width:200px;padding:12px;border:1px solid var(--stone);font-family:var(--body);font-size:15px"></div>
+        <div class="row" style="margin-bottom:14px"><input id="pw2" type="password" placeholder="password" style="flex:1;min-width:200px;padding:12px;border:1px solid var(--stone);font-family:var(--body);font-size:15px"></div>
+        <div class="row"><button class="fill" onclick="doLogin2()">Sign in</button></div>
+      </div>` : "";
+    app.innerHTML=`
+      <div class="eyebrow">Song Studio</div>
+      <h1>Upload singing you already have</h1>
+      <p>Drop in dry, solo vocal recordings &mdash; your natural singing, no backing track and as little reverb as possible. That's what the model learns from. Aim for at least ten minutes across your files.</p>
+      <div class="panel">
+        <div class="bullet"><div class="dot"></div><div><b>Dry and solo.</b> No instrumental behind the vocal &mdash; a full song trains a muddy voice.</div></div>
+        <div class="bullet"><div class="dot"></div><div><b>Your real style.</b> If you sing soft and breathy, upload soft and breathy &mdash; the model becomes what you feed it.</div></div>
+        <div class="bullet"><div class="dot"></div><div><b>Clean.</b> Quiet background, minimal effects.</div></div>
+      </div>
+      <div class="row" style="margin-bottom:16px">
+        <label class="fill" style="display:inline-block;padding:13px 26px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer">
+          Choose vocal files<input type="file" accept="audio/*" multiple style="display:none" onchange="addAcapella(this.files);this.value=''">
+        </label>
+      </div>
+      ${acapella.length?`<div class="panel">${acapella.map((c,i)=>`<div class="row" style="justify-content:space-between;margin-bottom:8px"><span style="font-size:14px">${c.name} &mdash; ${mmss(c.dur||0)}</span><button class="ghost" style="padding:6px 12px" onclick="removeAcapella(${i})">Remove</button></div>`).join("")}<div style="font-size:13px;color:${total>=600?'var(--green)':'var(--red)'};margin-top:6px">${mmss(total)} total ${total>=600?'\u2014 enough to train':'\u2014 need 10:00 minimum'}</div></div>`:""}
+      ${saveErr?`<p style="color:var(--red);font-size:14px">${saveErr}</p>`:""}
+      ${loginBox}
+      ${session&&acapella.length?`<div class="row"><button class="fill" ${saving?"disabled":""} onclick="saveAcapellaAndTrain()">${saving?(saveMsg||"Saving\u2026"):"Save & train my voice"}</button></div>`:""}
+      <div style="margin-top:18px"><button class="ghost" onclick="stage='intro';render()">Back</button></div>`;
     return;
   }
 
@@ -410,19 +568,44 @@ function render(){
     return;
   }
 
+  if(stage==="trained"){
+    app.innerHTML=`
+      <div class="eyebrow">Training</div>
+      <h1>Your voice is training</h1>
+      <p>${saveMsg||"Training started \u2014 about 40 minutes."}</p>
+      <p style="font-size:13.5px">When it finishes it becomes your active voice automatically. You can watch progress on the voice card in Song Studio.</p>
+      <div class="row"><button class="fill" onclick="location.href='/'">Back to Chelgy</button></div>`;
+    return;
+  }
+
   if(stage==="done"){
     const n=Object.keys(takes).length, sec=capturedSec(), short=sec<TARGET_SEC*0.7;
+    const loginBox = !session ? `
+      <div class="panel">
+        <div class="eyebrow">Sign in to save</div>
+        <p style="margin-bottom:14px;font-size:14px">Saving to your account so it can train. Same login as Chelgy.</p>
+        <div class="row" style="margin-bottom:10px"><input id="em" type="email" placeholder="email" style="flex:1;min-width:200px;padding:12px;border:1px solid var(--stone);font-family:var(--body);font-size:15px"></div>
+        <div class="row" style="margin-bottom:14px"><input id="pw" type="password" placeholder="password" style="flex:1;min-width:200px;padding:12px;border:1px solid var(--stone);font-family:var(--body);font-size:15px"></div>
+        <div class="row"><button class="fill" onclick="doLogin()">Sign in</button></div>
+      </div>` : "";
+    const saveRow = session ? `
+      <div class="row">
+        <button class="fill" ${saving?"disabled":""} onclick="saveAllAndTrain()">${saving?(saveMsg||"Saving\u2026"):"Save to my voice & train"}</button>
+        <button class="ghost" onclick="stage='record';idx=0;render()">Add more</button>
+      </div>
+      ${saveMsg&&!saving?`<p style="color:var(--green);margin-top:12px;font-size:14px">${saveMsg}</p>`:""}` : "";
     app.innerHTML=`
       <div class="eyebrow">Complete</div>
       <h1>${short?"Captured, but light":"That's your voice captured"}</h1>
       <p>${n} clips, ${mmss(sec)} of clean audio.
-        ${short?"That's under the twenty-minute target. It'll train, but the finished voice will sound less like you than it could. Going back and talking longer on the four speaking prompts is the cheapest way to close the gap."
+        ${short?"That's under the twenty-minute target. It'll train, but the finished voice will sound less like you than it could."
                :"That's a solid dataset."}</p>
-      <div class="row">
-        <button class="fill" onclick="downloadAll()">Download all ${n} files</button>
-        <button class="ghost" onclick="stage='record';idx=0;render()">Go back and add more</button>
-      </div>
-      <div style="font-size:12.5px;color:var(--mid);margin-top:12px;line-height:1.5">Your browser will ask to allow multiple downloads &mdash; say yes.</div>`;
+      ${saveErr?`<p style="color:var(--red);font-size:14px">${saveErr}</p>`:""}
+      ${loginBox}
+      ${saveRow}
+      <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--stone)">
+        <button class="ghost" onclick="downloadAll()">Or download all ${n} files</button>
+      </div>`;
     return;
   }
 
