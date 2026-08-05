@@ -10837,6 +10837,20 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     poll();
     return ()=>{ stop=true; if(t) clearTimeout(t); };
   },[]);
+  const [vst,setVst]     = useState(null);   // RVC voice-training status
+  useEffect(()=>{
+    let stop=false;
+    async function poll(){
+      try{
+        const token = await freshToken();
+        const r = await fetch("/api/voice-status",{ headers: token?{Authorization:"Bearer "+token}:{} });
+        if(r.ok && !stop){ setVst(await r.json()); }
+      }catch(_){}
+    }
+    poll(); const id=setInterval(poll, 20000);
+    return ()=>{ stop=true; clearInterval(id); };
+  }, []);
+
   async function startTraining(){
     setGenErr("");
     try{
@@ -11063,6 +11077,25 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         Sing your own melody, roughly, however it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang — so the song follows your tune instead of your tune following a loop.
       </p>
 
+      <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Your voice \u2014 singing</div>
+        {(!vst || vst.state==="none" || vst.state==="ready") && (<>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px",lineHeight:1.55}}>
+            {vst && vst.state==="ready"
+              ? "\u2713 Your singing voice is trained and ready \u2014 convert and re-sing use it now. Retrain any time with new recordings."
+              : "The voice that convert and re-sing use. For the best result, train it on your real singing style. Takes about 40 minutes and runs on its own."}
+          </p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <a href="/enroll.html" target="_blank" style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer",textDecoration:"none"}}>
+              {vst && vst.state==="ready" ? "Retrain my voice (singing)" : "Train my voice (singing)"}
+            </a>
+          </div>
+        </>)}
+        {vst && vst.state==="training" && (
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>{vst.label||"Training your voice (about 40 minutes)\u2026"}</p>
+        )}
+      </div>
+
       <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20}}>
         <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Voice generator</div>
         {(!gen || gen.state==="none" || gen.state==="failed") && (<>
@@ -11090,7 +11123,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       {profile === null && (
         <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:0}}>
-            Song Studio needs a model of your voice before it can sing anything. Voice training isn't open yet — it's still run by hand while we get it right.
+            Song Studio needs a model of your voice before it can sing anything. Train one from the \u201cYour voice \u2014 singing\u201d card above \u2014 record or upload your singing and it trains in about 40 minutes.
           </p>
         </div>
       )}
