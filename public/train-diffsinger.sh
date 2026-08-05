@@ -127,7 +127,15 @@ if [ ! -f .deps-done ]; then
       curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/mc.sh
       bash /tmp/mc.sh -b -p /opt/conda
     fi
-    /opt/conda/bin/conda create -n mfa -c conda-forge montreal-forced-aligner -y -q
+    # Anaconda now requires accepting the Terms of Service for its default
+    # channels before conda will install anything (CondaToSNonInteractiveError).
+    # Accept for the default channels; harmless if already accepted. We install
+    # MFA from conda-forge (which has no ToS gate), but conda still checks the
+    # defaults during solve, so both must be accepted.
+    /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>/dev/null || true
+    /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
+    # Install strictly from conda-forge so the defaults channel isn't needed at all.
+    /opt/conda/bin/conda create -n mfa -c conda-forge --override-channels montreal-forced-aligner -y -q
   fi
   touch .deps-done
 fi
