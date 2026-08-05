@@ -10602,6 +10602,116 @@ function OrdersPanel({ user }){
 // queues a job, and polls. It deliberately knows nothing about RVC, tuning or
 // beat alignment: the six-stage progress it shows comes from the worker.
 
+function SunoProduction({ user=null }){
+  const [file,setFile]     = useState(null);
+  const [approach,setApproach] = useState("A");
+  const [style,setStyle]   = useState("");
+  const [busy,setBusy]     = useState(false);
+  const [stage,setStage]   = useState("");
+  const [err,setErr]       = useState("");
+  const [result,setResult] = useState(null);
+
+  async function run(){
+    setErr(""); setResult(null);
+    const uid = user && user.id ? user.id : null;
+    if(!uid){ setErr("Please sign in again."); return; }
+    if(approach==="A" && !file){ setErr("Choose your vocal first."); return; }
+    if(approach==="B" && !style.trim()){ setErr("Describe the song you want."); return; }
+    setBusy(true);
+    try{
+      let body;
+      if(approach==="A"){
+        setStage("Uploading your vocal\u2026");
+        const ext=(file.name.split(".").pop()||"mp3").toLowerCase().slice(0,5);
+        const up=await uploadSiteAudioFile(file, uid+"/suno-in/"+Date.now()+"."+ext);
+        if(!up) throw new Error("That vocal couldn\u2019t be uploaded \u2014 check your connection.");
+        setStage("Suno is building production around your voice\u2026 (up to a few minutes)");
+        body={ action:"addInstrumental", audioUrl:up, style:style||"full modern production, tasteful arrangement" };
+      } else {
+        setStage("Suno is generating a full song, then splitting stems\u2026 (up to a few minutes)");
+        body={ action:"fullThenStems", prompt:style };
+      }
+      const token=await freshToken();
+      const r=await fetch("/api/song-suno",{ method:"POST",
+        headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+        body: JSON.stringify(body) });
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.error||"Suno production failed.");
+      setResult(j);
+      const label = approach==="A" ? "Suno production (wrapped)" : "Suno full + stems";
+      const saveUrl = j.url || j.instrumental || j.full;
+      if(saveUrl) saveToLibrary(user, "song", label, saveUrl).catch(()=>{});
+    }catch(e){ setErr(String((e&&e.message)||e)); }
+    setBusy(false); setStage("");
+  }
+
+  return (
+    <div style={{maxWidth:760}}>
+      <h2 style={{fontFamily:"Outfit,Helvetica,Arial,sans-serif",fontSize:26,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 8px"}}>Suno Production</h2>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14.5,lineHeight:1.6,color:B.mid,margin:"0 0 20px"}}>
+        Your voice, their production. Bring a finished vocal and Suno builds a full arrangement \u2014 beat, instruments, backing \u2014 around it. This is a test bench to hear the quality before we wire it into the main flow.
+      </p>
+
+      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Approach</div>
+      <div style={{display:"flex",gap:6,marginBottom:6}}>
+        {[["A","Wrap my voice"],["B","Full + stems"]].map(([id,label])=>(
+          <button key={id} onClick={()=>{setApproach(id);setResult(null);}} disabled={busy}
+            style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(approach===id?B.charcoal:B.stone),background:approach===id?B.inkBlock:B.white,color:approach===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
+        ))}
+      </div>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 18px",lineHeight:1.5}}>
+        {approach==="A" ? "Send your vocal to Suno; it wraps a full arrangement around your actual voice. One pass." :
+         "Generate a full Suno song from a description, then split it \u2014 keep the instrumental and backing vocals to layer your own lead under."}
+      </p>
+
+      {approach==="A" && (
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:16}}>
+          <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"10px 18px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
+            <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f){setFile(f);setResult(null);}}} style={{display:"none"}} disabled={busy} />
+            {file ? "Vocal: "+(file.name.length>26?file.name.slice(0,26)+"\u2026":file.name) : "Choose your vocal"}
+          </label>
+          {file && <button onClick={()=>{setFile(null);setResult(null);}} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"10px 14px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
+        </div>
+      )}
+
+      <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>{approach==="A"?"Style (optional)":"Describe the song"}</div>
+      <input type="text" value={style} onChange={e=>setStyle(e.target.value)} disabled={busy}
+        placeholder={approach==="A"?"e.g. dream pop, dreamy synths, breathy":"e.g. dream pop love song, breathy female vocal, lush synths"}
+        style={{width:"100%",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,padding:"11px 14px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,marginBottom:18,boxSizing:"border-box"}} />
+
+      {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#C0392B",margin:"0 0 14px"}}>{err}</p>}
+      {busy && stage && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 14px"}}>{stage}</p>}
+
+      <button onClick={run} disabled={busy||(approach==="A"&&!file)}
+        style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,letterSpacing:"0.04em",padding:"13px 26px",border:"1px solid "+B.charcoal,background:(busy||(approach==="A"&&!file))?B.white:B.inkBlock,color:(busy||(approach==="A"&&!file))?B.mid:B.inkText,cursor:(busy||(approach==="A"&&!file))?"default":"pointer"}}>
+        {busy?"Working\u2026":"Build production"}
+      </button>
+
+      {result && (
+        <div style={{marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:18}}>
+          {result.url && (<>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px"}}>Production wrapped around your voice. Saved to Library.</p>
+            <audio src={result.url} controls style={{width:"100%"}} />
+          </>)}
+          {result.instrumental && (<>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 6px"}}>Instrumental (drop your lead over this):</p>
+            <audio src={result.instrumental} controls style={{width:"100%",marginBottom:12}} />
+          </>)}
+          {result.backingVocals && (<>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 6px"}}>Backing vocals / ad-libs:</p>
+            <audio src={result.backingVocals} controls style={{width:"100%",marginBottom:12}} />
+          </>)}
+          {result.full && !result.url && (<>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 6px"}}>Full song:</p>
+            <audio src={result.full} controls style={{width:"100%"}} />
+          </>)}
+          {result.note && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:8}}>{result.note}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MixMaster({ user=null }){
   const [file,setFile]       = useState(null);
   const [intensity,setIntensity] = useState("warm");
@@ -12385,6 +12495,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="filmroom"&&<FilmRoom />}
       {tool==="songstudio"&&<SongStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="mixmaster"&&<MixMaster user={user} />}
+      {tool==="sunoprod"&&<SunoProduction user={user} />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} user={user} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -12949,7 +13060,7 @@ const CATEGORIES = [
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
     tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Sing your own melody, however rough it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang \u2014 so the song follows your tune, not a loop.",
-    tabs:[ {label:"Song Studio",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"} ] },
+    tabs:[ {label:"Song Studio",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"}, {label:"Suno Production",tool:"sunoprod"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
