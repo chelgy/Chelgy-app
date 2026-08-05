@@ -49,10 +49,9 @@ const COUNTRIES = (process.env.RUNPOD_COUNTRIES || "US").split(",").map(s => s.t
 const REGISTRY_AUTH = (process.env.RUNPOD_REGISTRY_AUTH_ID || "").trim();
 // Training writes checkpoints, the MFA env, and the dataset to disk — size for it.
 const DISK_GB = Math.max(100, Number(process.env.RUNPOD_TRAIN_DISK_GB) || 150);
-// 20k for the FIRST run: enough to prove the voice sounds like her in ~4-6h,
-// not the ~day a full 60k takes. Once proven, bump this (or set the env var)
-// to 60000 for the polished final model.
-const TRAIN_STEPS = String(Number(process.env.GENERATOR_TRAIN_STEPS) || 20000);
+// 60k for the full-quality model. Runs overnight unattended (~a day of GPU
+// time), reports progress to the app, and the pod self-terminates when done.
+const TRAIN_STEPS = String(Number(process.env.GENERATOR_TRAIN_STEPS) || 60000);
 
 async function rp(path, init) {
   const r = await fetch(RP + path, {
