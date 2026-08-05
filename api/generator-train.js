@@ -112,6 +112,14 @@ export default async function handler(req, res) {
     // The pod boots, pulls the training script fresh from the app (same
     // single-source-of-truth rule as the render pipeline), and runs it. The
     // script reports progress to storage and removes the pod when it ends.
+    // Clear any stale status from a previous run — otherwise the app's poller
+    // reads the old "failed"/"done" state and the new run looks like it never
+    // started. Best-effort; a missing file is fine.
+    try {
+      await fetch(SB_URL + "/storage/v1/object/voice/" + userId + "/" + profileId + "/generator/status.json",
+        { method: "DELETE", headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC } });
+    } catch { /* nothing to clear */ }
+
     const body = {
       name: POD_PREFIX + profileId.slice(0, 8) + "-" + Date.now(),
       imageName: IMAGE,
