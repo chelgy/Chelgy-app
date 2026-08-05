@@ -3460,7 +3460,7 @@ function headerSrc(headerMedia, onbMedia, key, baseUrl){
 const HEADER_PANELS = [
   { key:"open",    go:"tools" },
   { key:"website", go:"tools:cat_website" },
-  { key:"fakeit",  go:"tools:cat_fakeit" },
+  { key:"fakeit",  go:"tools:cat_photo" },
   { key:"flyers",  go:"tools:cat_photo" },
   { key:"social",  go:"tools:cat_social" },
   { key:"growth",  go:"tools:cat_seo" },
@@ -13193,9 +13193,20 @@ const CATEGORIES = [
     tabs:[ {label:"Song Studio",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"}, {label:"Suno Production",tool:"sunoprod"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
+  /* =======================================================================
+     HIDDEN: Fake It  -  uncomment this ONE block to bring it back.
+     -----------------------------------------------------------------------
+     Not removed, folded in. Every tab below now lives in Photo & Design, which
+     is where it belongs - it is photo work - and the menu reads shorter for it.
+     NOTHING is deleted: the Backdrop / StyleMatch / FilmRoom / VideoEdit
+     components, their api routes and every saved image are untouched, and the
+     tools still route normally from Photo & Design. This only hides the hub
+     card. The header tour panel keyed "fakeit" now points at cat_photo, so
+     restoring this block means pointing it back at cat_fakeit.
   { id:"cat_fakeit", title:"Fake It", icon:"Sparkles", blurb:"Put yourself anywhere. Upload a photo of your face, describe a place — the Amalfi Coast, a Paris café, a rooftop in Tokyo — and get a real-looking photo of you there, or bring any shot to life as a short video. Any outfit, any light. No training, no waiting. It's really you, and you never left the house.",
     tabs:[ {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Film Room",tool:"filmroom"}, {label:"Video Edit",tool:"videoedit"},
            ...(FAKEIT_PRESETS_ENABLED ? [{label:"Presets",tool:"restage"}, {label:"High Fashion",tool:"highfashion"}, {label:"Beauty",tool:"beauty"}] : []) ] },
+     ======================================================================= */
   { id:"cat_photo", title:"Photo & Design", icon:"Image", blurb:"Every visual your business needs, made to order. Studio-grade product shots, logos, flyers, social graphics and banners — described in a sentence, finished in seconds, no designer and no photoshoot.",
     tabs:[ {label:"AI Photos",tool:"images"}, {label:"Fake It",tool:"backdrop"}, {label:"Style Match",tool:"stylematch"}, {label:"Film Room",tool:"filmroom"}, {label:"Video Edit",tool:"videoedit"} ] },
   { id:"cat_ads", title:"Advertising", icon:"Target", blurb:"Plan the campaign, write the ads, and shoot the product — all in one place. Get a full ad strategy with budget and targeting, copy that actually converts, and the product imagery to run alongside it.",
