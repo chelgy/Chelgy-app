@@ -10814,6 +10814,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [vocalSpace,setVocalSpace] = useState("match"); // produced | match | dry
   const [matchFile,setMatchFile]   = useState(null);    // Suno vocal stem for match
   const [matchAlign,setMatchAlign] = useState(true);
+  const [convertFile,setConvertFile] = useState(null); // a finished vocal to convert
   const [beatMode,setBeatMode] = useState("auto");   // auto | pick | upload
   const [previews,setPreviews] = useState([]);       // [{id,audio,label}]
   const [chosenBeat,setChosen] = useState(null);     // preview audio (data url) or uploaded File
@@ -10974,6 +10975,14 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       const token = await freshToken();
       // In "match" mode, upload the Suno vocal stem so the render can
       // align + tone-match to it.
+      // Direct conversion: upload the finished vocal (e.g. a Suno lead stem).
+      let convertVocal = "";
+      if(outMode==="convert" && convertFile){
+        const cuid = user && user.id ? user.id : null;
+        const cext=(convertFile.name.split(".").pop()||"mp3").toLowerCase().slice(0,5);
+        convertVocal = await uploadSiteAudioFile(convertFile, cuid+"/convert-in/"+Date.now()+"."+cext) || "";
+        if(!convertVocal) throw new Error("That vocal couldn\u2019t be uploaded \u2014 check your connection.");
+      }
       let matchRef = "";
       if(outMode==="vocal" && vocalSpace==="match" && matchFile){
         const muid = user && user.id ? user.id : null;
@@ -10984,6 +10993,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
         body: JSON.stringify({ guideUrl:url, profileId:profile.id, genre,
           instruments, tuneStrength, indexRate, harmony, ...(inspoUrl?{inspoUrl}:{}), ...(beatUrl?{beatUrl}:{}),
+          ...(outMode==="convert" ? { convertVocal, vocalSpace: vocalSpace==="dry"?"dry":"wet" } : {}),
           ...(outMode==="vocal" ? { vocalOnly:true, vocalSpace,
                 matchAlign: vocalSpace==="match" ? matchAlign : undefined,
                 matchRef } : {}) }) });
@@ -11185,15 +11195,35 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Output</div>
           <div style={{display:"flex",gap:6,marginBottom:8}}>
-            {[["song","Full song"],["vocal","Just my vocal"]].map(([id,label])=>(
+            {[["song","Full song"],["vocal","Just my vocal"],["convert","Convert a vocal"]].map(([id,label])=>(
               <button key={id} onClick={()=>setOutMode(id)} disabled={busy}
                 style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(outMode===id?B.charcoal:B.stone),background:outMode===id?B.inkBlock:B.white,color:outMode===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
             ))}
           </div>
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 "+(outMode==="vocal"?"12px":"18px"),lineHeight:1.5}}>
             {outMode==="song" ? "The finished song \u2014 your voice over a beat, mixed." :
+             outMode==="convert" ? "Upload a finished vocal (e.g. your Suno lead stem) and get it back in your voice \u2014 same melody, same timing, same words. Drops straight onto the original stems." :
              "Just the re-sung vocal, to drop over your own stems (e.g. in Logic)."}
           </div>
+
+          {outMode==="convert" && (<>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+              <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 16px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
+                <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f)setConvertFile(f);}} style={{display:"none"}} disabled={busy} />
+                {convertFile ? "Vocal: "+(convertFile.name.length>26?convertFile.name.slice(0,26)+"\u2026":convertFile.name) : "Upload the vocal to convert"}
+              </label>
+              {convertFile && <button onClick={()=>setConvertFile(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
+            </div>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[["wet","Produced"],["dry","Dry"]].map(([id,label])=>(
+                <button key={id} onClick={()=>setVocalSpace(id)} disabled={busy}
+                  style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 14px",border:"1px solid "+((vocalSpace===id)?B.charcoal:B.stone),background:(vocalSpace===id)?B.inkBlock:B.white,color:(vocalSpace===id)?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
+              ))}
+            </div>
+            <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 12px",lineHeight:1.5}}>
+              {vocalSpace==="dry" ? "Clean and dry \u2014 no effects, for mixing it yourself." : "Produced \u2014 reverb and EQ so it sits in a mix."}
+            </p>
+          </>)}
 
           {outMode==="vocal" && (<>
             <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
@@ -11227,9 +11257,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
           {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#B00",marginBottom:12,lineHeight:1.5}}>{err}</p>}
 
-          <button onClick={makeSong} disabled={busy||!file||(outMode==="vocal"&&vocalSpace==="match"&&!matchFile)}
+          <button onClick={makeSong} disabled={busy||(outMode==="convert" ? !convertFile : (!file||(outMode==="vocal"&&vocalSpace==="match"&&!matchFile)))}
             style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,letterSpacing:"0.06em",padding:"13px 28px",border:"1px solid "+B.charcoal,background:(busy||!file)?B.white:B.inkBlock,color:(busy||!file)?B.mid:B.inkText,cursor:(busy||!file)?"default":"pointer"}}>
-            {busy ? (outMode==="vocal"?"Re-singing\u2026":"Making your song\u2026") : ((outMode==="vocal"?"Re-sing my vocal \u2014 ":"Make my song \u2014 ") + COST + " credits")}
+            {busy ? (outMode==="convert"?"Converting\u2026":outMode==="vocal"?"Re-singing\u2026":"Making your song\u2026") : ((outMode==="convert"?"Convert to my voice \u2014 ":outMode==="vocal"?"Re-sing my vocal \u2014 ":"Make my song \u2014 ") + COST + " credits")}
           </button>
 
           {busy && (
