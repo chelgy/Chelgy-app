@@ -10907,10 +10907,24 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       try{
         const token = await freshToken();
         if(!token){ if(alive) setProfile(null); return; }
-        const r = await fetch(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status&order=created_at.desc&limit=1",
+        // Newest TRAINED profile first: status ready AND a model file. A brand
+        // new enrollment row is neither, so starting one can no longer hide the
+        // voice that actually works.
+        const r = await fetch(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path" +
+          "&status=eq.ready&model_path=not.is.null&order=created_at.desc&limit=1",
           { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
         const rows = await r.json();
-        if(alive) setProfile((Array.isArray(rows) && rows[0]) || null);
+        let pick = (Array.isArray(rows) && rows[0]) || null;
+        // Nothing trained yet. Fall back to the newest row of any kind so the
+        // card can still say "recording" or "training" instead of vanishing —
+        // a first-time enrollment has no ready profile by definition.
+        if(!pick){
+          const r2 = await fetch(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path&order=created_at.desc&limit=1",
+            { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
+          const rows2 = await r2.json();
+          pick = (Array.isArray(rows2) && rows2[0]) || null;
+        }
+        if(alive) setProfile(pick);
       }catch{ if(alive) setProfile(null); }
     })();
     return ()=>{ alive = false; };
