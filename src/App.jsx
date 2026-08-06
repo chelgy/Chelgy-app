@@ -10799,6 +10799,14 @@ function MixMaster({ user=null }){
   );
 }
 
+// The original Song Studio idea: sing a rough guide take, Chelgy generates a
+// beat around it and returns a finished song. Retired — the session model in
+// the Sessions tab replaced it, and the generated harmonies never sounded
+// good enough to ship. Flip this to true to bring the whole flow back: the
+// beat picker, genre grid, instruments field, backing vocals and the "Full
+// song" output are all still here, just gated. The backend never changed —
+// song-route.js still accepts guideUrl, and api/song-beat.js is untouched.
+const SONG_BEAT_FLOW_ENABLED = false;
 function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null }){
   const [profile,setProfile]   = useState(undefined);   // undefined = still loading
   const [file,setFile]         = useState(null);
@@ -10809,7 +10817,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [instruments,setInst]  = useState("");
   const [tuneStrength,setTune] = useState(0.85);
   const [harmony,setHarmony]   = useState("off");  // off | subtle | lush
-  const [outMode,setOutMode]   = useState("song");    // song | vocal
+  const [outMode,setOutMode]   = useState("convert"); // convert | vocal | song (song gated behind SONG_BEAT_FLOW_ENABLED)
   const [vocalSpace,setVocalSpace] = useState("match"); // produced | match | dry
   const [matchFile,setMatchFile]   = useState(null);    // Suno vocal stem for match
   const [matchAlign,setMatchAlign] = useState(true);
@@ -10891,7 +10899,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     return ()=>{ live=false; };
   },[user&&user.id]);
 
-  const COST = CREDIT_COSTS.songBeat;
+  const COST = (outMode==="song") ? CREDIT_COSTS.songBeat : CREDIT_COSTS.songConvert;
 
   // The twelve in api/song-beat.js. Kept in the same order so the picker and the
   // prompt builder never drift into disagreeing about what "rnb" means.
@@ -11139,9 +11147,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
   return (
     <div style={{maxWidth:860,margin:"0 auto"}}>
-      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Song Studio</h3>
+      <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Re-sing</h3>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        Sing your own melody, roughly, however it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang — so the song follows your tune instead of your tune following a loop.
+        Put any vocal in your own voice. Upload a finished vocal — a Suno lead stem, a rough demo, someone else’s guide — and get it back sung by you, same melody, same timing, same words. Or sing a take yourself and have it tuned and re-sung. Send the result straight into a session to mix.
       </p>
 
       <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
@@ -11190,7 +11198,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       {profile === null && (
         <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:0}}>
-            Song Studio needs a model of your voice before it can sing anything. Train one from the “Your voice — singing” card above — record or upload your singing and it trains in about 40 minutes.
+            Re-sing needs a model of your voice before it can sing anything. Train one from the “Your voice — singing” card above — record or upload your singing and it trains in about 40 minutes.
           </p>
         </div>
       )}
@@ -11216,6 +11224,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
             </label>
           </div>
 
+{SONG_BEAT_FLOW_ENABLED && (<>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:14}}>
             <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 16px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
               <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f)setInspo(f);}} style={{display:"none"}} disabled={busy} />
@@ -11224,9 +11233,11 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
             {inspo && <button onClick={()=>setInspo(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
           </div>
           {inspo && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"-6px 0 14px",lineHeight:1.5}}>Chelgy will match this track’s feel — its instruments, texture and mix — while keeping your own melody.</p>}
+</>)}
 
           {clipUrl && <audio src={clipUrl} controls style={{width:"100%",marginBottom:14}} />}
 
+{SONG_BEAT_FLOW_ENABLED && (<>
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Beat</div>
           <div style={{display:"flex",gap:6,marginBottom:10}}>
             {[["auto","Auto"],["pick","Pick from options"],["upload","Upload my own"]].map(([id,label])=>(
@@ -11291,6 +11302,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
             ))}
           </div>
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 16px",lineHeight:1.5}}>Your voice singing harmony with itself — a second line that follows the chords. Lush adds a higher voice.</div>
+</>)}
 
           <div style={{display:"flex",gap:20,flexWrap:"wrap",marginBottom:18}}>
             <Slider label="Tuning" value={tuneStrength} set={setTune}
@@ -11302,7 +11314,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Output</div>
           <div style={{display:"flex",gap:6,marginBottom:8}}>
-            {[["song","Full song"],["vocal","Just my vocal"],["convert","Convert a vocal"]].map(([id,label])=>(
+            {[...(SONG_BEAT_FLOW_ENABLED?[["song","Full song"]]:[]),["convert","Convert a vocal"],["vocal","Re-sing my take"]].map(([id,label])=>(
               <button key={id} onClick={()=>{setOutMode(id); if(id==="convert") setVocalSpace("match");}} disabled={busy}
                 style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(outMode===id?B.charcoal:B.stone),background:outMode===id?B.inkBlock:B.white,color:outMode===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
             ))}
@@ -13186,7 +13198,12 @@ const ADMIN_PASSWORD = "chelochelo1";
 const MAX_EDIT_SECONDS = 2700;
 
 const CREDIT_COSTS = {
-  songBeat: 400,   // Song Studio — must match BEAT_COST in api/song-beat.js
+  songBeat: 400,   // Song Studio — must match BEAT_COST in api/song-beat.js.
+                   // Only reachable when SONG_BEAT_FLOW_ENABLED is true.
+  songConvert: 150, // Re-sing — convert / re-sing one vocal. RVC inference on a
+                   // RunPod L4, no external model call. Interim figure: covers a
+                   // ~7 min run at ~$0.44/hr with the house ~3x markup. Retime a
+                   // real run and adjust — credits = (L4 $/hr) x minutes x 50.
   image: 120,      // Standard — Nano Banana (Gemini 2.5 Flash Image) ~$0.039
   imageHD: 420,    // HD 2K — Nano Banana Pro ~$0.134
   image4K: 750,    // 4K — Nano Banana Pro ~$0.24
@@ -13400,7 +13417,7 @@ const CATEGORIES = [
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
     tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Sing your own melody, however rough it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang \u2014 so the song follows your tune, not a loop.",
-    tabs:[ {label:"Song Studio",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"}, /* HIDDEN: {label:"Suno Production",tool:"sunoprod"}, — never worked; the SunoProduction component and its routes are untouched, so restoring it is uncommenting this. */ {label:"Sessions",tool:"sessions"} ] },
+    tabs:[ {label:"Sessions",tool:"sessions"}, {label:"Re-sing",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"}, /* HIDDEN: {label:"Suno Production",tool:"sunoprod"}, — never worked; the SunoProduction component and its routes are untouched, so restoring it is uncommenting this. */ ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   /* =======================================================================
