@@ -27,7 +27,10 @@ EXP="${EXP:-voice}"
 SR="48k"; SR_HZ=48000
 EPOCHS="${EPOCHS:-200}"
 BATCH="${BATCH:-8}"
-ROOT=/workspace/rvc
+# Honours RVC_ROOT so a BAKED image can be used, and falls back to the old
+# interactive path when it is unset — so a pod running the previous way is
+# completely unaffected by this.
+ROOT="${RVC_ROOT:-/workspace/rvc}"
 
 say(){ printf "\n\033[1m▸ %s\033[0m\n" "$*"; }
 die(){ printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; fail_and_stop "$*"; exit 1; }
