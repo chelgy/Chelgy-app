@@ -373,18 +373,60 @@ cd "$ROOT/MakeDiffSinger/acoustic_forced_alignment"
 cd "$ROOT/DiffSinger"
 # Config: start from the acoustic template, point it at our data.
 CFG="configs/$PROFILE_ID.yaml"
-"$PY_BIN" - <<PY
-import yaml, os, shutil
-src="configs/templates/config_acoustic.yaml"
-cfg=yaml.safe_load(open(src))
-cfg["raw_data_dir"]=["data/$PROFILE_ID"]
-cfg["speakers"]=["$PROFILE_ID"]
-cfg["binary_data_dir"]="data/${PROFILE_ID}_binary"
-cfg["max_updates"]=int("$MAX_STEPS")
-cfg["val_check_interval"]=2000
-cfg["num_ckpt_keep"]=2
-yaml.safe_dump(cfg, open("$CFG","w"))
-print("  config written: $CFG")
+PROFILE_ID="$PROFILE_ID" CFG="$CFG" MAX_STEPS="$MAX_STEPS" DATA="$DATA" \
+MFA_MODEL="$MFA_MODEL" "$PY_BIN" - <<'PY'
+import yaml, os, glob
+pid = os.environ["PROFILE_ID"]; cfgpath = os.environ["CFG"]
+data = os.environ["DATA"]; mfa = os.environ.get("MFA_MODEL", "")
+cfg = yaml.safe_load(open("configs/templates/config_acoustic.yaml"))
+
+# THE DATASETS LIST IS THE ONE THAT COUNTS.
+#
+# The template ships with TWO example speakers (spk_id 0 and 1). The previous
+# version of this block set `raw_data_dir` and `speakers` — keys this version of
+# DiffSinger no longer reads — so both examples survived into the config and
+# binarize died with "Index in spk_id sequence [0, 1] is out of range" against
+# num_spk: 1. Replacing `datasets` outright is what actually points training at
+# one person's voice.
+#
+# test_prefixes holds out a few clips to validate against. Named explicitly from
+# what actually got binarized: a prefix that does not exist is silently ignored,
+# so a hardcoded "wav1" would leave the run with no validation set at all.
+names = sorted(os.path.splitext(os.path.basename(p))[0]
+               for p in glob.glob(os.path.join(data, "wavs", "*.wav")))
+if not names:
+    raise SystemExit("no wavs in " + data + "/wavs — nothing to configure")
+# Two held out, or one when the set is small. Never more than a fifth of it.
+hold = max(1, min(2, len(names) // 5))
+
+# English, not Chinese. The template is zh with the opencpop dictionary, but the
+# clips were aligned with an english MFA model, so the phonemes in the TextGrids
+# are English ones. Leaving this as zh means every phoneme is unknown.
+lang = "en" if str(mfa).startswith("english") else "zh"
+if lang == "en":
+    cfg["dictionaries"] = {"en": "dictionaries/opencpop-extension.txt"}
+
+cfg["datasets"] = [{
+    "raw_data_dir": data,
+    "speaker": pid,
+    "spk_id": 0,
+    "language": lang,
+    "test_prefixes": names[:hold],
+}]
+cfg["num_spk"] = 1
+cfg["use_spk_id"] = False
+# Obsolete keys from the older config shape. Harmless, but leaving them invites
+# the next person to edit the wrong one, exactly as happened here.
+cfg.pop("raw_data_dir", None)
+cfg.pop("speakers", None)
+
+cfg["binary_data_dir"] = "data/" + pid + "_binary"
+cfg["max_updates"] = int(os.environ["MAX_STEPS"])
+cfg["val_check_interval"] = 2000
+cfg["num_ckpt_keep"] = 2
+yaml.safe_dump(cfg, open(cfgpath, "w"), sort_keys=False)
+print("  config written: %s (%d clips, %d held out, lang=%s)"
+      % (cfgpath, len(names), hold, lang))
 PY
 "$PY_BIN" scripts/binarize.py --config "$CFG" || die "binarize failed"
 
