@@ -18,7 +18,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   ROLES, roleLabel, currentLead,
   createSession, listSessions, renameSession, deleteSession,
-  listStems, uploadStem, signStem, deleteStem,
+  listStems, uploadStem, stemUrl, deleteStem,
 } from "./songSession.js";
 
 const B = {
@@ -118,14 +118,14 @@ export default function SessionStudio({ user, token }) {
 
   async function onPlay(stem) {
     setErr("");
-    const r = await signStem(token, stem.storage_path, 3600);
+    const r = await stemUrl(token, stem);
     if (!r.ok) return setErr(r.error);
     setPlaying({ id: stem.id, url: r.url });
   }
 
   async function onDownload(stem) {
     setErr("");
-    const r = await signStem(token, stem.storage_path, 600);
+    const r = await stemUrl(token, stem);
     if (!r.ok) return setErr(r.error);
     const a = document.createElement("a");
     a.href = r.url;

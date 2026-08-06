@@ -233,6 +233,21 @@ export async function signStem(token, storagePath, seconds) {
   } catch (e) { return fail(e); }
 }
 
+// A playable URL for any stem, wherever its bytes actually live.
+//
+// Stems produced INSIDE the session flow sit in the sessions bucket and get a
+// signed URL. Stems registered by an existing tool — convert being the first —
+// already have a URL from that tool's own storage, kept in meta.source_url.
+// Resolving both here means the UI never has to know the difference, and no
+// 15MB render has to be copied between buckets just to satisfy a path rule.
+export async function stemUrl(token, stem) {
+  try {
+    if (stem && stem.meta && stem.meta.source_url) return { ok: true, url: stem.meta.source_url };
+    if (!stem || !stem.storage_path) return { ok: false, error: "That stem has no file." };
+    return await signStem(token, stem.storage_path, 3600);
+  } catch (e) { return fail(e); }
+}
+
 // Removes the row only. The object stays in storage on purpose: parent_id is
 // ON DELETE SET NULL precisely so deleting a source take never destroys the
 // good result somebody made from it, and deleting the bytes here would defeat
