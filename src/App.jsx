@@ -5980,28 +5980,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // referenced by the style auto-select below — it must never change. `label` is
   // the customer-facing name and can be renamed freely.
   // Notes describe what each LUT measurably does to the picture.
-  const GRADES = [
-    { id:"wolf",     label:"Golden Hour",   note:"Warm golden Hollywood-film look — glossy and rich." },
-    { id:"luxury",   label:"Clean Luxury",  note:"Bright, creamy and airy — the clean luxury look." },
-    { id:"kodak6",   label:"Sunlit Film",   note:"Warm film stock — golden skin, cooler blues pulled back. Sunlit without looking orange." },
-    { id:"kodak7",   label:"Soft Daylight", note:"Opens the whole picture up — brighter, softer and airy. Best on darker footage." },
-    { id:"movie3",   label:"Modern Cinema", note:"Punchy feature-film contrast with a cool green cast. Crisp and current." },
-    { id:"movie5",   label:"Amber Dusk",    note:"Deep amber warmth, slightly darker and softer. Moody, late-afternoon feel." },
-    { id:"screen2",  label:"High Key",      note:"The boldest look — lifts and sharpens everything. Bright, high-contrast, scroll-stopping." },
-    { id:"screen3",  label:"Editorial",     note:"Cool teal shadows with real contrast. Fashion-editorial, high-end." },
-    { id:"timeless", label:"Timeless",      note:"Reds eased back for a cool, muted, understated finish. Quiet and expensive." },
-  ];  // What the footage was SHOT IN — decides which color-space conversion runs
+  const GRADES = CG_GRADE_LIST;  // What the footage was SHOT IN — decides which color-space conversion runs
   // before the film look. Log footage MUST be converted or the grade is wrong.
   //
   // These are deliberately labelled by picture profile, not by brand. A Sony
   // owner shooting a normal profile will pick anything that says "Sony" simply
   // because that's their camera — and get double-converted, wrecked footage.
-  const FOOTAGE_TYPES = [
-    { id:"standard", label:"Normal picture profile",   note:"Your footage already looks normal — phone, or a camera not set to log (including a Sony or Canon in a standard profile). The film look is applied directly." },
-    { id:"sony",     label:"Shot flat — Sony S-Log3",  note:"Your footage looks washed out and grey straight off the card, and your Sony was set to S-Log3 (a7S III, FX3, etc). We convert it properly, then apply the film look." },
-    { id:"canon",    label:"Shot flat — Canon C-Log",  note:"Your footage looks washed out and grey straight off the card, and your Canon was set to C-Log2 or C-Log3 (R5 II, R6, C70). We convert it properly, then apply the film look." },
-    { id:"none",     label:"Don't color my footage",                note:"Leave my color exactly as I shot it — just cut, caption and title." },
-  ];
+  const FOOTAGE_TYPES = CG_FOOTAGE_LIST;
 
   function pickVideo(e){
     const f = e.target.files && e.target.files[0];
@@ -9831,11 +9816,45 @@ function FontPackPicker({ value, onChange, disabled }){
 // rather than server-side because the footage is already in the browser — asking a
 // serverless function to fetch, decode and sample a 90MB phone video to learn
 // something a canvas can answer for free is work nobody needs to pay for.
-function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+// ─── GRADE LISTS, SHARED ─────────────────────────────────────────────────────
+//
+// `id` is the contract with the render server — it selects the .cube file and, for
+// footage, the colour-space conversion that runs BEFORE the look. Renaming a label is
+// free; renaming an id silently changes what gets applied.
+//
+// These were local to VideoStudio until the Music Video tab needed the same choices.
+// Copying them would have created the exact failure this repo keeps writing comments
+// about: two lists, one of them quietly behind, and a look that exists in one tool and
+// not the other.
+const CG_GRADE_LIST = [
+  { id:"wolf",     label:"Golden Hour",   note:"Warm golden Hollywood-film look — glossy and rich." },
+  { id:"luxury",   label:"Clean Luxury",  note:"Bright, creamy and airy — the clean luxury look." },
+  { id:"kodak6",   label:"Sunlit Film",   note:"Warm film stock — golden skin, cooler blues pulled back. Sunlit without looking orange." },
+  { id:"kodak7",   label:"Soft Daylight", note:"Opens the whole picture up — brighter, softer and airy. Best on darker footage." },
+  { id:"movie3",   label:"Modern Cinema", note:"Punchy feature-film contrast with a cool green cast. Crisp and current." },
+  { id:"movie5",   label:"Amber Dusk",    note:"Deep amber warmth, slightly darker and softer. Moody, late-afternoon feel." },
+  { id:"screen2",  label:"High Key",      note:"The boldest look — lifts and sharpens everything. Bright, high-contrast, scroll-stopping." },
+  { id:"screen3",  label:"Editorial",     note:"Cool teal shadows with real contrast. Fashion-editorial, high-end." },
+  { id:"timeless", label:"Timeless",      note:"Reds eased back for a cool, muted, understated finish. Quiet and expensive." },
+];
+
+// Labelled by PICTURE PROFILE, not by brand — a Sony owner shooting a normal profile
+// will pick anything that says "Sony" simply because that is their camera, and get
+// double-converted, wrecked footage.
+const CG_FOOTAGE_LIST = [
+  { id:"standard", label:"Normal picture profile",   note:"Your footage already looks normal — phone, or a camera not set to log (including a Sony or Canon in a standard profile). The film look is applied directly." },
+  { id:"sony",     label:"Shot flat — Sony S-Log3",  note:"Your footage looks washed out and grey straight off the card, and your Sony was set to S-Log3 (a7S III, FX3, etc). We convert it properly, then apply the film look." },
+  { id:"canon",    label:"Shot flat — Canon C-Log",  note:"Your footage looks washed out and grey straight off the card, and your Canon was set to C-Log2 or C-Log3 (R5 II, R6, C70). We convert it properly, then apply the film look." },
+  { id:"none",     label:"Don't color my footage",   note:"Leave my color exactly as I shot it — just cut to the beat." },
+];
+
+function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{}, lutMedia={} }){
   const [song,setSong]     = useState(null);   // { file, name }
   const [clips,setClips]   = useState([]);     // [{ file, name, objectUrl }]
   const [pace,setPace]     = useState("normal");
   const [orient,setOrient] = useState("portrait");
+  const [footage,setFootage] = useState("standard");
+  const [grade,setGrade]     = useState("wolf");
   const [busy,setBusy]     = useState(false);
   const [stage,setStage]   = useState("");
   const [err,setErr]       = useState("");
@@ -9951,7 +9970,7 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
             klass:(byId[String(i)] && byId[String(i)].klass) || "locked",
             singing:!!(byId[String(i)] && byId[String(i)].singing)
           })),
-          pace, orientation:orient
+          pace, orientation:orient, footage, look:grade
         })
       });
       const rd = await rr.json();
@@ -10008,6 +10027,30 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
         <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={busy} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
         <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={busy} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
       </div>
+    </Card>
+
+    <Card style={{padding:22,marginBottom:16}}>
+      <div style={lbl}>What you shot on</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {CG_FOOTAGE_LIST.map(f=>(
+          <button key={f.id} onClick={()=>setFootage(f.id)} title={f.note} disabled={busy} style={{padding:"9px 16px",border:"1px solid "+(footage===f.id?B.charcoal:B.stone),background:footage===f.id?B.inkBlock:B.white,color:footage===f.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:busy?"not-allowed":"pointer"}}>{f.label}</button>
+        ))}
+      </div>
+      <p style={{...body,fontSize:11,margin:"0 0 6px"}}>{(CG_FOOTAGE_LIST.find(f=>f.id===footage)||{}).note}</p>
+      <p style={{...body,fontSize:11,margin:"0 0 18px"}}>This applies to every clip. If you shot on two different cameras that day, pick the one most of your footage came from.</p>
+
+      {footage!=="none" && <>
+        <div style={lbl}>Cinematic grade</div>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          {CG_GRADE_LIST.map(g=>{ const th=lutThumb(lutMedia,g.id); return (
+            <button key={g.id} onClick={()=>setGrade(g.id)} title={g.note} disabled={busy} style={{padding:0,width:th?132:"auto",border:"1px solid "+(grade===g.id?B.charcoal:B.stone),background:grade===g.id?B.inkBlock:B.white,color:grade===g.id?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",cursor:busy?"not-allowed":"pointer",overflow:"hidden",textAlign:"left"}}>
+              {th && <div style={{lineHeight:0,background:"#000"}}><img src={th} alt="" style={{width:"100%",height:80,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}} /></div>}
+              <div style={{padding:"9px 14px",fontSize:12,fontWeight:700,letterSpacing:"0.04em"}}>{g.label}</div>
+            </button>
+          ); })}
+        </div>
+        <p style={{...body,fontSize:11,margin:"-8px 0 0"}}>{(CG_GRADE_LIST.find(g=>g.id===grade)||{}).note}</p>
+      </>}
     </Card>
 
     <Btn dark full disabled={busy||!song||!clips.length} onClick={go}>
@@ -13027,7 +13070,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
-      {tool==="musicvideo"&&<MusicVideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="musicvideo"&&<MusicVideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
       {tool==="thumbnail"&&<ThumbnailStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} prefill={prefill} onPrefillDone={onPrefillDone} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
