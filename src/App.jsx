@@ -3377,6 +3377,11 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
 // The tool needs the four .ttf files in public/fonts/. Without them the covers still
 // render, but in a system serif rather than the brand faces — so if it ever looks
 // generic, check those before anything else.
+// Music Video. Off flips the tab out of the menu without removing anything, the
+// same escape hatch Commercial and Thumbnails have — this feature depends on a
+// worker image rebuild and an analysis pass that has never run at scale, and the
+// first bad day should cost one boolean rather than a revert.
+const MUSICVIDEO_ENABLED = true;
 const THUMBNAILS_ENABLED = true;
 
 // Commercial: HIDDEN. Set to true to bring the tab back on the Video Studio card.
@@ -9812,6 +9817,225 @@ function FontPackPicker({ value, onChange, disabled }){
   );
 }
 
+
+// ─── MUSIC VIDEO ────────────────────────────────────────────────────────────
+//
+// Upload a song and footage that was filmed with that song playing out loud. The
+// render server works out where each clip sits inside the track by listening to the
+// music bleeding through the video's own audio, then cuts to the beat without ever
+// moving anyone's mouth off their own voice.
+//
+// WHAT THIS COMPONENT IS RESPONSIBLE FOR, AND WHAT IT IS NOT
+// Everything hard happens on the server. This uploads, grabs three stills per clip so
+// the classifier has something to look at, and polls. The stills are pulled here
+// rather than server-side because the footage is already in the browser — asking a
+// serverless function to fetch, decode and sample a 90MB phone video to learn
+// something a canvas can answer for free is work nobody needs to pay for.
+function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+  const [song,setSong]     = useState(null);   // { file, name }
+  const [clips,setClips]   = useState([]);     // [{ file, name, objectUrl }]
+  const [pace,setPace]     = useState("normal");
+  const [orient,setOrient] = useState("portrait");
+  const [busy,setBusy]     = useState(false);
+  const [stage,setStage]   = useState("");
+  const [err,setErr]       = useState("");
+  const [outUrl,setOutUrl] = useState("");
+  const [notes,setNotes]   = useState([]);
+
+  const cost = CREDIT_COSTS.musicvideo + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip;
+
+  // Object URLs are revoked when the screen goes away. Without this every clip anyone
+  // ever selected stays in memory for the life of the tab, and this tool is used with
+  // thirty phone videos at a time.
+  useEffect(()=>{
+    return ()=>{ clips.forEach(c=>{ try{ URL.revokeObjectURL(c.objectUrl); }catch(_){} }); };
+  },[clips]);
+
+  function pickSong(e){
+    const f = (e.target.files||[])[0];
+    if(f) { setSong({ file:f, name:f.name }); setErr(""); }
+  }
+  function pickClips(e){
+    const files = Array.from(e.target.files||[]);
+    if(!files.length) return;
+    setClips(prev=>{
+      const room = Math.max(0, 40 - prev.length);
+      return prev.concat(files.slice(0, room).map(f=>({ file:f, name:f.name, objectUrl:URL.createObjectURL(f) })));
+    });
+    setErr("");
+  }
+  function dropClip(i){
+    setClips(prev=>{
+      const c = prev[i];
+      if(c){ try{ URL.revokeObjectURL(c.objectUrl); }catch(_){} }
+      return prev.filter((_,k)=>k!==i);
+    });
+  }
+
+  // How long a clip is, so the three stills are spread across it rather than bunched
+  // at the front. A clip shorter than the sample points would otherwise hand the
+  // classifier the same frame three times.
+  function clipSeconds(objectUrl){
+    return new Promise((resolve)=>{
+      try{
+        const v = document.createElement("video");
+        v.preload = "metadata"; v.muted = true;
+        const bail = setTimeout(()=>resolve(0), 8000);
+        v.onloadedmetadata = ()=>{ clearTimeout(bail); resolve(Number(v.duration)||0); };
+        v.onerror = ()=>{ clearTimeout(bail); resolve(0); };
+        v.src = objectUrl;
+      }catch(_){ resolve(0); }
+    });
+  }
+
+  async function go(){
+    setErr(""); setOutUrl(""); setNotes([]);
+    if(!song) return setErr("Add the song first.");
+    if(!clips.length) return setErr("Add at least one clip of footage.");
+    if(!useCredits(cost)) return;
+
+    setBusy(true);
+    try{
+      const uid = (user && user.id) || "anon";
+      const stamp = Date.now();
+
+      setStage("Uploading your song");
+      const su = await uploadVideoInput(song.file, uid+"/musicvideo/"+stamp+"-song");
+      if(!su.ok) throw new Error(su.error||"The song didn't upload.");
+
+      const urls = [];
+      for(let i=0;i<clips.length;i++){
+        setStage("Uploading clip "+(i+1)+" of "+clips.length);
+        const r = await uploadVideoInput(clips[i].file, uid+"/musicvideo/"+stamp+"-clip"+i);
+        if(!r.ok) throw new Error("Clip "+(i+1)+" didn't upload: "+(r.error||"unknown"));
+        urls.push(r.url);
+      }
+
+      setStage("Looking at your footage");
+      const framed = [];
+      for(let i=0;i<clips.length;i++){
+        const dur = await clipSeconds(clips[i].objectUrl);
+        const at = dur > 6 ? [dur*0.2, dur*0.5, dur*0.8] : [0.5, Math.max(0.6,dur*0.5), Math.max(0.7,dur-0.3)];
+        const frames = [];
+        for(const t of at){
+          const f = await captureVideoFrame(clips[i].objectUrl, t);
+          if(f) frames.push(f);
+        }
+        framed.push({ id:String(i), frames });
+      }
+
+      // A classifier that is down must not stop a render. Everything defaults to
+      // locked, which is the class that cannot be moved — the same safe direction the
+      // endpoint itself falls back in. The result is a stiffer edit, not a broken one.
+      let byId = {};
+      try{
+        const token = await freshToken();
+        const cr = await fetch("/api/musicvideo-classify", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
+          body: JSON.stringify({ clips: framed })
+        });
+        const cd = await cr.json();
+        if(cr.ok && cd && Array.isArray(cd.clips)) cd.clips.forEach(c=>{ byId[String(c.id)] = c; });
+      }catch(_){ }
+
+      setStage("Starting your music video");
+      const token2 = await freshToken();
+      const rr = await fetch("/api/musicvideo-render", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(token2?{Authorization:"Bearer "+token2}:{}) },
+        body: JSON.stringify({
+          songUrl: su.url,
+          clips: urls.map((u,i)=>({
+            url:u,
+            klass:(byId[String(i)] && byId[String(i)].klass) || "locked",
+            singing:!!(byId[String(i)] && byId[String(i)].singing)
+          })),
+          pace, orientation:orient
+        })
+      });
+      const rd = await rr.json();
+      if(!rr.ok || !rd || !rd.id) throw new Error((rd && rd.error) || "Couldn't start the render.");
+      onBalance();
+
+      const url = await pollVideo(rd.id, (p,st)=>{ setStage(st || ("Rendering "+(p||0)+"%")); });
+      if(!url) throw new Error(lastFfError || "The render didn't finish.");
+      setOutUrl(url);
+      setStage("");
+      onToolUse("musicvideo");
+    }catch(e){
+      setErr((e && e.message) || "Something went wrong.");
+      setStage("");
+    }
+    setBusy(false);
+  }
+
+  const lbl = {fontSize:9,color:B.gold,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"};
+  const body = {fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6};
+
+  return <div>
+    <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Music Video</h2>
+    <p style={{...body,margin:"0 0 20px"}}>Play your track out loud, film to it as many times as you like, then upload the song and the footage. Chelgy works out where every clip sits inside the song and cuts to the beat — and where you are singing on camera, your lips stay in time.</p>
+
+    <Card style={{padding:22,marginBottom:16}}>
+      <div style={lbl}>The song</div>
+      <input type="file" accept="audio/*" onChange={pickSong} disabled={busy} style={{...body,marginBottom:6}} />
+      {song && <div style={{...body,color:B.charcoal}}>{song.name}</div>}
+      <div style={{...body,fontSize:12,marginTop:10}}>Upload the same file you played while filming. A demo against a finished master will not line up.</div>
+    </Card>
+
+    <Card style={{padding:22,marginBottom:16}}>
+      <div style={lbl}>Your footage</div>
+      <input type="file" accept="video/*" multiple onChange={pickClips} disabled={busy} style={{...body,marginBottom:10}} />
+      {clips.map((c,i)=>(
+        <div key={i} style={{...body,color:B.charcoal,display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid "+B.stone,padding:"7px 0"}}>
+          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</span>
+          {!busy && <button onClick={()=>dropClip(i)} style={{background:"none",border:"none",color:B.mid,cursor:"pointer",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em"}}>REMOVE</button>}
+        </div>
+      ))}
+      <div style={{...body,fontSize:12,marginTop:10}}>Shoot b-roll too — hands, scenery, anything that is not your face. B-roll is what lets the edit cut fast, and it does not need the track playing.</div>
+    </Card>
+
+    <Card style={{padding:22,marginBottom:16}}>
+      <div style={lbl}>How it cuts</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+        {["calm","normal","fast"].map(p=>(
+          <Btn key={p} small dark={pace===p} outline={pace!==p} disabled={busy} onClick={()=>setPace(p)}>{p.toUpperCase()}</Btn>
+        ))}
+      </div>
+      <div style={lbl}>Shape</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={busy} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
+        <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={busy} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
+      </div>
+    </Card>
+
+    <Btn dark full disabled={busy||!song||!clips.length} onClick={go}>
+      {busy ? "WORKING..." : ("MAKE MY MUSIC VIDEO ("+cost.toLocaleString()+" credits)")}
+    </Btn>
+
+    {busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:22,textAlign:"center",marginTop:16}}>
+      <div style={body}>{stage||"Working..."}</div>
+      <div style={{...body,fontSize:12,marginTop:8}}>Matching footage to a song takes a few minutes. You can leave this open.</div>
+    </div>}
+
+    {err && !busy && <div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:16,marginTop:16}}>
+      <div style={{...body,color:"#9B2C2C"}}>{err}</div>
+    </div>}
+
+    {notes.length>0 && !busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:18,marginTop:16}}>
+      <div style={lbl}>Worth knowing</div>
+      {notes.map((n,i)=><div key={i} style={{...body,marginBottom:6}}>{n}</div>)}
+    </div>}
+
+    {outUrl && !busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:20,marginTop:16}}>
+      <div style={lbl}>Your music video</div>
+      <video src={outUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} />
+      <div style={{marginTop:14}}><ShareBar url={outUrl} file={outUrl} filename="chelgy-music-video.mp4" title="Made with Chelgy" text="" /></div>
+    </div>}
+  </div>;
+}
+
 function ThumbnailStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onBuyCredits=()=>{}, onToolUse=()=>{}, user=null }){
   const [template,setTemplate] = useState("single");
   const [aspect,setAspect]     = useState("4:5");
@@ -12803,6 +13027,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
+      {tool==="musicvideo"&&<MusicVideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="thumbnail"&&<ThumbnailStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} prefill={prefill} onPrefillDone={onPrefillDone} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="beauty"&&<Beauty credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -13261,6 +13486,13 @@ const CREDIT_COSTS = {
                          // so a full set adds ~1,280 on top of the base. Priced off the
                          // ~120 credits of Gemini each one really costs, at the same
                          // rough 2x markup used elsewhere.
+  // Music Video — flat, plus editorClip for every clip past the first.
+  //
+  // Borrowed from the video editor rather than measured, so the tab could ship before
+  // a render had ever been timed. MUST match MUSICVIDEO_COST in api/musicvideo-render.js
+  // or the button promises a number the server does not charge. Retime both together
+  // off a real run, using credits = (L4 $/hr) x (minutes) x 50.
+  musicvideo: 2000,
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
   // One AI transition: a 4-second Seedance video-extend bridge shot at 1080p.
   // Video-extend is billed per second of the NEW segment at $0.60/s at 1080p, so
@@ -13415,7 +13647,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(MUSICVIDEO_ENABLED ? [{label:"Music Video",tool:"musicvideo"}] : []), ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Put any vocal in your own voice. Upload a finished vocal \u2014 a Suno lead stem, a rough demo, a take you sang yourself \u2014 and get it back sung by you, same melody, same timing, same words. Split a track into its vocals, drums, bass and keys, then mix and master the whole thing in one place.",
     tabs:[ {label:"Re-sing",tool:"songstudio"}, {label:"Sessions",tool:"sessions"}, {label:"Mix & Master",tool:"mixmaster"}, /* HIDDEN: {label:"Suno Production",tool:"sunoprod"}, — never worked; the SunoProduction component and its routes are untouched, so restoring it is uncommenting this. */ ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
