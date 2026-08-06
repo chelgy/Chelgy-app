@@ -38,6 +38,26 @@ if [ "$SETUP_ONLY" != "1" ]; then
 fi
 nvidia-smi -L >/dev/null 2>&1     || die "No GPU visible. This needs a GPU pod."
 
+# ── PYTHON ─────────────────────────────────────────────────────────────────
+# The pod is launched with `bash -lc "curl … | bash"`. That inner bash is NOT a
+# login shell, so whatever puts conda on PATH in ~/.bashrc never runs and bare
+# `python` does not exist — the exact failure on 5 Aug, four seconds into stage
+# 0, which read as "wrong pod template" when the template was fine. Resolve the
+# interpreter instead of assuming it, and put its directory on PATH so pip and
+# the `hf` CLI resolve too.
+PY_BIN=""
+for c in python python3 /opt/conda/bin/python /opt/conda/bin/python3 \
+         /usr/local/bin/python3 /usr/bin/python3; do
+  if command -v "$c" >/dev/null 2>&1; then PY_BIN="$(command -v "$c")"; break; fi
+done
+[ -n "$PY_BIN" ] || die "No python interpreter on this image. Checked python, python3, /opt/conda, /usr/local, /usr/bin."
+export PATH="$(dirname "$PY_BIN"):$PATH"
+export PY_BIN
+printf "  python: %s (%s)\n" "$PY_BIN" "$("$PY_BIN" --version 2>&1)"
+# pip the same way — `pip` alone is missing on images that only ship `pip3`,
+# and `python -m pip` is the one form guaranteed to work wherever python does.
+PIP="$PY_BIN -m pip"
+
 # ── 0 · ENVIRONMENT ────────────────────────────────────────────────────────
 say "Stage 0/7 — environment"
 if [ ! -d "$ROOT" ]; then
@@ -49,7 +69,7 @@ fi
 cd "$ROOT"
 
 if [ ! -f .deps-done ]; then
-  pip install -q --upgrade pip
+  $PIP install -q --upgrade pip
   # This file does NOT install torch. Upstream says so in its own header and
   # installs torch separately — which means torch has always come from the pod
   # template, and the CUDA assertion below is the only thing that has ever
@@ -65,22 +85,22 @@ if [ ! -f .deps-done ]; then
   # 3.12, so on a 3.10/3.11 template it blocks the whole install. Nothing in
   # the training or render path imports it, but it is only dropped on failure
   # rather than pre-emptively, so a 3.12 pod still gets the complete set.
-  pip install -q -r requirments_cu128_py312.txt || {
+  $PIP install -q -r requirments_cu128_py312.txt || {
     say "retrying without pymss (needs Python 3.12; unused here)"
     grep -viE '^pymss' requirments_cu128_py312.txt > /tmp/rvc-reqs.txt
-    pip install -q -r /tmp/rvc-reqs.txt
+    $PIP install -q -r /tmp/rvc-reqs.txt
   }
   # Pinned, not upgraded. A blanket --upgrade pulls huggingface_hub 1.x, which
   # breaks transformers with a traceback that names transformers.
-  pip install -q "huggingface_hub>=0.26,<1.0" requests soundfile
+  $PIP install -q "huggingface_hub>=0.26,<1.0" requests soundfile
   # Render-time extras, so one setup leaves the pod ready for both jobs.
-  pip install -q pyworld librosa
+  $PIP install -q pyworld librosa
   touch .deps-done
 fi
 
 # Asserted, not assumed. A silent drop to CPU is the most expensive failure
 # this pod has: it looks like a slow success for forty minutes.
-python - <<'PY' || die "torch cannot use this GPU. Wrong pod template — relaunch on a CUDA PyTorch image, not ROCm/CPU."
+"$PY_BIN" - <<'PY' || die "torch cannot use this GPU. Wrong pod template — relaunch on a CUDA PyTorch image, not ROCm/CPU."
 import sys, torch
 ok = torch.cuda.is_available()
 print("  torch %s / cuda %s / %s" % (torch.__version__, torch.version.cuda,
@@ -117,7 +137,7 @@ if [ ! -f assets/hubert_base/pytorch_model.bin ]; then
   hf download lj1995/VoiceConversionWebUI rmvpe.pt --revision main --local-dir assets/rmvpe
   hf download lj1995/VoiceConversionWebUI --revision main --include "pretrained_v2/*" --local-dir assets
   hf download lj1995/VoiceConversionWebUI mute.zip --revision main --local-dir .model-downloads
-  python -m zipfile -e .model-downloads/mute.zip logs
+  "$PY_BIN" -m zipfile -e .model-downloads/mute.zip logs
 fi
 [ -f assets/pretrained_v2/f0G${SR}.pth ] || die "Missing assets/pretrained_v2/f0G${SR}.pth"
 [ -d logs/mute ]                          || die "Missing logs/mute — training needs the silence samples."
@@ -142,7 +162,7 @@ RAW="$ROOT/dataset_raw/$PROFILE_ID"
 rm -rf "$RAW"; mkdir -p "$RAW"
 
 SUPABASE_URL="$SUPABASE_URL" SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY" \
-PROFILE_ID="$PROFILE_ID" RAW="$RAW" python - <<'PY'
+PROFILE_ID="$PROFILE_ID" RAW="$RAW" "$PY_BIN" - <<'PY'
 import os, requests, sys
 url=os.environ["SUPABASE_URL"]; key=os.environ["SUPABASE_SERVICE_KEY"]
 pid=os.environ["PROFILE_ID"];  raw=os.environ["RAW"]
@@ -174,23 +194,23 @@ PY
 # already went through a global gain pass in the browser, so this stage is
 # doing the slicing work rather than rescuing levels.
 say "Stage 2/7 — slicing"
-python train/preprocess.py "$RAW" $SR_HZ 8 "$ROOT/logs/$EXP" False 3.0
+"$PY_BIN" train/preprocess.py "$RAW" $SR_HZ 8 "$ROOT/logs/$EXP" False 3.0
 
 # ── 3 · PITCH ──────────────────────────────────────────────────────────────
 # RMVPE on GPU. This is the stage that decides how well sung notes survive.
 say "Stage 3/7 — pitch extraction"
-python train/dataset/extract_f0.py cuda 1 0 0 "$ROOT/logs/$EXP" True
+"$PY_BIN" train/dataset/extract_f0.py cuda 1 0 0 "$ROOT/logs/$EXP" True
 
 # ── 4 · FEATURES ───────────────────────────────────────────────────────────
 say "Stage 4/7 — HuBERT features"
-python train/dataset/extract_hubert_feature.py cuda:0 1 0 "$ROOT/logs/$EXP" v2 True
+"$PY_BIN" train/dataset/extract_hubert_feature.py cuda:0 1 0 "$ROOT/logs/$EXP" v2 True
 
 # ── 5 · FILELIST ───────────────────────────────────────────────────────────
 # The web UI builds this in Python and it is the easiest part of the pipeline
 # to get subtly wrong: it must be the intersection of all four output folders,
 # plus two mute lines, or training dies partway through with a confusing error.
 say "Stage 5/7 — building the file list"
-EXP="$EXP" ROOT="$ROOT" python - <<'PY'
+EXP="$EXP" ROOT="$ROOT" "$PY_BIN" - <<'PY'
 import os, random
 root=os.environ["ROOT"]; exp=os.environ["EXP"]
 d=f"{root}/logs/{exp}"
@@ -211,20 +231,20 @@ PY
 
 # ── 6 · TRAIN ──────────────────────────────────────────────────────────────
 say "Stage 6/7 — training ($EPOCHS epochs, ~40 min)"
-python train/train.py -e "$EXP" -sr $SR -f0 1 -bs $BATCH -g 0 \
+"$PY_BIN" train/train.py -e "$EXP" -sr $SR -f0 1 -bs $BATCH -g 0 \
   -te $EPOCHS -se 50 \
   -pg assets/pretrained_v2/f0G${SR}.pth -pd assets/pretrained_v2/f0D${SR}.pth \
   -l 1 -c 0 -sw 1 -v v2
 
 say "Stage 6b/7 — retrieval index"
-python train/train_index.py "$EXP" v2 "$ROOT/assets/indices" 8
+"$PY_BIN" train/train_index.py "$EXP" v2 "$ROOT/assets/indices" 8
 
 # ── 7 · SHIP IT ────────────────────────────────────────────────────────────
 # RVC emits two artefacts and needs both at inference. Uploading only the .pth
 # gives you a model that loads fine and sounds noticeably less like the person.
 say "Stage 7/7 — uploading the model"
 SUPABASE_URL="$SUPABASE_URL" SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY" \
-PROFILE_ID="$PROFILE_ID" ROOT="$ROOT" EXP="$EXP" python - <<'PY'
+PROFILE_ID="$PROFILE_ID" ROOT="$ROOT" EXP="$EXP" "$PY_BIN" - <<'PY'
 import os, glob, requests, sys, datetime
 url=os.environ["SUPABASE_URL"]; key=os.environ["SUPABASE_SERVICE_KEY"]
 pid=os.environ["PROFILE_ID"];  root=os.environ["ROOT"]; exp=os.environ["EXP"]
