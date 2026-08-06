@@ -67,6 +67,12 @@ export default function SessionStudio({ user, token }) {
   // take that came in, and is right often enough to be the default.
   const [space, setSpace] = useState("match");
   const [mixing, setMixing] = useState(null);
+  // stemId -> true while mastering. /api/song-master answers synchronously, so
+  // this is a busy flag rather than a polled job like mix and separate.
+  const [mastering, setMastering] = useState({});
+  // Warm is the all-rounder the Mix & Master tool defaults to; keeping the same
+  // default means a master made here sounds like one made there.
+  const [intensity, setIntensity] = useState("warm");
   const fileRef = useRef(null);
   const pollRef = useRef({});
 
@@ -340,6 +346,48 @@ export default function SessionStudio({ user, token }) {
     }, 3000);
   }
 
+  // The final polish, on a finished bounce.
+  //
+  // Reuses /api/song-master rather than growing a pipeline: that endpoint already
+  // does EQ, glue and loudness with a true-peak limiter, and it answers
+  // synchronously, so there is no job to queue or poll.
+  //
+  // Mastering is deliberately its own step rather than part of Mix. Mixing is
+  // per-stem and iterative; mastering is one pass over the finished thing.
+  // Bundling them would re-master on every level change — slower, and it sounds
+  // worse.
+  async function onMaster(stem) {
+    setErr("");
+    const got = await stemUrl(token, stem);
+    if (!got.ok) return setErr(got.error);
+
+    setMastering((m) => ({ ...m, [stem.id]: true }));
+    try {
+      const r = await fetch("/api/song-master", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+        body: JSON.stringify({ audioUrl: got.url, intensity }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.url) throw new Error(j.error || "Mastering failed.");
+
+      const reg = await registerStem(token, uid, active.id, {
+        role: "master",
+        source: "mastered",
+        parentId: stem.id,
+        label: (stem.label || roleLabel(stem.role)) + " \u2014 mastered (" + intensity + ")",
+        storagePath: "",
+        meta: { source_url: j.url, intensity, mastered_from: stem.id },
+      });
+      if (!reg.ok) setErr("Mastered, but couldn't add it to the session: " + reg.error);
+      refreshStems(active.id);
+    } catch (e) {
+      setErr(String((e && e.message) || e));
+    } finally {
+      setMastering((m) => { const n = { ...m }; delete n[stem.id]; return n; });
+    }
+  }
+
   async function onDeleteStem(stem) {
     if (!window.confirm("Remove this stem from the session? The file itself stays in your storage.")) return;
     const r = await deleteStem(token, stem.id);
@@ -434,6 +482,14 @@ export default function SessionStudio({ user, token }) {
               <option value="wet">Produced</option>
               <option value="dry">Dry</option>
             </select>
+            <span style={{ fontFamily: JOST, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: B.mid, marginLeft: 8 }}>Master</span>
+            <select value={intensity} onChange={(e) => setIntensity(e.target.value)}
+              title="How the final polish is applied"
+              style={{ fontFamily: JOST, fontSize: 13, padding: "8px 10px", border: "1px solid " + B.stone, background: B.white, color: B.ink }}>
+              <option value="clean">Clean</option>
+              <option value="warm">Warm</option>
+              <option value="loud">Loud</option>
+            </select>
             <input ref={fileRef} type="file" accept="audio/*" multiple style={{ display: "none" }}
               onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
           </div>
@@ -461,6 +517,13 @@ export default function SessionStudio({ user, token }) {
                       <span style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>{s.duration ? mmss(s.duration) : ""}</span>
                       <button onClick={() => onPlay(s)} style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Play</button>
                       <button onClick={() => onDownload(s)} style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Download</button>
+                      {["mix", "instrumental", "master"].includes(s.role) && (
+                        <button onClick={() => onMaster(s)} disabled={!!mastering[s.id]}
+                          title="EQ, glue and loudness for streaming"
+                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: mastering[s.id] ? "default" : "pointer", opacity: mastering[s.id] ? 0.5 : 1 }}>
+                          {mastering[s.id] ? "Mastering\u2026" : "Master"}
+                        </button>
+                      )}
                       {["lead", "backing", "adlib"].includes(s.role) && !converting[s.id] && (
                         <button onClick={() => onConvert(s)} title="Sing this in your voice, keeping its timing and words"
                           style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>To my voice</button>
