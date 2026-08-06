@@ -465,6 +465,7 @@ function ChelgyAssistant({ onNavigate, userName, isPaid }) {
 
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 import SessionStudio from "./SessionStudio.jsx";
+import { listSessions as sessListSessions, registerStem as sessRegisterStem } from "./songSession.js";
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
 
@@ -10859,6 +10860,11 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     }catch(e){ setGenErr(String((e&&e.message)||e)); }
   }
   const [indexRate,setIndex]   = useState(0.75);
+  // Optional session target. Empty string means "don't save into one", which
+  // is the default: a person who only wants a re-sing and a download must
+  // never be made to create a project first.
+  const [saveSession,setSaveSession] = useState("");
+  const [sessionList,setSessionList] = useState([]);
   const [busy,setBusy]         = useState(false);
   const [stage,setStage]       = useState("");
   const [pct,setPct]           = useState(0);
@@ -10867,6 +10873,21 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const recRef  = useRef(null);
   const chunks  = useRef([]);
   const pollRef = useRef(null);
+
+  // Loaded once so the picker has something to show. Failure is silent on
+  // purpose — sessions are optional, and a person trying to convert a vocal
+  // should not see an error about a feature they did not ask for.
+  useEffect(()=>{ let live=true;
+    (async()=>{
+      try{
+        if(!user || !user.id) return;
+        const t = await freshToken(); if(!t) return;
+        const r = await sessListSessions(t, user.id);
+        if(live && r.ok) setSessionList(r.sessions||[]);
+      }catch(_){}
+    })();
+    return ()=>{ live=false; };
+  },[user&&user.id]);
 
   const COST = CREDIT_COSTS.songBeat;
 
@@ -11041,6 +11062,24 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               const gl = GENRES.find(g=>g[0]===genre);
               const title = "Song \u2014 " + (gl?gl[1]:genre) + (st.key?" ("+st.key+")":"");
               saveToLibrary(user, "song", title, st.audioUrl).catch(()=>{});
+              // Into the session, if one was chosen. The render already lives at
+              // a URL of its own, so meta.source_url points there rather than
+              // copying 15MB between buckets to satisfy a path convention.
+              if(saveSession && user && user.id){
+                (async()=>{
+                  try{
+                    const t3 = await freshToken(); if(!t3) return;
+                    await sessRegisterStem(t3, user.id, saveSession, {
+                      role: outMode==="song" ? "mix" : "lead",
+                      source: outMode==="convert" ? "converted" : "generated",
+                      label: title,
+                      storagePath: st.storagePath || "",
+                      meta: { source_url: st.audioUrl, key: st.key||null, tempo: st.tempo||null,
+                              out_mode: outMode, vocal_space: vocalSpace||null },
+                    });
+                  }catch(_){}
+                })();
+              }
             }
           } else if(st.status === "failed" || st.status === "error"){
             clearInterval(pollRef.current); pollRef.current = null;
@@ -11054,6 +11093,22 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       setErr((e && e.message) || "Something went wrong starting the song.");
     }
   }
+
+  const SessionPicker = () => (
+    sessionList.length ? (
+      <div style={{marginBottom:14}}>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Save into session</div>
+        <select value={saveSession} onChange={e=>setSaveSession(e.target.value)}
+          style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.ink,minWidth:240}}>
+          <option value="">Don't save to a session</option>
+          {sessionList.map(x=><option key={x.id} value={x.id}>{x.title||"Untitled song"}</option>)}
+        </select>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,marginTop:5,lineHeight:1.45}}>
+          Optional. Keeps this take with the rest of the song\u2019s parts \u2014 you still get the download either way.
+        </div>
+      </div>
+    ) : null
+  );
 
   const Slider = ({label,value,set,hint}) => (
     <div style={{flex:"1 1 200px"}}>
@@ -11294,6 +11349,8 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           </>)}
 
           {err && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:"#B00",marginBottom:12,lineHeight:1.5}}>{err}</p>}
+
+          <SessionPicker />
 
           <button onClick={makeSong} disabled={busy||(outMode==="convert" ? !convertFile : (!file||(outMode==="vocal"&&vocalSpace==="match"&&!matchFile)))}
             style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,letterSpacing:"0.06em",padding:"13px 28px",border:"1px solid "+B.charcoal,background:(busy||!file)?B.white:B.inkBlock,color:(busy||!file)?B.mid:B.inkText,cursor:(busy||!file)?"default":"pointer"}}>
