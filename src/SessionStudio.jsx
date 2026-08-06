@@ -134,14 +134,53 @@ export default function SessionStudio({ user, token }) {
     setPlaying({ id: stem.id, url: r.url });
   }
 
+  // A filename a person can find again, not "audio.wav" twelve times over.
+  function fileNameFor(stem) {
+    const base = String(stem.label || roleLabel(stem.role) || "stem")
+      .replace(/[\\/:*?"<>|]+/g, "-")      // illegal on Windows and confusing everywhere
+      // The label often carries the ORIGINAL file's extension — "lead.aif" for
+      // something now stored as wav — and keeping it produces "lead.aif.wav".
+      .replace(/\.(wav|mp3|m4a|aif|aiff|flac|ogg|opus|webm)$/i, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80) || "stem";
+    const ext = (String(stem.storage_path || "").match(/\.([a-z0-9]{1,5})$/i) || [, "wav"])[1];
+    return base.toLowerCase().endsWith("." + ext.toLowerCase()) ? base : base + "." + ext;
+  }
+
   async function onDownload(stem) {
     setErr("");
     const r = await stemUrl(token, stem);
     if (!r.ok) return setErr(r.error);
-    const a = document.createElement("a");
-    a.href = r.url;
-    a.download = (stem.label || roleLabel(stem.role)) || "stem";
-    document.body.appendChild(a); a.click(); a.remove();
+
+    const name = fileNameFor(stem);
+    setBusy("Preparing " + name + "\u2026");
+    try {
+      // The <a download> attribute is IGNORED for cross-origin URLs — the
+      // browser navigates to the file instead of saving it, which is what
+      // sending people to a raw Supabase URL looked like. Fetching the bytes
+      // and handing over a blob makes it same-origin, so the attribute is
+      // honoured and the file lands in Downloads with the name we chose.
+      const res = await fetch(r.url);
+      if (!res.ok) throw new Error("download failed (" + res.status + ")");
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      // Revoked on a delay: revoking immediately races the browser's own read
+      // of the blob and produces an empty file on some versions of Safari.
+      setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+    } catch (e) {
+      // Last resort so the person still gets their audio: Supabase honours a
+      // `download` query parameter by setting Content-Disposition: attachment,
+      // which saves the file even though this is a plain navigation.
+      const sep = r.url.includes("?") ? "&" : "?";
+      window.location.href = r.url + sep + "download=" + encodeURIComponent(name);
+    } finally {
+      setBusy("");
+    }
   }
 
   // Separation runs on the song queue, so it is polled rather than awaited: a
