@@ -70,7 +70,7 @@ const CA_NAV_LABELS = {
   "tools/grants": "Grant Finder",
   "tools/content": "AI Content Writer",
   "tools/backlinks": "Backlink & Authority Builder",
-  "tools/dropshipping": "Supplier Directory",
+  "tools/dropshipping": "Dropshipping Directory",
   "tools/storebuilder": "Store Builder",
   "tools/findproducts": "Find Winning Products",
   "tools/platforms": "Platform Setup Guides",
@@ -141,7 +141,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, storebuilder, findproducts, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -12941,7 +12941,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         />
       </div>}
       {tool==="dropshipping"&&<div>
-        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Suppliers</h2>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Dropshipping Directory</h2>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:B.mid,fontSize:14,margin:"0 0 18px",letterSpacing:"0.02em"}}>12 trusted suppliers, all vetted and ready to use.</p>
         {locked ? (
           <div style={{background:B.offwhite,border:"1px dashed "+B.stone,padding:"32px 20px",textAlign:"center"}}>
@@ -13316,14 +13316,13 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", commercial:"Commercial", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Supplier Directory", storebuilder:"Store Builder", findproducts:"Find Winning Products", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", commercial:"Commercial", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", storebuilder:"Store Builder", findproducts:"Find Winning Products", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
   images:    ["cat_photo", "Photo & Design",                "Create the visuals, logos, flyers and graphics for this in the Image Creator."],
   ads:       ["cat_ads", "Advertising",          "Build a ready-to-launch ad campaign for this in the Ad Campaign Builder."],
   website:   ["cat_website", "Website Builder",              "Build the site, funnel or landing page — and grab a domain — in the Website Builder."],
-  dropship:  ["cat_dropship", "Dropshipping",                "Build the store, find products worth selling and line up a supplier — all in Dropshipping."],
   backlinks: ["cat_seo", "SEO", "Get backlinks and climb the rankings with the Backlink & Authority Builder."],
   ugcstudio: ["cat_video", "Video Studio",                   "Make creator-style UGC content for this in the UGC Studio."],
   video:     ["cat_video", "Video Studio",                 "Turn this into video — no camera needed — in the Video Studio."],
@@ -13337,7 +13336,6 @@ function recFor(topic){
   if(has("paid ad","paid advertising","facebook ad","google ad","tiktok ad"," ppc","ad campaign")) return TOOL_REC.ads;
   if(has("video")) return TOOL_REC.video;
   if(has("influencer","ugc","creator")) return TOOL_REC.ugcstudio;
-  if(has("dropship","drop ship","ecommerce","e-commerce","online store","shopify","sell products online")) return TOOL_REC.dropship;
   if(has("website","funnel","landing","online presence","platform stack")) return TOOL_REC.website;
   if(has("brand","logo","flyer","physical")) return TOOL_REC.images;
   if(has("local","google business","yelp","directory","directories")) return TOOL_REC.audit;
@@ -13355,7 +13353,7 @@ function ToolCallout({ rec, onGo }){
   );
 }
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
-const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","storebuilder","findproducts","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
+const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
   /* ═══════════════════════════════════════════════════════════════════════
      HIDDEN: Leads  —  uncomment this ONE block to bring it back.
@@ -13376,13 +13374,27 @@ const CATEGORIES = [
      ═══════════════════════════════════════════════════════════════════════ */
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Start a business from nothing, or fix the one you have. Answer a few questions and get your website, logo, brand and launch plan built for you — then audit what's working, ask a coach anything, and find grants you actually qualify for.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
-  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build a real website and put it online today. Pick a look, let Chelgy write and design it, and connect your own domain.",
-    tabs:[ {label:"Website Builder",tool:"website"} ] },
-  // Dropshipping is its own category, not a tab on the website builder. Store
-  // Builder is the SAME engine as Website Builder running its "shop" flavour —
-  // one wizard, so a fix to either lands in both.
+  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build a real website and put it online today. Pick a look, let Chelgy write and design it, connect your own domain, and — if you're selling — source products from vetted suppliers without holding any stock.",
+    tabs:[ {label:"Website Builder",tool:"website"}, {label:"Dropshipping Directory",tool:"dropshipping"} ] },
+  /* =======================================================================
+     HIDDEN: Dropshipping  -  uncomment this ONE block to bring it back.
+     -----------------------------------------------------------------------
+     Store Builder is the SAME wizard as Website Builder running its "shop"
+     flavour, so hiding this changes nothing about how websites are built.
+     NOTHING is deleted: WM_FLAVORS, wmSchema, the shop schema and theme
+     shortlist, StoreProductCoach, addStoreProduct and the storebuilder /
+     findproducts render blocks are all untouched and still compile. The
+     supplier directory has been put back on the Website Builder tab above,
+     which is where it lived before this category existed - so restoring this
+     block means removing it from there again, or it will show in both.
+     Also reverted alongside this: storebuilder / findproducts were taken out
+     of TOOL_ORDER and out of the assistant's valid-tools list, and the
+     TOOL_REC.dropship recommendation was removed, so nothing can route a
+     member into a hidden category.
+
   { id:"cat_dropship", title:"Dropshipping", icon:"Package", blurb:"Sell products online without ever holding stock. Chelgy builds you a real store — product grid, prices, shipping and returns — then finds you products worth selling, shoots them in your store's look, and points you at suppliers who actually ship on time.",
     tabs:[ {label:"Store Builder",tool:"storebuilder"}, {label:"Find Products",tool:"findproducts"}, {label:"Suppliers",tool:"dropshipping"} ] },
+     ======================================================================= */
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
