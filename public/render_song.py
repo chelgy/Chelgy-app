@@ -536,6 +536,79 @@ def stage_vocal_match(vocal, reference, out, wet=True, max_boost=9.0):
           + (", added space" if wet else ", dry"))
 
 
+def _loudness(path):
+    """
+    Integrated loudness and true peak, in LUFS and dBTP, via one loudnorm
+    analysis pass. Returns (I, TP) or (None, None) if the file is too short or
+    ffmpeg gives us something unparseable — the caller falls back to RMS.
+    """
+    import json as _json, subprocess, re as _re
+    try:
+        r = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-af",
+             "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=300)
+        m = _re.findall(r"\{[^{}]*\"input_i\"[\s\S]*?\}", r.stderr)
+        if not m: return (None, None)
+        d = _json.loads(m[-1])
+        I  = float(d.get("input_i"))
+        TP = float(d.get("input_tp"))
+        if I <= -70: return (None, None)      # silence; nothing to match to
+        return (I, TP)
+    except Exception:
+        return (None, None)
+
+
+def stage_match_loudness(vocal, reference, out, max_gain=18.0, ceiling_dbtp=-1.0):
+    """
+    Bring the converted vocal to the SAME LEVEL as the vocal that came in.
+
+    stage_vocal_match deliberately normalises both spectra to their own mean so
+    it matches tone rather than level — the right call for EQ, but it means
+    nothing in the convert path ever sets gain. RVC returns whatever level the
+    model happens to produce, which is usually well under a produced Suno stem,
+    so the result drops onto the original stems too quiet and every user has to
+    fix it by hand.
+
+    Integrated loudness, not peak: a peak match on a compressed reference lands
+    far too quiet, because the reference's peaks are close to its average and
+    ours are not. LUFS is what "as loud as" actually means to an ear.
+
+    The boost is capped twice — once at max_gain so a near-silent conversion
+    can't be amplified into noise, and once so the result stays under
+    ceiling_dbtp true peak. Headroom, not a limiter: nothing here should change
+    the character of a take the person already approved.
+    """
+    src_I, _        = _loudness(reference)
+    out_I, out_TP   = _loudness(vocal)
+
+    if src_I is None or out_I is None:
+        # Fall back to RMS, which is already in this file and good enough to stop
+        # the result being obviously quiet.
+        try:
+            d = _rms_db(reference) - _rms_db(vocal)
+        except Exception:
+            d = 0.0
+        gain, how = max(-max_gain, min(max_gain, d)), "RMS"
+    else:
+        gain, how = max(-max_gain, min(max_gain, src_I - out_I)), "LUFS"
+        if out_TP is not None:
+            room = ceiling_dbtp - out_TP
+            if gain > room:
+                print(f"  holding back {gain - room:.1f} dB to stay under {ceiling_dbtp} dBTP")
+                gain = room
+
+    if abs(gain) < 0.3:
+        import shutil as _sh
+        _sh.copy(vocal, out)
+        print(f"  level already matches the take that came in ({how})")
+        return
+
+    sh("ffmpeg", "-y", "-v", "error", "-i", vocal,
+       "-af", f"volume={gain:.2f}dB", "-ar", "44100", "-c:a", "pcm_s16le", out)
+    print(f"  matched level to the take that came in: {gain:+.1f} dB ({how})")
+
+
 def stage_vocal_seated(vocal, out, space="wet"):
     """
     The re-sing, PRODUCED to sit in a Suno-style mix.
@@ -768,11 +841,15 @@ def main():
             stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="dry")
         else:
             stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space="wet")
+        # Level last, after the finish: reverb and EQ both move loudness, so
+        # measuring before them would match the wrong thing.
+        print("▸ matching the level of the vocal you uploaded")
+        stage_match_loudness(w("resing.wav"), w("src-vocal.wav"), w("resing-lvl.wav"))
         import shutil as _sh
-        _sh.copy(w("resing.wav"), a.out)
+        _sh.copy(w("resing-lvl.wav"), a.out)
         if not a.no_upload:
             import datetime
-            stage_upload_vocal(w("resing.wav"), pid,
+            stage_upload_vocal(w("resing-lvl.wav"), pid,
                                {"stamp": datetime.datetime.now().strftime("%Y%m%d-%H%M%S")})
         print(f"\n✓ {a.out}  (your voice on Suno’s performance — drops onto the stems in Logic)")
         return
@@ -835,11 +912,19 @@ def main():
             sp = a.vocal_space if a.vocal_space in ("wet", "dry") else "wet"
             print(f"▸ re-sing (vocal only, {sp}) — to sit over your stems")
             stage_vocal_seated(w("vocal.wav"), w("resing.wav"), space=sp)
+        # Same too-quiet problem as convert, but only matchable when the person
+        # gave a reference. Without one there is nothing to be "as loud as", so
+        # the take is left exactly as produced rather than guessed at.
+        final_vocal = w("resing.wav")
+        if a.vocal_space == "match" and a.match_ref:
+            print("▸ matching the level of your reference")
+            stage_match_loudness(w("resing.wav"), w("matchref.audio"), w("resing-lvl.wav"))
+            final_vocal = w("resing-lvl.wav")
         import shutil as _sh
-        _sh.copy(w("resing.wav"), a.out)
+        _sh.copy(final_vocal, a.out)
         if not a.no_upload:
             import datetime
-            stage_upload_vocal(w("resing.wav"), pid,
+            stage_upload_vocal(final_vocal, pid,
                                {"stamp": datetime.datetime.now().strftime("%Y%m%d-%H%M%S")})
         print(f"\n✓ {a.out}  (dry re-sung vocal — add it over your stems in Logic)")
         return
