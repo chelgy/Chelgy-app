@@ -30,13 +30,88 @@ BATCH="${BATCH:-8}"
 ROOT=/workspace/rvc
 
 say(){ printf "\n\033[1m▸ %s\033[0m\n" "$*"; }
-die(){ printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
+die(){ printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; fail_and_stop "$*"; exit 1; }
+
+# ── STATUS + SELF-TERMINATE ──────────────────────────────────────────────────
+# Neither existed here before. A failed run left the pod up forever: nothing told
+# the app what happened, so the card span at "training" indefinitely, and the
+# "one pod per profile" check in voice-train.js saw the dead pod and refused
+# every retry. The machine billed the whole time. That is the single most
+# expensive gap in this pipeline and it cost real money on 5 and 6 August.
+#
+# Mirrors train-diffsinger.sh deliberately — same status file convention, same
+# terminate call — so there is one pattern to understand rather than two.
+CURRENT_STAGE="startup"
+STATUS_PATH=""    # set once the owner is known; report() no-ops until then
+
+report() { # report <stage-number> <label> [error]
+  [ -n "$STATUS_PATH" ] || return 0
+  local body
+  body=$(printf '{"stage":%s,"label":"%s","error":%s,"at":"%s"}' \
+    "$1" "$2" "$(if [ -n "${3:-}" ]; then printf '"%s"' "$(printf '%s' "$3" | tr -d '"' | cut -c1-400)"; else printf 'null'; fi)" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+  curl -fsSL -X POST "$SUPABASE_URL/storage/v1/object/voice/$STATUS_PATH" \
+    -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+    -H "x-upsert: true" -H "Content-Type: application/json" \
+    --data "$body" >/dev/null 2>&1 || true
+}
+
+terminate_self() {
+  # NOT RUNPOD_API_KEY alone: RunPod injects a pod-scoped key under that exact
+  # name, and a pod-scoped key cannot delete pods — every self-terminate comes
+  # back 403 while the machine keeps billing. song-worker.js documents the same
+  # trap.
+  local key="${CHELGY_RUNPOD_KEY:-${RUNPOD_API_KEY:-}}"
+  [ -n "$key" ] && [ -n "${RUNPOD_POD_ID:-}" ] || { echo "(no pod credentials — not self-terminating)"; return 0; }
+  echo "removing this pod (${RUNPOD_POD_ID})"
+  curl -fsSL -X DELETE "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}" \
+    -H "Authorization: Bearer $key" >/dev/null 2>&1 || echo "(terminate call failed — the reaper will clean up)"
+}
+
+fail_and_stop() {
+  # Marks the failure as handled so the EXIT trap does not sleep and terminate a
+  # SECOND time — which would double the wait and bill an extra half hour on
+  # every failed run.
+  HANDLED=1
+  report 0 "failed" "stopped at: ${CURRENT_STAGE:-startup} — $1"
+  echo "[voice] FAILED at ${CURRENT_STAGE:-startup}: $1"
+  # Thirty minutes, not three hours. An RVC train is forty minutes end to end,
+  # so half an hour is long enough to read the log and short enough that a
+  # failure at 2am does not bill until morning.
+  echo "[voice] leaving pod up 30 MINUTES so the log survives; then self-terminating"
+  sleep 1800
+  terminate_self
+}
+
+# Catches what die() cannot: an unexpected exit, a killed process, a bug in this
+# script. Without it the pod simply stays up.
+on_exit() {
+  local code=$?
+  if [ "$code" -ne 0 ] && [ "${FINISHED:-0}" != "1" ] && [ "${HANDLED:-0}" != "1" ]; then
+    echo "[voice] exiting with code $code at ${CURRENT_STAGE:-unknown}"
+    report 0 "failed" "exited with code $code at ${CURRENT_STAGE:-unknown}"
+    sleep 1800
+    terminate_self
+  fi
+}
+trap on_exit EXIT
 
 if [ "$SETUP_ONLY" != "1" ]; then
   [ -n "${SUPABASE_SERVICE_KEY:-}" ] || die "SUPABASE_SERVICE_KEY is not set."
   [ -n "${PROFILE_ID:-}" ]          || die "PROFILE_ID is not set."
 fi
 nvidia-smi -L >/dev/null 2>&1     || die "No GPU visible. This needs a GPU pod."
+
+# Who owns this profile — status.json lives under their folder, and the same
+# path voice-train.js clears before launching.
+if [ "$SETUP_ONLY" != "1" ]; then
+  OWNER_UID=$(curl -fsSL "$SUPABASE_URL/rest/v1/voice_profiles?select=user_id&id=eq.$PROFILE_ID" \
+    -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+    | sed -n 's/.*"user_id":"\([^"]*\)".*/\1/p')
+  [ -n "$OWNER_UID" ] || die "profile $PROFILE_ID not found"
+  STATUS_PATH="$OWNER_UID/$PROFILE_ID/model/status.json"
+  report 0 "starting up"
+fi
 
 # ── PYTHON ─────────────────────────────────────────────────────────────────
 # The pod is launched with `bash -lc "curl … | bash"`. That inner bash is NOT a
@@ -157,6 +232,7 @@ EOF
 fi
 
 # ── 1 · FETCH THE CLIPS ────────────────────────────────────────────────────
+CURRENT_STAGE="fetching your clips"; report 1 "fetching your clips"
 say "Stage 1/7 — fetching clips for profile $PROFILE_ID"
 RAW="$ROOT/dataset_raw/$PROFILE_ID"
 rm -rf "$RAW"; mkdir -p "$RAW"
@@ -193,6 +269,7 @@ PY
 # Splits everything into ~3s pieces, resamples, and normalises. The audio
 # already went through a global gain pass in the browser, so this stage is
 # doing the slicing work rather than rescuing levels.
+CURRENT_STAGE="slicing"; report 2 "slicing"
 say "Stage 2/7 — slicing"
 # Run as MODULES, not scripts. `python train/preprocess.py` puts $ROOT/train
 # first on sys.path, and that directory contains train.py — so `import train`
@@ -204,10 +281,12 @@ say "Stage 2/7 — slicing"
 
 # ── 3 · PITCH ──────────────────────────────────────────────────────────────
 # RMVPE on GPU. This is the stage that decides how well sung notes survive.
+CURRENT_STAGE="pitch extraction"; report 3 "pitch extraction"
 say "Stage 3/7 — pitch extraction"
 "$PY_BIN" -m train.dataset.extract_f0 cuda 1 0 0 "$ROOT/logs/$EXP" True
 
 # ── 4 · FEATURES ───────────────────────────────────────────────────────────
+CURRENT_STAGE="voice features"; report 4 "voice features"
 say "Stage 4/7 — HuBERT features"
 "$PY_BIN" -m train.dataset.extract_hubert_feature cuda:0 1 0 "$ROOT/logs/$EXP" v2 True
 
@@ -215,6 +294,7 @@ say "Stage 4/7 — HuBERT features"
 # The web UI builds this in Python and it is the easiest part of the pipeline
 # to get subtly wrong: it must be the intersection of all four output folders,
 # plus two mute lines, or training dies partway through with a confusing error.
+CURRENT_STAGE="preparing"; report 5 "preparing"
 say "Stage 5/7 — building the file list"
 EXP="$EXP" ROOT="$ROOT" "$PY_BIN" - <<'PY'
 import os, random
@@ -248,6 +328,7 @@ CFG_SRC="$ROOT/configs/v2/${SR}.json"
 cp "$CFG_SRC" "$ROOT/logs/$EXP/config.json"
 say "  config: $(basename "$CFG_SRC") -> logs/$EXP/config.json"
 
+CURRENT_STAGE="training"; report 6 "training"
 say "Stage 6/7 — training ($EPOCHS epochs, ~40 min)"
 "$PY_BIN" -m train.train -e "$EXP" -sr $SR -f0 1 -bs $BATCH -g 0 \
   -te $EPOCHS -se 50 \
@@ -260,6 +341,7 @@ say "Stage 6b/7 — retrieval index"
 # ── 7 · SHIP IT ────────────────────────────────────────────────────────────
 # RVC emits two artefacts and needs both at inference. Uploading only the .pth
 # gives you a model that loads fine and sounds noticeably less like the person.
+CURRENT_STAGE="saving your voice"; report 7 "saving your voice"
 say "Stage 7/7 — uploading the model"
 SUPABASE_URL="$SUPABASE_URL" SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY" \
 PROFILE_ID="$PROFILE_ID" ROOT="$ROOT" EXP="$EXP" "$PY_BIN" - <<'PY'
@@ -299,4 +381,10 @@ r.raise_for_status()
 print("  profile marked ready")
 PY
 
+FINISHED=1
+report 7 "ready"
 say "Done. The voice model is in the account."
+# Terminate on SUCCESS too. The header always claimed the pod removes itself;
+# it never did on this path, which is why a finished train kept billing until
+# somebody noticed it in the console.
+terminate_self

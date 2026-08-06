@@ -155,10 +155,10 @@ const TONES = [
 
 const SONGS = [
   {t:"Sing a verse of any song you know by heart",
-   h:"Whatever you would sing without thinking about it. Your volume, your style \u2014 don\u2019t perform it."},
+   h:"Whatever you would sing without thinking about it. Your volume, your style — don’t perform it."},
   {t:"Sing the chorus of that same song, twice through",
    h:"Same feel. Repeating it is useful: the model hears the same notes twice."},
-  {t:"Sing a different song \u2014 something slower",
+  {t:"Sing a different song — something slower",
    h:"A ballad, a lullaby, anything unhurried. Long notes are worth more than fast ones."},
   {t:"Sing something you would sing quietly",
    h:"Close to the mic, soft and breathy if that is how you sing. This is the sound the model copies."},
@@ -178,11 +178,11 @@ const SONGS = [
 
 const HUMS = [
   {t:"Hum any melody with your mouth closed",
-   h:"Forty seconds. Go high and low \u2014 wander around your range."},
+   h:"Forty seconds. Go high and low — wander around your range."},
   {t:"Hum the same melody with your mouth open, on AH",
    h:"Same tune, open vowel. The model hears the difference."},
   {t:"Sing OO up and down, slowly",
-   h:"Slide up as high as feels easy, then back down. No strain \u2014 stop where it stops being comfortable."},
+   h:"Slide up as high as feels easy, then back down. No strain — stop where it stops being comfortable."},
   {t:"Sing EE up and down, slowly",
    h:"Same slide, brighter vowel."}
 ];
@@ -196,9 +196,9 @@ const TONES = [
 ];
 
 const SEC_META = {
-  sung:{name:"Songs", why:"The bulk of the data. Sing the way you actually sing \u2014 the model becomes whatever you feed it, so a soft breathy take here is what makes a soft breathy voice."},
+  sung:{name:"Songs", why:"The bulk of the data. Sing the way you actually sing — the model becomes whatever you feed it, so a soft breathy take here is what makes a soft breathy voice."},
   hum:{name:"Humming and vowels", why:"Held sound with no words. This is where the model learns your tone rather than your diction."},
-  range:{name:"Your range", why:"Sing the note you hear. This is the only section that pins pitch \u2014 without a tone to sing against, people sing their speaking pitch every time."},
+  range:{name:"Your range", why:"Sing the note you hear. This is the only section that pins pitch — without a tone to sing against, people sing their speaking pitch every time."},
   dynamics:{name:"Soft and full", why:"Your voice changes character with volume. Without this the model only knows one version of you."}
 };
 
@@ -217,7 +217,7 @@ TONES.forEach(t=>TAKES.push({id:"tn"+t.n,section:"range",kind:"tone",text:"AH",n
 [
   {id:"d0",text:"Sing any line, almost whispered",hint:"Close to the mic. Breathy is good."},
   {id:"d1",text:"Sing that same line at your normal singing volume",hint:"How you would sing it to yourself."},
-  {id:"d2",text:"Sing it once more, fuller",hint:"Open up a little. Not a belt \u2014 just more of you. Back off the mic slightly."}
+  {id:"d2",text:"Sing it once more, fuller",hint:"Open up a little. Not a belt — just more of you. Back off the mic slightly."}
 ].forEach(t=>TAKES.push({...t,section:"dynamics",kind:"sing",minDur:20}));
 
 // ── STATE ────────────────────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ async function openMic(){
     })();
     stage="room"; render();
   }catch(e){
-    err="Couldn't open the microphone. In Safari: Settings \u2192 Websites \u2192 Microphone, set this site to Allow, then reload.";
+    err="Couldn't open the microphone. In Safari: Settings → Websites → Microphone, set this site to Allow, then reload.";
     render();
   }
 }
@@ -355,7 +355,7 @@ function judge(s,sr,floor,take){
   let peak=0,sq=0,clip=0;
   for(let i=0;i<s.length;i++){ const a=Math.abs(s[i]); if(a>peak) peak=a; if(a>0.985) clip++; sq+=s[i]*s[i]; }
   const rmsDb=dbfs(Math.sqrt(sq/s.length)), peakDb=dbfs(peak), min=take.minDur||4;
-  if(dur<min) return {ok:false,reason:"Only "+Math.round(dur)+" seconds \u2014 this one needs at least "+min+". Keep going longer."};
+  if(dur<min) return {ok:false,reason:"Only "+Math.round(dur)+" seconds — this one needs at least "+min+". Keep going longer."};
   if(clip>sr*0.004) return {ok:false,reason:"Distorted. Move back from the mic and go again."};
   if(peakDb<-34) return {ok:false,reason:"Too quiet to use. Move closer to the mic."};
   if(rmsDb<floor+14) return {ok:false,reason:"Your room is nearly as loud as your voice. Find somewhere quieter."};
@@ -376,10 +376,41 @@ function stopRec(){
   verdict=judge(m,sr,roomFloor,t);
   if(verdict.ok){
     const blob=encodeWAV(m,sr);
-    takes[t.id]={blob, url:URL.createObjectURL(blob), dur:verdict.dur};
+    takes[t.id]={blob, url:URL.createObjectURL(blob), dur:verdict.dur, saved:false};
     delete skipped[t.id];
+    render();
+    autosave(t);           // fire and forget; the take is already safe locally
+    return;
   }
   render();
+}
+
+// ── AUTOSAVE ─────────────────────────────────────────────────────────────────
+// Every accepted take uploads immediately.
+//
+// Before this, thirty minutes of recording lived in browser memory until the
+// very last screen. A reload, a crashed tab or a closed laptop lost the lot,
+// and the person had no way of knowing that was the deal. Now a take is in the
+// account seconds after it is recorded, and coming back later costs nothing.
+//
+// Failure is never fatal here: the blob stays in memory and saveAllAndTrain
+// re-uploads anything still unsaved at the end, so a dropped connection mid-
+// session is an inconvenience rather than a loss.
+async function autosave(t){
+  if(!session || !userId) return;
+  try{
+    if(!newProfileId) newProfileId = await createProfile("Singing voice");
+    const rec = takes[t.id];
+    if(!rec || rec.saved) return;
+    const seq = TAKES.findIndex(x=>x.id===t.id) + 1;
+    await saveClip(newProfileId, t.id, t.section, rec.blob, rec.dur, seq);
+    rec.saved = true;
+    render();
+  }catch(e){
+    // Quiet on purpose. The take is not lost, and an error banner in the middle
+    // of a recording session is more alarming than useful.
+    console.warn("autosave failed for " + t.id + ": " + (e && e.message || e));
+  }
 }
 function skipTake(){ skipped[TAKES[idx].id]=true; verdict=null; advance(); }
 function advance(){
@@ -399,46 +430,44 @@ function downloadAll(){
   });
 }
 
-async function doLogin2(){
+// One sign-in helper, told WHICH fields to read. There were two identical
+// copies differing only in the element ids they looked up, and adding a third
+// screen would have meant a third copy — so the ids are arguments now.
+async function doLogin(emId, pwId){
   saveErr="";
-  const em=(document.getElementById("em2")||{}).value||"";
-  const pw=(document.getElementById("pw2")||{}).value||"";
+  const em=(document.getElementById(emId||"em")||{}).value||"";
+  const pw=(document.getElementById(pwId||"pw")||{}).value||"";
   if(!em||!pw){ saveErr="Enter your email and password."; render(); return; }
   try{ await login(em.trim(), pw); render(); }
   catch(e){ saveErr=String(e.message||e); render(); }
 }
-
-async function doLogin(){
-  saveErr="";
-  const em=(document.getElementById("em")||{}).value||"";
-  const pw=(document.getElementById("pw")||{}).value||"";
-  if(!em||!pw){ saveErr="Enter your email and password."; render(); return; }
-  try{ await login(em.trim(), pw); render(); }
-  catch(e){ saveErr=String(e.message||e); render(); }
-}
+async function doLogin2(){ return doLogin("em2","pw2"); }
 
 // ── SAVE TO ACCOUNT + TRAIN ─────────────────────────────────────────────────
 // Uploads the recorded takes to a NEW voice profile and registers each in
 // voice_clips, then the app's "Retrain my voice" button can train it.
 async function saveAllAndTrain(){
   if(saving) return;
-  saveErr=""; saving=true; saveMsg="Creating your voice profile\u2026"; render();
+  saveErr=""; saving=true; saveMsg="Creating your voice profile…"; render();
   try{
-    newProfileId = await createProfile("Singing voice");
-    const entries = TAKES.map((t,i)=>({t,i})).filter(x=>takes[x.t.id]);
-    let seq=1;
-    for(const {t} of entries){
+    if(!newProfileId) newProfileId = await createProfile("Singing voice");
+    // Only what autosave missed. Re-uploading everything would double every
+    // clip in the table and train on each take twice.
+    const entries = TAKES.map((t,i)=>({t,i})).filter(x=>takes[x.t.id] && !takes[x.t.id].saved);
+    let n=1;
+    for(const {t,i} of entries){
       const rec = takes[t.id];
-      saveMsg = "Uploading "+seq+" of "+entries.length+"\u2026"; render();
-      await saveClip(newProfileId, t.id, t.section, rec.blob, rec.dur, seq); seq++;
+      saveMsg = "Uploading "+n+" of "+entries.length+"…"; render();
+      await saveClip(newProfileId, t.id, t.section, rec.blob, rec.dur, i+1);
+      rec.saved = true; n++;
     }
-    saveMsg = "Saved. Starting training\u2026"; render();
+    saveMsg = "Saved. Starting training…"; render();
     const r = await fetch("/api/voice-train", { method:"POST",
       headers:{ "Content-Type":"application/json", Authorization:"Bearer "+session.access_token } });
     const j = await r.json();
     if(!r.ok) throw new Error(j.error||"Could not start training");
     saveMsg = j.already ? "Your voice is already training." :
-              "Training started \u2014 about 40 minutes. You can close this page; it trains on its own.";
+              "Training started — about 40 minutes. You can close this page; it trains on its own.";
     saving=false; stage="trained"; render();
   }catch(e){ saveErr=String(e.message||e); saving=false; saveMsg=""; render(); }
 }
@@ -463,22 +492,22 @@ async function saveAcapellaAndTrain(){
   if(saving) return;
   const total = acapella.reduce((a,c)=>a+(c.dur||0),0);
   if(total < 600){ saveErr = "That's "+(total/60).toFixed(1)+" min. RVC needs at least 10 minutes of dry, solo singing."; render(); return; }
-  saveErr=""; saving=true; saveMsg="Creating your voice profile\u2026"; render();
+  saveErr=""; saving=true; saveMsg="Creating your voice profile…"; render();
   try{
     newProfileId = await createProfile("Singing voice");
     let seq=1;
     for(const c of acapella){
-      saveMsg = "Uploading "+seq+" of "+acapella.length+"\u2026"; render();
+      saveMsg = "Uploading "+seq+" of "+acapella.length+"…"; render();
       // acapella files upload as-is; the trainer slices them into 3s pieces.
       await saveClip(newProfileId, "acap"+seq, "sung", c.file, c.dur, seq); seq++;
     }
-    saveMsg = "Saved. Starting training\u2026"; render();
+    saveMsg = "Saved. Starting training…"; render();
     const r = await fetch("/api/voice-train", { method:"POST",
       headers:{ "Content-Type":"application/json", Authorization:"Bearer "+session.access_token } });
     const j = await r.json();
     if(!r.ok) throw new Error(j.error||"Could not start training");
     saveMsg = j.already ? "Your voice is already training." :
-              "Training started \u2014 about 40 minutes. You can close this page; it trains on its own.";
+              "Training started — about 40 minutes. You can close this page; it trains on its own.";
     saving=false; stage="trained"; render();
   }catch(e){ saveErr=String(e.message||e); saving=false; saveMsg=""; render(); }
 }
@@ -493,7 +522,7 @@ function paint(){
     if(h) h.style.left=hpct+"%";
   });
   const ro=document.querySelector(".readout");
-  if(ro) ro.textContent = level>-99 ? Math.round(level)+" dB" : "\u2014";
+  if(ro) ro.textContent = level>-99 ? Math.round(level)+" dB" : "—";
 
   const t=TAKES[idx];
   if(stage==="record" && t && t.kind==="tone"){
@@ -547,8 +576,17 @@ function render(){
         <div class="bullet"><div class="dot"></div><div>Sing everything the way you actually sing. Soft and breathy is not a problem &mdash; it is the thing being copied.</div></div>
       </div>
       ${err?`<div class="err">${err}</div>`:""}
+      ${!session ? `
+      <div class="panel">
+        <div class="eyebrow" style="margin-bottom:12px">Sign in first</div>
+        <p style="margin:0 0 12px">So every take is saved to your account as you record it. Without this a closed tab loses the session, and half an hour of singing with it.</p>
+        <div class="row" style="margin-bottom:10px"><input id="em0" type="email" placeholder="email" style="flex:1;min-width:200px;padding:12px;border:1px solid var(--stone);font-family:var(--body);font-size:15px"></div>
+        <div class="row" style="margin-bottom:10px"><input id="pw0" type="password" placeholder="password" style="flex:1;min-width:200px;padding:12px;border:1px solid var(--stone);font-family:var(--body);font-size:15px"></div>
+        <div class="row"><button class="fill" onclick="doLogin('em0','pw0')">Sign in</button></div>
+      </div>` : ""}
       <div class="row">
-        <button class="fill" onclick="openMic()">Turn on my mic</button>
+        <button class="fill" ${session?"":"disabled style=\"opacity:.45;cursor:default\""} onclick="${session?"openMic()":""}">Turn on my mic</button>
+        ${session?`<span class="hint" style="align-self:center">Signed in — takes save as you go.</span>`:""}
       </div>`;
     return;
   }
@@ -576,10 +614,10 @@ function render(){
           Choose vocal files<input type="file" accept="audio/*" multiple style="display:none" onchange="addAcapella(this.files);this.value=''">
         </label>
       </div>
-      ${acapella.length?`<div class="panel">${acapella.map((c,i)=>`<div class="row" style="justify-content:space-between;margin-bottom:8px"><span style="font-size:14px">${c.name} &mdash; ${mmss(c.dur||0)}</span><button class="ghost" style="padding:6px 12px" onclick="removeAcapella(${i})">Remove</button></div>`).join("")}<div style="font-size:13px;color:${total>=600?'var(--green)':'var(--red)'};margin-top:6px">${mmss(total)} total ${total>=600?'\u2014 enough to train':'\u2014 need 10:00 minimum'}</div></div>`:""}
+      ${acapella.length?`<div class="panel">${acapella.map((c,i)=>`<div class="row" style="justify-content:space-between;margin-bottom:8px"><span style="font-size:14px">${c.name} &mdash; ${mmss(c.dur||0)}</span><button class="ghost" style="padding:6px 12px" onclick="removeAcapella(${i})">Remove</button></div>`).join("")}<div style="font-size:13px;color:${total>=600?'var(--green)':'var(--red)'};margin-top:6px">${mmss(total)} total ${total>=600?'— enough to train':'— need 10:00 minimum'}</div></div>`:""}
       ${saveErr?`<p style="color:var(--red);font-size:14px">${saveErr}</p>`:""}
       ${loginBox}
-      ${session&&acapella.length?`<div class="row"><button class="fill" ${saving?"disabled":""} onclick="saveAcapellaAndTrain()">${saving?(saveMsg||"Saving\u2026"):"Save & train my voice"}</button></div>`:""}
+      ${session&&acapella.length?`<div class="row"><button class="fill" ${saving?"disabled":""} onclick="saveAcapellaAndTrain()">${saving?(saveMsg||"Saving…"):"Save & train my voice"}</button></div>`:""}
       <div style="margin-top:18px"><button class="ghost" onclick="stage='intro';render()">Back</button></div>`;
     return;
   }
@@ -616,7 +654,7 @@ function render(){
     app.innerHTML=`
       <div class="eyebrow">Training</div>
       <h1>Your voice is training</h1>
-      <p>${saveMsg||"Training started \u2014 about 40 minutes."}</p>
+      <p>${saveMsg||"Training started — about 40 minutes."}</p>
       <p style="font-size:13.5px">When it finishes it becomes your active voice automatically. You can watch progress on the voice card in Song Studio.</p>
       <div class="row"><button class="fill" onclick="location.href='/'">Back to Chelgy</button></div>`;
     return;
@@ -634,7 +672,7 @@ function render(){
       </div>` : "";
     const saveRow = session ? `
       <div class="row">
-        <button class="fill" ${saving?"disabled":""} onclick="saveAllAndTrain()">${saving?(saveMsg||"Saving\u2026"):"Save to my voice & train"}</button>
+        <button class="fill" ${saving?"disabled":""} onclick="saveAllAndTrain()">${saving?(saveMsg||"Saving…"):"Save to my voice & train"}</button>
         <button class="ghost" onclick="stage='record';idx=0;render()">Add more</button>
       </div>
       ${saveMsg&&!saving?`<p style="color:var(--green);margin-top:12px;font-size:14px">${saveMsg}</p>`:""}` : "";
@@ -682,7 +720,7 @@ function render(){
     ${verdict?`<div class="verdict${verdict.ok?"":" bad"}">
       <div class="vtitle" style="color:${verdict.ok?"var(--green)":"var(--red)"}">${verdict.ok?"Got it":"Not usable"}</div>
       <div class="vbody">${verdict.ok
-        ? Math.round(verdict.dur)+"s, peaked at "+Math.round(verdict.peakDb)+" dB"+(verdict.note?" \u2014 "+verdict.note:"")
+        ? Math.round(verdict.dur)+"s, peaked at "+Math.round(verdict.peakDb)+" dB"+(verdict.note?" — "+verdict.note:"")
         : verdict.reason}</div>
     </div>`:""}
     <div class="row">
