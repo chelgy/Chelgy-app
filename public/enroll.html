@@ -128,14 +128,6 @@ async function saveClip(pid, take_id, section, blob, dur, seq){
 // ─────────────────────────────────────────────────────────────────────────────
 const TARGET_SEC = 1200;
 
-// Minor thirds, C3 to C5. Any usable range sits inside this; the notes outside
-// yours get skipped, and which ones you skip is itself useful information.
-const TONES = [
-  {n:"C3",hz:130.81},{n:"D#3",hz:155.56},{n:"F#3",hz:185.00},{n:"A3",hz:220.00},
-  {n:"C4",hz:261.63},{n:"D#4",hz:311.13},{n:"F#4",hz:369.99},{n:"A4",hz:440.00},
-  {n:"C5",hz:523.25}
-];
-
 // ── THE TAKES ────────────────────────────────────────────────────────────────
 //
 // SINGING ONLY. v2 asked for four read passages and four two-minute rambles —
