@@ -262,6 +262,32 @@ export async function deleteStem(token, stemId) {
   } catch (e) { return fail(e); }
 }
 
+// ── VOICE ──────────────────────────────────────────────────────────────────
+// The newest profile that can actually SING — trained, with a model file.
+//
+// Not simply the newest profile. Enrolling for one model creates a fresh row,
+// which then shadows the profile that holds the trained model, and every tool
+// keyed on "newest" starts looking at an empty one. That is exactly what broke
+// Song Studio and the generator on 5 Aug. Asking for the newest profile that
+// carries the artifact this job needs makes retraining one model unable to hide
+// the other.
+export async function readyVoiceProfile(token, userId) {
+  try {
+    if (!token || !userId) return { ok: false, error: "Please sign in first." };
+    const q = "voice_profiles?select=id,name,status,model_path,created_at" +
+              "&user_id=eq." + userId +
+              "&status=eq.ready&model_path=not.is.null" +
+              "&order=created_at.desc&limit=1";
+    const res = await fetch(REST + q, { headers: H(token) });
+    if (!res.ok) return { ok: false, error: await readErr(res) };
+    const rows = await res.json();
+    if (!rows.length) {
+      return { ok: false, error: "No trained voice yet — train one in Song Studio first." };
+    }
+    return { ok: true, profile: rows[0] };
+  } catch (e) { return fail(e); }
+}
+
 // ── DERIVED VIEWS ──────────────────────────────────────────────────────────
 // Which stem is the CURRENT lead: the newest one in the lead role. Converting
 // a vocal three times leaves all three in the session and the newest wins,

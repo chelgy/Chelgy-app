@@ -19,6 +19,7 @@ import {
   ROLES, roleLabel, currentLead,
   createSession, listSessions, renameSession, deleteSession,
   listStems, uploadStem, stemUrl, deleteStem,
+  registerStem, readyVoiceProfile,
 } from "./songSession.js";
 
 const B = {
@@ -60,6 +61,11 @@ export default function SessionStudio({ user, token }) {
   // stemId -> { jobId, pct, stage }. Keyed by stem so two separations running at
   // once report separately instead of overwriting one another's progress.
   const [splitting, setSplitting] = useState({});
+  // stemId -> { jobId, pct, stage }, same shape and same reason as splitting.
+  const [converting, setConverting] = useState({});
+  // Which finish a conversion uses. Match restores the tone and space of the
+  // take that came in, and is right often enough to be the default.
+  const [space, setSpace] = useState("match");
   const fileRef = useRef(null);
   const pollRef = useRef({});
 
@@ -232,6 +238,69 @@ export default function SessionStudio({ user, token }) {
     }, 3000);
   }
 
+  // Convert a stem that is ALREADY in the session, in place.
+  //
+  // Backing vocals and ad libs are uploaded, never generated — the generated
+  // harmonies sounded wrong and that path stays retired. But an uploaded
+  // backing stem still has somebody else's voice on it, and until now the only
+  // way to fix that was to download it and re-upload it through Song Studio.
+  //
+  // The result is a NEW stem carrying the same role, pointing at the take it
+  // came from. Convert a vocal three times and all three sit in the session
+  // with the newest marked CURRENT; nothing is overwritten.
+  async function onConvert(stem) {
+    setErr("");
+    const prof = await readyVoiceProfile(token, uid);
+    if (!prof.ok) return setErr(prof.error);
+    const got = await stemUrl(token, stem);
+    if (!got.ok) return setErr(got.error);
+
+    const r = await fetch("/api/studio-song", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({
+        convertVocal: got.url,
+        profileId: prof.profile.id,
+        vocalSpace: space === "dry" ? "dry" : "wet",
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.jobId) return setErr(j.error || "Couldn't start the conversion.");
+
+    setConverting((m) => ({ ...m, [stem.id]: { jobId: j.jobId, pct: 5, stage: "Waiting for a machine" } }));
+
+    pollRef.current["c" + stem.id] = setInterval(async () => {
+      try {
+        const s2 = await fetch("/api/studio-song?jobId=" + encodeURIComponent(j.jobId),
+          { headers: token ? { Authorization: "Bearer " + token } : {} });
+        const st = await s2.json();
+        if (!s2.ok) return;
+        setConverting((m) => ({ ...m, [stem.id]: {
+          jobId: j.jobId,
+          pct: typeof st.progress === "number" ? Math.max(5, st.progress) : 5,
+          stage: st.stage ? st.stage.charAt(0).toUpperCase() + st.stage.slice(1) : "Working",
+        } }));
+        if (st.status === "done" || st.status === "failed" || st.status === "error") {
+          clearInterval(pollRef.current["c" + stem.id]); delete pollRef.current["c" + stem.id];
+          setConverting((m) => { const n = { ...m }; delete n[stem.id]; return n; });
+          if (st.status !== "done") { setErr(st.error || "The conversion didn't finish."); return; }
+          // The render already lives at a URL of its own, so the stem points
+          // there rather than copying tens of megabytes between buckets.
+          const reg = await registerStem(token, uid, active.id, {
+            role: stem.role,
+            source: "converted",
+            parentId: stem.id,
+            label: (stem.label || roleLabel(stem.role)) + " \u2014 my voice",
+            storagePath: st.storagePath || "",
+            meta: { source_url: st.audioUrl || "", vocal_space: space, converted_from: stem.id },
+          });
+          if (!reg.ok) setErr("Converted, but couldn't add it to the session: " + reg.error);
+          refreshStems(active.id);
+        }
+      } catch (_) {}
+    }, 3000);
+  }
+
   async function onDeleteStem(stem) {
     if (!window.confirm("Remove this stem from the session? The file itself stays in your storage.")) return;
     const r = await deleteStem(token, stem.id);
@@ -297,6 +366,14 @@ export default function SessionStudio({ user, token }) {
               style={{ fontFamily: JOST, fontSize: 12.5, letterSpacing: ".04em", padding: "9px 18px", border: "1px solid " + B.charcoal, background: B.white, color: B.ink, cursor: "pointer" }}>
               Add audio files
             </button>
+            <span style={{ fontFamily: JOST, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: B.mid, marginLeft: 8 }}>Voice finish</span>
+            <select value={space} onChange={(e) => setSpace(e.target.value)}
+              title="How a converted vocal is finished"
+              style={{ fontFamily: JOST, fontSize: 13, padding: "8px 10px", border: "1px solid " + B.stone, background: B.white, color: B.ink }}>
+              <option value="match">Match the original</option>
+              <option value="wet">Produced</option>
+              <option value="dry">Dry</option>
+            </select>
             <input ref={fileRef} type="file" accept="audio/*" multiple style={{ display: "none" }}
               onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
           </div>
@@ -324,12 +401,26 @@ export default function SessionStudio({ user, token }) {
                       <span style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>{s.duration ? mmss(s.duration) : ""}</span>
                       <button onClick={() => onPlay(s)} style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Play</button>
                       <button onClick={() => onDownload(s)} style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Download</button>
+                      {["lead", "backing", "adlib"].includes(s.role) && !converting[s.id] && (
+                        <button onClick={() => onConvert(s)} title="Sing this in your voice, keeping its timing and words"
+                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>To my voice</button>
+                      )}
                       {!splitting[s.id] && (
                         <button onClick={() => onSplit(s, "")} title="Split into vocals, drums, bass and the rest"
                           style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Split</button>
                       )}
                       <button onClick={() => onDeleteStem(s)} style={{ background: "none", border: "none", padding: "5px 6px", fontFamily: JOST, fontSize: 11.5, color: B.mid, cursor: "pointer" }}>Remove</button>
                     </div>
+                    {converting[s.id] && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ height: 3, background: B.stone, marginBottom: 6 }}>
+                          <div style={{ height: 3, background: B.ink, width: (converting[s.id].pct || 5) + "%", transition: "width .4s" }} />
+                        </div>
+                        <div style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>
+                          {converting[s.id].stage}\u2026 singing it in your voice, same timing and words.
+                        </div>
+                      </div>
+                    )}
                     {splitting[s.id] && (
                       <div style={{ marginTop: 8 }}>
                         <div style={{ height: 3, background: B.stone, marginBottom: 6 }}>
