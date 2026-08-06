@@ -464,6 +464,7 @@ function ChelgyAssistant({ onNavigate, userName, isPaid }) {
 
 
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
+import SessionStudio from "./SessionStudio.jsx";
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
 
@@ -11340,6 +11341,17 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   );
 }
 
+function SessionStudioMount({ user }){
+  const [tok,setTok]=useState(null);
+  const [ready,setReady]=useState(false);
+  useEffect(()=>{ let live=true;
+    (async()=>{ const t=await freshToken(); if(live){ setTok(t); setReady(true); } })();
+    return ()=>{ live=false; };
+  },[user&&user.id]);
+  if(!ready) return <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Loading your sessions\u2026</p>;
+  return <SessionStudio user={user} token={tok} />;
+}
+
 function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, lutMedia={}, isAdmin=false, startType=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
@@ -12620,6 +12632,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="songstudio"&&<SongStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="mixmaster"&&<MixMaster user={user} />}
       {tool==="sunoprod"&&<SunoProduction user={user} />}
+      {tool==="sessions"&&<SessionStudioMount user={user} />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} user={user} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -13184,7 +13197,7 @@ const CATEGORIES = [
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
     tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Sing your own melody, however rough it comes out. Chelgy tunes it, sings it back in your real voice, and builds a beat around what you sang \u2014 so the song follows your tune, not a loop.",
-    tabs:[ {label:"Song Studio",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"}, {label:"Suno Production",tool:"sunoprod"} ] },
+    tabs:[ {label:"Song Studio",tool:"songstudio"}, {label:"Mix & Master",tool:"mixmaster"}, {label:"Suno Production",tool:"sunoprod"}, {label:"Sessions",tool:"sessions"} ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   /* =======================================================================
