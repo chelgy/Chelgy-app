@@ -88,23 +88,41 @@ export default async function handler(req, res) {
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please log in again." });
 
-    // The person's newest voice profile — the generator attaches to it.
-    const profs = await sb("/rest/v1/voice_profiles?select=id&user_id=eq." + userId + "&order=created_at.desc&limit=1");
+    // "Newest profile" is NOT the same question as "the profile holding this
+    // person's dataset", and treating them as one is what broke this on 5 Aug:
+    // an enrollment for the RVC model created a fresh profile, that profile
+    // became newest, and this endpoint counted ITS empty dataset folder and
+    // reported zero — while 48 files sat untouched under an older profile.
+    //
+    // Retraining one model must never hide the other's data. So walk the
+    // profiles newest-first and take the first one that actually has a paired
+    // dataset. Newest still wins WHEN IT QUALIFIES, so uploading a new dataset
+    // behaves exactly as before; it just can't be shadowed by a profile that
+    // has nothing to do with the generator.
+    const profs = await sb("/rest/v1/voice_profiles?select=id&user_id=eq." + userId + "&order=created_at.desc&limit=20");
     if (!profs || !profs.length) return res.status(400).json({ error: "No voice profile yet — enroll your voice first." });
-    const profileId = profs[0].id;
 
-    // The dataset has to actually be there before a GPU starts billing. Count
-    // audio+lyrics PAIRS — an unpaired wav can't be aligned and doesn't count.
-    const listing = await fetch(SB_URL + "/storage/v1/object/list/voice", {
-      method: "POST",
-      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
-      body: JSON.stringify({ prefix: userId + "/" + profileId + "/dataset", limit: 1000 }),
-    });
-    const items = listing.ok ? (await listing.json()).map(o => o.name).filter(Boolean) : [];
-    const stems = new Set(items.filter(n => /\.(wav|m4a|mp3|aif|aiff)$/i.test(n)).map(n => n.replace(/\.[^.]+$/, "")));
-    const pairs = [...stems].filter(b => items.includes(b + ".txt")).length;
-    if (pairs < 8) {
-      return res.status(400).json({ error: "Only " + pairs + " usable clip(s) with lyrics found — upload more recordings first." });
+    async function countPairs(pid) {
+      const listing = await fetch(SB_URL + "/storage/v1/object/list/voice", {
+        method: "POST",
+        headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
+        body: JSON.stringify({ prefix: userId + "/" + pid + "/dataset", limit: 1000 }),
+      });
+      const items = listing.ok ? (await listing.json()).map(o => o.name).filter(Boolean) : [];
+      const stems = new Set(items.filter(n => /\.(wav|m4a|mp3|aif|aiff)$/i.test(n)).map(n => n.replace(/\.[^.]+$/, "")));
+      return [...stems].filter(b => items.includes(b + ".txt")).length;
+    }
+
+    let profileId = null, pairs = 0, best = 0;
+    for (const p of profs) {
+      const n = await countPairs(p.id);
+      if (n > best) best = n;
+      if (n >= 8) { profileId = p.id; pairs = n; break; }
+    }
+    if (!profileId) {
+      return res.status(400).json({
+        error: "Only " + best + " usable clip(s) with lyrics found across your voice profiles — upload more recordings first.",
+      });
     }
 
     // One training pod per profile at a time. Two pods fine-tuning the same
