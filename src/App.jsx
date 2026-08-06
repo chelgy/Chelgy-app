@@ -10646,7 +10646,7 @@ function SunoProduction({ user=null }){
     <div style={{maxWidth:760}}>
       <h2 style={{fontFamily:"Outfit,Helvetica,Arial,sans-serif",fontSize:26,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 8px"}}>Suno Production</h2>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14.5,lineHeight:1.6,color:B.mid,margin:"0 0 20px"}}>
-        Your voice, their production. Bring a finished vocal and Suno builds a full arrangement \u2014 beat, instruments, backing \u2014 around it. This is a test bench to hear the quality before we wire it into the main flow.
+        Your voice, their production. Bring a finished vocal and Suno builds a full arrangement — beat, instruments, backing — around it. This is a test bench to hear the quality before we wire it into the main flow.
       </p>
 
       <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Approach</div>
@@ -10745,8 +10745,8 @@ function MixMaster({ user=null }){
     <div style={{maxWidth:760}}>
       <h2 style={{fontFamily:"Outfit,Helvetica,Arial,sans-serif",fontSize:26,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 8px"}}>Mix &amp; Master</h2>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14.5,lineHeight:1.6,color:B.mid,margin:"0 0 20px"}}>
-        The final polish. Upload any track \u2014 a Chelgy song or anything else \u2014 and it comes back
-        EQ\u2019d, glued together, and loudness-matched to what streaming platforms expect, with a
+        The final polish. Upload any track — a Chelgy song or anything else — and it comes back
+        EQ’d, glued together, and loudness-matched to what streaming platforms expect, with a
         true-peak limiter so it never clips.
       </p>
 
@@ -10781,7 +10781,7 @@ function MixMaster({ user=null }){
 
       {result && (
         <div style={{marginTop:22,borderTop:"1px solid "+B.stone,paddingTop:18}}>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px"}}>Done \u2014 {result.intensity} master. Saved to your Library.</p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px"}}>Done — {result.intensity} master. Saved to your Library.</p>
           <audio src={result.url} controls style={{width:"100%"}} />
           <div style={{display:"flex",gap:10,alignItems:"center",marginTop:12}}>
             <button onClick={async()=>{
@@ -11104,7 +11104,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           {sessionList.map(x=><option key={x.id} value={x.id}>{x.title||"Untitled song"}</option>)}
         </select>
         <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,marginTop:5,lineHeight:1.45}}>
-          Optional. Keeps this take with the rest of the song\u2019s parts \u2014 you still get the download either way.
+          Optional. Keeps this take with the rest of the song’s parts — you still get the download either way.
         </div>
       </div>
     ) : null
@@ -11129,7 +11129,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       </p>
 
       <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
-        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Your voice \u2014 singing</div>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Your voice — singing</div>
         {(!vst || vst.state==="none" || vst.state==="ready") && (<>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:"0 0 10px",lineHeight:1.55}}>
             {vst && vst.state==="ready"
@@ -11174,7 +11174,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       {profile === null && (
         <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:0}}>
-            Song Studio needs a model of your voice before it can sing anything. Train one from the \u201cYour voice \u2014 singing\u201d card above \u2014 record or upload your singing and it trains in about 40 minutes.
+            Song Studio needs a model of your voice before it can sing anything. Train one from the “Your voice — singing” card above — record or upload your singing and it trains in about 40 minutes.
           </p>
         </div>
       )}
@@ -11207,7 +11207,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
             </label>
             {inspo && <button onClick={()=>setInspo(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
           </div>
-          {inspo && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"-6px 0 14px",lineHeight:1.5}}>Chelgy will match this track\u2019s feel \u2014 its instruments, texture and mix \u2014 while keeping your own melody.</p>}
+          {inspo && <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"-6px 0 14px",lineHeight:1.5}}>Chelgy will match this track’s feel — its instruments, texture and mix — while keeping your own melody.</p>}
 
           {clipUrl && <audio src={clipUrl} controls style={{width:"100%",marginBottom:14}} />}
 
@@ -11274,7 +11274,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
                 style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 16px",border:"1px solid "+(harmony===id?B.charcoal:B.stone),background:harmony===id?B.inkBlock:B.white,color:harmony===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
             ))}
           </div>
-          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 16px",lineHeight:1.5}}>Your voice singing harmony with itself \u2014 a second line that follows the chords. Lush adds a higher voice.</div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 16px",lineHeight:1.5}}>Your voice singing harmony with itself — a second line that follows the chords. Lush adds a higher voice.</div>
 
           <div style={{display:"flex",gap:20,flexWrap:"wrap",marginBottom:18}}>
             <Slider label="Tuning" value={tuneStrength} set={setTune}
@@ -11405,7 +11405,7 @@ function SessionStudioMount({ user }){
     (async()=>{ const t=await freshToken(); if(live){ setTok(t); setReady(true); } })();
     return ()=>{ live=false; };
   },[user&&user.id]);
-  if(!ready) return <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Loading your sessions\u2026</p>;
+  if(!ready) return <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Loading your sessions…</p>;
   return <SessionStudio user={user} token={tok} />;
 }
 
