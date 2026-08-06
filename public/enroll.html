@@ -136,50 +136,89 @@ const TONES = [
   {n:"C5",hz:523.25}
 ];
 
-const READS = [
-  "The harbour road floods twice a year, always in the same two places, and every autumn the council promises to fix it. My grandmother lived at the end of that road for forty-one years and never once complained about the water. She kept a pair of tall rubber boots by the door from September onward, and said that anyone who chose to live beside the sea had already agreed to the terms. When she finally moved inland she took the boots with her, which I thought was funny at the time and think about differently now.",
-  "There is a particular quiet that happens in a kitchen at the end of a long dinner, after the plates are stacked but before anyone has started washing up. Someone is always still talking. The oven ticks as it cools. Whoever cooked is sitting down for the first time in three hours, holding a glass, half listening. I have never managed to photograph it and I doubt anyone has, because the moment you point a camera at it the room changes, and it becomes a picture of people at a table.",
-  "Judge the equipment by what it does when things go wrong, not when they go right. Any cheap microphone sounds acceptable in a treated room with a quiet source. The difference shows up when a truck goes past outside, when the singer steps back, when the room is boxier than you would like. Expensive gear buys you a wider margin for error, not a better result on a perfect take. Most people buy it hoping for the second thing, and are quietly disappointed.",
-  "She examined the zipper, the lining, and the stitching along the shoulder seam, then decided the jacket was worth exactly what they were asking. The vendor watched without saying anything. Six blocks later it started raining hard enough that she gave up on the umbrella entirely, walked the rest of the way with her hood up, and arrived home genuinely happy about a purchase for the first time in months. The jacket is still in the hall cupboard. It has outlasted two phones and one apartment."
+// ── THE TAKES ────────────────────────────────────────────────────────────────
+//
+// SINGING ONLY. v2 asked for four read passages and four two-minute rambles —
+// about seven and a half minutes of PURE SPEECH against five short singing
+// prompts. RVC learns whatever it is fed, so the finished model sang in a
+// talking voice, which is exactly the complaint. Speech is not merely unhelpful
+// here, it is the thing that ruins the result.
+//
+// So every take below is sung, hummed or held. The reads and the "tell me about
+// your worst job" prompts are gone. What is left is twenty minutes of a person
+// making pitched sound the way they actually make it.
+//
+// The other half of the fix is tone: people sing the way they are ASKED to. If
+// the prompt says "belt it", the model learns belting. Every hint here says to
+// sing it the way you would alone in the car, at whatever volume is comfortable,
+// because a model that matches your natural voice is the entire point.
+
+const SONGS = [
+  {t:"Sing a verse of any song you know by heart",
+   h:"Whatever you would sing without thinking about it. Your volume, your style \u2014 don\u2019t perform it."},
+  {t:"Sing the chorus of that same song, twice through",
+   h:"Same feel. Repeating it is useful: the model hears the same notes twice."},
+  {t:"Sing a different song \u2014 something slower",
+   h:"A ballad, a lullaby, anything unhurried. Long notes are worth more than fast ones."},
+  {t:"Sing something you would sing quietly",
+   h:"Close to the mic, soft and breathy if that is how you sing. This is the sound the model copies."},
+  {t:"Sing a song you loved as a teenager",
+   h:"Words half-remembered is fine. Hum the parts you have forgotten."},
+  {t:"Sing any song in a made-up language",
+   h:"No real words. Frees you up to think about the sound instead of the lyrics."},
+  {t:"Sing a melody you are making up right now",
+   h:"It does not have to go anywhere. Wander."},
+  {t:"Sing that made-up melody again, differently",
+   h:"Same tune, softer or higher. Whatever changes it for you."},
+  {t:"Sing the happy birthday song, twice through",
+   h:"Any key that feels easy. Off-key is completely fine."},
+  {t:"Sing a verse and chorus of one more song",
+   h:"Last one. Pick whichever has been stuck in your head today."}
 ];
 
-const TALKS = [
-  {p:"Describe the last meal you actually enjoyed.", h:"What was on the plate, where you were, who cooked it. Two minutes. Ramble \u2014 rambling is the point."},
-  {p:"Tell the story of the worst job you ever had.", h:"Start from how you got it. Two minutes. Let yourself get annoyed if it was annoying."},
-  {p:"Explain what you do for work to someone who's never heard of it.", h:"Like you're at a party and they asked politely. Two minutes."},
-  {p:"Talk about a place you'd go back to tomorrow.", h:"Two minutes. Why that one and not somewhere else."}
+const HUMS = [
+  {t:"Hum any melody with your mouth closed",
+   h:"Forty seconds. Go high and low \u2014 wander around your range."},
+  {t:"Hum the same melody with your mouth open, on AH",
+   h:"Same tune, open vowel. The model hears the difference."},
+  {t:"Sing OO up and down, slowly",
+   h:"Slide up as high as feels easy, then back down. No strain \u2014 stop where it stops being comfortable."},
+  {t:"Sing EE up and down, slowly",
+   h:"Same slide, brighter vowel."}
+];
+
+// Minor thirds, C3 to C5. Any usable range sits inside this; the notes outside
+// yours get skipped, and which ones you skip is itself useful information.
+const TONES = [
+  {n:"C3",hz:130.81},{n:"D#3",hz:155.56},{n:"F#3",hz:185.00},{n:"A3",hz:220.00},
+  {n:"C4",hz:261.63},{n:"D#4",hz:311.13},{n:"F#4",hz:369.99},{n:"A4",hz:440.00},
+  {n:"C5",hz:523.25}
 ];
 
 const SEC_META = {
-  speech:{name:"Speaking", why:"The bulk of the data. This teaches the model your accent, your rhythm, and the way you shape words."},
-  range:{name:"Your range", why:"Sing the note you hear. This is the only section that captures pitch \u2014 and without a tone to sing against, people sing their speaking pitch every time."},
-  sung:{name:"Singing", why:"Doesn't need to be good. The model learns what changes in your voice when you stop talking and start singing."},
-  dynamics:{name:"Soft and loud", why:"Your voice changes character with volume. Without this the model only knows one version of you."}
+  sung:{name:"Songs", why:"The bulk of the data. Sing the way you actually sing \u2014 the model becomes whatever you feed it, so a soft breathy take here is what makes a soft breathy voice."},
+  hum:{name:"Humming and vowels", why:"Held sound with no words. This is where the model learns your tone rather than your diction."},
+  range:{name:"Your range", why:"Sing the note you hear. This is the only section that pins pitch \u2014 without a tone to sing against, people sing their speaking pitch every time."},
+  dynamics:{name:"Soft and full", why:"Your voice changes character with volume. Without this the model only knows one version of you."}
 };
 
 // ── BUILD TAKE LIST ──────────────────────────────────────────────────────────
 const TAKES = [];
-READS.forEach((t,i)=>TAKES.push({id:"rd"+i,section:"speech",kind:"read",text:t,
-  hint:"Read it out loud the way you'd say it, not the way a newsreader would. Take your time.",minDur:35}));
-TALKS.forEach((t,i)=>TAKES.push({id:"tk"+i,section:"speech",kind:"talk",text:t.p,hint:t.h,minDur:75}));
+SONGS.forEach((t,i)=>TAKES.push({id:"sg"+i,section:"sung",kind:"sing",text:t.t,hint:t.h,minDur:45}));
+HUMS.forEach((t,i)=>TAKES.push({id:"hm"+i,section:"hum",kind:"sing",text:t.t,hint:t.h,minDur:35}));
 TONES.forEach(t=>TAKES.push({id:"tn"+t.n,section:"range",kind:"tone",text:"AH",note:t.n,hz:t.hz,
   hint:"Play the note, then sing AH on it and hold for six seconds.",minDur:4,skippable:true}));
 [{n:"A3",hz:220,v:"EE"},{n:"C4",hz:261.63,v:"EE"},{n:"D#4",hz:311.13,v:"EE"},
  {n:"A3",hz:220,v:"OO"},{n:"C4",hz:261.63,v:"OO"},{n:"D#4",hz:311.13,v:"OO"}]
  .forEach((t,i)=>TAKES.push({id:"tv"+i,section:"range",kind:"tone",text:t.v,note:t.n,hz:t.hz,
    hint:"Same idea, different vowel. Hold six seconds.",minDur:4,skippable:true}));
+// SUNG dynamics, not spoken. v2 asked for the same sentence said three ways,
+// which taught the model three kinds of talking.
 [
-  {id:"sg0",text:"Happy birthday to you \u2014 twice through",hint:"Any key that feels easy. Off-key is completely fine.",minDur:15},
-  {id:"sg1",text:"Twinkle twinkle little star \u2014 the whole verse",hint:"Don't try to sing it well. Just get to the end.",minDur:20},
-  {id:"sg2",text:"Sing a verse of any song you know by heart",hint:"Whatever you'd sing in the car. Forty seconds or so.",minDur:30},
-  {id:"sg3",text:"Hum any melody \u2014 made up is fine",hint:"Thirty seconds. Wander around, go high and low.",minDur:25},
-  {id:"sg4",text:"La la la, up and down",hint:"Slide up as high as feels easy, then back down. Thirty seconds.",minDur:25}
-].forEach(t=>TAKES.push({...t,section:"sung",kind:"sing"}));
-[
-  {id:"d0",text:"I didn't think it would happen this fast, and now I can't remember what it was like before.",hint:"Almost a whisper. Close to the mic."},
-  {id:"d1",text:"I didn't think it would happen this fast, and now I can't remember what it was like before.",hint:"Normal speaking volume."},
-  {id:"d2",text:"I didn't think it would happen this fast, and now I can't remember what it was like before.",hint:"Loud, like calling across a room. Back off the mic a little."}
-].forEach(t=>TAKES.push({...t,section:"dynamics",kind:"dyn",minDur:4}));
+  {id:"d0",text:"Sing any line, almost whispered",hint:"Close to the mic. Breathy is good."},
+  {id:"d1",text:"Sing that same line at your normal singing volume",hint:"How you would sing it to yourself."},
+  {id:"d2",text:"Sing it once more, fuller",hint:"Open up a little. Not a belt \u2014 just more of you. Back off the mic slightly."}
+].forEach(t=>TAKES.push({...t,section:"dynamics",kind:"sing",minDur:20}));
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let stage="intro", roomFloor=null, idx=0, recording=false, verdict=null, err="";
@@ -492,19 +531,24 @@ function render(){
     app.innerHTML=`
       <div class="eyebrow">Song Studio</div>
       <h1>Teach it your voice</h1>
-      <p>About forty minutes, which produces roughly twenty minutes of usable audio. That gap is normal &mdash; most of the time goes on reading, thinking and redoing takes. The counter at the top tracks the number that actually matters.</p>
-      <p>Four passages to read, four things to talk about for two minutes, fifteen notes to sing, five short things to sing badly, and one line said three ways. Nothing here is judged on performance.</p>
+      <p>About thirty minutes of recording, which produces roughly twenty minutes of usable audio. Every take is sung &mdash; there is no reading and no talking, because the model becomes whatever you feed it, and speech is what makes a trained voice sound like it is talking rather than singing.</p>
+      <p>Ten songs, four humming takes, fifteen notes to sing, and one line sung three ways. Nothing here is judged on performance.</p>
+      <div class="panel" style="border-color:var(--ink)">
+        <div class="eyebrow" style="margin-bottom:12px">Already have singing recorded?</div>
+        <p style="margin:0 0 12px">If you have fifteen or twenty minutes of dry solo vocals &mdash; acapella stems, voice memos, anything with no backing track &mdash; upload those instead. It is faster and the model is usually better, because it learns from you singing properly rather than singing to a prompt.</p>
+        <div class="row"><button class="fill" onclick="stage='acapella';render()">Upload singing I already have</button></div>
+      </div>
       <div class="panel">
         <div class="eyebrow" style="margin-bottom:12px">Before you start</div>
         <div class="bullet"><div class="dot"></div><div>Wired earbuds with a mic, or your phone a hand's width from your mouth. Bluetooth is worse than you'd think.</div></div>
         <div class="bullet"><div class="dot"></div><div>Quietest room you have. AC and fans off.</div></div>
         <div class="bullet"><div class="dot"></div><div>Aim for the green band on the meter. Recording too quietly is the most common mistake and it costs real quality.</div></div>
         <div class="bullet"><div class="dot"></div><div>Keep your volume up &mdash; you'll need to hear the reference notes.</div></div>
+        <div class="bullet"><div class="dot"></div><div>Sing everything the way you actually sing. Soft and breathy is not a problem &mdash; it is the thing being copied.</div></div>
       </div>
       ${err?`<div class="err">${err}</div>`:""}
       <div class="row">
         <button class="fill" onclick="openMic()">Turn on my mic</button>
-        <button class="ghost" onclick="stage='acapella';render()">I already have singing recorded</button>
       </div>`;
     return;
   }
