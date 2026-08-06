@@ -66,6 +66,7 @@ export default function SessionStudio({ user, token }) {
   // Which finish a conversion uses. Match restores the tone and space of the
   // take that came in, and is right often enough to be the default.
   const [space, setSpace] = useState("match");
+  const [mixing, setMixing] = useState(null);
   const fileRef = useRef(null);
   const pollRef = useRef({});
 
@@ -301,6 +302,44 @@ export default function SessionStudio({ user, token }) {
     }, 3000);
   }
 
+  // Sum every layer in the session into one track.
+  //
+  // No faders yet, on purpose: the pipeline has sensible per-role levels, and a
+  // mix button that works is worth more than sliders nobody has needed. When a
+  // real mix comes back wrong, that is the moment to add the control it needed —
+  // and the spec already carries db/pan fields for exactly that.
+  async function onMix() {
+    setErr("");
+    const r = await fetch("/api/studio-mix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: JSON.stringify({ sessionId: active.id, label: active.title || "" }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.jobId) return setErr(j.error || "Couldn't start the mix.");
+
+    setMixing({ jobId: j.jobId, pct: 5, stage: "Waiting for a machine" });
+    pollRef.current.mix = setInterval(async () => {
+      try {
+        const s2 = await fetch("/api/studio-song?jobId=" + encodeURIComponent(j.jobId),
+          { headers: token ? { Authorization: "Bearer " + token } : {} });
+        const st = await s2.json();
+        if (!s2.ok) return;
+        setMixing({
+          jobId: j.jobId,
+          pct: typeof st.progress === "number" ? Math.max(5, st.progress) : 5,
+          stage: st.stage ? st.stage.charAt(0).toUpperCase() + st.stage.slice(1) : "Working",
+        });
+        if (st.status === "done" || st.status === "failed" || st.status === "error") {
+          clearInterval(pollRef.current.mix); delete pollRef.current.mix;
+          setMixing(null);
+          if (st.status !== "done") setErr(st.error || "The mix didn't finish.");
+          refreshStems(active.id);
+        }
+      } catch (_) {}
+    }, 3000);
+  }
+
   async function onDeleteStem(stem) {
     if (!window.confirm("Remove this stem from the session? The file itself stays in your storage.")) return;
     const r = await deleteStem(token, stem.id);
@@ -313,6 +352,11 @@ export default function SessionStudio({ user, token }) {
   }
 
   const lead = currentLead(stems);
+  // Whole-song bounces are not layers — mixing a master back into a mix is how
+  // people ruin a good bounce. Matches the same exclusion the route applies.
+  const mixableStemCount = stems.filter(
+    (s) => !["mix", "master", "instrumental"].includes(s.role) &&
+           s.storage_path && !/^https?:\/\//.test(s.storage_path)).length;
 
   return (
     <div>
@@ -324,6 +368,16 @@ export default function SessionStudio({ user, token }) {
 
       {err && <div style={{ fontFamily: JOST, fontSize: 12.5, color: B.red, border: "1px solid " + B.stone, padding: "8px 12px", marginBottom: 12 }}>{err}</div>}
       {busy && <div style={{ fontFamily: JOST, fontSize: 12.5, color: B.mid, marginBottom: 12 }}>{busy}</div>}
+      {mixing && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ height: 3, background: B.stone, marginBottom: 6 }}>
+            <div style={{ height: 3, background: B.ink, width: (mixing.pct || 5) + "%", transition: "width .4s" }} />
+          </div>
+          <div style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>
+            {mixing.stage}\u2026 mixing every layer into one track.
+          </div>
+        </div>
+      )}
 
       {/* ── SESSION LIST ─────────────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
@@ -352,6 +406,12 @@ export default function SessionStudio({ user, token }) {
             <div style={{ fontFamily: OUTFIT, fontSize: 17 }}>{active.title || "Untitled song"}</div>
             <button onClick={() => onRename(active)} style={{ background: "none", border: "none", padding: 0, fontFamily: JOST, fontSize: 12, color: B.mid, cursor: "pointer", textDecoration: "underline" }}>rename</button>
             <button onClick={() => onDeleteSession(active)} style={{ background: "none", border: "none", padding: 0, fontFamily: JOST, fontSize: 12, color: B.mid, cursor: "pointer", textDecoration: "underline" }}>delete</button>
+            {!mixing && mixableStemCount >= 2 && (
+              <button onClick={onMix}
+                style={{ fontFamily: JOST, fontSize: 11.5, letterSpacing: ".04em", padding: "6px 14px", border: "1px solid " + B.charcoal, background: B.inkBlock, color: B.inkText, cursor: "pointer" }}>
+                Mix into one track
+              </button>
+            )}
             {active.bpm ? <span style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>{Math.round(active.bpm)} BPM{active.music_key ? " · " + active.music_key : ""}</span> : null}
           </div>
 
