@@ -118,9 +118,9 @@ if [ ! -d DiffSinger ]; then
 fi
 
 if [ ! -f .deps-done ]; then
-  pip install -q --upgrade pip
-  pip install -q -r DiffSinger/requirements.txt
-  pip install -q requests soundfile praat-parselmouth textgrid
+  $PIP install -q --upgrade pip
+  $PIP install -q -r DiffSinger/requirements.txt
+  $PIP install -q requests soundfile praat-parselmouth textgrid
   # MFA runs best from conda; miniconda keeps it isolated from torch's env.
   if ! command -v mfa >/dev/null 2>&1; then
     say "Installing Montreal Forced Aligner (conda)"
@@ -140,6 +140,15 @@ if [ ! -f .deps-done ]; then
   fi
   touch .deps-done
 fi
+# The interpreter that runs EVERYTHING except MFA. Resolved and pinned BEFORE
+# the MFA env is touched, because the mfa conda env has its own python without
+# textgrid/torch/DiffSinger's deps in it.
+PY_BIN="$(command -v python3 || command -v python)" \
+  || die "No python interpreter on this image."
+export PY_BIN
+PIP="$PY_BIN -m pip"
+printf "  python: %s (%s)\n" "$PY_BIN" "$("$PY_BIN" --version 2>&1)"
+
 MFA=/opt/conda/envs/mfa/bin/mfa
 [ -x "$MFA" ] || MFA=$(command -v mfa) || die "MFA did not install."
 
@@ -152,19 +161,32 @@ MFA=/opt/conda/envs/mfa/bin/mfa
 # Activating the env properly is what fixes it — same class of bug as the
 # missing `python` in train-voice.sh.
 MFA_BIN="$(dirname "$MFA")"
-export PATH="$MFA_BIN:$PATH"
-[ -d "$MFA_BIN/../lib" ] && export LD_LIBRARY_PATH="$MFA_BIN/../lib:${LD_LIBRARY_PATH:-}"
-case "$MFA_BIN" in */envs/mfa/bin) export CONDA_PREFIX="${MFA_BIN%/bin}" ;; esac
+MFA_PREFIX="${MFA_BIN%/bin}"
+
+# mfa() wraps every MFA call so the env is active for THAT COMMAND ONLY.
+#
+# The first version of this exported PATH globally. It fixed MFA and broke the
+# next stage: the mfa conda env's python came first for the rest of the script,
+# and it has no textgrid, so stage 4 died with ModuleNotFoundError on a package
+# that was installed correctly the whole time. Reachability has to be scoped to
+# the thing that needs it.
+mfa_run(){
+  PATH="$MFA_BIN:$PATH" \
+  LD_LIBRARY_PATH="$MFA_PREFIX/lib:${LD_LIBRARY_PATH:-}" \
+  CONDA_PREFIX="$MFA_PREFIX" \
+  "$MFA" "$@"
+}
 
 # Verified, not assumed. If the binaries genuinely are absent, install them now
 # rather than 30 minutes later mid-alignment.
-if ! command -v fstcompile >/dev/null 2>&1; then
+if ! PATH="$MFA_BIN:$PATH" command -v fstcompile >/dev/null 2>&1; then
   say "OpenFST/Kaldi binaries missing — installing into the mfa env"
   /opt/conda/bin/conda install -n mfa -c conda-forge --override-channels \
     openfst kaldi -y -q || die "Could not install OpenFST/Kaldi into the mfa env."
 fi
-command -v fstcompile >/dev/null 2>&1 || die "fstcompile still not on PATH after install — MFA cannot align."
-printf "  mfa: %s\n  fstcompile: %s\n" "$MFA" "$(command -v fstcompile)"
+PATH="$MFA_BIN:$PATH" command -v fstcompile >/dev/null 2>&1 \
+  || die "fstcompile still not reachable from the mfa env — MFA cannot align."
+printf "  mfa: %s\n  fstcompile: %s\n" "$MFA" "$(PATH="$MFA_BIN:$PATH" command -v fstcompile)"
 
 # MFA needs a dictionary + acoustic model for the language.
 if [ ! -f .mfa-models-done ]; then
@@ -173,11 +195,11 @@ if [ ! -f .mfa-models-done ]; then
   # actually landed, so alignment references the one that exists. Try the
   # modern "_mfa" pair first (better for singing), fall back to "_us_arpa".
   MFA_MODEL=""
-  if "$MFA" model download acoustic "${DICTIONARY}_mfa" 2>/dev/null \
-     && "$MFA" model download dictionary "${DICTIONARY}_mfa" 2>/dev/null; then
+  if mfa_run model download acoustic "${DICTIONARY}_mfa" 2>/dev/null \
+     && mfa_run model download dictionary "${DICTIONARY}_mfa" 2>/dev/null; then
     MFA_MODEL="${DICTIONARY}_mfa"
-  elif "$MFA" model download acoustic "${DICTIONARY}_us_arpa" 2>/dev/null \
-       && "$MFA" model download dictionary "${DICTIONARY}_us_arpa" 2>/dev/null; then
+  elif mfa_run model download acoustic "${DICTIONARY}_us_arpa" 2>/dev/null \
+       && mfa_run model download dictionary "${DICTIONARY}_us_arpa" 2>/dev/null; then
     MFA_MODEL="${DICTIONARY}_us_arpa"
   else
     die "Could not download any MFA model for ${DICTIONARY}"
@@ -192,7 +214,7 @@ fi
 if [ ! -f .pretrained-done ]; then
   say "Downloading pretrained vocoder + base acoustic checkpoint"
   mkdir -p DiffSinger/checkpoints
-  python - <<'PY'
+  "$PY_BIN" - <<'PY'
 import urllib.request, zipfile, os, sys
 # Community vocoder release (NSF-HiFiGAN 44.1k). The release asset name is
 # stable; if this 404s, check github.com/openvpi/vocoders/releases and update.
@@ -217,7 +239,7 @@ RAW="$ROOT/raw/$PROFILE_ID"
 rm -rf "$RAW"; mkdir -p "$RAW"
 
 SUPABASE_URL="$SUPABASE_URL" SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY" \
-PROFILE_ID="$PROFILE_ID" RAW="$RAW" python - <<'PY'
+PROFILE_ID="$PROFILE_ID" RAW="$RAW" "$PY_BIN" - <<'PY'
 import os, requests, sys
 url=os.environ["SUPABASE_URL"]; key=os.environ["SUPABASE_SERVICE_KEY"]
 pid=os.environ["PROFILE_ID"];  raw=os.environ["RAW"]
@@ -265,7 +287,7 @@ report 2 "checking and preparing the clips"
 say "Stage 2/6 — validating and resampling"
 WORK="$ROOT/work/$PROFILE_ID"
 rm -rf "$WORK"; mkdir -p "$WORK/wavs"
-RAW="$RAW" WORK="$WORK" python - <<'PY'
+RAW="$RAW" WORK="$WORK" "$PY_BIN" - <<'PY'
 import os, subprocess, sys
 raw=os.environ["RAW"]; work=os.environ["WORK"]
 n=0
@@ -296,7 +318,7 @@ ALIGN="$WORK/textgrids"; rm -rf "$ALIGN"; mkdir -p "$ALIGN"
 # is what produced PretrainedModelNotFoundError: "english_mfa".
 MFA_MODEL="$(cat .mfa-model-name 2>/dev/null || echo "${DICTIONARY}_us_arpa")"
 say "Aligning with MFA model: $MFA_MODEL"
-"$MFA" align --clean --single_speaker "$WORK/wavs" "$MFA_MODEL" "$MFA_MODEL" "$ALIGN" \
+mfa_run align --clean --single_speaker "$WORK/wavs" "$MFA_MODEL" "$MFA_MODEL" "$ALIGN" \
   || die "MFA alignment failed — usually lyrics not matching what was sung, or too-noisy audio"
 ls "$ALIGN"/*.TextGrid >/dev/null 2>&1 || die "MFA produced no TextGrids"
 echo "  aligned $(ls "$ALIGN"/*.TextGrid | wc -l) clips"
@@ -313,7 +335,7 @@ cp -r "$WORK/wavs" "$DATA/wavs"
 cp -r "$ALIGN" "$DATA/textgrids"
 
 cd "$ROOT/MakeDiffSinger/acoustic_forced_alignment"
-python build_dataset.py \
+"$PY_BIN" build_dataset.py \
   --wavs "$DATA/wavs" \
   --tg "$DATA/textgrids" \
   --dataset "$DATA" \
@@ -322,7 +344,7 @@ python build_dataset.py \
 cd "$ROOT/DiffSinger"
 # Config: start from the acoustic template, point it at our data.
 CFG="configs/$PROFILE_ID.yaml"
-python - <<PY
+"$PY_BIN" - <<PY
 import yaml, os, shutil
 src="configs/templates/config_acoustic.yaml"
 cfg=yaml.safe_load(open(src))
@@ -335,23 +357,23 @@ cfg["num_ckpt_keep"]=2
 yaml.safe_dump(cfg, open("$CFG","w"))
 print("  config written: $CFG")
 PY
-python scripts/binarize.py --config "$CFG" || die "binarize failed"
+"$PY_BIN" scripts/binarize.py --config "$CFG" || die "binarize failed"
 
 # ── 5 · FINE-TUNE ──────────────────────────────────────────────────────────
 CURRENT_STAGE="training — this takes hours to days"
 report 5 "training — this takes hours to days"
 say "Stage 5/6 — fine-tuning (long; the machine works, not you)"
-python scripts/train.py --config "$CFG" --exp_name "$PROFILE_ID" --reset \
+"$PY_BIN" scripts/train.py --config "$CFG" --exp_name "$PROFILE_ID" --reset \
   || die "training failed — the log above has the real reason"
 
 # ── 6 · EXPORT + SHIP ──────────────────────────────────────────────────────
 CURRENT_STAGE="saving your voice generator"
 report 6 "saving your voice generator"
 say "Stage 6/6 — exporting and uploading"
-python scripts/export.py acoustic --exp "$PROFILE_ID" || echo "  (onnx export skipped — ckpt still uploads)"
+"$PY_BIN" scripts/export.py acoustic --exp "$PROFILE_ID" || echo "  (onnx export skipped — ckpt still uploads)"
 
 SUPABASE_URL="$SUPABASE_URL" SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY" \
-PROFILE_ID="$PROFILE_ID" ROOT="$ROOT" python - <<'PY'
+PROFILE_ID="$PROFILE_ID" ROOT="$ROOT" "$PY_BIN" - <<'PY'
 import os, glob, requests, sys, datetime
 url=os.environ["SUPABASE_URL"]; key=os.environ["SUPABASE_SERVICE_KEY"]
 pid=os.environ["PROFILE_ID"];  root=os.environ["ROOT"]
