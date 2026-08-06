@@ -331,8 +331,37 @@ report 4 "building the training dataset"
 say "Stage 4/6 — building DiffSinger dataset"
 DATA="$ROOT/DiffSinger/data/$PROFILE_ID"
 rm -rf "$DATA"; mkdir -p "$DATA"
-cp -r "$WORK/wavs" "$DATA/wavs"
-cp -r "$ALIGN" "$DATA/textgrids"
+mkdir -p "$DATA/wavs" "$DATA/textgrids"
+
+# ONLY THE CLIPS THAT ALIGNED.
+#
+# MFA does not align every clip. On 6 Aug it aligned 19 of 24 — the other five
+# were breathy enough, or worded differently enough from their lyrics, that it
+# would not commit to a timing. That is normal and it is recoverable.
+#
+# What was NOT recoverable: build_dataset walks the wav folder and opens a
+# TextGrid for every file it finds, so one missing TextGrid ends the run with a
+# FileNotFoundError and all nineteen good clips are thrown away with the five
+# bad ones. Copying only the matched pairs turns a fatal mismatch into five
+# clips that quietly did not make it.
+PAIRED=0; UNPAIRED=0
+for w in "$WORK/wavs"/*.wav; do
+  [ -e "$w" ] || continue
+  b="$(basename "$w" .wav)"
+  if [ -f "$ALIGN/$b.TextGrid" ]; then
+    cp "$w" "$DATA/wavs/$b.wav"
+    cp "$ALIGN/$b.TextGrid" "$DATA/textgrids/$b.TextGrid"
+    PAIRED=$((PAIRED+1))
+  else
+    UNPAIRED=$((UNPAIRED+1))
+    echo "  no alignment for $b — skipping it"
+  fi
+done
+echo "  $PAIRED clip(s) paired, $UNPAIRED skipped"
+# Eight is the same floor generator-train.js enforces before it will start a pod.
+# Below it the model has too little to learn from, and finding that out after a
+# day of GPU time is the expensive way to find out.
+[ "$PAIRED" -ge 8 ] || die "Only $PAIRED clip(s) aligned — need at least 8. The skipped clips usually have lyrics that do not match what was sung, or audio too breathy for alignment."
 
 cd "$ROOT/MakeDiffSinger/acoustic_forced_alignment"
 "$PY_BIN" build_dataset.py \
