@@ -102,6 +102,11 @@ export default async function handler(req, res) {
     const pace = PACES.includes(String(body.pace)) ? String(body.pace) : "normal";
     const orientation = body.orientation === "landscape" ? "landscape" : "portrait";
     const title = String(body.title || "").slice(0, 120);
+    // Grade choices are forwarded, not interpreted. The render server validates them
+    // against the lists ffmpeg actually knows; duplicating that check here would give
+    // two places to update and one of them would eventually be wrong.
+    const footage = String(body.footage || "standard");
+    const look = String(body.look || "wolf");
 
     // klass and singing come from api/musicvideo-classify.js. Anything missing or
     // unrecognised defaults to "locked", which is the class that cannot be moved —
@@ -133,7 +138,8 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
         body: JSON.stringify({
-          userId, songUrl, clips, pace, orientation, title, creditsCharged: cost,
+          userId, songUrl, clips, pace, orientation, title,
+          footage, look, creditsCharged: cost,
         }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d || !d.jobId) {
