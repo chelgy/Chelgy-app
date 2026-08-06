@@ -57,7 +57,11 @@ export default function SessionStudio({ user, token }) {
   const [err, setErr]           = useState("");
   const [role, setRole]         = useState("lead");
   const [playing, setPlaying]   = useState(null);
+  // stemId -> { jobId, pct, stage }. Keyed by stem so two separations running at
+  // once report separately instead of overwriting one another's progress.
+  const [splitting, setSplitting] = useState({});
   const fileRef = useRef(null);
+  const pollRef = useRef({});
 
   const uid = user && user.id;
 
@@ -73,6 +77,13 @@ export default function SessionStudio({ user, token }) {
   }
 
   useEffect(() => { refreshSessions(); /* eslint-disable-next-line */ }, [token, uid]);
+  // Intervals outlive the component otherwise, and a poller firing against an
+  // unmounted tree is a console full of setState warnings and a wasted request
+  // every three seconds for as long as the tab is open.
+  useEffect(() => () => {
+    Object.values(pollRef.current || {}).forEach((id) => clearInterval(id));
+    pollRef.current = {};
+  }, []);
   useEffect(() => { if (active) refreshStems(active.id); else setStems([]); /* eslint-disable-next-line */ }, [active && active.id]);
 
   async function onNew() {
@@ -131,6 +142,55 @@ export default function SessionStudio({ user, token }) {
     a.href = r.url;
     a.download = (stem.label || roleLabel(stem.role)) || "stem";
     document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // Separation runs on the song queue, so it is polled rather than awaited: a
+  // GPU job outlives any single request, and a browser that reloads mid-split
+  // must be able to pick it back up.
+  async function onSplit(stem, twoStems) {
+    setErr("");
+    const got = await stemUrl(token, stem);
+    if (!got.ok) return setErr(got.error);
+
+    const t = token;
+    const r = await fetch("/api/studio-separate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(t ? { Authorization: "Bearer " + t } : {}) },
+      body: JSON.stringify({
+        sourceUrl: got.url,
+        sessionId: active.id,
+        parentStemId: stem.id,
+        label: stem.label || roleLabel(stem.role),
+        twoStems: twoStems || "",
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.jobId) return setErr(j.error || "Couldn't start the split.");
+
+    setSplitting((m) => ({ ...m, [stem.id]: { jobId: j.jobId, pct: 5, stage: "Waiting for a machine" } }));
+
+    pollRef.current[stem.id] = setInterval(async () => {
+      try {
+        const t2 = token;
+        const s2 = await fetch("/api/studio-song?jobId=" + encodeURIComponent(j.jobId),
+          { headers: t2 ? { Authorization: "Bearer " + t2 } : {} });
+        const st = await s2.json();
+        if (!s2.ok) return;
+        setSplitting((m) => ({ ...m, [stem.id]: {
+          jobId: j.jobId,
+          pct: typeof st.progress === "number" ? Math.max(5, st.progress) : 5,
+          stage: st.stage ? st.stage.charAt(0).toUpperCase() + st.stage.slice(1) : "Working",
+        } }));
+        if (st.status === "done" || st.status === "failed" || st.status === "error") {
+          clearInterval(pollRef.current[stem.id]); delete pollRef.current[stem.id];
+          setSplitting((m) => { const n = { ...m }; delete n[stem.id]; return n; });
+          if (st.status !== "done") setErr(st.error || "The split didn't finish.");
+          // The stems were written by the pod, not by this browser, so the list
+          // has to be re-read rather than updated locally.
+          refreshStems(active.id);
+        }
+      } catch (_) {}
+    }, 3000);
   }
 
   async function onDeleteStem(stem) {
@@ -225,8 +285,22 @@ export default function SessionStudio({ user, token }) {
                       <span style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>{s.duration ? mmss(s.duration) : ""}</span>
                       <button onClick={() => onPlay(s)} style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Play</button>
                       <button onClick={() => onDownload(s)} style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Download</button>
+                      {!splitting[s.id] && (
+                        <button onClick={() => onSplit(s, "")} title="Split into vocals, drums, bass and the rest"
+                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Split</button>
+                      )}
                       <button onClick={() => onDeleteStem(s)} style={{ background: "none", border: "none", padding: "5px 6px", fontFamily: JOST, fontSize: 11.5, color: B.mid, cursor: "pointer" }}>Remove</button>
                     </div>
+                    {splitting[s.id] && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ height: 3, background: B.stone, marginBottom: 6 }}>
+                          <div style={{ height: 3, background: B.ink, width: (splitting[s.id].pct || 5) + "%", transition: "width .4s" }} />
+                        </div>
+                        <div style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>
+                          {splitting[s.id].stage}\u2026 splitting into vocals, drums, bass and the rest. This takes a minute or two.
+                        </div>
+                      </div>
+                    )}
                     {playing && playing.id === s.id && (
                       <audio src={playing.url} controls autoPlay style={{ width: "100%", height: 34, marginTop: 8 }} />
                     )}
