@@ -109,6 +109,15 @@ report 0 "starting up"
 CURRENT_STAGE="setting up the training environment"
 report 0 "setting up the training environment"
 say "Stage 0/6 — environment"
+# The interpreter that runs EVERYTHING except MFA. Resolved FIRST, before any
+# stage uses it: the mfa conda env has its own python without textgrid, torch or
+# DiffSinger's deps, so MFA's env must never become the default for the script.
+PY_BIN="$(command -v python3 || command -v python)" \
+  || die "No python interpreter on this image."
+export PY_BIN
+PIP="$PY_BIN -m pip"
+printf "  python: %s (%s)\n" "$PY_BIN" "$("$PY_BIN" --version 2>&1)"
+
 mkdir -p "$ROOT"; cd "$ROOT"
 
 if [ ! -d DiffSinger ]; then
@@ -140,15 +149,6 @@ if [ ! -f .deps-done ]; then
   fi
   touch .deps-done
 fi
-# The interpreter that runs EVERYTHING except MFA. Resolved and pinned BEFORE
-# the MFA env is touched, because the mfa conda env has its own python without
-# textgrid/torch/DiffSinger's deps in it.
-PY_BIN="$(command -v python3 || command -v python)" \
-  || die "No python interpreter on this image."
-export PY_BIN
-PIP="$PY_BIN -m pip"
-printf "  python: %s (%s)\n" "$PY_BIN" "$("$PY_BIN" --version 2>&1)"
-
 MFA=/opt/conda/envs/mfa/bin/mfa
 [ -x "$MFA" ] || MFA=$(command -v mfa) || die "MFA did not install."
 
