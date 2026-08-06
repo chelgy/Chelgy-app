@@ -27,7 +27,7 @@
   .bullet div:last-child{font-size:14.5px;line-height:1.55;color:var(--ink)}
   button{font-family:var(--body);font-size:15px;font-weight:600;padding:13px 26px;cursor:pointer;
     border:1px solid var(--ink);background:transparent;color:var(--ink);letter-spacing:.02em;border-radius:0}
-  button.fill{background:var(--ink);color:#fff}
+  button.fill,label.fill{background:var(--ink);color:var(--cream)}
   button.stop{background:var(--red);border-color:var(--red);color:#fff}
   button.ghost{border-color:var(--stone);color:var(--mid);font-weight:500;padding:13px 18px}
   button:disabled{opacity:.35;cursor:default}
@@ -71,7 +71,7 @@
   .hide{display:none}
   @media (prefers-color-scheme:dark){
     :root{--cream:#0a0705;--offwhite:#141010;--stone:#2a2320;--mid:#8f867b;--ink:#efe9df;--green:#5fcf94;--red:#e0685f}
-    button.fill{color:#0a0705}
+    button.fill,label.fill{color:#0a0705}
     button.stop{color:#fff}
   }
 </style>
@@ -116,7 +116,7 @@ async function saveClip(pid, take_id, section, blob, dur, seq){
   if(!up.ok) throw new Error("upload "+up.status);
   const row = await fetch(SUPABASE_URL+"/rest/v1/voice_clips", {
     method:"POST", headers:{...H(),"Content-Type":"application/json"},
-    body:JSON.stringify({ profile_id:pid, take_id, section, storage_path:path, duration:dur, seq }) });
+    body:JSON.stringify({ user_id:userId, profile_id:pid, take_id, section, storage_path:path, duration:dur, seq }) });
   if(!row.ok){ const e=await row.json().catch(()=>({})); throw new Error("register "+(e.message||row.status)); }
 }
 
@@ -528,7 +528,7 @@ function render(){
         <div class="bullet"><div class="dot"></div><div><b>Clean.</b> Quiet background, minimal effects.</div></div>
       </div>
       <div class="row" style="margin-bottom:16px">
-        <label class="fill" style="display:inline-block;padding:13px 26px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer">
+        <label class="fill" style="display:inline-block;padding:13px 26px;border:1px solid var(--ink);cursor:pointer;font-size:15px;font-weight:600;letter-spacing:.02em">
           Choose vocal files<input type="file" accept="audio/*" multiple style="display:none" onchange="addAcapella(this.files);this.value=''">
         </label>
       </div>
