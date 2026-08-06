@@ -70,7 +70,9 @@ const CA_NAV_LABELS = {
   "tools/grants": "Grant Finder",
   "tools/content": "AI Content Writer",
   "tools/backlinks": "Backlink & Authority Builder",
-  "tools/dropshipping": "Dropshipping Directory",
+  "tools/dropshipping": "Supplier Directory",
+  "tools/storebuilder": "Store Builder",
+  "tools/findproducts": "Find Winning Products",
   "tools/platforms": "Platform Setup Guides",
   "tools/library": "My Library",
   "community/advisor": "AI Advisor",
@@ -139,7 +141,7 @@ Never pretend you fixed an account, processed a refund, or changed a subscriptio
 When it would help the member get somewhere, you may add ONE navigation tag on its OWN LINE at the very END of your reply, and the app turns it into a tappable "Open →" button. Format:
 [[GO:tab]]   or   [[GO:tab:subtab]]
 Valid tabs: learn, tools, community, profile. (There is no home tab — Tools is the home page.)
-Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
+Valid tools (use with the tools tab): launch, website, images, productstudio, manager, video, videoeditor, thumbnail, ugcstudio, viral, ads, audit, voiceover, business, grants, content, backlinks, dropshipping, storebuilder, findproducts, platforms, library, getfeatured, presspitch, stylematch, backdrop, filmroom, storyboard, videoedit.
 Valid community: advisor, forum, members. Valid learn: strategies, weekly.
 Examples: if they have ALREADY FILMED something and want it cut, captioned and color-graded → end with [[GO:tools:videoeditor]] . To generate video from nothing, no camera → [[GO:tools:video]] . For creator-style UGC with a face and a voice → [[GO:tools:ugcstudio]] . For product photos or product videos → [[GO:tools:productstudio]] . For professional headshots or enhancing a personal photo → [[GO:tools:images]] (Enhance Photo tab) . For getting backlinks or ranking higher on Google → [[GO:tools:backlinks]] . For invoices, clients, proposals or contracts → [[GO:tools:manager]] . To the AI Advisor → [[GO:community:advisor]] . To the Need Help form → [[GO:profile]] .
 Only add a tag when there's a clear place to send them. Never show the raw tag text in your sentence — just write naturally and put the tag on its own last line.
@@ -11423,12 +11425,85 @@ function SessionStudioMount({ user }){
   return <SessionStudio user={user} token={tok} />;
 }
 
+
+// ─── WEBSITE / STORE FLAVOURS ────────────────────────────────────────────────
+// ONE wizard engine, two flavours. The flavour is DERIVED FROM THE TOOL ID, so
+// there is no extra state that can fall out of sync with what the member is
+// looking at. Everything that differs between a service website and a
+// dropshipping store — intake wording, the theme shortlist, the JSON schema and
+// the copywriting brief — lives in this object. Adding a third flavour later is
+// a new entry here, not another branch scattered through genWebsite().
+const WM_SCHEMA_SECTIONS = '[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"services","eyebrow":string,"title":string,"items":[{"name":string,"desc":string}] (3-6 services, for service businesses)},{"type":"whyus","eyebrow":string,"title":string,"points":[string] (4 short reasons to choose them)},{"type":"process","eyebrow":string,"title":string,"steps":[string] (3-4 steps in how it works)},{"type":"stats","items":[[string,string]] (3-4 pairs of [number, label] like ["500+","Happy clients"])},{"type":"team","eyebrow":string,"title":string,"people":[{"name":string,"role":string,"image":{"prompt":string}}] (owner or key team)},{"type":"testimonials","eyebrow":string,"title":string,"cards":[{"quote":string,"name":string}] (3 short reviews in happy-client voice)},{"type":"faq","eyebrow":string,"title":string,"qs":[{"q":string,"a":string}] (3-5 questions that reduce hesitation)},{"type":"pricing","eyebrow":string,"title":string,"tiers":[{"name":string,"price":string,"desc":string,"cta":{"label":string}}] (2-3 tiers)},{"type":"trustbadges","items":[string] (short trust markers like Licensed, Insured, Family Owned, Satisfaction Guaranteed)},{"type":"beforeafter","eyebrow":string,"title":string,"pairs":[{"before":{"prompt":string},"after":{"prompt":string}}] (1-2 pairs; ONLY for visual-results businesses like fitness, beauty, remodeling, landscaping)},{"type":"gallery","eyebrow":string,"title":string,"images":[{"prompt":string}] (4-6 portfolio images)},{"type":"serviceareas","eyebrow":string,"title":string,"areas":[string] (cities/areas served; good for local SEO)},{"type":"hours","eyebrow":string,"title":string,"rows":[[string,string]] (pairs of [days, hours])},{"type":"booking","eyebrow":string,"title":string,"sub":string,"cta":string (button label),"url":string (leave as "#" for the owner to paste their Booksy/Calendly link),"provider":string (e.g. Booksy)},{"type":"cta","eyebrow":string,"headline":string,"cta":{"label":string}},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (3-4 rows covering Phone, Email, Address and Hours, using the contact details the owner provided),"cta":{"label":string}}]';
+const WM_TOOLS = ["website", "storebuilder"];
+const WM_FLAVORS = {
+  site: {
+    noun: "website",
+    intro: "Answer a few questions and Chelgy writes your entire luxury website \u2014 headline, story, offerings, everything \u2014 and publishes it to a shareable link. You can refine it afterward.",
+    rebuildIntro: "Tell us about your business and Chelgy builds the whole site \u2014 words, layout, and a matching look chosen for you. You can switch themes and fine-tune everything after it's made.",
+    liveNote: "This is your ready-made website.",
+    buildLabel: "Build My Website",
+    openLabel: "Open My Website \u2197",
+    addLabel: "+ Make another website",
+    liveHead: "Your website is live",
+    steps: ["The basics", "Your positioning", "What you offer", "Your story", "Finishing touches"],
+    nameLabel: "Business name",
+    namePh: "e.g. Maren & Wilde",
+    descLabel: "What you do",
+    descPh: "What you do, who it's for, and the feeling you want. e.g. Small-batch botanical skincare, handmade in Portland, for people who love a slow ritual.",
+    audienceLabel: "Who you serve",
+    diffLabel: "What makes you different",
+    diffPh: "Your edge \u2014 why people choose you. Your approach, values, or signature.",
+    showKind: true,
+    fallbackTheme: "sable",
+    themes: [["fog","Fog"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"],["sable","Sable"],["missive","Missive"],["linen","Linen"],["umber","Umber"],["willow","Willow"]],
+    themeClause: 'choose exactly one best fit: fog = cool elegant grey high-fashion for beauty & marketing agencies; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers',
+    brief: "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident \u2014 think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clich\u00e9s like 'welcome' or 'we are passionate'.",
+    sectionRule: "SECTIONS \u2014 this is important: do NOT include every section type. Start with hero, then include about and either offerings (product business) or services (service business). After that, INTELLIGENTLY CHOOSE which of the remaining sections genuinely fit THIS specific business \u2014 from process, whyus, stats, testimonials, faq, pricing, team, trustbadges, beforeafter, gallery, serviceareas, hours, booking, cta \u2014 and order them so the page flows naturally, ending with contact. Only include a section if it truly makes sense for this business (e.g. beforeafter only for visual-results businesses; booking only if they take appointments; memberships/pricing only if relevant). Aim for a focused 7-10 sections total, not all of them.",
+  },
+  shop: {
+    noun: "store",
+    intro: "Answer a few questions and Chelgy builds your whole store \u2014 product grid, prices, shipping and returns, the trust signals that make strangers buy \u2014 and publishes it to a shareable link.",
+    rebuildIntro: "Tell us what you're selling and Chelgy builds the whole store \u2014 words, product layout, and a matching look chosen for you. You can switch themes and fine-tune everything after it's made.",
+    liveNote: "This is your ready-made store.",
+    buildLabel: "Build My Store",
+    openLabel: "Open My Store \u2197",
+    addLabel: "+ Make another store",
+    liveHead: "Your store is live",
+    steps: ["Your niche", "Who buys it", "Your products", "Your story", "Finishing touches"],
+    nameLabel: "Store name",
+    namePh: "e.g. Hearth & Hollow",
+    descLabel: "What you sell",
+    descPh: "Your niche and what's in the store. e.g. Cozy home decor \u2014 candles, ceramic mugs and woven throws for people making a first apartment feel like home.",
+    audienceLabel: "Who buys it",
+    diffLabel: "Why buy from you and not the next store",
+    diffPh: "Your edge \u2014 curation, speed, packaging, a guarantee, a point of view. Be honest; this is what the trust section is built from.",
+    showKind: false,
+    fallbackTheme: "nocturne",
+    // Four themes only. The other eight are agency / portfolio / long-form sales
+    // layouts built around a hero and a body of work, not a product grid.
+    themes: [["nocturne","Nocturne"],["linen","Linen"],["aurelia","Aurelia"],["fog","Fog"]],
+    themeClause: 'choose exactly one best fit: nocturne = near-black letterspaced serif, dark luxe beauty & haircare e-commerce; linen = warm oat-cream store with marquee, home decor & cozy lifestyle e-commerce; aurelia = dark warm-black Didone luxury editorial, premium & giftable products; fog = cool elegant grey high-fashion, beauty & apparel',
+    brief: "You are an elite direct-to-consumer copywriter building an ONLINE STORE for a real seller. Write the ENTIRE store as copy. Voice: upscale and restrained, but it must SELL \u2014 clear benefits, concrete detail, no waffle. Short sentences. No hype, no exclamation marks, no clich\u00e9s like 'welcome' or 'shop now for amazing deals'.\n\nThis is a shop, so the page must answer the three things that stop a stranger buying: is this any good, when will it arrive, and what if it's wrong. Cover shipping times, returns and a guarantee in plain language \u2014 never invent a specific courier or a delivery promise you weren't given; if timings weren't provided, write them as an honest range the owner can edit.",
+    sectionRule: "SECTIONS \u2014 this is important: do NOT include every section type. Start with hero, then offerings \u2014 the product grid, ONE item per product the owner listed, each with a price. You MUST also include trustbadges and an faq that covers shipping, returns and the guarantee. After that, INTELLIGENTLY CHOOSE from whyus, testimonials, stats, editorial, quote, process (read as 'how ordering works'), about and cta \u2014 and order them so the page flows naturally, ending with contact. Aim for a focused 7-10 sections total, not all of them.",
+  },
+};
+// Shared section catalogue. Identical for both flavours \u2014 a store needs the same
+// building blocks a site does. Only the theme clause and the section rule differ,
+// and those come from WM_FLAVORS, so the two can never drift apart.
+function wmSchema(flavor){
+  const F = WM_FLAVORS[flavor] || WM_FLAVORS.site;
+  return '{"theme":string (' + F.themeClause + '),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site \u2014 palette, lighting, mood, finish \u2014 so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "\u00a9 2026 \u00b7 City")},"sections":' + WM_SCHEMA_SECTIONS + ',"credit":true}';
+}
 function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, lutMedia={}, isAdmin=false, startType=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
+  // Flavour is derived, never stored: the tool the member opened IS the answer.
+  const wmFlavor = (tool==="storebuilder") ? "shop" : "site";
+  const WMF = WM_FLAVORS[wmFlavor];
   const [wmName,setWmName]=useState(""); const [wmDesc,setWmDesc]=useState(""); const [wmKind,setWmKind]=useState("services");
   const [wmOfferings,setWmOfferings]=useState(""); const [wmContact,setWmContact]=useState(""); const [wmTheme,setWmTheme]=useState("auto");
+  const [wmPricePoint,setWmPricePoint]=useState(""); const [wmSupplier,setWmSupplier]=useState("");
   const [wmStep,setWmStep]=useState(1); const [wmAudience,setWmAudience]=useState(""); const [wmDiff,setWmDiff]=useState(""); const [wmTone,setWmTone]=useState(""); const [wmAbout,setWmAbout]=useState(""); const [wmAutoBuild,setWmAutoBuild]=useState(false); const [iAutoRun,setIAutoRun]=useState(false); const [adAutoRun,setAdAutoRun]=useState(false);
   const [wmLoad,setWmLoad]=useState(false); const [wmErr,setWmErr]=useState(""); const [wmResult,setWmResult]=useState(null); const [wmStage,setWmStage]=useState(""); const [wmPhotoStyle,setWmPhotoStyle]=useState(""); const [regenAllBusy,setRegenAllBusy]=useState(false); const [regenAllProg,setRegenAllProg]=useState("");
   const [wmLogo,setWmLogo]=useState(null); const [wmSelf,setWmSelf]=useState(null); const [wmPhotos,setWmPhotos]=useState([]);
@@ -11602,6 +11677,19 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     if(i>=0){ d.sections[i].items=items; } else { d.sections=d.sections||[]; d.sections.push({type:"offerings",eyebrow:"Offerings",title:"What we offer",items}); }
     await saveData(d);
   }
+  // The coach ADVISES; this only runs when she taps Add. The product arrives
+  // complete — name, price, blurb, photo — and every field stays editable in
+  // the Products editor, exactly like a CJ import.
+  async function addStoreProduct(prod){
+    setEdProducts(a=>[...a, prod]);
+    if(!wmExisting||!wmExisting.data) return false;
+    const d=JSON.parse(JSON.stringify(wmExisting.data));
+    const item={ name:prod.name, note:prod.note||"", price:prod.price||"", image:(prod.image&&prod.image.url)?{url:prod.image.url}:undefined };
+    const i=(d.sections||[]).findIndex(x=>x&&x.type==="offerings");
+    if(i>=0){ d.sections[i].items=[...((d.sections[i].items)||[]), item]; }
+    else { d.sections=d.sections||[]; d.sections.push({type:"offerings",eyebrow:"Shop",title:"The collection",items:[item]}); }
+    return await saveData(d);
+  }
   async function genProductImage(idx){
     if(edProdBusy>=0) return; const pr=edProducts[idx]; if(!pr) return; setEdProdBusy(idx); setWmErr("");
     try{
@@ -11766,14 +11854,14 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   async function removeSection(idx){ const secs=curSections().slice(); if(idx<0||idx>=secs.length) return; secs.splice(idx,1); await saveSections(secs); }
   async function moveSection(idx,dir){ const secs=curSections().slice(); const j=idx+dir; if(j<0||j>=secs.length) return; const t=secs[idx]; secs[idx]=secs[j]; secs[j]=t; await saveSections(secs); }
   useEffect(()=>{
-    if(tool!=="website"||!user||!user.id) return;
+    if(!WM_TOOLS.includes(tool)||!user||!user.id) return;
     let cancel=false;
     (async()=>{
       try{
         const tok=await freshToken(); if(!tok) return;
         const res=await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug,data,theme,custom_domain&user_id=eq."+user.id+"&order=updated_at.desc.nullslast",{ headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+tok } });
         const rows=await res.json();
-        if(!cancel&&Array.isArray(rows)&&rows.length){ const mapped=rows.map(r=>{ const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; return { id:r.id, slug:r.slug, data, domain:r.custom_domain||null }; }); setWmSites(mapped); setWmExisting(mapped[0]); }
+        if(!cancel&&Array.isArray(rows)&&rows.length){ const mapped=rows.map(r=>{ const data=(r.data&&typeof r.data==="object")?r.data:{}; if(!data.theme&&r.theme) data.theme=r.theme; return { id:r.id, slug:r.slug, data, domain:r.custom_domain||null }; }).filter(x=>(((x.data&&x.data.flavor)||"site")===wmFlavor)); setWmSites(mapped); setWmExisting(mapped.length?mapped[0]:null); }
       }catch(e){}
     })();
     return ()=>{ cancel=true; };
@@ -11818,7 +11906,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   useEffect(()=>{
     if(!prefill || prefill.tool!==tool) return;
     const d=prefill.data||{};
-    if(tool==="website"){
+    if(WM_TOOLS.includes(tool)){
       if(d.name!==undefined)setWmName(d.name); if(d.desc!==undefined)setWmDesc(d.desc);
       if(d.kind)setWmKind(d.kind); if(d.offerings!==undefined)setWmOfferings(d.offerings);
       if(d.contact!==undefined)setWmContact(d.contact); if(d.audience!==undefined)setWmAudience(d.audience);
@@ -11861,8 +11949,9 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     if(Number(credits) < estCost){ setWmErr("This build needs about "+estCost.toLocaleString()+" credits — a logo plus one image per section and offering, at "+CREDIT_COSTS.image+" credits each. You have "+Number(credits).toLocaleString()+". Add a credit pack, then come right back and build."); onBuyCredits(); return; }
     setWmErr(""); setWmResult(null); setWmLoad(true); setWmStage("Writing your site…");
     try{
-      const schema = '{"theme":string (choose exactly one best fit: fog = cool elegant grey high-fashion for beauty & marketing agencies; duet = elegant split-screen black & white for photographers, wedding & design studios, couples; rouge = bold red creative studio with giant script for creative agencies & bold personal brands; vigor = bold heavy-grotesque fitness studio in bone & charcoal for gyms, fitness & athletic brands; aurelia = dark warm-black Didone luxury editorial for photographers, luxury & premium brands; claret = dramatic deep-wine creative agency with swash italics for bold creative agencies & studios; nocturne = near-black letterspaced-serif beauty/hair store for dark luxe beauty, haircare & e-commerce; sable = refined greige split-hero branding studio for designers, studios & creatives; missive = porcelain script + black & white blogger for content creators, bloggers & personal brands; linen = warm oat-cream store with marquee for home decor, lifestyle & cozy e-commerce; umber = warm mocha life-coach with parenthetical type for coaches, consultants & personal brands; willow = greige long-form sales page for course launches, mentorships & coaching offers),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site — palette, lighting, mood, finish — so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "© 2026 · City")},"sections":[{"type":"hero","eyebrow":string (short, uppercase-style label),"headline":string (the first part of a short elegant headline),"headlineEm":string (the final 1-2 emphasized words, shown in italic),"sub":string (one refined sentence),"cta":{"label":string},"image":{"prompt":string (a vivid photography brief for a luxury editorial hero image that suits this exact business — describe subject, setting, styling, lighting and mood; absolutely no text, words, or logos in the image)}},{"type":"philosophy","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string,string] (two short paragraphs)},{"type":"about","eyebrow":string,"heading":string,"headingEm":string (emphasized tail),"body":[string] (one short, warm-but-refined paragraph introducing the founder/person behind the business),"image":{"prompt":string (photography brief for an atmospheric SCENE representing the world of this business — workspace, materials, textures, environment; no text)}},{"type":"offerings","eyebrow":string,"title":string,"items":[{"name":string,"note":string (short descriptor),"price":string (e.g. "$68" or "From $200" or "" if a service),"image":{"prompt":string (photography brief for THIS item — a clean elegant product shot for a product, or an evocative aesthetic scene for a service; no text)}}] (create ONE item for EACH offering the business lists, in order — do NOT limit to 3; if none are listed, invent 4-6 fitting offerings)},{"type":"editorial","eyebrow":string,"line":string,"lineEm":string (emphasized tail),"image":{"prompt":string (photography brief for an atmospheric brand scene; no text)}},{"type":"quote","text":string (a short testimonial in the voice of a happy customer),"cite":string (e.g. "— First name, descriptor")},{"type":"services","eyebrow":string,"title":string,"items":[{"name":string,"desc":string}] (3-6 services, for service businesses)},{"type":"whyus","eyebrow":string,"title":string,"points":[string] (4 short reasons to choose them)},{"type":"process","eyebrow":string,"title":string,"steps":[string] (3-4 steps in how it works)},{"type":"stats","items":[[string,string]] (3-4 pairs of [number, label] like ["500+","Happy clients"])},{"type":"team","eyebrow":string,"title":string,"people":[{"name":string,"role":string,"image":{"prompt":string}}] (owner or key team)},{"type":"testimonials","eyebrow":string,"title":string,"cards":[{"quote":string,"name":string}] (3 short reviews in happy-client voice)},{"type":"faq","eyebrow":string,"title":string,"qs":[{"q":string,"a":string}] (3-5 questions that reduce hesitation)},{"type":"pricing","eyebrow":string,"title":string,"tiers":[{"name":string,"price":string,"desc":string,"cta":{"label":string}}] (2-3 tiers)},{"type":"trustbadges","items":[string] (short trust markers like Licensed, Insured, Family Owned, Satisfaction Guaranteed)},{"type":"beforeafter","eyebrow":string,"title":string,"pairs":[{"before":{"prompt":string},"after":{"prompt":string}}] (1-2 pairs; ONLY for visual-results businesses like fitness, beauty, remodeling, landscaping)},{"type":"gallery","eyebrow":string,"title":string,"images":[{"prompt":string}] (4-6 portfolio images)},{"type":"serviceareas","eyebrow":string,"title":string,"areas":[string] (cities/areas served; good for local SEO)},{"type":"hours","eyebrow":string,"title":string,"rows":[[string,string]] (pairs of [days, hours])},{"type":"booking","eyebrow":string,"title":string,"sub":string,"cta":string (button label),"url":string (leave as "#" for the owner to paste their Booksy/Calendly link),"provider":string (e.g. Booksy)},{"type":"cta","eyebrow":string,"headline":string,"cta":{"label":string}},{"type":"contact","eyebrow":string,"heading":string,"headingEm":string,"details":[{"k":string,"v":string}] (3-4 rows covering Phone, Email, Address and Hours, using the contact details the owner provided),"cta":{"label":string}}],"credit":true}';
-      const prompt = "You are an elite luxury brand copywriter building a website for a real business. Write the ENTIRE site as copy. Voice: upscale, editorial, restrained, confident — think Vogue, Aesop, Kinfolk. Short sentences. No hype, no exclamation marks, no clichés like 'welcome' or 'we are passionate'.\n\nIMAGERY: Also write a vivid photography brief (image.prompt) for the hero, the about scene, the editorial scene, and EACH offering item, plus a one-sentence styleDNA for the whole site. Every image must look like one cohesive editorial shoot — shared palette, lighting, mood and finish. Include people naturally where they fit the business (someone using the product, a stylist at work, a happy client), alongside products, scenes, spaces and details.\n\nBUSINESS NAME: "+wmName.trim()+"\nWHAT THEY DO: "+wmDesc.trim()+"\nTHIS IS A: "+(wmKind==="products"?"product business":(wmKind==="both"?"business offering both products and services":"service business"))+(wmAudience.trim()?("\nWHO THEY SERVE: "+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge — make the philosophy section and overall voice clearly convey it):\n"+wmDiff.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\nKEY OFFERINGS (create one offering item for EACH line below, in order — do not cap the count):\n"+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given — invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\nSECTIONS — this is important: do NOT include every section type. Start with hero, then include about and either offerings (product business) or services (service business). After that, INTELLIGENTLY CHOOSE which of the remaining sections genuinely fit THIS specific business — from process, whyus, stats, testimonials, faq, pricing, team, trustbadges, beforeafter, gallery, serviceareas, hours, booking, cta — and order them so the page flows naturally, ending with contact. Only include a section if it truly makes sense for this business (e.g. beforeafter only for visual-results businesses; booking only if they take appointments; memberships/pricing only if relevant). Aim for a focused 7-10 sections total, not all of them.\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
+      const schema = wmSchema(wmFlavor);
+      const effKind = (wmFlavor==="shop") ? "products" : wmKind;
+      const prompt = WMF.brief+"\n\nIMAGERY: Also write a vivid photography brief (image.prompt) for the hero, the about scene, the editorial scene, and EACH offering item, plus a one-sentence styleDNA for the whole site. Every image must look like one cohesive editorial shoot \u2014 shared palette, lighting, mood and finish. Include people naturally where they fit the business (someone using the product, a stylist at work, a happy client), alongside products, scenes, spaces and details.\n\n"+((wmFlavor==="shop")?"STORE NAME: ":"BUSINESS NAME: ")+wmName.trim()+((wmFlavor==="shop")?"\nWHAT THEY SELL: ":"\nWHAT THEY DO: ")+wmDesc.trim()+((wmFlavor==="shop")?"":("\nTHIS IS A: "+(effKind==="products"?"product business":(effKind==="both"?"business offering both products and services":"service business"))))+(wmAudience.trim()?("\n"+((wmFlavor==="shop")?"WHO BUYS IT: ":"WHO THEY SERVE: ")+wmAudience.trim()):"")+(wmDiff.trim()?("\nWHAT MAKES THEM DIFFERENT (this is their edge \u2014 make the voice and the trust sections clearly convey it):\n"+wmDiff.trim()):"")+((wmFlavor==="shop"&&wmPricePoint.trim())?("\nPRICE POINT (keep every product price in this range and match the tone to it): "+wmPricePoint.trim()):"")+((wmFlavor==="shop"&&wmSupplier.trim())?("\nSUPPLIER / FULFILMENT SITUATION (use this to write HONEST shipping and returns copy \u2014 do not promise faster than this):\n"+wmSupplier.trim()):"")+(wmTone.trim()?("\nDESIRED VIBE / TONE: "+wmTone.trim()):"")+(wmAbout.trim()?("\nABOUT / FOUNDER STORY (use for the about section and to shape the warmth of the voice):\n"+wmAbout.trim()):"")+(wmOfferings.trim()?("\n"+((wmFlavor==="shop")?"PRODUCTS (create one product item for EACH line below, in order \u2014 do not cap the count):\n":"KEY OFFERINGS (create one offering item for EACH line below, in order \u2014 do not cap the count):\n")+wmOfferings.trim()):"")+(wmContact.trim()?("\nCONTACT DETAILS (use in the contact section):\n"+wmContact.trim()):"\nCONTACT: none given \u2014 invent tasteful placeholder contact details (a street, an email at their domain, and hours).")+"\n\n"+WMF.sectionRule+"\n\nReturn ONLY a JSON object, no markdown, no commentary, matching EXACTLY this shape (fill every field with real, specific copy for THIS business):\n"+schema;
       const raw = await callClaude(prompt, 12000);
       let jsonText = (raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const first = jsonText.indexOf("{"); const last = jsonText.lastIndexOf("}");
@@ -11870,9 +11959,10 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       let site;
       try{ site = JSON.parse(jsonText); }catch(pe){ throw new Error("The AI's response wasn't quite right — please try again."); }
       if(!site||!Array.isArray(site.sections)||!site.brand){ throw new Error("The site came back incomplete — please try again."); }
-      const IMPL=["fog","duet","rouge","vigor","aurelia","claret","nocturne","sable","missive","linen","umber","willow"];
-      site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:"sable") : wmTheme;
+      const IMPL=WMF.themes.map(t=>t[0]);
+      site.theme = (wmTheme==="auto") ? (IMPL.includes(site.theme)?site.theme:WMF.fallbackTheme) : (IMPL.includes(wmTheme)?wmTheme:WMF.fallbackTheme);
       if(site.credit===undefined) site.credit = true;
+      site.flavor = wmFlavor;
       const themeStyle = THEME_IMG_STYLE[site.theme] || THEME_IMG_STYLE["editorial-porcelain"];
       // Upload any photos the person provided, then place them into the site
       setWmStage("Adding your photos…");
@@ -11933,9 +12023,10 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       } else if(wmExisting && wmExisting.id){
         const r=await patchRow(wmExisting.id, wmExisting.slug||(slugify(wmName)+"-"+rnd())); slug=r.slug; rowId=r.rowId;
       } else {
-        const exRes = await fetch(SUPABASE_URL+"/rest/v1/websites?select=id,slug&user_id=eq."+user.id+"&limit=1", { headers:H });
-        const ex = await exRes.json().catch(()=>[]);
-        if(Array.isArray(ex)&&ex.length){ const r=await patchRow(ex[0].id, ex[0].slug); slug=r.slug; rowId=r.rowId; }
+        // Only ever overwrite a row of the SAME flavour — building a store must
+        // never silently replace the member's service website.
+        const same = (wmSites||[]).filter(x=>x&&x.id);
+        if(same.length){ const r=await patchRow(same[0].id, same[0].slug); slug=r.slug; rowId=r.rowId; }
         else { const r=await insertNew(); slug=r.slug; rowId=r.rowId; }
       }
       const newRec = { id:rowId, slug, data:site, domain:((!wmNewSite&&wmExisting)?wmExisting.domain:null) };
@@ -12187,13 +12278,13 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <Rb label={cType==="seo"?"SEO-Optimized Content":"Generated Content"} content={cRes} loading={cLoad} />
       </div>}
 
-      {tool==="website"&&<div>
+      {WM_TOOLS.includes(tool)&&<div>
         <div style={{marginBottom:22}}>
-          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 4px"}}>Answer a few questions and Chelgy writes your entire luxury website — headline, story, offerings, everything — and publishes it to a shareable link. You can refine it afterward.</p>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 4px"}}>{WMF.intro}</p>
         </div>
 
         {!wmResult && wmExisting && wmMode==="view" && <div>
-          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14.5,color:B.mid,lineHeight:1.65}}><strong style={{color:B.charcoal}}>This is your ready-made website.</strong> Don't love it? Browse the themes below to change the whole look — and use the tools underneath to swap your photos, products, and text until it feels like yours.</div>
+          <div style={{background:B.white,border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14.5,color:B.mid,lineHeight:1.65}}><strong style={{color:B.charcoal}}>{WMF.liveNote}</strong> Don't love it? Browse the themes below to change the whole look — and use the tools underneath to swap your photos, products, and text until it feels like yours.</div>
           {multiSite && <div style={{marginBottom:22,paddingBottom:20,borderBottom:"1px solid "+B.stone}}>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:10,textTransform:"uppercase"}}>{marketerMode?"Your clients":"Your websites"} ({wmSites.length})</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
@@ -12201,13 +12292,13 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                 <button key={st.id} onClick={()=>{ setWmExisting(st); setWmMode("view"); setWmResult(null); }} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.inkBlock:B.white,color:cur?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(st.data&&st.data.brand&&st.data.brand.name)||st.slug}</button>
               ); })}
             </div>
-            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:B.inkText,border:"none",padding:"11px 18px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{marketerMode?"+ Add a client website":"+ Make another website"}</button>
+            <button onClick={()=>{ setWmNewSite(true); setWmMode("rebuild"); setWmResult(null); setWmStep(1); setWmName(""); setWmDesc(""); setWmKind("services"); setWmAudience(""); setWmDiff(""); setWmTone(""); setWmAbout(""); setWmOfferings(""); setWmContact(""); setWmLogo(null); setWmSelf(null); setWmPhotos([]); setWmErr(""); }} style={{background:B.gold,color:B.inkText,border:"none",padding:"11px 18px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{marketerMode?"+ Add a client website":WMF.addLabel}</button>
           </div>}
           <div style={{background:B.white,border:"1px solid "+B.stone,padding:"22px",marginBottom:22}}>
-            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>Your website is live</div>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"}}>{WMF.liveHead}</div>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,marginBottom:14,wordBreak:"break-all"}}>{window.location.origin+"/?site="+wmExisting.slug}</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              <a href={window.location.origin+"/?site="+wmExisting.slug} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
+              <a href={window.location.origin+"/?site="+wmExisting.slug} target="_blank" rel="noreferrer"><Btn dark small>{WMF.openLabel}</Btn></a>
               <button onClick={()=>{try{navigator.clipboard.writeText(window.location.origin+"/?site="+wmExisting.slug);}catch(e){}}} style={{background:B.white,border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
               <ShareBar url={(wmExisting.domain?("https://"+wmExisting.domain):(window.location.origin+"/?site="+wmExisting.slug))} title={(wmExisting.data&&wmExisting.data.brand&&wmExisting.data.brand.name)||"my site"} text={"Come visit my site!"} />
             </div>
@@ -12259,7 +12350,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Theme</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["fog","Fog"],["duet","Duet"],["rouge","Rouge"],["vigor","Vigor"],["aurelia","Aurelia"],["claret","Claret"],["nocturne","Nocturne"],["sable","Sable"],["missive","Missive"],["linen","Linen"],["umber","Umber"],["willow","Willow"]].map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.inkBlock:B.white,color:cur?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{label}</button>;})}
+              {WMF.themes.map(([id,label])=>{const cur=wmExisting.data.theme===id;return <button key={id} onClick={()=>changeEditorTheme(id)} style={{padding:"9px 14px",border:"1px solid "+(cur?B.charcoal:B.stone),background:cur?B.inkBlock:B.white,color:cur?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:"pointer"}}>{label}</button>;})}
             </div>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:8,lineHeight:1.5}}>Switch your theme anytime — each one changes the whole look, fonts, and colors.</div>
           </div>
@@ -12481,31 +12572,33 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         </div>}
 
         {!wmResult && (wmMode==="rebuild" || !wmExisting) && <div>
-          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,marginBottom:20,lineHeight:1.6}}>Tell us about your business and Chelgy builds the whole site — words, layout, and a matching look chosen for you. You can switch themes and fine-tune everything after it's made.</div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,marginBottom:20,lineHeight:1.6}}>{WMF.rebuildIntro}</div>
 
           <div style={{display:"flex",gap:6,marginBottom:8}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:3,background:n<=wmStep?B.gold:B.stone}}></div>)}</div>
-          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:20,textTransform:"uppercase"}}>Step {wmStep} of 5 · {["The basics","Your positioning","What you offer","Your story","Finishing touches"][wmStep-1]}</div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:20,textTransform:"uppercase"}}>Step {wmStep} of 5 · {WMF.steps[wmStep-1]}</div>
 
           {wmStep===1&&<div>
-            <div style={wmLbl}>Business name</div>
-            <input value={wmName} onChange={e=>setWmName(e.target.value)} placeholder="e.g. Maren & Wilde" style={wmInp} />
-            <div style={wmLbl}>What you do</div>
-            <textarea value={wmDesc} onChange={e=>setWmDesc(e.target.value)} placeholder="What you do, who it's for, and the feeling you want. e.g. Small-batch botanical skincare, handmade in Portland, for people who love a slow ritual." rows={4} style={wmTa} />
-            <div style={wmLbl}>You offer</div>
-            <div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>{[["services","Services"],["products","Products"],["both","Both"]].map(([v,l])=>(<button key={v} onClick={()=>setWmKind(v)} style={{padding:"9px 18px",border:"1px solid "+(wmKind===v?B.charcoal:B.stone),background:wmKind===v?B.inkBlock:B.white,color:wmKind===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,cursor:"pointer"}}>{l}</button>))}</div>
+            <div style={wmLbl}>{WMF.nameLabel}</div>
+            <input value={wmName} onChange={e=>setWmName(e.target.value)} placeholder={WMF.namePh} style={wmInp} />
+            <div style={wmLbl}>{WMF.descLabel}</div>
+            <textarea value={wmDesc} onChange={e=>setWmDesc(e.target.value)} placeholder={WMF.descPh} rows={4} style={wmTa} />
+            {WMF.showKind&&<div style={wmLbl}>You offer</div>}
+            {WMF.showKind&&<div style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>{[["services","Services"],["products","Products"],["both","Both"]].map(([v,l])=>(<button key={v} onClick={()=>setWmKind(v)} style={{padding:"9px 18px",border:"1px solid "+(wmKind===v?B.charcoal:B.stone),background:wmKind===v?B.inkBlock:B.white,color:wmKind===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,cursor:"pointer"}}>{l}</button>))}</div>}
           </div>}
 
           {wmStep===2&&<div>
-            <div style={wmLbl}>Who you serve</div>
+            <div style={wmLbl}>{WMF.audienceLabel}</div>
             <textarea value={wmAudience} onChange={e=>setWmAudience(e.target.value)} placeholder="Your ideal client or customer — who they are, what they want, how they want to feel." rows={3} style={wmTa} />
-            <div style={wmLbl}>What makes you different</div>
-            <textarea value={wmDiff} onChange={e=>setWmDiff(e.target.value)} placeholder="Your edge — why people choose you. Your approach, values, or signature." rows={3} style={wmTa} />
+            <div style={wmLbl}>{WMF.diffLabel}</div>
+            <textarea value={wmDiff} onChange={e=>setWmDiff(e.target.value)} placeholder={WMF.diffPh} rows={3} style={wmTa} />
+            {wmFlavor==="shop"&&<div style={wmLbl}>Price point</div>}
+            {wmFlavor==="shop"&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>{["Under $25","$25–$60","$60–$150","$150+"].map(v=>(<button key={v} onClick={()=>setWmPricePoint(p=>p===v?"":v)} style={{padding:"9px 16px",border:"1px solid "+(wmPricePoint===v?B.charcoal:B.stone),background:wmPricePoint===v?B.inkBlock:B.white,color:wmPricePoint===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,cursor:"pointer"}}>{v}</button>))}</div>}
             <div style={wmLbl}>Vibe <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>{["Luxury","Minimal","Warm","Bold","Playful","Classic","Modern","Earthy","Feminine","Editorial"].map(v=>{const on=(wmTone||"").split(", ").indexOf(v)>=0;return <button key={v} onClick={()=>setWmTone(t=>{const a=t?t.split(", ").filter(Boolean):[];return a.indexOf(v)>=0?a.filter(x=>x!==v).join(", "):[...a,v].join(", ");})} style={{padding:"8px 14px",border:"1px solid "+(on?B.charcoal:B.stone),background:on?B.inkBlock:B.white,color:on?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,cursor:"pointer"}}>{v}</button>;})}</div>
           </div>}
 
           {wmStep===3&&<div>
-            <div style={wmLbl}>Your {wmKind==="products"?"products":(wmKind==="both"?"products & services":"services")} · list them</div>
+            <div style={wmLbl}>{wmFlavor==="shop"?"Your products · list them":("Your "+(wmKind==="products"?"products":(wmKind==="both"?"products & services":"services"))+" · list them")}</div>
             <textarea value={wmOfferings} onChange={e=>setWmOfferings(e.target.value)} placeholder={"One per line, with a price if you like.\ne.g.\nThe Radiance Oil — $68\nRosewater Mist — $42"} rows={5} style={wmTa} />
             <div style={wmLbl}>{wmKind==="services"?"Photos":"Product / service photos"} <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
             <div style={{marginBottom:12}}>
@@ -12523,7 +12616,11 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
               ))}
               {wmPhotos.length<20&&<label style={{display:"inline-flex",alignItems:"center",justifyContent:"center",padding:"11px 16px",border:"1px dashed "+B.stone,background:B.white,cursor:"pointer",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.goldDark}}>{wmKind==="services"?"+ Add a photo":"+ Add a product / work photo"}<input type="file" accept="image/*" multiple onChange={e=>{ Array.from(e.target.files||[]).slice(0,20-wmPhotos.length).forEach(f=>wmRead(f,d=>setWmPhotos(a=>[...a,{data:d,use:"",pro:false}].slice(0,20)))); }} style={{display:"none"}} /></label>}
             </div>
-            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginBottom:6,lineHeight:1.55}}>{wmKind==="services"?"Add photos to showcase your work. ":"Add a photo for each product if you can. Services can just be listed. "}Anything you skip, Chelgy fills with matching AI imagery.</div>
+            <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginBottom:6,lineHeight:1.55}}>{wmKind==="services"&&wmFlavor!=="shop"?"Add photos to showcase your work. ":"Add a photo for each product if you can. "}Anything you skip, Chelgy fills with matching AI imagery.</div>
+            {wmFlavor==="shop"&&<div style={{marginTop:6}}>
+              <div style={wmLbl}>Supplier &amp; shipping <span style={{color:B.stone,fontWeight:400}}>· optional</span></div>
+              <textarea value={wmSupplier} onChange={e=>setWmSupplier(e.target.value)} placeholder={"Who fulfils your orders and how long delivery really takes. e.g. CJ Dropshipping, US warehouse, 5–12 days — 30 day returns.\nChelgy writes your shipping and returns copy from this, so keep it honest."} rows={3} style={wmTa} />
+            </div>}
           </div>}
 
           {wmStep===4&&<div>
@@ -12554,18 +12651,18 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             {wmStep>1&&<button onClick={wmBack} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"12px 20px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>← Back</button>}
             {wmStep<5
               ? <Btn dark onClick={wmNext}>Next →</Btn>
-              : <Btn dark disabled={wmLoad} onClick={act(genWebsite)}>{wmLoad?(wmStage||"Working…"):"Build My Website"}</Btn>}
+              : <Btn dark disabled={wmLoad} onClick={act(genWebsite)}>{wmLoad?(wmStage||"Working…"):WMF.buildLabel}</Btn>}
           </div>
           {wmErr&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.red,marginTop:14,lineHeight:1.5}}>{wmErr}</div>}
           {wmLoad&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,marginTop:12}}>This can take a minute or two — Chelgy is writing every section and creating all your images.</div>}
         </div>}
 
         {wmResult&&<div style={{background:B.white,border:"1px solid "+B.stone,padding:"26px"}}>
-          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>Your site is live</div>
+          <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,color:B.gold,fontWeight:700,letterSpacing:"0.18em",marginBottom:12,textTransform:"uppercase"}}>{WMF.liveHead}</div>
           <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:22,color:B.charcoal,marginBottom:8}}>{wmName}</div>
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,marginBottom:18,wordBreak:"break-all"}}>{wmResult.url}</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-            <a href={wmResult.url} target="_blank" rel="noreferrer"><Btn dark small>Open My Website ↗</Btn></a>
+            <a href={wmResult.url} target="_blank" rel="noreferrer"><Btn dark small>{WMF.openLabel}</Btn></a>
             <button onClick={()=>{ try{ navigator.clipboard.writeText(wmResult.url); }catch(e){} }} style={{background:B.white,border:"1px solid "+B.stone,color:B.charcoal,padding:"9px 14px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Copy Link</button>
             <button onClick={()=>{ setWmResult(null); setWmMode("view"); }} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"9px 14px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Refine My Site</button>
           </div>
@@ -12827,8 +12924,24 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
         <Upsell variant="both" />
       </div>}
 
+      {tool==="findproducts"&&<div>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Find winning products</h2>
+        <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:B.mid,fontSize:14,margin:"0 0 18px",letterSpacing:"0.02em",lineHeight:1.6}}>Tell Chelgy a niche and get products that are selling right now — with the buyer, the price, the margin and an ad hook. Nothing goes near your store until you say so.</p>
+        <StoreProductCoach
+          user={user}
+          storeName={(wmExisting&&wmExisting.data&&wmExisting.data.brand&&wmExisting.data.brand.name)||wmName||""}
+          themeStyle={THEME_IMG_STYLE[(wmExisting&&wmExisting.data&&wmExisting.data.theme)||"nocturne"]||THEME_IMG_STYLE["nocturne"]}
+          hasStore={!!(wmExisting&&wmExisting.data)}
+          credits={credits}
+          locked={locked}
+          onUpgrade={onUpgrade}
+          onBalance={onBalance}
+          onAdd={addStoreProduct}
+          onGoBuild={()=>onGoTool("storebuilder")}
+        />
+      </div>}
       {tool==="dropshipping"&&<div>
-        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Dropshipping Directory</h2>
+        <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Suppliers</h2>
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",color:B.mid,fontSize:14,margin:"0 0 18px",letterSpacing:"0.02em"}}>12 trusted suppliers, all vetted and ready to use.</p>
         {locked ? (
           <div style={{background:B.offwhite,border:"1px dashed "+B.stone,padding:"32px 20px",textAlign:"center"}}>
@@ -13203,13 +13316,14 @@ const DAILY_POOL = [
   { title:"Make a fresh product or service photo", tool:"images" },
   { title:"Study a competitor's presence for 10 minutes", tool:"audit" },
 ];
-const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", commercial:"Commercial", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Dropshipping Directory", platforms:"Platform Setup Guides" };
+const TOOL_LABELS = { leadfinder:"Lead Finder", websiteleads:"Website Extractor", outreach:"My Leads & Outreach", launch:"Business Builder", website:"Website Builder", images:"Image Creator", productstudio:"Product Studio", manager:"Business Manager", video:"Video Studio", videoeditor:"AI Video Editor", thumbnail:"Thumbnail Studio", backdrop:"Fake It", filmroom:"Film Room", storyboard:"Storyboard", commercial:"Commercial", ugcstudio:"UGC Studio", viral:"Viral Video Generator", ads:"Ad Campaign Builder", audit:"Business Audit", voiceover:"Voiceover Studio", business:"Business Coach", grants:"Grant Finder", content:"Content Writer", backlinks:"Backlink & Authority Builder", dropshipping:"Supplier Directory", storebuilder:"Store Builder", findproducts:"Find Winning Products", platforms:"Platform Setup Guides" };
 // -- "Do this in Chelgy" tool recommendations for strategies, the guide & the blog --
 const TOOL_REC = {
   content:   ["cat_social", "Social Media",               "Write the captions, posts, emails and ad copy for this right in the Content Writer."],
   images:    ["cat_photo", "Photo & Design",                "Create the visuals, logos, flyers and graphics for this in the Image Creator."],
   ads:       ["cat_ads", "Advertising",          "Build a ready-to-launch ad campaign for this in the Ad Campaign Builder."],
   website:   ["cat_website", "Website Builder",              "Build the site, funnel or landing page — and grab a domain — in the Website Builder."],
+  dropship:  ["cat_dropship", "Dropshipping",                "Build the store, find products worth selling and line up a supplier — all in Dropshipping."],
   backlinks: ["cat_seo", "SEO", "Get backlinks and climb the rankings with the Backlink & Authority Builder."],
   ugcstudio: ["cat_video", "Video Studio",                   "Make creator-style UGC content for this in the UGC Studio."],
   video:     ["cat_video", "Video Studio",                 "Turn this into video — no camera needed — in the Video Studio."],
@@ -13223,6 +13337,7 @@ function recFor(topic){
   if(has("paid ad","paid advertising","facebook ad","google ad","tiktok ad"," ppc","ad campaign")) return TOOL_REC.ads;
   if(has("video")) return TOOL_REC.video;
   if(has("influencer","ugc","creator")) return TOOL_REC.ugcstudio;
+  if(has("dropship","drop ship","ecommerce","e-commerce","online store","shopify","sell products online")) return TOOL_REC.dropship;
   if(has("website","funnel","landing","online presence","platform stack")) return TOOL_REC.website;
   if(has("brand","logo","flyer","physical")) return TOOL_REC.images;
   if(has("local","google business","yelp","directory","directories")) return TOOL_REC.audit;
@@ -13240,7 +13355,7 @@ function ToolCallout({ rec, onGo }){
   );
 }
 // Tool display order (most-used first). Change this one line to reorder tools everywhere.
-const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
+const TOOL_ORDER = ["launch","leadfinder","websiteleads","outreach","content","images","manager","website","storebuilder","findproducts","viral","ugcstudio","video","ads","productstudio","audit","voiceover","business","platforms","backlinks","grants","dropshipping"];
 const CATEGORIES = [
   /* ═══════════════════════════════════════════════════════════════════════
      HIDDEN: Leads  —  uncomment this ONE block to bring it back.
@@ -13261,8 +13376,13 @@ const CATEGORIES = [
      ═══════════════════════════════════════════════════════════════════════ */
   { id:"cat_build", title:"Business Builder", icon:"Star", blurb:"Start a business from nothing, or fix the one you have. Answer a few questions and get your website, logo, brand and launch plan built for you — then audit what's working, ask a coach anything, and find grants you actually qualify for.",
     tabs:[ {label:"Business Builder",nav:"launch",navBlurb:"Answer a few questions and Chelgy builds your whole business \u2014 website, logo, brand, social plan and launch roadmap."}, {label:"Business Audit",tool:"audit"}, {label:"Business Coach",tool:"business"}, {label:"Grant Finder",tool:"grants"} ] },
-  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build a real website and put it online today. Pick a look, let Chelgy write and design it, connect your own domain, and — if you're selling — source products from vetted suppliers without holding any stock.",
-    tabs:[ {label:"Website Builder",tool:"website"}, {label:"Dropshipping Directory",tool:"dropshipping"} ] },
+  { id:"cat_website", title:"Website Builder", icon:"Globe", blurb:"Build a real website and put it online today. Pick a look, let Chelgy write and design it, and connect your own domain.",
+    tabs:[ {label:"Website Builder",tool:"website"} ] },
+  // Dropshipping is its own category, not a tab on the website builder. Store
+  // Builder is the SAME engine as Website Builder running its "shop" flavour —
+  // one wizard, so a fix to either lands in both.
+  { id:"cat_dropship", title:"Dropshipping", icon:"Package", blurb:"Sell products online without ever holding stock. Chelgy builds you a real store — product grid, prices, shipping and returns — then finds you products worth selling, shoots them in your store's look, and points you at suppliers who actually ship on time.",
+    tabs:[ {label:"Store Builder",tool:"storebuilder"}, {label:"Find Products",tool:"findproducts"}, {label:"Suppliers",tool:"dropshipping"} ] },
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
@@ -18024,6 +18144,98 @@ const CHELGY_STORE_NICHES = [
   { id: "sports", label: "Sport & Fitness" },
 ];
 
+
+// Winning-product coach. It ADVISES: it researches, it shows its reasoning, and
+// nothing reaches the store until the member taps Add. On Add the product is
+// built complete — name, price, store-ready blurb and its own photograph — and
+// handed to the store the same way a CJ import is, fully editable afterwards.
+// Imaging is Gemini (Nano Banana): dropshipping imagery never uses GPT Image.
+function StoreProductCoach({ user, storeName, themeStyle, hasStore, credits, locked, onUpgrade, onBalance, onAdd, onGoBuild }){
+  const [q,setQ]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [items,setItems]=useState([]);
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(-1);
+  const [added,setAdded]=useState({});
+  const IMG=CREDIT_COSTS.image;
+
+  const run=async()=>{
+    if(!q.trim()||loading) return;
+    setLoading(true); setErr(""); setItems([]); setAdded({});
+    try{
+      const prompt="You are a sharp e-commerce product researcher for dropshippers. For the niche below, suggest 6 products that trend and sell well right now. Be specific and realistic — real products, not categories."
+        +(storeName?("\n\nTHE STORE: "+storeName):"")
+        +"\n\nNICHE/INTEREST: "+q.trim()
+        +"\n\nReturn ONLY a JSON array (no markdown) of 6 objects, each: {\"name\": string (a specific product), \"why\": string (one sentence on why it wins — the demand, wow-factor, or problem it solves), \"audience\": string (who buys it), \"retail\": string (ONE realistic retail price, like \"$32\"), \"margin\": string (rough profit potential like \"3-5x\" or \"~$18/sale\"), \"blurb\": string (one short store-ready product description in an upscale, restrained voice — this is what shoppers read, not research notes), \"hook\": string (a punchy, scroll-stopping ad hook), \"photo\": string (a photography brief for a clean, premium product shot of this exact item — subject, surface, styling, lighting; no text, no words, no logos)}.";
+      const raw=await callClaude(prompt, 2600);
+      let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+      const a=t.indexOf("["), b=t.lastIndexOf("]"); if(a>=0&&b>a) t=t.slice(a,b+1);
+      const arr=JSON.parse(t);
+      setItems(Array.isArray(arr)?arr:[]);
+      if(!Array.isArray(arr)||!arr.length) setErr("Couldn't get product ideas — please try again.");
+    }catch(e){ setErr("Couldn't get product ideas — please try again."); }
+    setLoading(false);
+  };
+
+  async function addOne(it,i){
+    if(locked){ onUpgrade&&onUpgrade(); return; }
+    if(busy>=0) return;
+    if(!hasStore){ setErr("Build your store first — then products have somewhere to land."); return; }
+    if(Number(credits)<IMG){ setErr("Shooting this product's photo costs "+IMG+" credits and you have "+Number(credits).toLocaleString()+"."); return; }
+    setBusy(i); setErr("");
+    let image=null;
+    try{
+      const brief=(it.photo||("A clean, premium product photograph of "+(it.name||"the product")))
+        +" Styled and lit to match this mood and palette: "+(themeStyle||"")
+        +" No text, no words, no logos, no watermarks.";
+      const r=await generateGeminiImage(brief, null, "1:1", "standard");
+      if(r&&r.image){
+        if(typeof r.balance==="number"&&onBalance) onBalance(r.balance);
+        const u=await uploadSiteImage(r.image, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png");
+        if(u) image={ url:u };
+      }
+    }catch(e){}
+    try{
+      await onAdd({ name:it.name||"New product", price:it.retail||"", note:it.blurb||it.why||"", image, buyUrl:"", cj:null });
+      setAdded(m=>({ ...m, [i]:true }));
+    }catch(e){ setErr("Couldn't add that to your store — please try again."); }
+    setBusy(-1);
+  }
+
+  const inp={flex:1,minWidth:200,padding:"11px 13px",border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,outline:"none",boxSizing:"border-box",background:B.white,color:B.charcoal};
+  const lbl={fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,color:B.mid};
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")run();}} placeholder="e.g. cozy home decor, dog owners, home fitness" style={inp} />
+        <button onClick={run} disabled={loading||!q.trim()} style={{background:B.inkBlock,color:B.inkText,border:"none",padding:"11px 22px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:(loading||!q.trim())?"default":"pointer",opacity:(loading||!q.trim())?0.5:1,whiteSpace:"nowrap"}}>{loading?"Researching…":"Find products"}</button>
+      </div>
+      {!hasStore&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,lineHeight:1.6,border:"1px solid "+B.stone,background:B.white,padding:"12px 14px",marginBottom:14}}>Research anything you like now — but you'll need a store before products can be added to one. <button onClick={onGoBuild} style={{background:"none",border:"none",padding:0,color:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",borderBottom:"1px solid "+B.charcoal}}>Build my store</button></div>}
+      {err&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.red,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+      {items.length>0&&<div style={{display:"grid",gap:12}}>
+        {items.map((it,i)=>(
+          <div key={i} style={{border:"1px solid "+B.stone,background:B.white,padding:"15px 17px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap",alignItems:"baseline",marginBottom:6}}>
+              <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:17,color:B.charcoal}}>{it.name}</div>
+              <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.charcoal,fontWeight:700}}>{it.retail}{it.margin?(" · "+it.margin):""}</div>
+            </div>
+            {it.why&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,marginBottom:8}}>{it.why}</div>}
+            {it.audience&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,marginBottom:8}}><span style={lbl}>Who buys it</span><br/>{it.audience}</div>}
+            {it.hook&&<div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.charcoal,lineHeight:1.55,margin:"0 0 12px",background:B.offwhite,borderLeft:"2px solid "+B.charcoal,padding:"9px 12px"}}><span style={lbl}>Ad hook</span><br/>{it.hook}</div>}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              {added[i]
+                ? <span style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.green,fontWeight:700}}>✓ Added to your store</span>
+                : <button onClick={()=>addOne(it,i)} disabled={busy>=0} style={{background:busy===i?B.stone:B.inkBlock,color:busy===i?B.mid:B.inkText,border:"none",padding:"10px 18px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10.5,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:busy>=0?"default":"pointer",opacity:(busy>=0&&busy!==i)?0.5:1}}>{busy===i?"Shooting its photo…":("Add to my store · "+IMG+" cr")}</button>}
+              <a href={"https://www.cjdropshipping.com/?token=4c381321-2ac5-4821-bd64-243b8e67b04f"} target="_blank" rel="noreferrer" style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,textDecoration:"none",borderBottom:"1px solid "+B.stone,paddingBottom:2}}>Find a supplier →</a>
+            </div>
+          </div>
+        ))}
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6}}>Adding a product shoots it a photograph in your store's look, so it doesn't arrive looking like every other listing. Everything stays editable under Store Builder → Products.</div>
+      </div>}
+    </div>
+  );
+}
 function WinningProductFinder(){
   const [q,setQ]=useState("");
   const [loading,setLoading]=useState(false);
