@@ -236,6 +236,18 @@ print(f"  {len(names)} training slices")
 PY
 
 # ── 6 · TRAIN ──────────────────────────────────────────────────────────────
+# train.py reads logs/<exp>/config.json for the model hyperparameters and does
+# NOT create it — in the web UI that copy happens in the browser flow, which
+# this headless path never runs. Without it training dies instantly with
+# FileNotFoundError: ./logs/voice/config.json. Copy the v2 config matching the
+# sample rate; every per-run value (epochs, batch size, paths) is passed on the
+# command line below and overrides whatever is in the file.
+CFG_SRC="$ROOT/configs/v2/${SR}.json"
+[ -f "$CFG_SRC" ] || CFG_SRC="$ROOT/configs/v2/48k.json"
+[ -f "$CFG_SRC" ] || die "No RVC config template found at $ROOT/configs/v2/ — the repo layout changed."
+cp "$CFG_SRC" "$ROOT/logs/$EXP/config.json"
+say "  config: $(basename "$CFG_SRC") -> logs/$EXP/config.json"
+
 say "Stage 6/7 — training ($EPOCHS epochs, ~40 min)"
 "$PY_BIN" -m train.train -e "$EXP" -sr $SR -f0 1 -bs $BATCH -g 0 \
   -te $EPOCHS -se 50 \
