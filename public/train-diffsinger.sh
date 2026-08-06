@@ -143,6 +143,29 @@ fi
 MFA=/opt/conda/envs/mfa/bin/mfa
 [ -x "$MFA" ] || MFA=$(command -v mfa) || die "MFA did not install."
 
+# MFA is a Python front end that SHELLS OUT to the OpenFST and Kaldi binaries —
+# fstcompile, fstarcsort, gmm-align-compiled — which conda-forge installs as
+# siblings of `mfa` inside the env's bin. Calling $MFA by absolute path does not
+# put that directory on PATH, so those siblings are invisible and MFA dies with
+# ThirdpartyError: Could not find 'fstcompile'. That is the 5 Aug failure: the
+# env was fine, nothing was missing, the binaries just weren't reachable.
+# Activating the env properly is what fixes it — same class of bug as the
+# missing `python` in train-voice.sh.
+MFA_BIN="$(dirname "$MFA")"
+export PATH="$MFA_BIN:$PATH"
+[ -d "$MFA_BIN/../lib" ] && export LD_LIBRARY_PATH="$MFA_BIN/../lib:${LD_LIBRARY_PATH:-}"
+case "$MFA_BIN" in */envs/mfa/bin) export CONDA_PREFIX="${MFA_BIN%/bin}" ;; esac
+
+# Verified, not assumed. If the binaries genuinely are absent, install them now
+# rather than 30 minutes later mid-alignment.
+if ! command -v fstcompile >/dev/null 2>&1; then
+  say "OpenFST/Kaldi binaries missing — installing into the mfa env"
+  /opt/conda/bin/conda install -n mfa -c conda-forge --override-channels \
+    openfst kaldi -y -q || die "Could not install OpenFST/Kaldi into the mfa env."
+fi
+command -v fstcompile >/dev/null 2>&1 || die "fstcompile still not on PATH after install — MFA cannot align."
+printf "  mfa: %s\n  fstcompile: %s\n" "$MFA" "$(command -v fstcompile)"
+
 # MFA needs a dictionary + acoustic model for the language.
 if [ ! -f .mfa-models-done ]; then
   say "Downloading MFA $DICTIONARY models"
