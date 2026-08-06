@@ -194,16 +194,22 @@ PY
 # already went through a global gain pass in the browser, so this stage is
 # doing the slicing work rather than rescuing levels.
 say "Stage 2/7 — slicing"
-"$PY_BIN" train/preprocess.py "$RAW" $SR_HZ 8 "$ROOT/logs/$EXP" False 3.0
+# Run as MODULES, not scripts. `python train/preprocess.py` puts $ROOT/train
+# first on sys.path, and that directory contains train.py — so `import train`
+# resolves to the FILE, not the package, and the first internal import dies with
+# "partially initialized module 'train' (most likely due to a circular import)".
+# Nothing is actually circular; it is a name collision. `-m` runs from $ROOT, so
+# `train` resolves to the package and every internal import works.
+"$PY_BIN" -m train.preprocess "$RAW" $SR_HZ 8 "$ROOT/logs/$EXP" False 3.0
 
 # ── 3 · PITCH ──────────────────────────────────────────────────────────────
 # RMVPE on GPU. This is the stage that decides how well sung notes survive.
 say "Stage 3/7 — pitch extraction"
-"$PY_BIN" train/dataset/extract_f0.py cuda 1 0 0 "$ROOT/logs/$EXP" True
+"$PY_BIN" -m train.dataset.extract_f0 cuda 1 0 0 "$ROOT/logs/$EXP" True
 
 # ── 4 · FEATURES ───────────────────────────────────────────────────────────
 say "Stage 4/7 — HuBERT features"
-"$PY_BIN" train/dataset/extract_hubert_feature.py cuda:0 1 0 "$ROOT/logs/$EXP" v2 True
+"$PY_BIN" -m train.dataset.extract_hubert_feature cuda:0 1 0 "$ROOT/logs/$EXP" v2 True
 
 # ── 5 · FILELIST ───────────────────────────────────────────────────────────
 # The web UI builds this in Python and it is the easiest part of the pipeline
@@ -231,13 +237,13 @@ PY
 
 # ── 6 · TRAIN ──────────────────────────────────────────────────────────────
 say "Stage 6/7 — training ($EPOCHS epochs, ~40 min)"
-"$PY_BIN" train/train.py -e "$EXP" -sr $SR -f0 1 -bs $BATCH -g 0 \
+"$PY_BIN" -m train.train -e "$EXP" -sr $SR -f0 1 -bs $BATCH -g 0 \
   -te $EPOCHS -se 50 \
   -pg assets/pretrained_v2/f0G${SR}.pth -pd assets/pretrained_v2/f0D${SR}.pth \
   -l 1 -c 0 -sw 1 -v v2
 
 say "Stage 6b/7 — retrieval index"
-"$PY_BIN" train/train_index.py "$EXP" v2 "$ROOT/assets/indices" 8
+"$PY_BIN" -m train.train_index "$EXP" v2 "$ROOT/assets/indices" 8
 
 # ── 7 · SHIP IT ────────────────────────────────────────────────────────────
 # RVC emits two artefacts and needs both at inference. Uploading only the .pth
