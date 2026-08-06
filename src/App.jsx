@@ -3382,6 +3382,10 @@ function HeaderSlideshow({ slides, onGo, B, height=320, paused=false, hold=11000
 // worker image rebuild and an analysis pass that has never run at scale, and the
 // first bad day should cost one boolean rather than a revert.
 const MUSICVIDEO_ENABLED = true;
+// Faceless Video. Same escape hatch as the others: this one orchestrates four outside
+// services in a row — the writer, ElevenLabs, transcription and fifty image
+// generations — and any of them having a bad hour is a bad hour for this tab alone.
+const FACELESS_ENABLED = true;
 const THUMBNAILS_ENABLED = true;
 
 // Commercial: HIDDEN. Set to true to bring the tab back on the Video Studio card.
@@ -9848,6 +9852,283 @@ const CG_FOOTAGE_LIST = [
   { id:"none",     label:"Don't color my footage",   note:"Leave my color exactly as I shot it — just cut to the beat." },
 ];
 
+
+// ─── FACELESS VIDEO ─────────────────────────────────────────────────────────
+//
+// A topic in, a finished narrated video out: script, voiceover, one image per shot,
+// captions, title card, assembled by the commercial pipeline.
+//
+// THE ORDER OF OPERATIONS IS NOT THE OBVIOUS ONE, and getting it wrong is expensive:
+//
+//     script -> voiceover -> transcribe -> time the shots -> images -> assemble
+//
+// You cannot choose shot lengths first and generate a voiceover to fit them, because
+// speech runs at the speed it runs at. And the assembler mixes to the SHORTEST stream,
+// so pictures that overrun the voiceover are silently dropped rather than reported.
+// The transcript is therefore the clock, and images are generated LAST — after the
+// shot count is known, so nothing is generated that the video has no room for.
+//
+// THE SCRIPT IS EDITED BEFORE ANY OF IT RUNS. Everything downstream costs real money;
+// reading the script first is the difference between paying for a video you wanted and
+// paying for one you delete.
+function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
+  const [topic,setTopic]     = useState("");
+  const [tone,setTone]       = useState("");
+  const [seconds,setSeconds] = useState(60);
+  const [orient,setOrient]   = useState("portrait");
+
+  const [title,setTitle]   = useState("");
+  const [look,setLook]     = useState("");
+  const [script,setScript] = useState("");
+
+  const [voiceMode,setVoiceMode] = useState("ai");   // "ai" | "mine"
+  const [voiceId,setVoiceId]     = useState("");
+  const [voices,setVoices]       = useState([]);
+  const [myVoice,setMyVoice]     = useState(null);   // a file the person recorded or uploaded
+
+  const [writing,setWriting] = useState(false);
+  const [busy,setBusy]       = useState(false);
+  const [stage,setStage]     = useState("");
+  const [err,setErr]         = useState("");
+  const [outUrl,setOutUrl]   = useState("");
+
+  useEffect(()=>{
+    let dead=false;
+    (async()=>{
+      try{
+        const tok = await freshToken();
+        const r = await fetch("/api/voices", { headers: tok?{Authorization:"Bearer "+tok}:{} });
+        const d = await r.json().catch(()=>({}));
+        if(dead) return;
+        if(r.ok && d && Array.isArray(d.voices) && d.voices.length){
+          setVoices(d.voices);
+          setVoiceId(v=>v || d.voices[0].voice_id || d.voices[0].id || "");
+        }
+      }catch(_){}
+    })();
+    return ()=>{ dead=true; };
+  },[]);
+
+  // Words per minute is the same figure the planner writes to, so the estimate the
+  // button shows and the video that comes out agree with each other.
+  const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
+  const estSeconds = Math.round((wordCount / 150) * 60);
+  const estShots = Math.max(1, Math.round(estSeconds / 5.5));
+  const cost = CREDIT_COSTS.faceless + estShots * CREDIT_COSTS.image;
+
+  async function writeScript(){
+    setErr(""); setOutUrl("");
+    if(!topic.trim()) return setErr("What should the video be about?");
+    setWriting(true);
+    try{
+      const tok = await freshToken();
+      const r = await fetch("/api/faceless-plan", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+        body: JSON.stringify({ action:"script", topic, seconds, tone })
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||"Couldn't write that script.");
+      setTitle(d.title||""); setLook(d.look||""); setScript(d.script||"");
+    }catch(e){ setErr((e&&e.message)||"Couldn't write that script."); }
+    setWriting(false);
+  }
+
+  async function makeVideo(){
+    setErr(""); setOutUrl("");
+    if(!script.trim()) return setErr("Write the script first.");
+    if(voiceMode==="mine" && !myVoice) return setErr("Add your voiceover recording, or switch to an AI voice.");
+    if(!useCredits(cost)) return;
+
+    setBusy(true);
+    try{
+      const uid = (user && user.id) || "anon";
+      const stamp = Date.now();
+      const base = uid + "/faceless/" + stamp;
+
+      // ── 1. the voiceover ──
+      let voUrl = null;
+      if(voiceMode==="mine"){
+        setStage("Uploading your voiceover");
+        voUrl = await uploadSiteAudioFile(myVoice, base + "-vo." + ((myVoice.name||"a.mp3").split(".").pop()||"mp3"));
+        if(!voUrl) throw new Error("That recording didn't upload.");
+      } else {
+        setStage("Recording the voiceover");
+        const tok = await freshToken();
+        const vr = await fetch("/api/voice", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
+          body: JSON.stringify({ text: script, voiceId: voiceId || undefined })
+        });
+        if(!vr.ok){
+          const d = await vr.json().catch(()=>({}));
+          throw new Error((d&&d.error)||"The voiceover failed.");
+        }
+        const blob = await vr.blob();
+        const bal = vr.headers.get("X-Credits-Balance");
+        if(bal) onBalance(Number(bal));
+        voUrl = await uploadSiteAudioFile(new File([blob], "vo.mp3", {type:"audio/mpeg"}), base + "-vo.mp3");
+        if(!voUrl) throw new Error("The voiceover was made but wouldn't upload.");
+      }
+
+      // ── 2. the clock ──
+      setStage("Listening back to the voiceover");
+      const tr = await studioTranscribe(voUrl);
+      if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){
+        throw new Error((tr&&tr.error) || "Couldn't read the timing of that voiceover.");
+      }
+
+      // ── 3. shots, timed to it ──
+      setStage("Planning the shots");
+      const tok2 = await freshToken();
+      const pr = await fetch("/api/faceless-plan", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok2?{Authorization:"Bearer "+tok2}:{}) },
+        body: JSON.stringify({ action:"shots", topic, look, words: tr.words, duration: tr.duration||0 })
+      });
+      const plan = await pr.json();
+      if(!pr.ok || !Array.isArray(plan.sources)) throw new Error(plan.error||"Couldn't plan the shots.");
+
+      // ── 4. the pictures ──
+      //
+      // One at a time on purpose. Fifty parallel image calls is a rate limit, and a
+      // rate limit halfway through is fifty half-paid-for images and no video.
+      const ar = orient==="landscape" ? "16:9" : "9:16";
+      for(let i=0;i<plan.sources.length;i++){
+        setStage("Making image "+(i+1)+" of "+plan.sources.length);
+        try{
+          const img = await generateOpenAIImage(plan.sources[i].prompt, [], ar, "standard");
+          const url = await uploadSiteImage(img.image, base + "-img" + i + ".png");
+          if(!url) throw new Error("upload failed");
+          plan.sources[i].url = url;
+        }catch(e){
+          // One picture that will not generate must not cost the whole video. The
+          // shot borrows the previous image, which reads as a held beat rather than
+          // a gap — and a gap is not even possible: the assembler rejects a source
+          // with no url and refuses the entire plan.
+          const prev = plan.sources.slice(0,i).reverse().find(s=>s.url);
+          if(!prev) throw new Error("The first image wouldn't generate: "+((e&&e.message)||e));
+          plan.sources[i].url = prev.url;
+        }
+      }
+
+      // ── 5. assemble ──
+      setStage("Cutting the video");
+      const timeline = title.trim()
+        ? [{ card:{ text: title.trim().toUpperCase(), bg:"#111111", fg:"#FFFFFF" }, dur: 1.8 }, ...plan.timeline]
+        : plan.timeline;
+      // Captions are on the FINISHED video's clock. A title card in front shifts every
+      // word by its length; leaving them in voiceover time puts every caption 1.8s
+      // early, which reads as the video being out of sync with itself.
+      const shift = title.trim() ? 1.8 : 0;
+      const words = tr.words.map(w=>({
+        w: w.w||w.word||w.text, s:(Number(w.s??w.start)||0)+shift, e:(Number(w.e??w.end)||0)+shift
+      }));
+
+      const tok3 = await freshToken();
+      const rr = await fetch("/api/studio-commercial-render", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...(tok3?{Authorization:"Bearer "+tok3}:{}) },
+        body: JSON.stringify({
+          plan: { lut:null, sources: plan.sources, timeline },
+          voUrl, words
+        })
+      });
+      const rd = await rr.json();
+      if(!rr.ok || !rd.taskId) throw new Error(rd.error||"Couldn't start the render.");
+
+      const url = await pollVideo(rd.taskId, (p,st)=>setStage(st||("Rendering "+(p||0)+"%")));
+      if(!url) throw new Error("The render didn't finish.");
+      setOutUrl(url); setStage(""); onToolUse("faceless"); onBalance();
+    }catch(e){
+      setErr((e&&e.message)||"Something went wrong.");
+      setStage("");
+    }
+    setBusy(false);
+  }
+
+  const lbl  = {fontSize:9,color:B.gold,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"};
+  const body = {fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6};
+  const input = {width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,outline:"none",boxSizing:"border-box"};
+
+  return <div>
+    <h2 style={{fontSize:20,fontWeight:400,fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",margin:"0 0 4px"}}>Faceless Video</h2>
+    <p style={{...body,margin:"0 0 20px"}}>Give it a topic. It writes the script, reads it aloud, makes a picture for every line and cuts the whole thing together. You never appear on camera.</p>
+
+    <Card style={{padding:22,marginBottom:16}}>
+      <div style={lbl}>What is it about</div>
+      <textarea value={topic} onChange={e=>setTopic(e.target.value)} disabled={writing||busy} rows={3}
+        placeholder="Why sixty percent of restaurants close in their first year"
+        style={{...input,resize:"vertical",marginBottom:12}} />
+      <div style={lbl}>How long</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        {[[60,"60 seconds"],[120,"2 minutes"],[300,"5 minutes"]].map(([v,l])=>(
+          <Btn key={v} small dark={seconds===v} outline={seconds!==v} disabled={writing||busy} onClick={()=>setSeconds(v)}>{l}</Btn>
+        ))}
+      </div>
+      <div style={lbl}>Shape</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={writing||busy} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
+        <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={writing||busy} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
+      </div>
+      <div style={lbl}>Tone (optional)</div>
+      <input value={tone} onChange={e=>setTone(e.target.value)} disabled={writing||busy}
+        placeholder="deadpan, no hype" style={{...input,marginBottom:14}} />
+      <Btn dark disabled={writing||busy||!topic.trim()} onClick={writeScript}>{writing?"WRITING...":"WRITE THE SCRIPT"}</Btn>
+    </Card>
+
+    {script && <>
+      <Card style={{padding:22,marginBottom:16}}>
+        <div style={lbl}>Opening card</div>
+        <input value={title} onChange={e=>setTitle(e.target.value)} disabled={busy} style={{...input,marginBottom:14}} />
+        <div style={lbl}>The script — read it, change anything</div>
+        <textarea value={script} onChange={e=>setScript(e.target.value)} disabled={busy} rows={14} style={{...input,resize:"vertical",lineHeight:1.7}} />
+        <p style={{...body,fontSize:12,marginTop:8}}>{wordCount} words, about {estSeconds}s spoken. Everything after this is made from what you see here, so change it now rather than after.</p>
+      </Card>
+
+      <Card style={{padding:22,marginBottom:16}}>
+        <div style={lbl}>The voice</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+          <Btn small dark={voiceMode==="ai"} outline={voiceMode!=="ai"} disabled={busy} onClick={()=>setVoiceMode("ai")}>AI VOICE</Btn>
+          <Btn small dark={voiceMode==="mine"} outline={voiceMode!=="mine"} disabled={busy} onClick={()=>setVoiceMode("mine")}>MY OWN RECORDING</Btn>
+        </div>
+        {voiceMode==="ai"
+          ? <select value={voiceId} onChange={e=>setVoiceId(e.target.value)} disabled={busy} style={input}>
+              {voices.length
+                ? voices.map(v=><option key={v.voice_id||v.id} value={v.voice_id||v.id}>{v.name||v.voice_id||v.id}</option>)
+                : <option value="">Loading voices...</option>}
+            </select>
+          : <div>
+              <input type="file" accept="audio/*" disabled={busy}
+                onChange={e=>{ const f=(e.target.files||[])[0]; if(f) setMyVoice(f); }} style={{...body}} />
+              {myVoice && <div style={{...body,color:B.charcoal,marginTop:8}}>{myVoice.name}</div>}
+              <p style={{...body,fontSize:12,marginTop:8}}>Read the script above and upload the recording. It gets listened back to for timing, so read it as written — a line you improvised will get the wrong picture.</p>
+            </div>}
+      </Card>
+
+      <Btn dark full disabled={busy||!script.trim()} onClick={makeVideo}>
+        {busy ? "WORKING..." : ("MAKE MY VIDEO (about "+cost.toLocaleString()+" credits)")}
+      </Btn>
+      <p style={{...body,fontSize:11,marginTop:8,textAlign:"center"}}>About {estShots} shots, one picture each. The exact figure is known once the voiceover is timed.</p>
+    </>}
+
+    {busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:22,textAlign:"center",marginTop:16}}>
+      <div style={body}>{stage||"Working..."}</div>
+      <div style={{...body,fontSize:12,marginTop:8}}>A five-minute video takes a while — fifty pictures and a full render. You can leave this open.</div>
+    </div>}
+
+    {err && !busy && <div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:16,marginTop:16}}>
+      <div style={{...body,color:"#9B2C2C"}}>{err}</div>
+    </div>}
+
+    {outUrl && !busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:20,marginTop:16}}>
+      <div style={lbl}>Your video</div>
+      <video src={outUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} />
+      <div style={{marginTop:14}}><ShareBar url={outUrl} file={outUrl} filename="chelgy-faceless.mp4" title="Made with Chelgy" text="" /></div>
+    </div>}
+  </div>;
+}
+
 function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{}, lutMedia={} }){
   const [song,setSong]     = useState(null);   // { file, name }
   const [clips,setClips]   = useState([]);     // [{ file, name, objectUrl }]
@@ -13070,6 +13351,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="restage"&&<Restage useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoedit"&&<VideoEdit useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="videoeditor"&&<VideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
+      {tool==="faceless"&&<FacelessStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="musicvideo"&&<MusicVideoStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} lutMedia={lutMedia} />}
       {tool==="thumbnail"&&<ThumbnailStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} prefill={prefill} onPrefillDone={onPrefillDone} />}
       {tool==="highfashion"&&<HighFashion credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -13535,6 +13817,17 @@ const CREDIT_COSTS = {
   // a render had ever been timed. MUST match MUSICVIDEO_COST in api/musicvideo-render.js
   // or the button promises a number the server does not charge. Retime both together
   // off a real run, using credits = (L4 $/hr) x (minutes) x 50.
+  // Faceless Video — flat, plus one image per shot.
+  //
+  // The images are the cost, and there is no way around that: a five-minute video is
+  // fifty of them. Charged per shot rather than as a flat rate because a 60-second
+  // video really does cost a fifth of a five-minute one, and a single flat price would
+  // either overcharge the short ones or lose money on the long ones.
+  //
+  // The base covers the script, the voiceover and the render. `image` is added per
+  // shot on top, which is why the button shows the total AFTER the script exists —
+  // before that nobody knows how many shots there are.
+  faceless: 1500,
   musicvideo: 2000,
   editorClip: 250,       // AI Video Editor — each clip past the first in a multi-clip edit
   // One AI transition: a 4-second Seedance video-extend bridge shot at 1080p.
@@ -13690,7 +13983,7 @@ const CATEGORIES = [
   { id:"cat_seo", title:"SEO", icon:"Target", blurb:"Get found on Google when people search for what you do. Earn real backlinks the white-hat way (and write the guest article that wins them), publish keyword-rich posts, and claim every profile and listing that tells Google you're legit.",
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
-    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(MUSICVIDEO_ENABLED ? [{label:"Music Video",tool:"musicvideo"}] : []), ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
+    tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(MUSICVIDEO_ENABLED ? [{label:"Music Video",tool:"musicvideo"}] : []), ...(FACELESS_ENABLED ? [{label:"Faceless Video",tool:"faceless"}] : []), ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
   { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Put any vocal in your own voice. Upload a finished vocal \u2014 a Suno lead stem, a rough demo, a take you sang yourself \u2014 and get it back sung by you, same melody, same timing, same words. Split a track into its vocals, drums, bass and keys, then mix and master the whole thing in one place.",
     tabs:[ {label:"Re-sing",tool:"songstudio"}, {label:"Sessions",tool:"sessions"}, {label:"Mix & Master",tool:"mixmaster"}, /* HIDDEN: {label:"Suno Production",tool:"sunoprod"}, — never worked; the SunoProduction component and its routes are untouched, so restoring it is uncommenting this. */ ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
