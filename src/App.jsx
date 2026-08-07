@@ -9895,6 +9895,8 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   const [stage,setStage]     = useState("");
   const [err,setErr]         = useState("");
   const [outUrl,setOutUrl]   = useState("");
+  const [saved,setSaved]     = useState(false);
+  const [dl,setDl]           = useState("");
 
   useEffect(()=>{
     let dead=false;
@@ -10098,6 +10100,10 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       const url = await pollVideo(rd.taskId, (p,st)=>setStage(st||("Rendering "+(p||0)+"%")));
       if(!url) throw new Error("The render didn't finish.");
       setOutUrl(url); setStage(""); onToolUse("faceless"); onBalance();
+      try{
+        const sv = await saveToLibrary(user, "video", (title.trim()||topic.trim().slice(0,60)||"Faceless Video"), url);
+        setSaved(sv && sv.ok);
+      }catch(_){}
     }catch(e){
       setErr((e&&e.message)||"Something went wrong.");
       setStage("");
@@ -10203,9 +10209,51 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
     {outUrl && !busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:20,marginTop:16}}>
       <div style={lbl}>Your video</div>
       <video src={outUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} />
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <Btn dark disabled={dl==="working"} onClick={()=>downloadRender(outUrl,"chelgy-faceless.mp4",setDl)}>
+          {dl==="working" ? "PREPARING..." : "DOWNLOAD"}
+        </Btn>
+        {saved && <span style={{...body,fontSize:12}}>Saved to your Library</span>}
+      </div>
       <div style={{marginTop:14}}><ShareBar url={outUrl} file={outUrl} filename="chelgy-faceless.mp4" title="Made with Chelgy" text="" /></div>
     </div>}
   </div>;
+}
+
+// Download a finished render, for real.
+//
+// ShareBar has a Download button already, and it does not work for a video. Two
+// reasons, and both are quiet:
+//
+//   It is behind the share toggle, so nobody finds it after a render.
+//
+//   It sets <a download> on a Supabase URL, and the download attribute is IGNORED
+//   cross-origin. The browser navigates to the file instead — the video opens in a
+//   tab and plays. Nothing errors; you just never get a file.
+//
+// Fetching the bytes and handing over a blob URL is same-origin by the time the anchor
+// sees it, so the filename and the save both survive. A big render takes a moment to
+// pull, hence the pending state — a button that appears to do nothing for six seconds
+// gets clicked four more times.
+async function downloadRender(url, filename, onState){
+  try{
+    onState && onState("working");
+    const r = await fetch(url);
+    if(!r.ok) throw new Error("fetch failed");
+    const blob = await r.blob();
+    const obj = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = obj; a.download = filename || "chelgy-video.mp4";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(obj); }catch(_){} }, 60000);
+    onState && onState("");
+    return true;
+  }catch(_){
+    // Last resort: open it in a tab so there is still a way to save it by hand.
+    try{ window.open(url, "_blank"); }catch(__){}
+    onState && onState("");
+    return false;
+  }
 }
 
 function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{}, lutMedia={} }){
@@ -10220,6 +10268,9 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
   const [err,setErr]       = useState("");
   const [outUrl,setOutUrl] = useState("");
   const [notes,setNotes]   = useState([]);
+  const [saved,setSaved]   = useState(false);
+  const [dl,setDl]         = useState("");
+  const [title,setTitle]   = useState("");
 
   const cost = CREDIT_COSTS.musicvideo + Math.max(0, clips.length - 1) * CREDIT_COSTS.editorClip;
 
@@ -10342,6 +10393,14 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
       setOutUrl(url);
       setStage("");
       onToolUse("musicvideo");
+      // Into the library without being asked. A render that only exists in this tab is
+      // gone the moment the page is closed, and this one took minutes and real credits
+      // to make. Failure here is not worth an error — the video is on screen and
+      // downloadable either way.
+      try{
+        const r = await saveToLibrary(user, "video", (title||"Music Video"), url);
+        setSaved(r && r.ok);
+      }catch(_){}
     }catch(e){
       setErr((e && e.message) || "Something went wrong.");
       setStage("");
@@ -10437,6 +10496,12 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
     {outUrl && !busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:20,marginTop:16}}>
       <div style={lbl}>Your music video</div>
       <video src={outUrl} controls playsInline style={{maxWidth:"100%",display:"block",marginBottom:12,background:"#000"}} />
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <Btn dark disabled={dl==="working"} onClick={()=>downloadRender(outUrl,"chelgy-music-video.mp4",setDl)}>
+          {dl==="working" ? "PREPARING..." : "DOWNLOAD"}
+        </Btn>
+        {saved && <span style={{...body,fontSize:12}}>Saved to your Library</span>}
+      </div>
       <div style={{marginTop:14}}><ShareBar url={outUrl} file={outUrl} filename="chelgy-music-video.mp4" title="Made with Chelgy" text="" /></div>
     </div>}
   </div>;
