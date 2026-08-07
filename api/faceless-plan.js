@@ -142,6 +142,24 @@ NEVER write: stage directions, speaker labels, timestamps, section headings, "[m
 or anything that is not the words to be spoken. The entire output is read aloud by a
 voice model exactly as written.`;
 
+// JSON IS THE WRONG CONTAINER FOR PROSE, and this is what kept eating scripts.
+//
+// A JSON string cannot hold a raw line break, and it cannot hold a bare double quote.
+// A script is prose: it has paragraphs, and sooner or later it quotes somebody —
+// she said "we'll fix it later" — and that response is now invalid JSON. The whole
+// thing is discarded, several seconds of Opus with it, and the person is told to try
+// again with no idea that the difference between a script that works and one that
+// does not is whether anyone in it speaks.
+//
+// It presented as random because it is content-dependent, not length-dependent: same
+// settings, different topic, different outcome. Chasing it as a length problem was
+// looking in the wrong place.
+//
+// Delimiters cannot be broken by their own contents. Nothing inside a section needs
+// escaping, so quotes, line breaks, apostrophes, em dashes and emoji all pass through
+// untouched, and the parse cannot fail on a well-written script.
+const MARK = { title: "===TITLE===", look: "===LOOK===", script: "===SCRIPT===" };
+
 function scriptPrompt(topic, seconds, tone, chosenLook) {
   const words = Math.round((seconds / 60) * WORDS_PER_MINUTE);
   return `Write narration for a ${LENGTHS[seconds] || seconds + " second"} faceless video.
@@ -156,22 +174,35 @@ THE VISUAL WORLD HAS ALREADY BEEN CHOSEN by the person making this film:
 
     ${chosenLook}
 
-Put that back in the "look" field EXACTLY as written above. Do not improve it, extend
-it, or substitute your own — every image in the film is generated with it, so a tidied
+Put that back under ${MARK.look} exactly as written above. Do not improve it, extend it
+or substitute your own — every image in the film is generated with it, so a tidied
 version is a different film.
 ` : ""}
-Return ONLY valid JSON, no markdown fence, no preamble:
+Answer in EXACTLY this format. No JSON, no markdown, no preamble, nothing before the
+first marker and nothing after the script:
 
-{
-  "title": "<5 words max, the opening line on screen. Not a sentence. Not clickbait.>",
-  "look": "<${chosenLook ? "the sentence given above, unchanged" : "ONE concrete sentence describing the visual world — medium, palette, lighting, era. 'moody 35mm film photography, muted earth tones, overcast natural light' beats 'cinematic and beautiful'"}>",
-  "script": ["<paragraph one>", "<paragraph two>", "<paragraph three>"]
+${MARK.title}
+<5 words max, the opening line on screen. Not a sentence. Not clickbait.>
+
+${MARK.look}
+<${chosenLook ? "the sentence given above, unchanged" : "ONE concrete sentence describing the visual world — medium, palette, lighting, era. 'moody 35mm film photography, muted earth tones, overcast natural light' beats 'cinematic and beautiful'"}>
+
+${MARK.script}
+<the narration, plain text, blank line between paragraphs. Write it exactly as it
+should be read aloud — quotation marks, dashes and apostrophes are all fine here.>`;
 }
 
-THE SCRIPT IS AN ARRAY OF PARAGRAPHS, one string each, and this matters: a JSON string
-cannot contain a real line break, so a multi-paragraph script written as one string is
-invalid JSON and the whole response is thrown away. One paragraph per array entry, no
-line breaks inside any of them.`;
+// Pull the three sections out. Cannot fail on the contents of any of them.
+function parseSections(text) {
+  const t = String(text || "");
+  const iT = t.indexOf(MARK.title), iL = t.indexOf(MARK.look), iS = t.indexOf(MARK.script);
+  if (iT === -1 || iL === -1 || iS === -1 || !(iT < iL && iL < iS)) return null;
+  const cut = (from, len, to) => t.slice(from + len, to).trim();
+  return {
+    title: cut(iT, MARK.title.length, iL),
+    look: cut(iL, MARK.look.length, iS),
+    script: t.slice(iS + MARK.script.length).trim(),
+  };
 }
 
 // ── THE BIBLE ───────────────────────────────────────────────────────────────
@@ -400,15 +431,26 @@ export default async function handler(req, res) {
       });
       if (!r.ok) return res.status(502).json({ error: r.error });
 
-      const j = parseJson(r.text);
-      if (!j) return res.status(502).json({ error: "The writer returned something unreadable. Try again." });
-
-      // An array of paragraphs is what was asked for; a single string is what arrives
-      // when the model reverts to habit. Both are fine — joining is one line, and
-      // refusing a perfectly good script over its container would be absurd.
-      const script = (Array.isArray(j.script) ? j.script.filter(Boolean).map(String).join("\n\n")
-                     : String(j.script || "")).trim();
-      if (!script) return res.status(502).json({ error: "The writer came back empty. Try again." });
+      // Sections first. JSON only as a fallback, for a model that reverts to habit —
+      // it is the less reliable container here, so it is the second choice, not the
+      // first.
+      let parsed = parseSections(r.text);
+      if (!parsed) {
+        const j = parseJson(r.text);
+        if (j) parsed = {
+          title: String(j.title || ""),
+          look: String(j.look || ""),
+          script: Array.isArray(j.script) ? j.script.filter(Boolean).map(String).join("\n\n") : String(j.script || ""),
+        };
+      }
+      if (!parsed || !String(parsed.script || "").trim()) {
+        // The response, in the server log. An error that discards the evidence makes
+        // the next occurrence exactly as hard to diagnose as this one was.
+        console.error("[faceless] unreadable script response: " + String(r.text || "").slice(0, 400));
+        return res.status(502).json({ error: "The writer returned something unreadable. Try again." });
+      }
+      const j = parsed;
+      const script = String(parsed.script).trim();
       return res.status(200).json({
         title: String(j.title || "").trim().slice(0, 60),
         // The chosen look is returned as given rather than as the model echoed it back.
