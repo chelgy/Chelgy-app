@@ -203,6 +203,112 @@ function parseSections(text) {
   };
 }
 
+// RESTORED VERBATIM from the version that worked.
+//
+// These two were collateral damage: rewriting the script prompt replaced a REGION of
+// the file — everything from scriptPrompt down to the bible — and groupIntoShots and
+// round3 happened to live inside it. Deleting a function nothing in that edit mentioned
+// is not a thing a careful patch does, and it is the whole argument for anchored,
+// named replacements over "swap out this span".
+//
+// It threw only on the SHOTS step, which is why the script kept working and the render
+// kept dying, and why three different explanations all sounded plausible.
+// Group the transcript into shots.
+//
+// Done in code, not by a model. Shot boundaries are arithmetic on timestamps — a model
+// asked to do it returns times that drift from the transcript by a few hundred
+// milliseconds and every image lands slightly off the sentence it belongs to. The
+// model's job is the PICTURES; the clock is not a judgement call.
+//
+// Boundaries prefer the end of a sentence, then any word gap, then the target length,
+// because cutting the image mid-clause is what makes a faceless video feel machine-made.
+function groupIntoShots(words, total) {
+  const w = (Array.isArray(words) ? words : [])
+    .map((x) => ({
+      w: String((x && (x.w || x.word || x.text)) || ""),
+      s: Number(x && (x.s ?? x.start)) || 0,
+      e: Number(x && (x.e ?? x.end)) || 0,
+    }))
+    .filter((x) => x.w && x.e > x.s)
+    .sort((a, b) => a.s - b.s);
+  if (!w.length) return [];
+
+  const shots = [];
+  let start = 0;
+  let i = 0;
+  while (i < w.length) {
+    const target = start + SHOT_TARGET;
+    let cut = null;
+
+    // Look for a sentence end inside the acceptable window.
+    for (let k = i; k < w.length; k++) {
+      const t = w[k].e;
+      if (t < start + SHOT_MIN) continue;
+      if (t > start + SHOT_MAX) break;
+      if (/[.!?]"?$/.test(w[k].w)) { cut = { t, k }; break; }
+      if (!cut || Math.abs(t - target) < Math.abs(cut.t - target)) cut = { t, k };
+    }
+    // Nothing in the window — take the first word past the minimum rather than
+    // running to the end of the video on one image.
+    if (!cut) {
+      for (let k = i; k < w.length; k++) {
+        if (w[k].e >= start + SHOT_MIN) { cut = { t: w[k].e, k }; break; }
+      }
+    }
+    if (!cut) break;
+
+    // EVERY BOUNDARY LANDS ON A FRAME.
+    //
+    // Shot lengths come from word timings, which are arbitrary decimals — 5.383s is
+    // 161.49 frames at 30fps, so ffmpeg rounds it, and the error accumulates down the
+    // whole film while the voiceover keeps perfect time. Captions are sliced against
+    // the planned times, so they drift off the picture: the same failure the music
+    // video planner had, in a pipeline I never applied the fix to.
+    //
+    // Quantised here, at the source, so every duration is a whole number of frames and
+    // there is nothing left to round.
+    const cutT = qf(cut.t);
+    const text = w.slice(i, cut.k + 1).map((x) => x.w).join(" ");
+    shots.push({ start: qf(start), end: cutT, text });
+    start = cutT;
+    i = cut.k + 1;
+  }
+
+  // The tail. The pictures must reach the end of the narration — the assembler mixes
+  // to the shortest stream, so stopping at the last word can clip the final syllable.
+  if (shots.length) {
+    shots[shots.length - 1].end = qf(Math.max(shots[shots.length - 1].end, total));
+  }
+
+  // NOW ENFORCE THE CEILING, and this is not cosmetic.
+  //
+  // Extending that last shot is what breaks it: on a 60-second script the tail came out
+  // at 9.8 seconds, and commercial-route.js rejects any still held longer than 8 —
+  // meaning the whole render is refused at submission, after the voiceover and every
+  // image has already been paid for. A gap between two rules in two files, and the
+  // expensive one fires last.
+  //
+  // Splitting rather than trimming, because trimming loses the end of the narration.
+  // The halves share the shot's words, so both get a sensible picture prompt.
+  const capped = [];
+  for (const sh of shots) {
+    const dur = sh.end - sh.start;
+    if (dur <= SHOT_MAX + 0.001) { capped.push(sh); continue; }
+    const parts = Math.ceil(dur / SHOT_MAX);
+    const each = dur / parts;
+    for (let k = 0; k < parts; k++) {
+      capped.push({
+        start: qf(sh.start + k * each),
+        end: k === parts - 1 ? sh.end : qf(sh.start + (k + 1) * each),
+        text: sh.text,
+      });
+    }
+  }
+  return capped.filter((s) => s.end > s.start + 0.5);
+}
+
+const round3 = (v) => Math.round(v * 1000) / 1000;
+
 // ── THE BIBLE ───────────────────────────────────────────────────────────────
 //
 // WHY THIS STEP EXISTS, and skipping it is what made the first version a slideshow.
@@ -378,8 +484,21 @@ function parseJson(text) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // DECLARED OUTSIDE THE TRY, because the catch reads it.
+  //
+  // It used to be a const inside the try, and the catch below logged body.action — so
+  // the moment anything threw, the catch threw a ReferenceError of its own, the
+  // function died before it could answer, and Vercel returned an HTML error page. The
+  // browser then failed parsing that as JSON and reported "the string did not match the
+  // expected pattern", which is a sentence about neither the real fault nor this one.
+  //
+  // A handler that crashes inside its own error handler destroys the only evidence of
+  // what actually went wrong. That is worse than no logging at all, and it is exactly
+  // what the logging was added to prevent.
+  let body = {};
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please sign in again." });
