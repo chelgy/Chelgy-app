@@ -107,6 +107,7 @@ export default async function handler(req, res) {
     // two places to update and one of them would eventually be wrong.
     const footage = String(body.footage || "standard");
     const look = String(body.look || "wolf");
+    const effects = body.effects === true;
 
     // klass and singing come from api/musicvideo-classify.js. Anything missing or
     // unrecognised defaults to "locked", which is the class that cannot be moved —
@@ -139,7 +140,7 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
         body: JSON.stringify({
           userId, songUrl, clips, pace, orientation, title,
-          footage, look, creditsCharged: cost,
+          footage, look, effects, creditsCharged: cost,
         }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d || !d.jobId) {
