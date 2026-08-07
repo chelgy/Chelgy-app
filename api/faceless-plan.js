@@ -142,6 +142,23 @@ NEVER write: stage directions, speaker labels, timestamps, section headings, "[m
 or anything that is not the words to be spoken. The entire output is read aloud by a
 voice model exactly as written.`;
 
+// PROSE DOES NOT GO IN JSON, and that is what was eating scripts.
+//
+// A JSON string cannot hold a raw line break, and it cannot hold a bare double quote.
+// A script is prose: it has paragraphs, and sooner or later it quotes somebody — she
+// said "we'll fix it later" — and at that point the response is invalid JSON and the
+// whole thing is discarded. It looked random because it depends on CONTENT, not
+// length: same settings, different topic, different outcome.
+//
+// Delimiters cannot be broken by what is inside them. Nothing needs escaping, so
+// quotes, line breaks, apostrophes, dashes and emoji all pass through untouched.
+//
+// SCOPE, DELIBERATELY: this changes the script step only. An earlier attempt also
+// rewrote parseJson — which the SHOTS step depends on — and something in the render
+// path broke straight afterwards. Fixing one thing at a time is the whole reason that
+// was avoidable, so parseJson below is untouched and still exactly what it was.
+const MARK = { title: "===TITLE===", look: "===LOOK===", script: "===SCRIPT===" };
+
 function scriptPrompt(topic, seconds, tone, chosenLook) {
   const words = Math.round((seconds / 60) * WORDS_PER_MINUTE);
   return `Write narration for a ${LENGTHS[seconds] || seconds + " second"} faceless video.
@@ -151,121 +168,40 @@ TOPIC: ${topic}
 ${tone ? "TONE: " + tone + "\n\n" : ""}Length: about ${words} words. That is a target, not a rule — being 10% out is fine,
 being twice as long is not, because the video is cut to the voiceover and a script that
 runs long produces a video that runs long.
+${chosenLook ? `
+THE VISUAL WORLD HAS ALREADY BEEN CHOSEN by the person making this film:
 
-Return ONLY valid JSON, no markdown fence, no preamble:
+    ${chosenLook}
 
-{
-  "title": "<5 words max, the on-screen opening card. Not a sentence. Not clickbait.>",
-  "look": ${chosenLook
-    ? `"${chosenLook.replace(/"/g, "'")}"   <- USE THIS EXACTLY. It was chosen by the
-            person making the film; do not improve it, do not extend it, do not
-            substitute your own. Return it unchanged.>`
-    : `"<ONE sentence describing the visual world of this video — medium, palette,
-            lighting, era. Every image is generated with this appended, so it is the
-            only thing holding fifty pictures together as one video. Be concrete:
-            'moody 35mm film photography, muted earth tones, overcast natural light'
-            beats 'cinematic and beautiful'.>"`},
-  "script": "<the narration, plain text, paragraphs separated by blank lines>"
-}`;
+Put that back under ${MARK.look} exactly as written above. Do not improve it, extend it
+or substitute your own — every image in the film is generated with it, so a tidied
+version is a different film.
+` : ""}
+Answer in EXACTLY this format. No JSON, no markdown, no preamble, nothing before the
+first marker and nothing after the script:
+
+${MARK.title}
+<5 words max, the opening line on screen. Not a sentence. Not clickbait.>
+
+${MARK.look}
+<${chosenLook ? "the sentence given above, unchanged" : "ONE concrete sentence describing the visual world — medium, palette, lighting, era. 'moody 35mm film photography, muted earth tones, overcast natural light' beats 'cinematic and beautiful'"}>
+
+${MARK.script}
+<the narration, plain text, blank line between paragraphs. Write it exactly as it should
+be read aloud — quotation marks, dashes and apostrophes are all welcome here.>`;
 }
 
-// ── step 2: shots timed to the voiceover ────────────────────────────────────
-
-// Group the transcript into shots.
-//
-// Done in code, not by a model. Shot boundaries are arithmetic on timestamps — a model
-// asked to do it returns times that drift from the transcript by a few hundred
-// milliseconds and every image lands slightly off the sentence it belongs to. The
-// model's job is the PICTURES; the clock is not a judgement call.
-//
-// Boundaries prefer the end of a sentence, then any word gap, then the target length,
-// because cutting the image mid-clause is what makes a faceless video feel machine-made.
-function groupIntoShots(words, total) {
-  const w = (Array.isArray(words) ? words : [])
-    .map((x) => ({
-      w: String((x && (x.w || x.word || x.text)) || ""),
-      s: Number(x && (x.s ?? x.start)) || 0,
-      e: Number(x && (x.e ?? x.end)) || 0,
-    }))
-    .filter((x) => x.w && x.e > x.s)
-    .sort((a, b) => a.s - b.s);
-  if (!w.length) return [];
-
-  const shots = [];
-  let start = 0;
-  let i = 0;
-  while (i < w.length) {
-    const target = start + SHOT_TARGET;
-    let cut = null;
-
-    // Look for a sentence end inside the acceptable window.
-    for (let k = i; k < w.length; k++) {
-      const t = w[k].e;
-      if (t < start + SHOT_MIN) continue;
-      if (t > start + SHOT_MAX) break;
-      if (/[.!?]"?$/.test(w[k].w)) { cut = { t, k }; break; }
-      if (!cut || Math.abs(t - target) < Math.abs(cut.t - target)) cut = { t, k };
-    }
-    // Nothing in the window — take the first word past the minimum rather than
-    // running to the end of the video on one image.
-    if (!cut) {
-      for (let k = i; k < w.length; k++) {
-        if (w[k].e >= start + SHOT_MIN) { cut = { t: w[k].e, k }; break; }
-      }
-    }
-    if (!cut) break;
-
-    // EVERY BOUNDARY LANDS ON A FRAME.
-    //
-    // Shot lengths come from word timings, which are arbitrary decimals — 5.383s is
-    // 161.49 frames at 30fps, so ffmpeg rounds it, and the error accumulates down the
-    // whole film while the voiceover keeps perfect time. Captions are sliced against
-    // the planned times, so they drift off the picture: the same failure the music
-    // video planner had, in a pipeline I never applied the fix to.
-    //
-    // Quantised here, at the source, so every duration is a whole number of frames and
-    // there is nothing left to round.
-    const cutT = qf(cut.t);
-    const text = w.slice(i, cut.k + 1).map((x) => x.w).join(" ");
-    shots.push({ start: qf(start), end: cutT, text });
-    start = cutT;
-    i = cut.k + 1;
-  }
-
-  // The tail. The pictures must reach the end of the narration — the assembler mixes
-  // to the shortest stream, so stopping at the last word can clip the final syllable.
-  if (shots.length) {
-    shots[shots.length - 1].end = qf(Math.max(shots[shots.length - 1].end, total));
-  }
-
-  // NOW ENFORCE THE CEILING, and this is not cosmetic.
-  //
-  // Extending that last shot is what breaks it: on a 60-second script the tail came out
-  // at 9.8 seconds, and commercial-route.js rejects any still held longer than 8 —
-  // meaning the whole render is refused at submission, after the voiceover and every
-  // image has already been paid for. A gap between two rules in two files, and the
-  // expensive one fires last.
-  //
-  // Splitting rather than trimming, because trimming loses the end of the narration.
-  // The halves share the shot's words, so both get a sensible picture prompt.
-  const capped = [];
-  for (const sh of shots) {
-    const dur = sh.end - sh.start;
-    if (dur <= SHOT_MAX + 0.001) { capped.push(sh); continue; }
-    const parts = Math.ceil(dur / SHOT_MAX);
-    const each = dur / parts;
-    for (let k = 0; k < parts; k++) {
-      capped.push({
-        start: qf(sh.start + k * each),
-        end: k === parts - 1 ? sh.end : qf(sh.start + (k + 1) * each),
-        text: sh.text,
-      });
-    }
-  }
-  return capped.filter((s) => s.end > s.start + 0.5);
+// Pull the three sections out. Cannot fail on the contents of any of them.
+function parseSections(text) {
+  const t = String(text || "");
+  const iT = t.indexOf(MARK.title), iL = t.indexOf(MARK.look), iS = t.indexOf(MARK.script);
+  if (iT === -1 || iL === -1 || iS === -1 || !(iT < iL && iL < iS)) return null;
+  return {
+    title: t.slice(iT + MARK.title.length, iL).trim(),
+    look: t.slice(iL + MARK.look.length, iS).trim(),
+    script: t.slice(iS + MARK.script.length).trim(),
+  };
 }
-
-const round3 = (v) => Math.round(v * 1000) / 1000;
 
 // ── THE BIBLE ───────────────────────────────────────────────────────────────
 //
@@ -470,8 +406,23 @@ export default async function handler(req, res) {
       });
       if (!r.ok) return res.status(502).json({ error: r.error });
 
-      const j = parseJson(r.text);
-      if (!j || !j.script) return res.status(502).json({ error: "The writer returned something unreadable. Try again." });
+      // Sections first, JSON as a fallback for a model that reverts to habit.
+      let j = parseSections(r.text);
+      if (!j) {
+        const alt = parseJson(r.text);
+        if (alt) j = {
+          title: String(alt.title || ""),
+          look: String(alt.look || ""),
+          script: Array.isArray(alt.script) ? alt.script.filter(Boolean).map(String).join("\n\n")
+                                            : String(alt.script || ""),
+        };
+      }
+      if (!j || !String(j.script || "").trim()) {
+        // Logged, because an error that discards the evidence guarantees the next
+        // occurrence is exactly as hard to work out as this one was.
+        console.error("[faceless] unreadable script: " + String(r.text || "").slice(0, 500));
+        return res.status(502).json({ error: "The writer returned something unreadable. Try again." });
+      }
 
       const script = String(j.script).trim();
       return res.status(200).json({
@@ -598,6 +549,12 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: "Unknown action." });
   } catch (e) {
-    return res.status(500).json({ error: "Server error." });
+    // The actual message, not "Server error."
+    //
+    // A catch-all that hides what went wrong turns a five-minute fix into an evening of
+    // screenshots — which is precisely what it did. It costs nothing to say.
+    const msg = String((e && e.message) || e || "unknown");
+    console.error("[faceless] " + (body && body.action) + " failed: " + msg + "\n" + ((e && e.stack) || ""));
+    return res.status(500).json({ error: "Something went wrong: " + msg });
   }
 }
