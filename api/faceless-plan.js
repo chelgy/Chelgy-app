@@ -320,10 +320,45 @@ NO TEXT ANYWHERE IN THE IMAGE. No letters, numbers, words, signage, logos or cap
 Image models render text as garbled nonsense and it is the single thing that makes this
 format look cheap. If the line is about a statistic, illustrate the subject.
 
-VARY THE FRAMING between neighbouring shots — wide, then close, then over a shoulder.
-Three similar compositions in a row reads as one long shot with a stutter.
+THE CAMERA IS GIVEN TO YOU AND IS NOT A SUGGESTION. Every shot has a CAMERA line.
+Write the prompt for THAT framing. If it says extreme close-up on hands, the image is
+hands filling the frame — not a wide shot of a room with hands in it. This is what stops
+a run of lines about one person in one room becoming the same picture eight times, and
+it is the single thing most likely to make this film watchable.
+
+DO NOT SIT IN ONE PLACE. If four consecutive shots are set somewhere, move: outside, a
+different corner, a different time of day, a detail on a different surface. The
+narration moving on is the cue for the pictures to move on.
 
 Each prompt is one paragraph describing a single photographable moment.`;
+
+// FRAMING IS ASSIGNED HERE, NOT REQUESTED.
+//
+// The system prompt asks for varied framing between neighbouring shots and the model
+// agrees and then does not do it — because when nine consecutive lines are about the
+// same woman in the same room, nine near-identical prompts are a reasonable reading of
+// the brief. Measured on a real render: nine shots in a row of the same workshop from
+// the same angle, thirty-six seconds of what looks like one still while the narration
+// moved through five separate ideas.
+//
+// So the camera is decided in code and handed to the model as a requirement. A
+// rotation cannot produce two neighbours the same, and it costs nothing — the model is
+// still choosing WHAT is in the shot, only not whether to move.
+//
+// Ordered so consecutive entries differ in scale as well as position: a wide followed
+// by a detail reads as a cut, a wide followed by another wide reads as a mistake.
+const FRAMINGS = [
+  "wide establishing shot, the whole space visible",
+  "extreme close-up on hands and what they are doing",
+  "medium shot from the side, waist up",
+  "overhead looking straight down at the surface",
+  "close-up on a face, shallow depth of field",
+  "low angle looking up, the subject against the ceiling or sky",
+  "detail shot of a single object, everything else out of focus",
+  "over-the-shoulder, seeing what the subject sees",
+  "wide shot from a doorway, the subject small in the frame",
+  "tight two-shot, faces close together",
+];
 
 function imagePrompt(shots, bible, look, topic) {
   const cast = (bible.characters || [])
@@ -347,7 +382,7 @@ ${places}
 
 THE SHOTS, in order, with the narration each one sits under:
 
-${shots.map((s, i) => `${i + 1}. [${s.start.toFixed(1)}s] "${s.text}"`).join("\n")}
+${shots.map((s, i) => `${i + 1}. [${s.start.toFixed(1)}s] CAMERA: ${FRAMINGS[i % FRAMINGS.length]}\n   "${s.text}"`).join("\n")}
 
 Return ONLY valid JSON, no markdown fence:
 {"shots": [{"prompt": "<one paragraph>", "characters": ["<cast id>", ...]}, ...]}
