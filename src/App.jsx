@@ -9996,7 +9996,9 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
   const estSeconds = Math.round((wordCount / 150) * 60);
   const estShots = Math.max(1, Math.round(estSeconds / 5.5));
-  const cost = CREDIT_COSTS.faceless + estShots * CREDIT_COSTS.image;
+  // Plus a couple of reference portraits. The exact number isn't known until the script
+  // has been read, so two is the common case — a film with one or two recurring people.
+  const cost = CREDIT_COSTS.faceless + (estShots + 2) * CREDIT_COSTS.image;
 
   async function writeScript(){
     setErr(""); setOutUrl("");
@@ -10066,20 +10068,50 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       const pr = await fetch("/api/faceless-plan", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok2?{Authorization:"Bearer "+tok2}:{}) },
-        body: JSON.stringify({ action:"shots", topic, look, words: tr.words, duration: tr.duration||0 })
+        // The whole script goes with it. The planner has to read all of it to work out
+        // who recurs and where the pictures travel — a shot list alone cannot tell it.
+        body: JSON.stringify({ action:"shots", topic, look, script, words: tr.words, duration: tr.duration||0 })
       });
       const plan = await pr.json();
       if(!pr.ok || !Array.isArray(plan.sources)) throw new Error(plan.error||"Couldn't plan the shots.");
 
-      // ── 4. the pictures ──
+      // ── 4a. the cast ──
+      //
+      // A WRITTEN DESCRIPTION DOES NOT HOLD A FACE TOGETHER. Ask an image model for "a
+      // woman in her late twenties with black hair in a low bun" twenty times and you
+      // get twenty different women — which is what made the first version read as
+      // stock photography rather than a film. The description is necessary and it is
+      // not sufficient.
+      //
+      // So each recurring character is generated ONCE as a plain portrait, and that
+      // picture is passed as a reference into every shot they appear in. That is the
+      // part that actually keeps the same person on screen from the first image to the
+      // last.
+      const ar = orient==="landscape" ? "16:9" : "9:16";
+      const cast = Array.isArray(plan.characters) ? plan.characters.slice(0,6) : [];
+      const faces = {};
+      for(let i=0;i<cast.length;i++){
+        setStage("Casting "+(cast[i].name||("character "+(i+1))));
+        try{
+          // Square, because it is a reference rather than a shot — the framing of the
+          // portrait should not bias the framing of every scene it is used in.
+          const img = await generateOpenAIImage(cast[i].portrait, [], "1:1", "standard");
+          faces[cast[i].id] = img.image;
+        }catch(_){
+          // No portrait just means this character falls back to the written
+          // description, which is the old behaviour rather than a failure.
+        }
+      }
+
+      // ── 4b. the pictures ──
       //
       // One at a time on purpose. Fifty parallel image calls is a rate limit, and a
       // rate limit halfway through is fifty half-paid-for images and no video.
-      const ar = orient==="landscape" ? "16:9" : "9:16";
       for(let i=0;i<plan.sources.length;i++){
         setStage("Making image "+(i+1)+" of "+plan.sources.length);
         try{
-          const img = await generateOpenAIImage(plan.sources[i].prompt, [], ar, "standard");
+          const refs = (plan.sources[i].characters||[]).map(id=>faces[id]).filter(Boolean);
+          const img = await generateOpenAIImage(plan.sources[i].prompt, refs, ar, "standard");
           const url = await uploadSiteImage(img.image, base + "-img" + i + ".png");
           if(!url) throw new Error("upload failed");
           plan.sources[i].url = url;
