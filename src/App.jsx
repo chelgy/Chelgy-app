@@ -10227,15 +10227,38 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
 
       // ── 5. assemble ──
       setStage("Cutting the video");
-      const timeline = title.trim()
-        ? [{ card:{ text: title.trim().toUpperCase(), bg:"#111111", fg:"#FFFFFF" }, dur: 1.8 }, ...plan.timeline]
-        : plan.timeline;
-      // Captions are on the FINISHED video's clock. A title card in front shifts every
-      // word by its length; leaving them in voiceover time puts every caption 1.8s
-      // early, which reads as the video being out of sync with itself.
-      const shift = title.trim() ? 1.8 : 0;
+
+      // THE TITLE OPENS OVER THE FIRST PICTURE, AND THE BLACK CARD IS GONE.
+      //
+      // A card is a hold on nothing. On a feed where the first second decides whether
+      // anyone stays, opening on black asks the viewer to wait before giving them a
+      // reason to — and it cost 1.8 seconds of the only attention this video gets.
+      //
+      // The title is now drawn over the opening shots and held for TITLE_HOLD seconds,
+      // which is long enough to read a five-word line rather than long enough to prove
+      // it was there. Because it can outlive the first shot, it carries onto the second
+      // with the right remainder — each shot is encoded on its own and knows nothing
+      // about its neighbours, so the arithmetic has to happen here.
+      //
+      // Dropping the card also removes the caption shift: with nothing in front of the
+      // pictures, voiceover time IS finished-video time, and the whole class of
+      // off-by-a-card-length caption bugs stops existing.
+      const TITLE_HOLD = 5;
+      const heading = title.trim().toUpperCase();
+      const timeline = plan.timeline.map(e=>({ ...e }));
+      if(heading){
+        let elapsed = 0;
+        for(const e of timeline){
+          if(elapsed >= TITLE_HOLD) break;
+          e.title = heading;
+          e.titleFrom = 0;
+          // Full shot if the hold outlasts it, otherwise the remainder.
+          e.titleTo = Math.min(e.out, TITLE_HOLD - elapsed);
+          elapsed += e.out;
+        }
+      }
       const words = tr.words.map(w=>({
-        w: w.w||w.word||w.text, s:(Number(w.s??w.start)||0)+shift, e:(Number(w.e??w.end)||0)+shift
+        w: w.w||w.word||w.text, s:Number(w.s??w.start)||0, e:Number(w.e??w.end)||0
       }));
 
       const tok3 = await freshToken();
