@@ -9893,11 +9893,31 @@ const CG_FOOTAGE_LIST = [
 // THE SCRIPT IS EDITED BEFORE ANY OF IT RUNS. Everything downstream costs real money;
 // reading the script first is the difference between paying for a video you wanted and
 // paying for one you delete.
+// The look presets, the same strings api/faceless-plan.js knows.
+//
+// Duplicated across the two rather than shared, because they are a serverless function
+// and a browser bundle with no module in common. The ids are what must agree — the app
+// sends the resolved SENTENCE, not the id, so a preset renamed on one side cannot
+// silently select a different world on the other.
+const FACELESS_LOOKS = [
+  { id:"film",        label:"Film",        look:"moody 35mm film photography, natural available light, muted earth tones, shallow depth of field, fine grain" },
+  { id:"luxury",      label:"Luxury",      look:"high-end editorial photography, marble brass and linen, soft directional light, restrained palette of cream camel and black, generous negative space" },
+  { id:"documentary", label:"Documentary", look:"candid documentary photography, available light, natural skin tones, unposed, slight motion blur" },
+  { id:"cartoon",     label:"Cartoon",     look:"flat 2D vector illustration, bold clean outlines, limited flat palette, simple geometric shapes, no gradients, no texture" },
+  { id:"anime",       label:"Anime",       look:"anime cel illustration, clean confident linework, soft cel shading, expressive faces, painted skies" },
+  { id:"render3d",    label:"3D",          look:"stylised 3D render, matte clay materials, soft global illumination, gentle rim light, muted pastel palette" },
+  { id:"retro",       label:"Retro print", look:"1970s magazine print, warm faded inks, visible halftone dots, slightly off-register colour" },
+  { id:"noir",        label:"Noir",        look:"high contrast black and white photography, hard single-source light, deep shadows, heavy grain" },
+];
+
 function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [topic,setTopic]     = useState("");
   const [tone,setTone]       = useState("");
   const [seconds,setSeconds] = useState(60);
   const [orient,setOrient]   = useState("portrait");
+  const [lookId,setLookId]   = useState("film");
+  const [lookText,setLookText] = useState("");
+  const [refImg,setRefImg]   = useState("");     // a data URL, used on every shot
 
   const [title,setTitle]   = useState("");
   const [look,setLook]     = useState("");
@@ -10000,6 +10020,13 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   // has been read, so two is the common case — a film with one or two recurring people.
   const cost = CREDIT_COSTS.faceless + (estShots + 2) * CREDIT_COSTS.image;
 
+  function chosenLook(){
+    const t = lookText.trim();
+    if(t) return t.slice(0,400);
+    const p = FACELESS_LOOKS.find(x=>x.id===lookId);
+    return p ? p.look : "";
+  }
+
   async function writeScript(){
     setErr(""); setOutUrl("");
     if(!topic.trim()) return setErr("What should the video be about?");
@@ -10009,7 +10036,10 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       const r = await fetch("/api/faceless-plan", {
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok?{Authorization:"Bearer "+tok}:{}) },
-        body: JSON.stringify({ action:"script", topic, seconds, tone })
+        // The resolved sentence, not the preset id. Free text wins over a preset, so
+        // typing "shot on a disposable camera at a wedding" is treated exactly like a
+        // built-in rather than as a note appended to one.
+        body: JSON.stringify({ action:"script", topic, seconds, tone, look: chosenLook() })
       });
       const d = await r.json();
       if(!r.ok) throw new Error(d.error||"Couldn't write that script.");
@@ -10095,7 +10125,7 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         try{
           // Square, because it is a reference rather than a shot — the framing of the
           // portrait should not bias the framing of every scene it is used in.
-          const img = await generateOpenAIImage(cast[i].portrait, [], "1:1", "standard");
+          const img = await generateOpenAIImage(cast[i].portrait, refImg?[refImg]:[], "1:1", "standard");
           faces[cast[i].id] = img.image;
         }catch(_){
           // No portrait just means this character falls back to the written
@@ -10110,7 +10140,12 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       for(let i=0;i<plan.sources.length;i++){
         setStage("Making image "+(i+1)+" of "+plan.sources.length);
         try{
+          // Character portraits first, then the style reference. A reference image does
+          // what no sentence can — it carries a specific palette and rendering that a
+          // description only approximates — and it goes on EVERY shot, because a style
+          // applied to some of them is worse than one applied to none.
           const refs = (plan.sources[i].characters||[]).map(id=>faces[id]).filter(Boolean);
+          if(refImg) refs.push(refImg);
           const img = await generateOpenAIImage(plan.sources[i].prompt, refs, ar, "standard");
           const url = await uploadSiteImage(img.image, base + "-img" + i + ".png");
           if(!url) throw new Error("upload failed");
@@ -10200,6 +10235,26 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={writing||busy} style={dim(writing||busy)} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
         <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={writing||busy} style={dim(writing||busy)} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
       </div>
+      <div style={lbl}>How it should look</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {FACELESS_LOOKS.map(l=>(
+          <Btn key={l.id} small dark={!lookText.trim()&&lookId===l.id} outline={!(!lookText.trim()&&lookId===l.id)}
+               disabled={writing||busy} style={dim(writing||busy)} onClick={()=>{ setLookId(l.id); setLookText(""); }}>{l.label}</Btn>
+        ))}
+      </div>
+      <input value={lookText} onChange={e=>setLookText(e.target.value)} disabled={writing||busy}
+        placeholder="or describe it yourself — shot on a disposable camera at a wedding"
+        style={{...input,marginBottom:10}} />
+      <div style={{...body,fontSize:12,marginBottom:6}}>Reference image (optional) — the strongest control there is</div>
+      <input type="file" accept="image/*" disabled={writing||busy} style={{...body,marginBottom:6}}
+        onChange={e=>{ const f=(e.target.files||[])[0]; if(!f) return;
+          const r=new FileReader(); r.onload=()=>setRefImg(String(r.result||"")); r.readAsDataURL(f); }} />
+      {refImg && <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:14}}>
+        <img src={refImg} alt="" style={{width:56,height:56,objectFit:"cover",border:"1px solid "+B.stone}} />
+        <button onClick={()=>setRefImg("")} style={{background:"none",border:"none",color:B.mid,cursor:"pointer",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em"}}>REMOVE</button>
+      </div>}
+      {!refImg && <div style={{height:8}} />}
+
       <div style={lbl}>Tone (optional)</div>
       <input value={tone} onChange={e=>setTone(e.target.value)} disabled={writing||busy}
         placeholder="deadpan, no hype" style={{...input,marginBottom:14}} />
