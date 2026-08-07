@@ -830,7 +830,14 @@ async function pollVideo(taskId, onProgress) {
   const tid = String(taskId||"");
   lastFfError = "";
   const isFf = tid.indexOf("ff:")===0;                     // our own ffmpeg render engine
+  // "cx:" is a commercial or faceless assembly. It had no branch here, so its id fell
+  // through to /api/video-result — an endpoint that knows nothing about it. The poll
+  // then ran its full ceiling against the wrong service and reported "the render
+  // didn't finish" for a job that was assembling perfectly well somewhere else. The
+  // prefix existed and was documented; only this function was never told.
+  const isCx = tid.indexOf("cx:")===0;
   const endpoint = isFf ? "/api/studio-ffmpeg"
+    : isCx ? "/api/studio-commercial-render"
     : tid.indexOf("omni:")===0 ? "/api/omni-result"
     : tid.indexOf("cm:")===0 ? "/api/studio-status"
     : "/api/video-result";
@@ -838,21 +845,36 @@ async function pollVideo(taskId, onProgress) {
   // of segments, then a full encode and upload. The old 15-minute ceiling made the
   // browser declare failure (and refund) while the render server was still working
   // — the job often finished fine and nobody ever saw it.
-  const maxMs = isFf ? 90 * 60 * 1000 : 15 * 60 * 1000;
+  // An assembly gets the long ceiling for the same reason a render does: fifty shots
+  // encoded one at a time is minutes of work, and a browser that gives up early
+  // declares failure over a job that finishes fine and is never seen.
+  const maxMs = (isFf || isCx) ? 90 * 60 * 1000 : 15 * 60 * 1000;
   const startedAt = Date.now();
   for (let i = 0; Date.now() - startedAt < maxMs; i++) {
     // Poll briskly at first, then ease off so a long render isn't hammering the API.
     await cgWait(i < 40 ? 3000 : i < 120 ? 6000 : 10000);
     try {
-      const token = isFf ? await freshToken() : null;
+      const token = (isFf || isCx) ? await freshToken() : null;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
-        body: JSON.stringify(isFf ? { action:"status", id: taskId } : { id: taskId })
+        // Three services, three vocabularies. cx takes `taskId`, not `id` — sending
+        // the wrong key gets a 400 that looks exactly like a job that isn't ready.
+        body: JSON.stringify(isFf ? { action:"status", id: taskId }
+          : isCx ? { taskId }
+          : { id: taskId })
       });
       const data = await res.json();
       if (isFf){
         if (typeof data.progress === "number" && onProgress) onProgress(data.progress, data.status);
+        if (data.status === "done" && data.url) return data.url;
+        if (data.status === "error") { lastFfError = data.error || ""; return null; }
+        continue;
+      }
+      if (isCx){
+        // studio-commercial-render answers done / pending / error, and its `stage` is
+        // the readable half — "Cutting shot 31 of 48" rather than a percentage.
+        if (typeof data.progress === "number" && onProgress) onProgress(data.progress, data.stage || null);
         if (data.status === "done" && data.url) return data.url;
         if (data.status === "error") { lastFfError = data.error || ""; return null; }
         continue;
@@ -862,7 +884,7 @@ async function pollVideo(taskId, onProgress) {
       if (data.status === "failed") return null;
     } catch {}
   }
-  if (isFf) lastFfError = "This edit is taking longer than usual and is still rendering on our side. Check your library in a few minutes — if it completed, it'll be there.";
+  if (isFf || isCx) lastFfError = "This is taking longer than usual and is still rendering on our side. Check your library in a few minutes — if it completed, it'll be there.";
   return null;
 }
 
@@ -10098,7 +10120,10 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       if(!rr.ok || !rd.taskId) throw new Error(rd.error||"Couldn't start the render.");
 
       const url = await pollVideo(rd.taskId, (p,st)=>setStage(st||("Rendering "+(p||0)+"%")));
-      if(!url) throw new Error("The render didn't finish.");
+      // lastFfError carries what actually happened — the render server's own message,
+      // or the note that it is still going. "The render didn't finish" on its own tells
+      // nobody anything and hides a job that may well have succeeded.
+      if(!url) throw new Error(lastFfError || "The render didn't finish.");
       setOutUrl(url); setStage(""); onToolUse("faceless"); onBalance();
       try{
         const sv = await saveToLibrary(user, "video", (title.trim()||topic.trim().slice(0,60)||"Faceless Video"), url);
