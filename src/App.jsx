@@ -9882,6 +9882,10 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   const [script,setScript] = useState("");
 
   const [voiceMode,setVoiceMode] = useState("ai");   // "ai" | "mine"
+  const [rec,setRec]         = useState(false);
+  const [myVoiceUrl,setMyVoiceUrl] = useState("");
+  const recRef   = useRef(null);
+  const chunkRef = useRef([]);
   const [voiceId,setVoiceId]     = useState("");
   const [voices,setVoices]       = useState([]);
   const [myVoice,setMyVoice]     = useState(null);   // a file the person recorded or uploaded
@@ -9903,11 +9907,65 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         if(r.ok && d && Array.isArray(d.voices) && d.voices.length){
           setVoices(d.voices);
           setVoiceId(v=>v || d.voices[0].voice_id || d.voices[0].id || "");
+          return;
         }
-      }catch(_){}
+        throw new Error("no voices");
+      }catch(_){
+        // A VOICE LIST THAT NEVER ARRIVES MUST NOT BE A DEAD END.
+        //
+        // The picker sat on "Loading voices..." forever whenever /api/voices was slow,
+        // rate limited or shaped differently than expected — and because the list was
+        // empty there was nothing to select, so the whole tab was unusable over a
+        // dropdown. api/voice.js already falls back to a default voice when none is
+        // sent, so the feature was always able to run; only the UI insisted otherwise.
+        if(!dead){
+          setVoices([{ voice_id:"", name:"Default narrator" }]);
+          setVoiceId("");
+        }
+      }
     })();
     return ()=>{ dead=true; };
   },[]);
+
+  // Stop the microphone if this screen goes away mid-recording. Without it the browser
+  // keeps the mic open and the tab shows a recording indicator over a page that is no
+  // longer even mounted.
+  useEffect(()=>{
+    return ()=>{
+      try{ if(recRef.current && recRef.current.state !== "inactive") recRef.current.stop(); }catch(_){}
+      try{ if(myVoiceUrl) URL.revokeObjectURL(myVoiceUrl); }catch(_){}
+    };
+  },[myVoiceUrl]);
+
+  async function startRec(){
+    setErr("");
+    try{
+      // Noise suppression and auto gain are ON by default in every browser and both
+      // hurt a read: gain pumping flattens the delivery, and suppression chews the
+      // ends off quiet words — which is exactly what the transcript needs to time the
+      // shots. Echo cancellation stays on; it only helps if there is a speaker nearby.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:{
+        noiseSuppression:false, autoGainControl:false } });
+      chunkRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if(e.data && e.data.size) chunkRef.current.push(e.data); };
+      mr.onstop = ()=>{
+        try{ stream.getTracks().forEach(t=>t.stop()); }catch(_){}
+        const blob = new Blob(chunkRef.current, { type: mr.mimeType || "audio/webm" });
+        setMyVoice(new File([blob], "voiceover.webm", { type: blob.type }));
+        setMyVoiceUrl(u=>{ try{ if(u) URL.revokeObjectURL(u); }catch(_){} return URL.createObjectURL(blob); });
+      };
+      mr.start();
+      recRef.current = mr;
+      setRec(true);
+    }catch(_){
+      setErr("Couldn't reach your microphone. Check this site's permission in your browser settings.");
+    }
+  }
+  function stopRec(){
+    try{ recRef.current && recRef.current.stop(); }catch(_){}
+    setRec(false);
+  }
 
   // Words per minute is the same figure the planner writes to, so the estimate the
   // button shows and the video that comes out agree with each other.
@@ -10047,6 +10105,14 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
     setBusy(false);
   }
 
+
+  // While a job runs every control is disabled, and Btn paints disabled controls in
+  // B.stone — a warm beige that fights a black and white screen at the exact moment
+  // someone is watching it. Overridden locally rather than in Btn, because every other
+  // tab in the app has been that colour for months and this is not the night to
+  // restyle all of them.
+  const offStyle = {background:B.white,color:B.mid,border:"1px solid "+B.stone};
+  const dim = (on) => (on ? offStyle : {});
   const lbl  = {fontSize:9,color:B.gold,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"};
   const body = {fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6};
   const input = {width:"100%",padding:"11px 13px",border:"1px solid "+B.stone,background:B.white,color:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,outline:"none",boxSizing:"border-box"};
@@ -10063,13 +10129,13 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       <div style={lbl}>How long</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
         {[[60,"60 seconds"],[120,"2 minutes"],[300,"5 minutes"]].map(([v,l])=>(
-          <Btn key={v} small dark={seconds===v} outline={seconds!==v} disabled={writing||busy} onClick={()=>setSeconds(v)}>{l}</Btn>
+          <Btn key={v} small dark={seconds===v} outline={seconds!==v} disabled={writing||busy} style={dim(writing||busy)} onClick={()=>setSeconds(v)}>{l}</Btn>
         ))}
       </div>
       <div style={lbl}>Shape</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-        <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={writing||busy} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
-        <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={writing||busy} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
+        <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={writing||busy} style={dim(writing||busy)} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
+        <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={writing||busy} style={dim(writing||busy)} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
       </div>
       <div style={lbl}>Tone (optional)</div>
       <input value={tone} onChange={e=>setTone(e.target.value)} disabled={writing||busy}
@@ -10089,8 +10155,8 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       <Card style={{padding:22,marginBottom:16}}>
         <div style={lbl}>The voice</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
-          <Btn small dark={voiceMode==="ai"} outline={voiceMode!=="ai"} disabled={busy} onClick={()=>setVoiceMode("ai")}>AI VOICE</Btn>
-          <Btn small dark={voiceMode==="mine"} outline={voiceMode!=="mine"} disabled={busy} onClick={()=>setVoiceMode("mine")}>MY OWN RECORDING</Btn>
+          <Btn small dark={voiceMode==="ai"} outline={voiceMode!=="ai"} disabled={busy} style={dim(busy)} onClick={()=>setVoiceMode("ai")}>AI VOICE</Btn>
+          <Btn small dark={voiceMode==="mine"} outline={voiceMode!=="mine"} disabled={busy} style={dim(busy)} onClick={()=>setVoiceMode("mine")}>MY OWN RECORDING</Btn>
         </div>
         {voiceMode==="ai"
           ? <select value={voiceId} onChange={e=>setVoiceId(e.target.value)} disabled={busy} style={input}>
@@ -10099,10 +10165,23 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
                 : <option value="">Loading voices...</option>}
             </select>
           : <div>
-              <input type="file" accept="audio/*" disabled={busy}
-                onChange={e=>{ const f=(e.target.files||[])[0]; if(f) setMyVoice(f); }} style={{...body}} />
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+                {rec
+                  ? <Btn small dark onClick={stopRec}>STOP RECORDING</Btn>
+                  : <Btn small outline disabled={busy} onClick={startRec}>RECORD IT NOW</Btn>}
+                {rec && <span style={{...body,fontSize:12,color:"#C0392B"}}>Recording — read the script above.</span>}
+              </div>
+              {myVoiceUrl && !rec && <audio src={myVoiceUrl} controls style={{width:"100%",marginBottom:12}} />}
+              <div style={{...body,fontSize:12,marginBottom:6}}>or upload a file</div>
+              {/* No accept filter. On iOS `accept="audio/*"` hides Voice Memos entirely
+                  and offers the camera roll instead, which is how a screen recording
+                  ended up being submitted as a voiceover. An empty filter shows
+                  everything, and the transcriber reads audio out of a video container
+                  quite happily anyway. */}
+              <input type="file" disabled={busy}
+                onChange={e=>{ const f=(e.target.files||[])[0]; if(f){ setMyVoice(f); setMyVoiceUrl(u=>{ try{ if(u) URL.revokeObjectURL(u); }catch(_){} return URL.createObjectURL(f); }); } }} style={{...body}} />
               {myVoice && <div style={{...body,color:B.charcoal,marginTop:8}}>{myVoice.name}</div>}
-              <p style={{...body,fontSize:12,marginTop:8}}>Read the script above and upload the recording. It gets listened back to for timing, so read it as written — a line you improvised will get the wrong picture.</p>
+              <p style={{...body,fontSize:12,marginTop:8}}>It gets listened back to for timing, so read it as written — a line you improvised will get the wrong picture.</p>
             </div>}
       </Card>
 
@@ -10270,6 +10349,9 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
     setBusy(false);
   }
 
+  // Same reason as the faceless tab: disabled controls go neutral rather than beige.
+  const offStyle = {background:B.white,color:B.mid,border:"1px solid "+B.stone};
+  const dim = (on) => (on ? offStyle : {});
   const lbl = {fontSize:9,color:B.gold,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,letterSpacing:"0.18em",marginBottom:10,textTransform:"uppercase"};
   const body = {fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,letterSpacing:"0.02em",lineHeight:1.6};
 
@@ -10300,13 +10382,13 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
       <div style={lbl}>How it cuts</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
         {["calm","normal","fast"].map(p=>(
-          <Btn key={p} small dark={pace===p} outline={pace!==p} disabled={busy} onClick={()=>setPace(p)}>{p.toUpperCase()}</Btn>
+          <Btn key={p} small dark={pace===p} outline={pace!==p} disabled={busy} style={dim(busy)} onClick={()=>setPace(p)}>{p.toUpperCase()}</Btn>
         ))}
       </div>
       <div style={lbl}>Shape</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={busy} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
-        <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={busy} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
+        <Btn small dark={orient==="portrait"} outline={orient!=="portrait"} disabled={busy} style={dim(busy)} onClick={()=>setOrient("portrait")}>VERTICAL</Btn>
+        <Btn small dark={orient==="landscape"} outline={orient!=="landscape"} disabled={busy} style={dim(busy)} onClick={()=>setOrient("landscape")}>WIDESCREEN</Btn>
       </div>
     </Card>
 
