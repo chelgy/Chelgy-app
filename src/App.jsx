@@ -9939,6 +9939,7 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   const [outUrl,setOutUrl]   = useState("");
   const [saved,setSaved]     = useState(false);
   const [dl,setDl]           = useState("");
+  const [notes,setNotes]     = useState([]);
 
   useEffect(()=>{
     let dead=false;
@@ -10049,7 +10050,7 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   }
 
   async function makeVideo(){
-    setErr(""); setOutUrl("");
+    setErr(""); setOutUrl(""); setNotes([]);
     if(!script.trim()) return setErr("Write the script first.");
     if(voiceMode==="mine" && !myVoice) return setErr("Add your voiceover recording, or switch to an AI voice.");
     if(!useCredits(cost)) return;
@@ -10137,28 +10138,65 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
       //
       // One at a time on purpose. Fifty parallel image calls is a rate limit, and a
       // rate limit halfway through is fifty half-paid-for images and no video.
+      // EVERY FAILURE HERE USED TO BE INVISIBLE, AND THAT WAS THE REAL BUG.
+      //
+      // The old loop asked once per image and, on any failure, silently gave that shot
+      // the PREVIOUS image. One failure is a held beat. Seven in a row is eight
+      // consecutive shots of the same picture — which is exactly what a real run
+      // produced: 27 prompts written, about 13 images in storage, and a film that
+      // opened with the same workshop nine times. Nothing errored. Nothing was logged
+      // anywhere the customer could see. The video simply looked lazy.
+      //
+      // Three things were wrong and all three are fixed here: it never retried, it
+      // fired requests as fast as it could (which is how you get rate-limited around
+      // image two), and it hid the result.
+      let borrowed = 0;
       for(let i=0;i<plan.sources.length;i++){
         setStage("Making image "+(i+1)+" of "+plan.sources.length);
-        try{
-          // Character portraits first, then the style reference. A reference image does
-          // what no sentence can — it carries a specific palette and rendering that a
-          // description only approximates — and it goes on EVERY shot, because a style
-          // applied to some of them is worse than one applied to none.
-          const refs = (plan.sources[i].characters||[]).map(id=>faces[id]).filter(Boolean);
-          if(refImg) refs.push(refImg);
-          const img = await generateOpenAIImage(plan.sources[i].prompt, refs, ar, "standard");
-          const url = await uploadSiteImage(img.image, base + "-img" + i + ".png");
-          if(!url) throw new Error("upload failed");
-          plan.sources[i].url = url;
-        }catch(e){
-          // One picture that will not generate must not cost the whole video. The
-          // shot borrows the previous image, which reads as a held beat rather than
-          // a gap — and a gap is not even possible: the assembler rejects a source
-          // with no url and refuses the entire plan.
-          const prev = plan.sources.slice(0,i).reverse().find(s=>s.url);
-          if(!prev) throw new Error("The first image wouldn't generate: "+((e&&e.message)||e));
-          plan.sources[i].url = prev.url;
+        // Character portraits first, then the style reference. A reference image does
+        // what no sentence can — it carries a specific palette and rendering that a
+        // description only approximates — and it goes on EVERY shot, because a style
+        // applied to some of them is worse than one applied to none.
+        const refs = (plan.sources[i].characters||[]).map(id=>faces[id]).filter(Boolean);
+        if(refImg) refs.push(refImg);
+
+        let got = null, lastErr = null;
+        for(let attempt=0; attempt<3 && !got; attempt++){
+          if(attempt) {
+            setStage("Making image "+(i+1)+" of "+plan.sources.length+" — retrying");
+            // Backing off rather than hammering. A rate limit answered immediately with
+            // another request stays a rate limit.
+            await cgWait(1500 * attempt);
+          }
+          try{
+            const img = await generateOpenAIImage(plan.sources[i].prompt, refs, ar, "standard");
+            const url = await uploadSiteImage(img.image, base + "-img" + i + ".png");
+            if(!url) throw new Error("upload failed");
+            got = url;
+          }catch(e){ lastErr = e; }
         }
+
+        if(got){
+          plan.sources[i].url = got;
+        } else {
+          // Still the last resort, and still better than no video — but counted now,
+          // and said out loud at the end.
+          console.warn("image "+i+" failed after 3 tries:", (lastErr&&lastErr.message)||lastErr);
+          const prev = plan.sources.slice(0,i).reverse().find(s=>s.url);
+          if(!prev) throw new Error("Couldn't generate the first image: "+((lastErr&&lastErr.message)||lastErr));
+          plan.sources[i].url = prev.url;
+          borrowed++;
+        }
+
+        // A breath between requests. The old loop fired them back to back, which is
+        // the most reliable way to be throttled, and being throttled looked exactly
+        // like a repeated picture.
+        if(i < plan.sources.length-1) await cgWait(400);
+      }
+
+      if(borrowed){
+        const pct = Math.round((borrowed/plan.sources.length)*100);
+        setNotes([borrowed+" of "+plan.sources.length+" images ("+pct+"%) wouldn't generate, so those shots reuse the picture before them. That is what makes a video look repetitive. Try again — it is usually a busy moment at the image service rather than anything about your script."]);
       }
 
       // ── 5. assemble ──
@@ -10316,6 +10354,10 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
 
     {err && !busy && <div style={{background:"#FBEAEA",border:"1px solid #E0B4B4",padding:16,marginTop:16}}>
       <div style={{...body,color:"#9B2C2C"}}>{err}</div>
+    </div>}
+
+    {notes.length>0 && !busy && <div style={{background:"#FFF8E6",border:"1px solid #E8D9A8",padding:16,marginTop:16}}>
+      {notes.map((n,i)=><div key={i} style={{...body,color:"#7A5B00"}}>{n}</div>)}
     </div>}
 
     {outUrl && !busy && <div style={{background:B.offwhite,border:"1px solid "+B.stone,padding:20,marginTop:16}}>
