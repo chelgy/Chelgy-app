@@ -50,6 +50,25 @@ const SHOT_TARGET = 5.0;
 
 const LENGTHS = { 60: "60 seconds", 120: "2 minutes", 300: "5 minutes" };
 
+// The visual world, as a set of choices rather than whatever the writer invents.
+//
+// Every one of these is CONCRETE — medium, palette, light — because that is what an
+// image model can act on. "Cinematic" and "beautiful" are not styles, they are
+// adjectives, and fifty images generated against an adjective do not match.
+//
+// The value is appended verbatim to every prompt in the film, including the character
+// portraits, so a cartoon film casts a cartoon.
+export const LOOK_PRESETS = {
+  film:        "moody 35mm film photography, natural available light, muted earth tones, shallow depth of field, fine grain",
+  luxury:      "high-end editorial photography, marble brass and linen, soft directional light, restrained palette of cream camel and black, generous negative space",
+  documentary: "candid documentary photography, available light, natural skin tones, unposed, slight motion blur",
+  cartoon:     "flat 2D vector illustration, bold clean outlines, limited flat palette, simple geometric shapes, no gradients, no texture",
+  anime:       "anime cel illustration, clean confident linework, soft cel shading, expressive faces, painted skies",
+  render3d:    "stylised 3D render, matte clay materials, soft global illumination, gentle rim light, muted pastel palette",
+  retro:       "1970s magazine print, warm faded inks, visible halftone dots, slightly off-register colour",
+  noir:        "high contrast black and white photography, hard single-source light, deep shadows, heavy grain",
+};
+
 const overloaded = (s) =>
   /overloaded|high demand|try again later|unavailable|resource[_ ]?exhausted|rate limit|quota/i
     .test(String(s || ""));
@@ -123,7 +142,7 @@ NEVER write: stage directions, speaker labels, timestamps, section headings, "[m
 or anything that is not the words to be spoken. The entire output is read aloud by a
 voice model exactly as written.`;
 
-function scriptPrompt(topic, seconds, tone) {
+function scriptPrompt(topic, seconds, tone, chosenLook) {
   const words = Math.round((seconds / 60) * WORDS_PER_MINUTE);
   return `Write narration for a ${LENGTHS[seconds] || seconds + " second"} faceless video.
 
@@ -137,11 +156,15 @@ Return ONLY valid JSON, no markdown fence, no preamble:
 
 {
   "title": "<5 words max, the on-screen opening card. Not a sentence. Not clickbait.>",
-  "look": "<ONE sentence describing the visual world of this video — medium, palette,
+  "look": ${chosenLook
+    ? `"${chosenLook.replace(/"/g, "'")}"   <- USE THIS EXACTLY. It was chosen by the
+            person making the film; do not improve it, do not extend it, do not
+            substitute your own. Return it unchanged.>`
+    : `"<ONE sentence describing the visual world of this video — medium, palette,
             lighting, era. Every image is generated with this appended, so it is the
             only thing holding fifty pictures together as one video. Be concrete:
             'moody 35mm film photography, muted earth tones, overcast natural light'
-            beats 'cinematic and beautiful'.>",
+            beats 'cinematic and beautiful'.>"`},
   "script": "<the narration, plain text, paragraphs separated by blank lines>"
 }`;
 }
@@ -435,9 +458,14 @@ export default async function handler(req, res) {
       const seconds = [60, 120, 300].includes(Number(body.seconds)) ? Number(body.seconds) : 60;
       const tone = String(body.tone || "").trim().slice(0, 200);
 
+      // A chosen look wins outright. Presets and free text arrive the same way — the
+      // caller resolves the preset — so a person can type "shot on a disposable camera
+      // at a wedding" and it is treated exactly like a built-in.
+      const chosenLook = String(body.look || "").trim().slice(0, 400);
+
       const r = await callClaude(AKEY, {
         system: SCRIPT_SYSTEM,
-        content: scriptPrompt(topic, seconds, tone),
+        content: scriptPrompt(topic, seconds, tone, chosenLook),
         maxTokens: 4000,
       });
       if (!r.ok) return res.status(502).json({ error: r.error });
@@ -448,7 +476,10 @@ export default async function handler(req, res) {
       const script = String(j.script).trim();
       return res.status(200).json({
         title: String(j.title || "").trim().slice(0, 60),
-        look: String(j.look || "").trim().slice(0, 400),
+        // The chosen look is returned as given rather than as the model echoed it back.
+        // Asked to repeat a sentence verbatim a model will still tidy it, and a tidied
+        // look is a different look applied to every image in the film.
+        look: chosenLook || String(j.look || "").trim().slice(0, 400),
         script,
         // Shown on the button so nobody is surprised by a two-minute video they asked
         // to be thirty seconds.
@@ -495,7 +526,10 @@ export default async function handler(req, res) {
                   id: String(c.id).slice(0, 40),
                   name: String(c.name || c.id).slice(0, 60),
                   look: String(c.look).slice(0, 600),
-                  portrait: String(c.portrait || c.look).slice(0, 600),
+                  // The look goes on the portrait too. Without it a cartoon film
+                  // generates a photographic reference and then passes that photograph
+                  // into every cartoon shot, which fights the style in every frame.
+                  portrait: String(c.portrait || c.look).slice(0, 600) + (look ? " " + look : ""),
                 })),
               places: (Array.isArray(bj.places) ? bj.places : []).slice(0, 6),
               arc: String(bj.arc || "").slice(0, 1500),
