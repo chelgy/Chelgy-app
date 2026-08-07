@@ -228,40 +228,132 @@ function groupIntoShots(words, total) {
 
 const round3 = (v) => Math.round(v * 1000) / 1000;
 
-const IMAGE_SYSTEM = `You write image prompts for a faceless video. One prompt per shot,
-each illustrating what is being said at that moment.
+// ── THE BIBLE ───────────────────────────────────────────────────────────────
+//
+// WHY THIS STEP EXISTS, and skipping it is what made the first version a slideshow.
+//
+// Asking for one prompt per line gives you a reasonable picture of each line and a
+// video that adds up to nothing. Reported from a real run: a script about two women
+// building businesses came back as pottery, then cups, then a table, then a man and a
+// woman — every image defensible on its own, no thread between the first and the last,
+// and a different cast in every frame.
+//
+// Two things cause that and neither is fixed by writing better prompts.
+//
+// A script has RECURRING PEOPLE and the shot list does not know it. "A woman" invents
+// a new woman every time she is asked for. So the cast is defined once, before any
+// prompt is written, and the same exact sentence is pasted into every shot she is in —
+// pasted, not paraphrased, because a reworded description is a different person.
+//
+// And a script has a THROUGH-LINE. If she is walking to the shop in shot four, shot
+// five is the shop, not an unrelated still life. That only happens if whatever writes
+// shot five can see shots one to four and knows where the story is going.
+const BIBLE_SYSTEM = `You are the director of a short film told entirely in still images.
 
-RULES THAT MATTER MORE THAN THE WRITING:
+Before any shot is designed you decide two things: WHO is in this film, and WHAT
+JOURNEY the pictures take.
 
-No text, letters, numbers, words, signage, logos or captions anywhere in the image.
-Image models render text as garbled nonsense and it is the single thing that makes a
-faceless video look cheap. If a shot is about a statistic, illustrate the SUBJECT, not
-the number.
+CAST. Every person the script refers to more than once is a character. Describe each in
+one dense sentence that could be handed to a stranger who has to draw them: apparent
+age, build, hair, skin, clothing, and one specific thing that makes them recognisable
+at a glance — a yellow apron, a shaved head, wire glasses. No names of real people. The
+description gets copied verbatim into every shot they appear in, so it must be complete
+and it must never need rewording.
 
-No faces that need to be a specific person, and no recognisable public figures.
+PLACES. The same for any location that recurs. A workshop that changes character every
+time it appears reads as a different workshop.
 
-Illustrate, do not decorate. If the line is about a factory closing, show the factory —
-not an abstract swirl of colour. The picture should make the line land harder.
+THE ARC. One short paragraph: where the pictures start, what changes in the middle,
+where they end. This is a VISUAL journey, not a summary of the script. If the script
+argues that shipping beats perfecting, the arc might run from a dim room with one
+unfinished object, to a table of imperfect things going out of the door, to a lit shop
+full of people. Concrete, physical, in order.`;
 
-Vary the framing across consecutive shots. Wide, then close, then overhead. Three
-similar compositions in a row reads as one long shot with a stutter.
+function biblePrompt(script, look, topic) {
+  return `Here is the full narration for a film told in still images.
 
-Each prompt is one sentence, concrete, describing a single photographable scene.`;
+TOPIC: ${topic}
 
-function imagePrompt(shots, look, topic) {
-  return `A faceless video about: ${topic}
+VISUAL WORLD: ${look}
 
-VISUAL WORLD (append this to every prompt, it is what holds the video together):
-${look}
-
-Write one image prompt per shot below, in order.
-
-${shots.map((s, i) => `${i + 1}. [${s.start.toFixed(1)}s] ${s.text}`).join("\n")}
+SCRIPT:
+${script}
 
 Return ONLY valid JSON, no markdown fence:
-{"prompts": ["<shot 1>", "<shot 2>", ...]}
+{
+  "characters": [
+    {
+      "id": "<short lowercase key, e.g. maker_a>",
+      "name": "<what to call her in a prompt, e.g. the perfectionist>",
+      "look": "<the one dense sentence, copied verbatim into every shot she is in>",
+      "portrait": "<a prompt for a single reference portrait of this person alone,
+                    plain background, waist up, neutral expression>"
+    }
+  ],
+  "places": [ { "id": "...", "name": "...", "look": "<one sentence>" } ],
+  "arc": "<one paragraph, the visual journey in order>"
+}
 
-Exactly ${shots.length} prompts, in order.`;
+Characters only for people who RECUR. A script with no recurring people returns an
+empty array — do not invent a cast for a film about a city.`;
+}
+
+const IMAGE_SYSTEM = `You design the shots of a film told entirely in still images.
+
+You are given the cast, the places, the arc, and every shot in order with the line of
+narration it sits under. You write one image prompt per shot.
+
+THIS IS ONE FILM, NOT A LIST OF PICTURES. Each shot follows the one before it. If she
+picked up a box in shot six, shot seven is her carrying it, not an unrelated still. If
+the arc moves from a dim room to a busy shop, the shots move that way too and the light
+changes as they go. A viewer should be able to follow what is happening with the sound
+off.
+
+COPY THE CAST DESCRIPTIONS EXACTLY. When a character is in a shot, paste their "look"
+sentence into the prompt word for word. Do not shorten it, do not reword it, do not
+substitute a pronoun. A rewritten description generates a different person, and a film
+whose lead changes face every eight seconds is worse than one with no people in it.
+
+The same for places.
+
+NO TEXT ANYWHERE IN THE IMAGE. No letters, numbers, words, signage, logos or captions.
+Image models render text as garbled nonsense and it is the single thing that makes this
+format look cheap. If the line is about a statistic, illustrate the subject.
+
+VARY THE FRAMING between neighbouring shots — wide, then close, then over a shoulder.
+Three similar compositions in a row reads as one long shot with a stutter.
+
+Each prompt is one paragraph describing a single photographable moment.`;
+
+function imagePrompt(shots, bible, look, topic) {
+  const cast = (bible.characters || [])
+    .map((c) => `  ${c.id} — ${c.name}: ${c.look}`).join("\n") || "  (none)";
+  const places = (bible.places || [])
+    .map((p) => `  ${p.id} — ${p.name}: ${p.look}`).join("\n") || "  (none)";
+
+  return `A film told in still images about: ${topic}
+
+VISUAL WORLD (every shot is in this world):
+${look}
+
+THE ARC:
+${bible.arc || ""}
+
+CAST — paste these sentences verbatim when the character appears:
+${cast}
+
+PLACES:
+${places}
+
+THE SHOTS, in order, with the narration each one sits under:
+
+${shots.map((s, i) => `${i + 1}. [${s.start.toFixed(1)}s] "${s.text}"`).join("\n")}
+
+Return ONLY valid JSON, no markdown fence:
+{"shots": [{"prompt": "<one paragraph>", "characters": ["<cast id>", ...]}, ...]}
+
+Exactly ${shots.length} entries, in order. "characters" lists which cast ids appear in
+that shot, and is an empty array for a shot with nobody in it.`;
 }
 
 function parseJson(text) {
@@ -313,10 +405,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── time the shots and write their pictures ──
+    // ── time the shots and design them ──
     if (body.action === "shots") {
       const topic = String(body.topic || "").trim().slice(0, 600);
       const look = String(body.look || "").trim().slice(0, 400);
+      const script = String(body.script || "").trim().slice(0, 20000);
       const words = Array.isArray(body.words) ? body.words : [];
       const total = Number(body.duration) || 0;
       if (!words.length) return res.status(400).json({ error: "No word timings — the voiceover hasn't been transcribed yet." });
@@ -329,42 +422,84 @@ export default async function handler(req, res) {
                  " shots). Trim it and try again." });
       }
 
+      // STEP ONE: who is in this, and where does it go.
+      //
+      // A failure here is not fatal — an empty bible gives the old behaviour, which is
+      // a watchable if disconnected film, rather than no film at all.
+      let bible = { characters: [], places: [], arc: "" };
+      if (script) {
+        const br = await callClaude(AKEY, {
+          system: BIBLE_SYSTEM,
+          content: biblePrompt(script, look, topic),
+          maxTokens: 3000,
+        });
+        if (br.ok) {
+          const bj = parseJson(br.text);
+          if (bj && typeof bj === "object") {
+            bible = {
+              characters: (Array.isArray(bj.characters) ? bj.characters : [])
+                .filter((c) => c && c.id && c.look)
+                .slice(0, 6)     // past six recurring people nobody is following anyway
+                .map((c) => ({
+                  id: String(c.id).slice(0, 40),
+                  name: String(c.name || c.id).slice(0, 60),
+                  look: String(c.look).slice(0, 600),
+                  portrait: String(c.portrait || c.look).slice(0, 600),
+                })),
+              places: (Array.isArray(bj.places) ? bj.places : []).slice(0, 6),
+              arc: String(bj.arc || "").slice(0, 1500),
+            };
+          }
+        }
+      }
+
+      // STEP TWO: the shots, designed against that.
       const r = await callClaude(AKEY, {
         system: IMAGE_SYSTEM,
-        content: imagePrompt(shots, look, topic),
-        maxTokens: 8000,
+        content: imagePrompt(shots, bible, look, topic),
+        maxTokens: 16000,
       });
       if (!r.ok) return res.status(502).json({ error: r.error });
 
       const j = parseJson(r.text);
-      const prompts = (j && Array.isArray(j.prompts)) ? j.prompts : [];
-      if (!prompts.length) return res.status(502).json({ error: "Couldn't write the image prompts. Try again." });
+      const designed = (j && Array.isArray(j.shots)) ? j.shots : [];
+      if (!designed.length) return res.status(502).json({ error: "Couldn't design the shots. Try again." });
 
-      // A short list is padded from the shot's own words rather than dropping the
-      // shot. A video missing its last four pictures is a broken video; a plainer
-      // prompt is a plainer picture.
-      const sources = shots.map((s, i) => ({
-        id: "img" + i,
-        kind: "image",
-        prompt: String(prompts[i] || (s.text.slice(0, 180) + ". " + look)).slice(0, 900) +
-                (look ? " " + look : ""),
-        url: null,
-      }));
+      const byId = new Map(bible.characters.map((c) => [c.id, c]));
+
+      const sources = shots.map((s, i) => {
+        const d = designed[i] || {};
+        let prompt = String(d.prompt || (s.text.slice(0, 180))).slice(0, 1400);
+        // The cast sentence is appended here as well as being asked for in the prompt.
+        // The model is told to paste it verbatim and mostly does; belt and braces costs
+        // a few tokens and the failure it prevents is a lead who changes face.
+        const ids = (Array.isArray(d.characters) ? d.characters : [])
+          .map(String).filter((id) => byId.has(id)).slice(0, 3);
+        for (const id of ids) {
+          const c = byId.get(id);
+          if (c && prompt.indexOf(c.look) === -1) prompt += " " + c.look;
+        }
+        return {
+          id: "img" + i, kind: "image",
+          prompt: prompt + (look ? " " + look : ""),
+          characters: ids,
+          url: null,
+        };
+      });
 
       const timeline = shots.map((s, i) => ({
-        src: "img" + i,
-        in: 0,
-        out: round3(s.end - s.start),
-        // Alternating drift, so consecutive stills don't move identically. `push` is
-        // the gentle 12% zoom; every fourth shot gets no move at all, which stops the
-        // whole video breathing in unison.
+        src: "img" + i, in: 0, out: round3(s.end - s.start),
         fx: i % 4 === 3 ? [] : ["push"],
-        at: s.start,
-        text: s.text,
+        at: s.start, text: s.text,
       }));
 
       return res.status(200).json({
         sources, timeline,
+        // Portraits are generated first and passed back as reference images for every
+        // shot the character appears in. A written description holds a person together
+        // about as well as a police sketch; a reference photo actually does it.
+        characters: bible.characters.map((c) => ({ id: c.id, name: c.name, portrait: c.portrait })),
+        arc: bible.arc,
         shots: shots.length,
         seconds: round3(shots[shots.length - 1].end),
       });
