@@ -151,121 +151,28 @@ TOPIC: ${topic}
 ${tone ? "TONE: " + tone + "\n\n" : ""}Length: about ${words} words. That is a target, not a rule — being 10% out is fine,
 being twice as long is not, because the video is cut to the voiceover and a script that
 runs long produces a video that runs long.
+${chosenLook ? `
+THE VISUAL WORLD HAS ALREADY BEEN CHOSEN by the person making this film:
 
+    ${chosenLook}
+
+Put that back in the "look" field EXACTLY as written above. Do not improve it, extend
+it, or substitute your own — every image in the film is generated with it, so a tidied
+version is a different film.
+` : ""}
 Return ONLY valid JSON, no markdown fence, no preamble:
 
 {
-  "title": "<5 words max, the on-screen opening card. Not a sentence. Not clickbait.>",
-  "look": ${chosenLook
-    ? `"${chosenLook.replace(/"/g, "'")}"   <- USE THIS EXACTLY. It was chosen by the
-            person making the film; do not improve it, do not extend it, do not
-            substitute your own. Return it unchanged.>`
-    : `"<ONE sentence describing the visual world of this video — medium, palette,
-            lighting, era. Every image is generated with this appended, so it is the
-            only thing holding fifty pictures together as one video. Be concrete:
-            'moody 35mm film photography, muted earth tones, overcast natural light'
-            beats 'cinematic and beautiful'.>"`},
-  "script": "<the narration, plain text, paragraphs separated by blank lines>"
-}`;
+  "title": "<5 words max, the opening line on screen. Not a sentence. Not clickbait.>",
+  "look": "<${chosenLook ? "the sentence given above, unchanged" : "ONE concrete sentence describing the visual world — medium, palette, lighting, era. 'moody 35mm film photography, muted earth tones, overcast natural light' beats 'cinematic and beautiful'"}>",
+  "script": ["<paragraph one>", "<paragraph two>", "<paragraph three>"]
 }
 
-// ── step 2: shots timed to the voiceover ────────────────────────────────────
-
-// Group the transcript into shots.
-//
-// Done in code, not by a model. Shot boundaries are arithmetic on timestamps — a model
-// asked to do it returns times that drift from the transcript by a few hundred
-// milliseconds and every image lands slightly off the sentence it belongs to. The
-// model's job is the PICTURES; the clock is not a judgement call.
-//
-// Boundaries prefer the end of a sentence, then any word gap, then the target length,
-// because cutting the image mid-clause is what makes a faceless video feel machine-made.
-function groupIntoShots(words, total) {
-  const w = (Array.isArray(words) ? words : [])
-    .map((x) => ({
-      w: String((x && (x.w || x.word || x.text)) || ""),
-      s: Number(x && (x.s ?? x.start)) || 0,
-      e: Number(x && (x.e ?? x.end)) || 0,
-    }))
-    .filter((x) => x.w && x.e > x.s)
-    .sort((a, b) => a.s - b.s);
-  if (!w.length) return [];
-
-  const shots = [];
-  let start = 0;
-  let i = 0;
-  while (i < w.length) {
-    const target = start + SHOT_TARGET;
-    let cut = null;
-
-    // Look for a sentence end inside the acceptable window.
-    for (let k = i; k < w.length; k++) {
-      const t = w[k].e;
-      if (t < start + SHOT_MIN) continue;
-      if (t > start + SHOT_MAX) break;
-      if (/[.!?]"?$/.test(w[k].w)) { cut = { t, k }; break; }
-      if (!cut || Math.abs(t - target) < Math.abs(cut.t - target)) cut = { t, k };
-    }
-    // Nothing in the window — take the first word past the minimum rather than
-    // running to the end of the video on one image.
-    if (!cut) {
-      for (let k = i; k < w.length; k++) {
-        if (w[k].e >= start + SHOT_MIN) { cut = { t: w[k].e, k }; break; }
-      }
-    }
-    if (!cut) break;
-
-    // EVERY BOUNDARY LANDS ON A FRAME.
-    //
-    // Shot lengths come from word timings, which are arbitrary decimals — 5.383s is
-    // 161.49 frames at 30fps, so ffmpeg rounds it, and the error accumulates down the
-    // whole film while the voiceover keeps perfect time. Captions are sliced against
-    // the planned times, so they drift off the picture: the same failure the music
-    // video planner had, in a pipeline I never applied the fix to.
-    //
-    // Quantised here, at the source, so every duration is a whole number of frames and
-    // there is nothing left to round.
-    const cutT = qf(cut.t);
-    const text = w.slice(i, cut.k + 1).map((x) => x.w).join(" ");
-    shots.push({ start: qf(start), end: cutT, text });
-    start = cutT;
-    i = cut.k + 1;
-  }
-
-  // The tail. The pictures must reach the end of the narration — the assembler mixes
-  // to the shortest stream, so stopping at the last word can clip the final syllable.
-  if (shots.length) {
-    shots[shots.length - 1].end = qf(Math.max(shots[shots.length - 1].end, total));
-  }
-
-  // NOW ENFORCE THE CEILING, and this is not cosmetic.
-  //
-  // Extending that last shot is what breaks it: on a 60-second script the tail came out
-  // at 9.8 seconds, and commercial-route.js rejects any still held longer than 8 —
-  // meaning the whole render is refused at submission, after the voiceover and every
-  // image has already been paid for. A gap between two rules in two files, and the
-  // expensive one fires last.
-  //
-  // Splitting rather than trimming, because trimming loses the end of the narration.
-  // The halves share the shot's words, so both get a sensible picture prompt.
-  const capped = [];
-  for (const sh of shots) {
-    const dur = sh.end - sh.start;
-    if (dur <= SHOT_MAX + 0.001) { capped.push(sh); continue; }
-    const parts = Math.ceil(dur / SHOT_MAX);
-    const each = dur / parts;
-    for (let k = 0; k < parts; k++) {
-      capped.push({
-        start: qf(sh.start + k * each),
-        end: k === parts - 1 ? sh.end : qf(sh.start + (k + 1) * each),
-        text: sh.text,
-      });
-    }
-  }
-  return capped.filter((s) => s.end > s.start + 0.5);
+THE SCRIPT IS AN ARRAY OF PARAGRAPHS, one string each, and this matters: a JSON string
+cannot contain a real line break, so a multi-paragraph script written as one string is
+invalid JSON and the whole response is thrown away. One paragraph per array entry, no
+line breaks inside any of them.`;
 }
-
-const round3 = (v) => Math.round(v * 1000) / 1000;
 
 // ── THE BIBLE ───────────────────────────────────────────────────────────────
 //
@@ -432,9 +339,32 @@ that shot, and is an empty array for a shot with nobody in it.`;
 
 function parseJson(text) {
   const clean = String(text || "").replace(/```json|```/g, "").trim();
-  try { return JSON.parse(clean); } catch {}
+  const tries = [clean];
   const m = clean.match(/\{[\s\S]*\}/);
-  if (m) { try { return JSON.parse(m[0]); } catch {} }
+  if (m) tries.push(m[0]);
+
+  for (const t of tries) {
+    try { return JSON.parse(t); } catch {}
+    // REPAIR, then give up — not the other way round.
+    //
+    // The failure this exists for: a real line break inside a JSON string. It is
+    // invalid, models produce it constantly whenever the value is prose, and it threw
+    // away an entire script — several seconds of Opus and a person waiting — over a
+    // character that could have been escaped. Only line breaks inside quoted strings
+    // are touched; structure is left exactly as it came.
+    try {
+      let out = "", inStr = false, esc = false;
+      for (const ch of t) {
+        if (esc) { out += ch; esc = false; continue; }
+        if (ch === "\\") { out += ch; esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; out += ch; continue; }
+        if (inStr && (ch === "\n" || ch === "\r")) { out += "\\n"; continue; }
+        if (inStr && ch === "\t") { out += "\\t"; continue; }
+        out += ch;
+      }
+      return JSON.parse(out);
+    } catch {}
+  }
   return null;
 }
 
@@ -471,9 +401,14 @@ export default async function handler(req, res) {
       if (!r.ok) return res.status(502).json({ error: r.error });
 
       const j = parseJson(r.text);
-      if (!j || !j.script) return res.status(502).json({ error: "The writer returned something unreadable. Try again." });
+      if (!j) return res.status(502).json({ error: "The writer returned something unreadable. Try again." });
 
-      const script = String(j.script).trim();
+      // An array of paragraphs is what was asked for; a single string is what arrives
+      // when the model reverts to habit. Both are fine — joining is one line, and
+      // refusing a perfectly good script over its container would be absurd.
+      const script = (Array.isArray(j.script) ? j.script.filter(Boolean).map(String).join("\n\n")
+                     : String(j.script || "")).trim();
+      if (!script) return res.status(502).json({ error: "The writer came back empty. Try again." });
       return res.status(200).json({
         title: String(j.title || "").trim().slice(0, 60),
         // The chosen look is returned as given rather than as the model echoed it back.
