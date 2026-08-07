@@ -39,6 +39,11 @@ const WORDS_PER_MINUTE = 150;
 // How long one image holds the screen. Under three seconds and a five-minute video
 // needs a hundred images and reads as a slideshow on fast-forward; over about seven
 // and a still starts to feel frozen however slowly it drifts.
+// MUST match FPS in commercial.js. Shot boundaries are quantised to this, and a
+// mismatch reintroduces exactly the drift the quantising exists to remove.
+const OUT_FPS = 30;
+const qf = (t) => Math.round(t * OUT_FPS) / OUT_FPS;
+
 const SHOT_MIN = 3.5;
 const SHOT_MAX = 6.5;
 const SHOT_TARGET = 5.0;
@@ -187,16 +192,27 @@ function groupIntoShots(words, total) {
     }
     if (!cut) break;
 
+    // EVERY BOUNDARY LANDS ON A FRAME.
+    //
+    // Shot lengths come from word timings, which are arbitrary decimals — 5.383s is
+    // 161.49 frames at 30fps, so ffmpeg rounds it, and the error accumulates down the
+    // whole film while the voiceover keeps perfect time. Captions are sliced against
+    // the planned times, so they drift off the picture: the same failure the music
+    // video planner had, in a pipeline I never applied the fix to.
+    //
+    // Quantised here, at the source, so every duration is a whole number of frames and
+    // there is nothing left to round.
+    const cutT = qf(cut.t);
     const text = w.slice(i, cut.k + 1).map((x) => x.w).join(" ");
-    shots.push({ start: round3(start), end: round3(cut.t), text });
-    start = cut.t;
+    shots.push({ start: qf(start), end: cutT, text });
+    start = cutT;
     i = cut.k + 1;
   }
 
   // The tail. The pictures must reach the end of the narration — the assembler mixes
   // to the shortest stream, so stopping at the last word can clip the final syllable.
   if (shots.length) {
-    shots[shots.length - 1].end = round3(Math.max(shots[shots.length - 1].end, total));
+    shots[shots.length - 1].end = qf(Math.max(shots[shots.length - 1].end, total));
   }
 
   // NOW ENFORCE THE CEILING, and this is not cosmetic.
@@ -217,8 +233,8 @@ function groupIntoShots(words, total) {
     const each = dur / parts;
     for (let k = 0; k < parts; k++) {
       capped.push({
-        start: round3(sh.start + k * each),
-        end: round3(k === parts - 1 ? sh.end : sh.start + (k + 1) * each),
+        start: qf(sh.start + k * each),
+        end: k === parts - 1 ? sh.end : qf(sh.start + (k + 1) * each),
         text: sh.text,
       });
     }
@@ -523,8 +539,14 @@ export default async function handler(req, res) {
       });
 
       const timeline = shots.map((s, i) => ({
-        src: "img" + i, in: 0, out: round3(s.end - s.start),
-        fx: i % 4 === 3 ? [] : ["push"],
+        // Six decimals, not three. The boundaries are frame-exact; rounding the
+        // duration to milliseconds throws that away for no reason, and it is the same
+        // rounding that undid the fix once already in the music video planner.
+        src: "img" + i, in: 0, out: Math.round((s.end - s.start) * 1e6) / 1e6,
+        // Alternating in / out / in / still. Two neighbours never move the same way,
+        // so even when consecutive images resemble each other they cannot read as one
+        // shot whose zoom restarted.
+        fx: i % 4 === 3 ? [] : (i % 2 === 0 ? ["push"] : ["pull"]),
         at: s.start, text: s.text,
       }));
 
