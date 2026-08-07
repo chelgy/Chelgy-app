@@ -9933,6 +9933,19 @@ function refFromDataUrl(dataUrl){
   return m ? { mimeType: m[1], data: m[2] } : null;
 }
 
+// The score genres, exactly the set the AI Video Editor offers.
+//
+// studio-music takes the same arguments from either tool, so a faceless video gets the
+// identical composer rather than a second one that drifts — and a genre that works in
+// the editor works here on the day it is added there.
+const FACELESS_GENRES = [
+  ["auto","Match my film"],["classical","Classical"],["frenchclassical","French classical"],
+  ["orchestral","Orchestral"],["piano","Piano"],["ambient","Ambient"],["acoustic","Acoustic"],
+  ["lofi","Lo-fi"],["electronic","Electronic"],["jazz","Jazz"],["hiphop","Hip-hop"],
+  ["pop","Pop"],["afrobeats","Afro beats"],["dreampop","Dream pop"],
+  ["runway","Runway · fashion house"],["downtempo","Downtempo · organic house"],
+];
+
 function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [topic,setTopic]     = useState("");
   const [tone,setTone]       = useState("");
@@ -9941,6 +9954,9 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   const [lookId,setLookId]   = useState("film");
   const [lookText,setLookText] = useState("");
   const [refImg,setRefImg]   = useState("");     // a data URL, used on every shot
+  const [music,setMusic]     = useState("off");  // "off" | "score" | "own"
+  const [genre,setGenre]     = useState("auto");
+  const [ownMusic,setOwnMusic] = useState(null);
 
   const [title,setTitle]   = useState("");
   const [look,setLook]     = useState("");
@@ -10225,6 +10241,33 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         setNotes([borrowed+" of "+plan.sources.length+" images ("+pct+"%) wouldn't generate, so those shots reuse the picture before them. That is what makes a video look repetitive. Try again — it is usually a busy moment at the image service rather than anything about your script."]);
       }
 
+      // ── 4c. the score ──
+      //
+      // After the pictures, so a score that fails costs nothing that has not already
+      // been made. A film with no music is a film; a film whose images never generated
+      // is nothing, and there is no reason to make the cheaper thing the blocker.
+      //
+      // Never fatal for the same reason: the assembler treats music as optional and a
+      // missing score is a quieter video, not a failed one.
+      let musicUrl = null;
+      if(music==="own"){
+        musicUrl = ownMusic && ownMusic.url ? ownMusic.url : null;
+      } else if(music==="score"){
+        setStage("Composing your score");
+        try{
+          // The look is handed over as the brief. It is the one sentence that already
+          // describes this film's world, so a noir film gets a noir score without
+          // anyone being asked a second time what the film is like.
+          const mus = await studioMusic(chosenLook(), "cinematic", "wolf", genre);
+          if(!mus || mus.error || !mus.id) throw new Error((mus && mus.error) || "The music engine didn't start.");
+          if(typeof mus.balance==="number") onBalance(mus.balance);
+          musicUrl = await pollVideo(mus.id, (pct)=>setStage("Composing your score — "+(pct||0)+"%"));
+        }catch(e){
+          console.warn("score skipped:", e && e.message);
+          setStage("Couldn't compose the score — carrying on without it.");
+        }
+      }
+
       // ── 5. assemble ──
       setStage("Cutting the video");
 
@@ -10267,7 +10310,9 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         headers:{ "Content-Type":"application/json", ...(tok3?{Authorization:"Bearer "+tok3}:{}) },
         body: JSON.stringify({
           plan: { lut:null, sources: plan.sources, timeline },
-          voUrl, words
+          // assembleCommercial ducks the music under the voice on its own — the mix is
+          // already built for a narrated film, which is exactly what this is.
+          voUrl, musicUrl, words
         })
       });
       const rd = await rr.json();
@@ -10341,6 +10386,33 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         <button onClick={()=>setRefImg("")} style={{background:"none",border:"none",color:B.mid,cursor:"pointer",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em"}}>REMOVE</button>
       </div>}
       {!refImg && <div style={{height:8}} />}
+
+      <div style={lbl}>Music</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {[["off","No music"],["score","Original score"],["own","My own song"]].map(([v,l])=>(
+          <Btn key={v} small dark={music===v} outline={music!==v} disabled={writing||busy}
+               style={dim(writing||busy)} onClick={()=>setMusic(v)}>{l}</Btn>
+        ))}
+      </div>
+      {music==="score" && <div style={{marginBottom:10}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+          {FACELESS_GENRES.map(([v,l])=>(
+            <button key={v} onClick={()=>setGenre(v)} disabled={writing||busy}
+              style={{padding:"8px 14px",border:"1px solid "+(genre===v?B.charcoal:B.stone),background:genre===v?B.inkBlock:B.white,color:genre===v?B.inkText:B.charcoal,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,cursor:(writing||busy)?"not-allowed":"pointer"}}>{l}</button>
+          ))}
+        </div>
+        <p style={{...body,fontSize:11,margin:0}}>Composed for this film and ducked under the narration. Match my film writes it from the look you chose.</p>
+      </div>}
+      {music==="own" && <div style={{marginBottom:10}}>
+        <input type="file" accept="audio/*" disabled={writing||busy} style={{...body}}
+          onChange={async e=>{ const f=(e.target.files||[])[0]; if(!f) return;
+            setStage("Uploading your song");
+            const uid=(user&&user.id)||"anon";
+            const u=await uploadSiteAudioFile(f, uid+"/faceless/"+Date.now()+"-music."+((f.name||"a.mp3").split(".").pop()||"mp3"));
+            setStage(""); setOwnMusic(u?{name:f.name,url:u}:null);
+            if(!u) setErr("That song didn't upload."); }} />
+        {ownMusic && <div style={{...body,color:B.charcoal,marginTop:6}}>{ownMusic.name}</div>}
+      </div>}
 
       <div style={lbl}>Tone (optional)</div>
       <input value={tone} onChange={e=>setTone(e.target.value)} disabled={writing||busy}
