@@ -9946,6 +9946,48 @@ const FACELESS_GENRES = [
   ["runway","Runway · fashion house"],["downtempo","Downtempo · organic house"],
 ];
 
+// Shrink a reference image before it is ever sent anywhere.
+//
+// WHY IT CHOKED ON A REAL PHOTOGRAPH.
+//
+// The picture goes to the API as a base64 data URL inside a JSON body, and base64 is a
+// third larger than the file. A 3MB screenshot is over 4MB encoded, and a serverless
+// request body caps at 4.5MB — so the whole request is refused before any of it runs,
+// and nothing in the failure mentions size.
+//
+// It also does not need to be large. A style reference carries palette, rendering and
+// mood, none of which survive or die on pixel count; 1024px is plenty and JPEG at 0.85
+// takes a 4MB photograph to roughly 150KB. Shrinking is not a workaround for the limit,
+// it is the correct size for the job.
+function shrinkForReference(file, maxSide){
+  return new Promise((resolve)=>{
+    try{
+      const fr = new FileReader();
+      fr.onerror = ()=>resolve(null);
+      fr.onload = ()=>{
+        const img = new Image();
+        img.onerror = ()=>resolve(String(fr.result||"") || null);
+        img.onload = ()=>{
+          try{
+            const M = maxSide || 1024;
+            const scale = Math.min(1, M / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            c.getContext("2d").drawImage(img, 0, 0, w, h);
+            // JPEG, not PNG: a photograph as PNG is enormous and the transparency PNG
+            // buys is meaningless for a style reference.
+            resolve(c.toDataURL("image/jpeg", 0.85));
+          }catch(_){ resolve(String(fr.result||"") || null); }
+        };
+        img.src = String(fr.result||"");
+      };
+      fr.readAsDataURL(file);
+    }catch(_){ resolve(null); }
+  });
+}
+
 function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [topic,setTopic]     = useState("");
   const [tone,setTone]       = useState("");
@@ -10309,7 +10351,13 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         method:"POST",
         headers:{ "Content-Type":"application/json", ...(tok3?{Authorization:"Bearer "+tok3}:{}) },
         body: JSON.stringify({
-          plan: { lut:null, sources: plan.sources, timeline },
+          plan: {
+            lut:null, sources: plan.sources, timeline,
+            // The score sits under narration for a minute, not under a thirty-second
+            // ad. The assembler's default of -20dB is right for the second and too
+            // loud for the first — after the duck it still competes with the voice.
+            musicDb: -27,
+          },
           // assembleCommercial ducks the music under the voice on its own — the mix is
           // already built for a narrated film, which is exactly what this is.
           voUrl, musicUrl, words
@@ -10379,8 +10427,11 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         style={{...input,marginBottom:10}} />
       <div style={{...body,fontSize:12,marginBottom:6}}>Reference image (optional) — the strongest control there is</div>
       <input type="file" accept="image/*" disabled={writing||busy} style={{...body,marginBottom:6}}
-        onChange={e=>{ const f=(e.target.files||[])[0]; if(!f) return;
-          const r=new FileReader(); r.onload=()=>setRefImg(String(r.result||"")); r.readAsDataURL(f); }} />
+        onChange={async e=>{ const f=(e.target.files||[])[0]; if(!f) return;
+          setErr("");
+          const small = await shrinkForReference(f, 1024);
+          if(!small) return setErr("Couldn't read that image. Try a JPEG or PNG.");
+          setRefImg(small); }} />
       {refImg && <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:14}}>
         <img src={refImg} alt="" style={{width:56,height:56,objectFit:"cover",border:"1px solid "+B.stone}} />
         <button onClick={()=>setRefImg("")} style={{background:"none",border:"none",color:B.mid,cursor:"pointer",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.1em"}}>REMOVE</button>
