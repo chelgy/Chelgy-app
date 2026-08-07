@@ -10262,6 +10262,7 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
   const [pace,setPace]     = useState("normal");
   const [orient,setOrient] = useState("portrait");
   const [footage,setFootage] = useState("standard");
+  const [effects,setEffects] = useState(false);
   const [grade,setGrade]     = useState("wolf");
   const [busy,setBusy]     = useState(false);
   const [stage,setStage]   = useState("");
@@ -10381,7 +10382,7 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
             klass:(byId[String(i)] && byId[String(i)].klass) || "locked",
             singing:!!(byId[String(i)] && byId[String(i)].singing)
           })),
-          pace, orientation:orient, footage, look:grade
+          pace, orientation:orient, footage, look:grade, effects
         })
       });
       const rd = await rr.json();
@@ -10473,6 +10474,17 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
         </div>
         <p style={{...body,fontSize:11,margin:"-8px 0 0"}}>{(CG_GRADE_LIST.find(g=>g.id===grade)||{}).note}</p>
       </>}
+    </Card>
+
+    <Card style={{padding:22,marginBottom:16}}>
+      <div style={lbl}>Film effects</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        <Btn small dark={!effects} outline={effects} disabled={busy} style={dim(busy)} onClick={()=>setEffects(false)}>CLEAN</Btn>
+        <Btn small dark={effects} outline={!effects} disabled={busy} style={dim(busy)} onClick={()=>setEffects(true)}>FILM EFFECTS</Btn>
+      </div>
+      <p style={{...body,fontSize:12,margin:0}}>{effects
+        ? "A constant 2px colour separation, a torn-band glitch at some cuts, a frame echo on others, and every so often a second shot from your own video screened over the top. Motion blur comes and goes rather than sitting on every frame."
+        : "No treatment. Your grade, and nothing else on top."}</p>
     </Card>
 
     <Btn dark full disabled={busy||!song||!clips.length} onClick={go}>
