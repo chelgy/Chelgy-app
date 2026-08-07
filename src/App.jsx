@@ -9910,6 +9910,29 @@ const FACELESS_LOOKS = [
   { id:"noir",        label:"Noir",        look:"high contrast black and white photography, hard single-source light, deep shadows, heavy grain" },
 ];
 
+// A data URL, in the shape api/openai-image.js actually accepts.
+//
+// THIS IS WHY THE REFERENCE IMAGES DID NOTHING.
+//
+// generateOpenAIImage passes `inputImages` straight through, and the endpoint keeps
+// only entries with BOTH .data and .mimeType:
+//
+//     inputImages.filter(im => im && im.data && im.mimeType)
+//
+// A data URL is a string. A string has neither, so every reference was filtered out,
+// the request quietly fell through to plain text-to-image, and nothing anywhere said
+// so. Cast portraits and style references have been generated, paid for, and discarded
+// on arrival — the character consistency in the last run came only from the written
+// description being pasted into the prompt.
+//
+// Converted at the call site rather than inside generateOpenAIImage, because other
+// tools already pass the correct shape and changing the shared helper would be a wider
+// blast radius than this deserves at the moment it is being fixed.
+function refFromDataUrl(dataUrl){
+  const m = /^data:([^;,]+);base64,(.+)$/.exec(String(dataUrl||""));
+  return m ? { mimeType: m[1], data: m[2] } : null;
+}
+
 function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, user=null, onBuyCredits=()=>{} }){
   const [topic,setTopic]     = useState("");
   const [tone,setTone]       = useState("");
@@ -10126,7 +10149,8 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         try{
           // Square, because it is a reference rather than a shot — the framing of the
           // portrait should not bias the framing of every scene it is used in.
-          const img = await generateOpenAIImage(cast[i].portrait, refImg?[refImg]:[], "1:1", "standard");
+          const styleRef = refImg ? [refFromDataUrl(refImg)].filter(Boolean) : [];
+          const img = await generateOpenAIImage(cast[i].portrait, styleRef, "1:1", "standard");
           faces[cast[i].id] = img.image;
         }catch(_){
           // No portrait just means this character falls back to the written
@@ -10157,8 +10181,10 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         // what no sentence can — it carries a specific palette and rendering that a
         // description only approximates — and it goes on EVERY shot, because a style
         // applied to some of them is worse than one applied to none.
-        const refs = (plan.sources[i].characters||[]).map(id=>faces[id]).filter(Boolean);
-        if(refImg) refs.push(refImg);
+        const refs = (plan.sources[i].characters||[])
+          .map(id=>faces[id]).filter(Boolean)
+          .map(refFromDataUrl).filter(Boolean);
+        if(refImg){ const r = refFromDataUrl(refImg); if(r) refs.push(r); }
 
         let got = null, lastErr = null;
         for(let attempt=0; attempt<3 && !got; attempt++){
