@@ -411,7 +411,17 @@ DO NOT SIT IN ONE PLACE. If four consecutive shots are set somewhere, move: outs
 different corner, a different time of day, a detail on a different surface. The
 narration moving on is the cue for the pictures to move on.
 
-Each prompt is one paragraph describing a single photographable moment.`;
+THE MEDIUM IS GIVEN TO YOU AND IT IS NOT ALWAYS A CAMERA. It appears under VISUAL
+WORLD below. If it says flat 2D vector illustration, you are describing a drawing —
+there is no depth of field, no lens, no tungsten light, no film grain, and saying
+"shallow focus" asks for a photograph of a drawing. If it says anime cel, describe
+linework and cel shading. If it says 3D render, describe materials and lighting rigs.
+Only reach for camera language when the medium is photography.
+
+This is the single most common way this goes wrong: a medium is chosen, every prompt is
+written in photographic vocabulary anyway, and every image comes back a photograph.
+
+Each prompt is one paragraph describing a single moment in that medium.`;
 
 // FRAMING IS ASSIGNED HERE, NOT REQUESTED.
 //
@@ -449,7 +459,7 @@ function imagePrompt(shots, bible, look, topic) {
 
   return `A film told in still images about: ${topic}
 
-VISUAL WORLD (every shot is in this world):
+THE MEDIUM — every shot is made in this and nothing else:
 ${look}
 
 THE ARC:
@@ -599,7 +609,10 @@ export default async function handler(req, res) {
                   // The look goes on the portrait too. Without it a cartoon film
                   // generates a photographic reference and then passes that photograph
                   // into every cartoon shot, which fights the style in every frame.
-                  portrait: String(c.portrait || c.look).slice(0, 600) + (look ? " " + look : ""),
+                  // Same reason: the medium leads. A portrait generated photographically
+                  // and then used as the reference for cartoon shots fights the style in
+                  // every frame it appears in.
+                  portrait: (look ? look + ". " : "") + String(c.portrait || c.look).slice(0, 600),
                 })),
               places: (Array.isArray(bj.places) ? bj.places : []).slice(0, 6),
               arc: String(bj.arc || "").slice(0, 1500),
@@ -636,7 +649,18 @@ export default async function handler(req, res) {
         }
         return {
           id: "img" + i, kind: "image",
-          prompt: prompt + (look ? " " + look : ""),
+          // THE MEDIUM GOES FIRST, not last.
+          //
+          // Appending it put one sentence about flat vector illustration behind a full
+          // paragraph of photographic description — dim rooms, shallow focus, warm
+          // tungsten — and the paragraph won every time. Every video came back looking
+          // like the default no matter which style was chosen, which reads as the
+          // picker being broken.
+          //
+          // Image models weight the opening of a prompt heavily. Stating the medium
+          // before anything else is the difference between a cartoon and a photograph
+          // of a cartoon.
+          prompt: (look ? look + ". " : "") + prompt,
           characters: ids,
           url: null,
         };
