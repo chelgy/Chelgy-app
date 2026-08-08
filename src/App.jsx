@@ -11668,10 +11668,10 @@ function SunoProduction({ user=null }){
         const ext=(file.name.split(".").pop()||"mp3").toLowerCase().slice(0,5);
         const up=await uploadSiteAudioFile(file, uid+"/suno-in/"+Date.now()+"."+ext);
         if(!up) throw new Error("That vocal couldn\u2019t be uploaded \u2014 check your connection.");
-        setStage("Suno is building production around your voice\u2026 (up to a few minutes)");
+        setStage("Building the production around your voice\u2026 (up to a few minutes)");
         body={ action:"addInstrumental", audioUrl:up, style:style||"full modern production, tasteful arrangement" };
       } else {
-        setStage("Suno is generating a full song, then splitting stems\u2026 (up to a few minutes)");
+        setStage("Generating a full song, then splitting stems\u2026 (up to a few minutes)");
         body={ action:"fullThenStems", prompt:style };
       }
       const token=await freshToken();
@@ -11679,9 +11679,9 @@ function SunoProduction({ user=null }){
         headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) },
         body: JSON.stringify(body) });
       const j=await r.json();
-      if(!r.ok) throw new Error(j.error||"Suno production failed.");
+      if(!r.ok) throw new Error(j.error||"The production failed.");
       setResult(j);
-      const label = approach==="A" ? "Suno production (wrapped)" : "Suno full + stems";
+      const label = approach==="A" ? "Full production (wrapped)" : "Full song + stems";
       const saveUrl = j.url || j.instrumental || j.full;
       if(saveUrl) saveToLibrary(user, "song", label, saveUrl).catch(()=>{});
     }catch(e){ setErr(String((e&&e.message)||e)); }
@@ -11690,9 +11690,9 @@ function SunoProduction({ user=null }){
 
   return (
     <div style={{maxWidth:760}}>
-      <h2 style={{fontFamily:"Outfit,Helvetica,Arial,sans-serif",fontSize:26,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 8px"}}>Suno Production</h2>
+      <h2 style={{fontFamily:"Outfit,Helvetica,Arial,sans-serif",fontSize:26,fontWeight:600,letterSpacing:"-0.02em",margin:"0 0 8px"}}>Full Production</h2>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14.5,lineHeight:1.6,color:B.mid,margin:"0 0 20px"}}>
-        Your voice, their production. Bring a finished vocal and Suno builds a full arrangement — beat, instruments, backing — around it. This is a test bench to hear the quality before we wire it into the main flow.
+        Your voice, a full production. Bring a finished vocal and a complete arrangement is built — beat, instruments, backing — around it. This is a test bench to hear the quality before we wire it into the main flow.
       </p>
 
       <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Approach</div>
@@ -11703,8 +11703,8 @@ function SunoProduction({ user=null }){
         ))}
       </div>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 18px",lineHeight:1.5}}>
-        {approach==="A" ? "Send your vocal to Suno; it wraps a full arrangement around your actual voice. One pass." :
-         "Generate a full Suno song from a description, then split it \u2014 keep the instrumental and backing vocals to layer your own lead under."}
+        {approach==="A" ? "Your vocal goes out for production and comes back inside a full arrangement. One pass." :
+         "Generate a full song from a description, then split it \u2014 keep the instrumental and backing vocals to layer your own lead under."}
       </p>
 
       {approach==="A" && (
@@ -11863,7 +11863,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   const [harmony,setHarmony]   = useState("off");  // off | subtle | lush
   const [outMode,setOutMode]   = useState("convert"); // convert | vocal | song (song gated behind SONG_BEAT_FLOW_ENABLED)
   const [vocalSpace,setVocalSpace] = useState("match"); // produced | match | dry
-  const [matchFile,setMatchFile]   = useState(null);    // Suno vocal stem for match
+  const [matchFile,setMatchFile]   = useState(null);    // the reference lead vocal for match mode
   const [matchAlign,setMatchAlign] = useState(true);
   const [convertFile,setConvertFile] = useState(null); // a finished vocal to convert
   const [beatMode,setBeatMode] = useState("auto");   // auto | pick | upload
@@ -12079,9 +12079,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       }
 
       const token = await freshToken();
-      // In "match" mode, upload the Suno vocal stem so the render can
+      // In "match" mode, upload the reference lead vocal so the render can
       // align + tone-match to it.
-      // Direct conversion: upload the finished vocal (e.g. a Suno lead stem).
+      // Direct conversion: upload the finished vocal (a professional lead stem, a demo).
       let convertVocal = "";
       if(outMode==="convert" && convertFile){
         const cuid = user && user.id ? user.id : null;
@@ -12193,7 +12193,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     <div style={{maxWidth:860,margin:"0 auto"}}>
       <h3 style={{fontFamily:"serif",fontSize:24,margin:"0 0 6px"}}>Re-sing</h3>
       <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,color:B.mid,lineHeight:1.6,margin:"0 0 18px"}}>
-        Put any vocal in your own voice. Upload a finished vocal — a Suno lead stem, a rough demo, someone else’s guide — and get it back sung by you, same melody, same timing, same words. Or sing a take yourself and have it tuned and re-sung. Send the result straight into a session to mix.
+        Put any vocal in your own voice. Upload a finished vocal — a professional lead stem, a rough demo, someone else’s guide — and get it back sung by you, same melody, same timing, same words. Or sing a take yourself and have it tuned and re-sung. Send the result straight into a session to mix.
       </p>
 
       <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:12}}>
@@ -12365,7 +12365,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           </div>
           <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 "+(outMode==="vocal"?"12px":"18px"),lineHeight:1.5}}>
             {outMode==="song" ? "The finished song \u2014 your voice over a beat, mixed." :
-             outMode==="convert" ? "Upload a finished vocal (e.g. your Suno lead stem) and get it back in your voice \u2014 same melody, same timing, same words. Drops straight onto the original stems." :
+             outMode==="convert" ? "Upload a finished vocal \u2014 a professional lead stem, a demo, a guide \u2014 and get it back in your voice \u2014 same melody, same timing, same words. Drops straight onto the original stems." :
              "Just the re-sung vocal, to drop over your own stems (e.g. in Logic)."}
           </div>
 
@@ -12378,7 +12378,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
               {convertFile && <button onClick={()=>setConvertFile(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
             </div>
             <div style={{display:"flex",gap:6,marginBottom:8}}>
-              {[["match","Match Suno"],["wet","Produced"],["dry","Dry"]].map(([id,label])=>(
+              {[["match","Match my reference"],["wet","Produced"],["dry","Dry"]].map(([id,label])=>(
                 <button key={id} onClick={()=>setVocalSpace(id)} disabled={busy}
                   style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 14px",border:"1px solid "+((vocalSpace===id)?B.charcoal:B.stone),background:(vocalSpace===id)?B.inkBlock:B.white,color:(vocalSpace===id)?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
               ))}
@@ -12392,13 +12392,13 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
 
           {outMode==="vocal" && (<>
             <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-              {[["match","Match my Suno track"],["produced","Produced"],["dry","Dry"]].map(([id,label])=>(
+              {[["match","Match my reference"],["produced","Produced"],["dry","Dry"]].map(([id,label])=>(
                 <button key={id} onClick={()=>setVocalSpace(id)} disabled={busy}
                   style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,letterSpacing:"0.05em",padding:"7px 14px",border:"1px solid "+(vocalSpace===id?B.charcoal:B.stone),background:vocalSpace===id?B.inkBlock:B.white,color:vocalSpace===id?B.inkText:B.mid,cursor:busy?"default":"pointer"}}>{label}</button>
               ))}
             </div>
             <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11.5,color:B.mid,margin:"0 0 12px",lineHeight:1.5}}>
-              {vocalSpace==="match" ? "Upload your Suno vocal stem \u2014 your voice is time-aligned to its phrasing and tone-matched, so it sits right on your Suno stems." :
+              {vocalSpace==="match" ? "Upload the finished lead vocal \u2014 your voice is time-aligned to its phrasing and tone-matched, so it sits right on the same backing." :
                vocalSpace==="produced" ? "A general mix-ready vocal sound (reverb, EQ) \u2014 not matched to a specific track." :
                "Clean and dry \u2014 no effects, for mixing it yourself."}
             </p>
@@ -12408,13 +12408,13 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:8}}>
                   <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.04em",padding:"9px 16px",border:"1px dashed "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>
                     <input type="file" accept="audio/*" onChange={e=>{const f=(e.target.files||[])[0];e.target.value="";if(f)setMatchFile(f);}} style={{display:"none"}} disabled={busy} />
-                    {matchFile ? "Stem: "+(matchFile.name.length>24?matchFile.name.slice(0,24)+"\u2026":matchFile.name) : "Upload Suno vocal stem"}
+                    {matchFile ? "Stem: "+(matchFile.name.length>24?matchFile.name.slice(0,24)+"\u2026":matchFile.name) : "Upload the lead vocal"}
                   </label>
                   {matchFile && <button onClick={()=>setMatchFile(null)} disabled={busy} style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,padding:"9px 12px",border:"1px solid "+B.stone,background:B.white,color:B.mid,cursor:"pointer"}}>Remove</button>}
                 </div>
                 <label style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
                   <input type="checkbox" checked={matchAlign} onChange={e=>setMatchAlign(e.target.checked)} disabled={busy} />
-                  Time-align my phrases to the Suno stem (recommended if you sang along to it)
+                  Time-align my phrases to the reference (recommended if you sang along to it)
                 </label>
               </div>
             )}
@@ -14480,8 +14480,8 @@ const CATEGORIES = [
     tabs:[ {label:"Backlink & Authority Builder",tool:"backlinks"}, {label:"SEO Writing",tool:"content",note:"Write SEO blog posts and Google Business updates \u2014 fresh, keyword-rich content is one of the strongest ranking signals there is."}, {label:"Platform Setup Guides",tool:"platforms",note:"The more places your business shows up online, the higher you rank \u2014 every profile, listing, and citation is another signal to Google that you're real and trusted."} ] },
   { id:"cat_video", title:"Video Studio", icon:"Video", blurb:"Every kind of video, in one place. Hand over the footage you shot and get back a finished cut — ums and dead air gone, animated captions, a cinematic grade and a luxury title. Or make video from nothing at all: cinematic clips, creator-style UGC, viral hooks and studio voiceovers.",
     tabs:[ {label:"Edit My Footage",tool:"videoeditor"}, ...(MUSICVIDEO_ENABLED ? [{label:"Music Video",tool:"musicvideo"}] : []), ...(FACELESS_ENABLED ? [{label:"Faceless Video",tool:"faceless"}] : []), ...(COMMERCIAL_ENABLED ? [{label:"Commercial",tool:"commercial"}] : []), {label:"Storyboard",tool:"storyboard"}, ...(THUMBNAILS_ENABLED ? [{label:"Thumbnails",tool:"thumbnail"}] : []), {label:"Generate Video",tool:"video"}, {label:"UGC",tool:"ugcstudio"}, {label:"Viral Ideas",tool:"viral"}, {label:"Voiceover",tool:"voiceover"} ] },
-  { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Put any vocal in your own voice. Upload a finished vocal \u2014 a Suno lead stem, a rough demo, a take you sang yourself \u2014 and get it back sung by you, same melody, same timing, same words. Split a track into its vocals, drums, bass and keys, then mix and master the whole thing in one place.",
-    tabs:[ {label:"Re-sing",tool:"songstudio"}, {label:"Sessions",tool:"sessions"}, {label:"Mix & Master",tool:"mixmaster"}, /* HIDDEN: {label:"Suno Production",tool:"sunoprod"}, — never worked; the SunoProduction component and its routes are untouched, so restoring it is uncommenting this. */ ] },
+  { id:"cat_song", title:"Song Studio", icon:"Music", blurb:"Put any vocal in your own voice. Upload a finished vocal \u2014 a professional lead stem, a rough demo, a take you sang yourself \u2014 and get it back sung by you, same melody, same timing, same words. Split a track into its vocals, drums, bass and keys, then mix and master the whole thing in one place.",
+    tabs:[ {label:"Re-sing",tool:"songstudio"}, {label:"Sessions",tool:"sessions"}, {label:"Mix & Master",tool:"mixmaster"}, /* HIDDEN: {label:"Full Production",tool:"sunoprod"}, — never worked; the SunoProduction component and its routes are untouched, so restoring it is uncommenting this. */ ] },
   { id:"cat_pr", title:"Get Featured", icon:"Mic", blurb:"Get on podcasts and into the press. Search real shows in your niche, see who to contact, and get a pitch written for that specific show — plus an honest read on whether your story is ready for journalists yet.",
     tabs:[ {label:"Podcasts",tool:"getfeatured"}, {label:"Press",tool:"presspitch"} ] },
   /* =======================================================================
