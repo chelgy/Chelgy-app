@@ -10134,6 +10134,17 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
     setErr(""); setOutUrl(""); setNotes([]);
     if(!script.trim()) return setErr("Write the script first.");
     if(voiceMode==="mine" && !myVoice) return setErr("Add your voiceover recording, or switch to an AI voice.");
+
+    // THE LOOK IS READ NOW, NOT AT THE MOMENT THE SCRIPT WAS WRITTEN.
+    //
+    // `look` is only ever set inside writeScript, so it froze whatever was selected
+    // then. Choosing Cartoon afterwards updated the picker and changed nothing else —
+    // the film still came back in the style picked before the script existed, which
+    // reads exactly like the button not working.
+    //
+    // Falls back to the stored value so a script written before this existed still has
+    // a world to be drawn in.
+    const activeLook = chosenLook() || look;
     if(!useCredits(cost)) return;
 
     setBusy(true);
@@ -10182,7 +10193,7 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
         headers:{ "Content-Type":"application/json", ...(tok2?{Authorization:"Bearer "+tok2}:{}) },
         // The whole script goes with it. The planner has to read all of it to work out
         // who recurs and where the pictures travel — a shot list alone cannot tell it.
-        body: JSON.stringify({ action:"shots", topic, look, script, words: tr.words, duration: tr.duration||0 })
+        body: JSON.stringify({ action:"shots", topic, look: activeLook, script, words: tr.words, duration: tr.duration||0 })
       });
       const plan = await pr.json();
       if(!pr.ok || !Array.isArray(plan.sources)) throw new Error(plan.error||"Couldn't plan the shots.");
@@ -10300,7 +10311,7 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
           // The look is handed over as the brief. It is the one sentence that already
           // describes this film's world, so a noir film gets a noir score without
           // anyone being asked a second time what the film is like.
-          const mus = await studioMusic(chosenLook(), "cinematic", "wolf", genre);
+          const mus = await studioMusic(activeLook, "cinematic", "wolf", genre);
           if(!mus || mus.error || !mus.id) throw new Error((mus && mus.error) || "The music engine didn't start.");
           if(typeof mus.balance==="number") onBalance(mus.balance);
           musicUrl = await pollVideo(mus.id, (pct)=>setStage("Composing your score — "+(pct||0)+"%"));
