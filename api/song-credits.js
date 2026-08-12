@@ -71,14 +71,92 @@ export async function spendCredits(token, amount, reason) {
 // the customer would then see an error about credits on top of an error about
 // audio, and the second one is the one they need.
 export async function refundCredits(userId, amount, reason) {
-  if (!userId || !amount || !SB_SVC) return;
+  if (!userId || !amount || !SB_SVC) return false;
   try {
-    await fetch(SB_URL + "/rest/v1/rpc/add_credits", {
+    const r = await fetch(SB_URL + "/rest/v1/rpc/add_credits", {
       method: "POST",
       headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
       body: JSON.stringify({ p_user: userId, p_amount: amount, p_reason: reason }),
     });
-  } catch {}
+    return r.ok;
+  } catch { return false; }
+}
+
+// ── ASYNC JOBS: CHARGE AT QUEUE, REFUND WHEN THE POD FAILS ───────────────────
+//
+// A queued job is charged in the request that queues it, because that is the
+// only moment the API still holds the caller's token. The job then runs
+// somewhere else and can die minutes later in a process that has no token and
+// no request to answer. Without the two functions below that failure simply
+// kept the money.
+
+// Record what a job cost, so the refund does not have to re-derive it from the
+// spec. Best-effort: a job whose cost never gets written is a job that will not
+// auto-refund, which is worth a log line and not worth failing the queue call
+// the customer is waiting on.
+export async function markJobCost(jobId, amount) {
+  if (!jobId || !amount || !SB_SVC) return false;
+  try {
+    const r = await fetch(SB_URL + "/rest/v1/song_jobs?id=eq." + encodeURIComponent(jobId), {
+      method: "PATCH",
+      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ credits_spent: amount }),
+    });
+    if (!r.ok) console.error("[song-credits] couldn't stamp cost on " + jobId + " (" + r.status + ")");
+    return r.ok;
+  } catch (e) {
+    console.error("[song-credits] couldn't stamp cost on " + jobId + ": " + ((e && e.message) || e));
+    return false;
+  }
+}
+
+// Refund a FAILED job, exactly once, no matter how many pollers arrive at the
+// same instant.
+//
+// The latch is the conditional PATCH: `refunded_at=is.null` lives in the WHERE
+// clause, so Postgres locks the row and only ONE caller's update matches. The
+// losers get an empty array back and return without paying anything out. This
+// is why the stamp is claimed BEFORE the money moves rather than after —
+// refunding first and stamping second would double-pay every time two tabs
+// polled together.
+//
+// The cost of claiming first is that a crash between the stamp and the payout
+// would silently drop a refund, so the stamp is REVERSED when the payout fails,
+// letting the next poll pick it up again.
+export async function refundJobIfFailed(jobId, status) {
+  const terminal = String(status || "").toLowerCase();
+  if (terminal !== "failed" && terminal !== "error") return null;
+  if (!jobId || !SB_SVC) return null;
+
+  try {
+    const claim = await fetch(
+      SB_URL + "/rest/v1/song_jobs?id=eq." + encodeURIComponent(jobId) +
+      "&refunded_at=is.null&credits_spent=gt.0",
+      { method: "PATCH",
+        headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ refunded_at: new Date().toISOString() }) });
+    if (!claim.ok) return null;
+    const rows = await claim.json().catch(() => []);
+    const job = Array.isArray(rows) && rows[0];
+    if (!job || !job.credits_spent || !job.user_id) return null;  // someone else won it, or there was nothing to refund
+
+    const paid = await refundCredits(job.user_id, job.credits_spent, "refund:song-job-failed:" + jobId);
+    if (!paid) {
+      // Put it back in the queue for the next poll rather than swallowing it.
+      try {
+        await fetch(SB_URL + "/rest/v1/song_jobs?id=eq." + encodeURIComponent(jobId), {
+          method: "PATCH",
+          headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ refunded_at: null }),
+        });
+      } catch {}
+      return null;
+    }
+    return { refunded: job.credits_spent };
+  } catch (e) {
+    console.error("[song-credits] refund check failed for " + jobId + ": " + ((e && e.message) || e));
+    return null;
+  }
 }
 
 // What a /api/studio-song POST body costs. The route has three modes and they

@@ -19,7 +19,7 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
 import { ensureSongPods } from "./song-scale.js";
-import { spendCredits, refundCredits, SONG_COSTS } from "./song-credits.js";
+import { spendCredits, refundCredits, markJobCost, SONG_COSTS } from "./song-credits.js";
 
 export const maxDuration = 30;
 
@@ -102,6 +102,10 @@ export default async function handler(req, res) {
         error: ((out.body && out.body.error) || "Couldn't start the separation.") + " Your credits were refunded.",
       });
     }
+
+    // Record what this job cost on the job row itself, so that if it dies on a
+    // pod later the status poll can refund it without guessing the amount.
+    await markJobCost(out.body.jobId, cost);
 
     // Awaited, not fired and forgotten. A serverless function can be frozen the
     // moment it responds, so a background promise here would sometimes create a

@@ -15,7 +15,7 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
 import { ensureSongPods } from "./song-scale.js";
-import { spendCredits, refundCredits, songPostCost } from "./song-credits.js";
+import { spendCredits, refundCredits, markJobCost, refundJobIfFailed, songPostCost } from "./song-credits.js";
 
 export const maxDuration = 30;
 
@@ -91,6 +91,22 @@ export default async function handler(req, res) {
         const audioUrl = await signSong(out.body.storagePath);
         if (audioUrl) out.body.audioUrl = audioUrl;
       }
+
+      // ── THE REFUND POINT FOR EVERY ASYNC SONG JOB ──
+      //
+      // Separation, mix and re-sing all poll THIS endpoint, so one check here
+      // covers all three. Charging happens at queue time — the only moment the
+      // API holds the caller's token — but the work then runs on a pod that can
+      // die minutes later with no request to answer. Somebody has to notice,
+      // and the poll is the one thing guaranteed to come back and look.
+      //
+      // Idempotent by construction: refundJobIfFailed claims the row with a
+      // conditional update, so a customer with three tabs open refunds once.
+      if (out.ok && out.body && out.body.status) {
+        const back = await refundJobIfFailed(jobId, out.body.status);
+        if (back && back.refunded) out.body.refunded = back.refunded;
+      }
+
       return res.status(out.status).json(out.body);
     }
 
@@ -125,7 +141,11 @@ export default async function handler(req, res) {
         });
       }
 
-      // Awaited, not fired and forgotten. A serverless function can be frozen
+      // Record what this job cost on the job row itself, so that if it dies on a
+    // pod later the status poll can refund it without guessing the amount.
+    await markJobCost(out.body.jobId, cost);
+
+    // Awaited, not fired and forgotten. A serverless function can be frozen
       // the moment it responds, so a background promise here would sometimes
       // create a pod and sometimes silently not — and the failure would look
       // like a song that renders quickly on some days and never on others.
