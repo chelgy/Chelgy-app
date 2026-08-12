@@ -80,6 +80,14 @@ export default function SessionStudio({
     onBuyCredits();
     return false;
   }
+  // Every paid action says what it costs ON the button. The pre-check alone is
+  // invisible to anyone who can afford the work — which is everyone until they
+  // suddenly can't — so the screen read as free even while it charged.
+  const price = (n) => (
+    <span style={{ opacity: 0.55, fontSize: "0.92em", marginLeft: 6 }}>
+      {Number(n).toLocaleString()}
+    </span>
+  );
   const [sessions, setSessions] = useState([]);
   const [active, setActive]     = useState(null);
   const [stems, setStems]       = useState([]);
@@ -501,7 +509,7 @@ export default function SessionStudio({
             {!mixing && mixableStemCount >= 2 && (
               <button onClick={onMix}
                 style={{ fontFamily: JOST, fontSize: 11.5, letterSpacing: ".04em", padding: "6px 14px", border: "1px solid " + B.charcoal, background: B.inkBlock, color: B.inkText, cursor: "pointer" }}>
-                Mix into one track
+                Mix into one track{price(COST.mix)}
               </button>
             )}
             {active.bpm ? <span style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>{Math.round(active.bpm)} BPM{active.music_key ? " · " + active.music_key : ""}</span> : null}
@@ -565,16 +573,16 @@ export default function SessionStudio({
                         <button onClick={() => onMaster(s)} disabled={!!mastering[s.id]}
                           title="EQ, glue and loudness for streaming"
                           style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: mastering[s.id] ? "default" : "pointer", opacity: mastering[s.id] ? 0.5 : 1 }}>
-                          {mastering[s.id] ? "Mastering\u2026" : "Master"}
+                          {mastering[s.id] ? "Mastering\u2026" : <>Master{price(COST.master)}</>}
                         </button>
                       )}
                       {["lead", "backing", "adlib"].includes(s.role) && !converting[s.id] && (
                         <button onClick={() => onConvert(s)} title="Sing this in your voice, keeping its timing and words"
-                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>To my voice</button>
+                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>To my voice{price(COST.convert)}</button>
                       )}
                       {!splitting[s.id] && (
                         <button onClick={() => onSplit(s, "")} title="Split into vocals, drums, bass and the rest"
-                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Split</button>
+                          style={{ background: "none", border: "1px solid " + B.stone, padding: "5px 12px", fontFamily: JOST, fontSize: 11.5, color: B.ink, cursor: "pointer" }}>Split{price(COST.separate)}</button>
                       )}
                       <button onClick={() => onDeleteStem(s)} style={{ background: "none", border: "none", padding: "5px 6px", fontFamily: JOST, fontSize: 11.5, color: B.mid, cursor: "pointer" }}>Remove</button>
                     </div>
