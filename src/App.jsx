@@ -22253,7 +22253,18 @@ export default function ChelgyApp() {
   const [tourStep, setTourStep] = useState(null);
   const [spotRect, setSpotRect] = useState(null);
   const [showIntake, setShowIntake] = useState(false);
-  const [profileChecked, setProfileChecked] = useState(false); // true once we've checked the server for a saved profile — stops a returning member being re-sent through intake on a new device
+  // WHICH user the server profile has been fetched for — not a bare boolean.
+  //
+  // The old flag was set true during the logged-out pass, and the intake gate effect
+  // below is DECLARED ABOVE the loader effect that owns it. On any commit where the
+  // session restores and `page` becomes "app" together (a refresh, the ?payment=success
+  // return), the gate ran first and read a stale `true`, so a returning member on a new
+  // device could be pushed back through intake before the server had answered.
+  //
+  // Derived during render instead, so it cannot be stale: it is only true once the
+  // fetch has completed FOR THIS user id.
+  const [profileCheckedFor, setProfileCheckedFor] = useState(null);
+  const profileChecked = (user && user.email) ? (profileCheckedFor === user.id) : true;
   const [intake, setIntake] = useState(()=>lsGetJSON("chelgy_intake", null));
   const [plan, setPlan] = useState(()=>{ try { return localStorage.getItem("chelgy_plan")||""; } catch { return ""; } });
   const [planLoading, setPlanLoading] = useState(false);
@@ -23105,9 +23116,9 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   // ─── On login: pull authoritative credits/points/profile from the server ─────
   useEffect(()=>{
-    if(!(user && user.email)){ setProfileChecked(true); return; }
-    setProfileChecked(false);
+    if(!(user && user.email)) return; // profileChecked derives to true when logged out
     let cancelled = false;
+    const checkingId = user.id;
     freshToken().then(tok=> tok ? getMyMember(tok, user.id) : null).then(m=>{
       if(cancelled || !m) return;
       // Soft ban: suspended members are signed out immediately. Reversible; data + payments are untouched.
@@ -23137,8 +23148,23 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       if(m.marketer_status){ setMarketerStatus(m.marketer_status); }
       if(m.marketer_data && typeof m.marketer_data === "object"){ setMarketerData(m.marketer_data); if(Array.isArray(m.marketer_data.coach)) setMkCoachMsgs(m.marketer_data.coach); if(m.marketer_data.goals) setMkGoals(g=>({ ...g, ...m.marketer_data.goals })); }
       if(m.marketer_info && typeof m.marketer_info === "object"){ setMkGoals(g=>({ ...g, location: g.location||m.marketer_info.location||"", experience: g.experience||m.marketer_info.experience||"" })); }
-      if(m.intake){ setIntake(m.intake); try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); }catch(e){} }
-      if(m.intake || m.onboarded){ try{ localStorage.setItem("chelgy_intake_done","1"); }catch(e){} }
+      // A BRAND-NEW MEMBERS ROW IS NOT A FINISHED INTAKE.
+      //
+      // This used to read `if(m.intake || m.onboarded)`, which is truthy for an EMPTY
+      // intake — `{}` is truthy in JS — and for an `onboarded` column that defaults to
+      // true. So the very first profile load of a new account wrote the done-flag, and
+      // two things broke at once: the questionnaire never appeared, and the daily
+      // greeting (which waits on that same flag) fired on day one with "Welcome back".
+      //
+      // Only real answers count now. completeIntake() writes `intake` and `onboarded`
+      // together, so testing the intake's CONTENT covers both and does not care what
+      // either column defaults to.
+      const intakeHasContent = !!(m.intake && typeof m.intake === "object" && !Array.isArray(m.intake) && Object.keys(m.intake).length > 0);
+      if(intakeHasContent){
+        setIntake(m.intake);
+        try{ localStorage.setItem("chelgy_intake", JSON.stringify(m.intake)); }catch(e){}
+        try{ localStorage.setItem("chelgy_intake_done","1"); }catch(e){}
+      }
       if(m.tour_done){ try{ localStorage.setItem("chelgy_tour_done","1"); }catch(e){} }
       if(m.sales_profile){ setSalesForm(sf=>({...sf,...m.sales_profile})); setSalesOnboarded(true); try{ localStorage.setItem("chelgy_sales_onboarded","1"); }catch(e){} }
       if(typeof m.points === "number"){ setMyPoints(m.points); lsSet("chelgy_points", m.points); }
@@ -23152,7 +23178,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
       }
       let welcomed=false; try{ welcomed = localStorage.getItem("chelgy_welcomed")==="1"; }catch{}
       if(!welcomed){ pushNotif("Welcome to Chelgy! Your membership is active — explore your tools and strategies."); try{ localStorage.setItem("chelgy_welcomed","1"); }catch{} }
-    }).catch(()=>{}).finally(()=>{ if(!cancelled) setProfileChecked(true); });
+    }).catch(()=>{}).finally(()=>{ if(!cancelled) setProfileCheckedFor(checkingId); });
     return ()=>{ cancelled = true; };
   },[user]);
 
