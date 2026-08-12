@@ -474,7 +474,7 @@ export default function SessionStudio({
             <div style={{ height: 3, background: B.ink, width: (mixing.pct || 5) + "%", transition: "width .4s" }} />
           </div>
           <div style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>
-            {mixing.stage}\u2026 mixing every layer into one track.
+            {mixing.stage}… mixing every layer into one track.
           </div>
         </div>
       )}
@@ -592,7 +592,7 @@ export default function SessionStudio({
                           <div style={{ height: 3, background: B.ink, width: (converting[s.id].pct || 5) + "%", transition: "width .4s" }} />
                         </div>
                         <div style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>
-                          {converting[s.id].stage}\u2026 singing it in your voice, same timing and words.
+                          {converting[s.id].stage}… singing it in your voice, same timing and words.
                         </div>
                       </div>
                     )}
@@ -602,7 +602,7 @@ export default function SessionStudio({
                           <div style={{ height: 3, background: B.ink, width: (splitting[s.id].pct || 5) + "%", transition: "width .4s" }} />
                         </div>
                         <div style={{ fontFamily: JOST, fontSize: 11.5, color: B.mid }}>
-                          {splitting[s.id].stage}\u2026 splitting into vocals, drums, bass and the rest. This takes a minute or two.
+                          {splitting[s.id].stage}… splitting into vocals, drums, bass and the rest. This takes a minute or two.
                         </div>
                       </div>
                     )}

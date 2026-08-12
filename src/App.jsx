@@ -11286,14 +11286,14 @@ function GetFeatured({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         <textarea value={you} onChange={e=>setYou(e.target.value)} rows={3} placeholder="I'm a founder who built an AI marketing platform for small businesses. Before that I ran an agency for 6 years..."
           style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,resize:"vertical",marginBottom:10}} />
         <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:7,textTransform:"uppercase"}}>What you'd talk about (optional)</div>
-        <textarea value={angle} onChange={e=>setAngle(e.target.value)} rows={2} placeholder="How solo founders can compete with agencies using AI \u2014 and where AI still falls short."
+        <textarea value={angle} onChange={e=>setAngle(e.target.value)} rows={2} placeholder="How solo founders can compete with agencies using AI — and where AI still falls short."
           style={{width:"100%",boxSizing:"border-box",padding:10,border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,resize:"vertical"}} />
       </div>
 
       {/* --- search --- */}
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
         <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") search();}}
-          placeholder="Search shows \u2014 e.g. small business marketing"
+          placeholder="Search shows — e.g. small business marketing"
           style={{flex:1,minWidth:220,padding:"11px 12px",border:"1px solid "+B.stone,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:15,boxSizing:"border-box"}} />
         <button onClick={search} disabled={searching} style={{background:B.inkBlock,color:"#fff",border:"none",padding:"11px 22px",fontSize:12,letterSpacing:"0.14em",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontWeight:700,cursor:searching?"not-allowed":"pointer",opacity:searching?0.6:1}}>{searching?"SEARCHING\u2026":"SEARCH"}</button>
       </div>
