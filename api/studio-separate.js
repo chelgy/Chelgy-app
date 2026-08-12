@@ -19,6 +19,7 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
 import { ensureSongPods } from "./song-scale.js";
+import { spendCredits, refundCredits, SONG_COSTS } from "./song-credits.js";
 
 export const maxDuration = 30;
 
@@ -65,21 +66,42 @@ export default async function handler(req, res) {
   try {
     const b = req.body || {};
 
-    // userId comes from the VERIFIED token, never from the request body. The
-    // route uses it to check the session belongs to the caller, so letting the
-    // browser choose it would hand anyone write access to anyone's session.
-    const out = await rs("/separate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sourceUrl: String(b.sourceUrl || ""),
-        sessionId: String(b.sessionId || ""),
-        parentStemId: String(b.parentStemId || ""),
-        label: String(b.label || ""),
-        twoStems: b.twoStems === "vocals" ? "vocals" : "",
-        userId,
-      }),
-    });
+    // ── PAY FIRST ──
+    // This ran GPU pods for free: the endpoint authenticated and queued, and
+    // nothing anywhere deducted. Deduct before queueing, refund if the queue
+    // call fails, so a customer is never charged for a job that never existed.
+    const cost = SONG_COSTS.separate;
+    const paid = await spendCredits(token, cost, "song:separate");
+    if (!paid.ok) return res.status(402).json({ error: paid.error });
+
+    let out;
+    try {
+      out = await rs("/separate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceUrl: String(b.sourceUrl || ""),
+          sessionId: String(b.sessionId || ""),
+          parentStemId: String(b.parentStemId || ""),
+          label: String(b.label || ""),
+          twoStems: b.twoStems === "vocals" ? "vocals" : "",
+          userId,
+        }),
+      });
+    } catch (e) {
+      // The render server being unreachable is not the customer's fault and
+      // must not cost them anything. Refund, then let the outer catch answer.
+      await refundCredits(userId, cost, "refund:separate-unreachable");
+      throw e;
+    }
+
+    // Nothing queued means nothing to pay for.
+    if (!out.ok || !out.body || !out.body.jobId) {
+      await refundCredits(userId, cost, "refund:separate-queue-failed");
+      return res.status(out.status || 502).json({
+        error: ((out.body && out.body.error) || "Couldn't start the separation.") + " Your credits were refunded.",
+      });
+    }
 
     // Awaited, not fired and forgotten. A serverless function can be frozen the
     // moment it responds, so a background promise here would sometimes create a
@@ -95,7 +117,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(out.status).json(out.body);
+    return res.status(out.status).json({ ...out.body, balance: paid.balance });
   } catch (e) {
     return res.status(502).json({ error: "Couldn't reach the song engine." });
   }

@@ -50,7 +50,36 @@ function probeDuration(file) {
   });
 }
 
-export default function SessionStudio({ user, token }) {
+// Credit props arrive from SessionStudioMount in App.jsx. `costs` is passed in
+// rather than imported so CREDIT_COSTS stays the one place prices are written.
+// Defaults keep the screen renderable on its own (and keep the TDZ harness able
+// to mount it with no props), but a missing cost must never read as free — the
+// server charges regardless, so an absent number falls back to the real one.
+export default function SessionStudio({
+  user, token,
+  credits = 0,
+  useCredits = () => true,
+  onBalance = () => {},
+  onToolUse = () => {},
+  onBuyCredits = () => {},
+  costs = {},
+}) {
+  const COST = {
+    separate: Number(costs.separate) || 250,
+    mix:      Number(costs.mix)      || 150,
+    master:   Number(costs.master)   || 100,
+    convert:  Number(costs.convert)  || 150,
+  };
+  // One place to ask "can they afford this?". Returns false AND surfaces the
+  // reason, because the old screen simply started the job and let the customer
+  // discover the problem as a raw 402 from the server.
+  function afford(kind) {
+    const need = COST[kind] || 0;
+    if (Number(credits) >= need && useCredits(need)) return true;
+    setErr("This costs " + need.toLocaleString() + " credits. You have " + Number(credits).toLocaleString() + ".");
+    onBuyCredits();
+    return false;
+  }
   const [sessions, setSessions] = useState([]);
   const [active, setActive]     = useState(null);
   const [stems, setStems]       = useState([]);
@@ -201,6 +230,7 @@ export default function SessionStudio({ user, token }) {
   // must be able to pick it back up.
   async function onSplit(stem, twoStems) {
     setErr("");
+    if (!afford("separate")) return;
     const got = await stemUrl(token, stem);
     if (!got.ok) return setErr(got.error);
 
@@ -218,6 +248,8 @@ export default function SessionStudio({ user, token }) {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.jobId) return setErr(j.error || "Couldn't start the split.");
+    if (typeof j.balance === "number") onBalance(j.balance);
+    onToolUse("song_separate", COST.separate);
 
     setSplitting((m) => ({ ...m, [stem.id]: { jobId: j.jobId, pct: 5, stage: "Waiting for a machine" } }));
 
@@ -257,6 +289,10 @@ export default function SessionStudio({ user, token }) {
   // with the newest marked CURRENT; nothing is overwritten.
   async function onConvert(stem) {
     setErr("");
+    // Same job, same price as the Re-sing tab: this posts `convertVocal`, which
+    // api/song-credits.js prices as a convert. Charging one number here and a
+    // different one there for identical work is how a credit system loses trust.
+    if (!afford("convert")) return;
     const prof = await readyVoiceProfile(token, uid);
     if (!prof.ok) return setErr(prof.error);
     const got = await stemUrl(token, stem);
@@ -273,6 +309,8 @@ export default function SessionStudio({ user, token }) {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.jobId) return setErr(j.error || "Couldn't start the conversion.");
+    if (typeof j.balance === "number") onBalance(j.balance);
+    onToolUse("song_convert", COST.convert);
 
     setConverting((m) => ({ ...m, [stem.id]: { jobId: j.jobId, pct: 5, stage: "Waiting for a machine" } }));
 
@@ -316,6 +354,7 @@ export default function SessionStudio({ user, token }) {
   // and the spec already carries db/pan fields for exactly that.
   async function onMix() {
     setErr("");
+    if (!afford("mix")) return;
     const r = await fetch("/api/studio-mix", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
@@ -323,6 +362,8 @@ export default function SessionStudio({ user, token }) {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.jobId) return setErr(j.error || "Couldn't start the mix.");
+    if (typeof j.balance === "number") onBalance(j.balance);
+    onToolUse("song_mix", COST.mix);
 
     setMixing({ jobId: j.jobId, pct: 5, stage: "Waiting for a machine" });
     pollRef.current.mix = setInterval(async () => {
@@ -358,6 +399,7 @@ export default function SessionStudio({ user, token }) {
   // worse.
   async function onMaster(stem) {
     setErr("");
+    if (!afford("master")) return;
     const got = await stemUrl(token, stem);
     if (!got.ok) return setErr(got.error);
 
@@ -370,6 +412,8 @@ export default function SessionStudio({ user, token }) {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.url) throw new Error(j.error || "Mastering failed.");
+      if (typeof j.balance === "number") onBalance(j.balance);
+      onToolUse("song_master", COST.master);
 
       const reg = await registerStem(token, uid, active.id, {
         role: "master",

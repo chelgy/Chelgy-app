@@ -15,6 +15,7 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
 import { ensureSongPods } from "./song-scale.js";
+import { spendCredits, refundCredits, SONG_COSTS } from "./song-credits.js";
 
 export const maxDuration = 30;
 
@@ -58,17 +59,39 @@ export default async function handler(req, res) {
 
   try {
     const b = req.body || {};
-    // userId from the VERIFIED token, never the body — the route uses it to
-    // decide whose session this is.
-    const out = await rs("/mix", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: String(b.sessionId || ""),
-        label: String(b.label || ""),
-        userId,
-      }),
-    });
+    // ── PAY FIRST ──
+    // This ran GPU pods for free: the endpoint authenticated and queued, and
+    // nothing anywhere deducted. Deduct before queueing, refund if the queue
+    // call fails, so a customer is never charged for a job that never existed.
+    const cost = SONG_COSTS.mix;
+    const paid = await spendCredits(token, cost, "song:mix");
+    if (!paid.ok) return res.status(402).json({ error: paid.error });
+
+    let out;
+    try {
+      out = await rs("/mix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: String(b.sessionId || ""),
+          label: String(b.label || ""),
+          userId,
+        }),
+      });
+    } catch (e) {
+      // The render server being unreachable is not the customer's fault and
+      // must not cost them anything. Refund, then let the outer catch answer.
+      await refundCredits(userId, cost, "refund:mix-unreachable");
+      throw e;
+    }
+
+    // Nothing queued means nothing to pay for.
+    if (!out.ok || !out.body || !out.body.jobId) {
+      await refundCredits(userId, cost, "refund:mix-queue-failed");
+      return res.status(out.status || 502).json({
+        error: ((out.body && out.body.error) || "Couldn't start the mix.") + " Your credits were refunded.",
+      });
+    }
 
     // Awaited, not fired and forgotten: a serverless function can be frozen the
     // moment it responds, so a background promise would sometimes create a pod
@@ -81,7 +104,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(out.status).json(out.body);
+    return res.status(out.status).json({ ...out.body, balance: paid.balance });
   } catch (e) {
     return res.status(502).json({ error: "Couldn't reach the song engine." });
   }

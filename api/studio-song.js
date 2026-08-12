@@ -15,6 +15,7 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
 import { ensureSongPods } from "./song-scale.js";
+import { spendCredits, refundCredits, songPostCost } from "./song-credits.js";
 
 export const maxDuration = 30;
 
@@ -94,11 +95,35 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const out = await rs("/song", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req.body || {}),
-      });
+      // ── PAY FIRST ──
+      // This endpoint authenticated and then rendered for free. The browser's
+      // useCredits() is a pre-check the customer can simply not run, so the
+      // 150 the Re-sing tab has always displayed was never actually taken.
+      // Deduct before the job is queued, and hand the credits straight back if
+      // the queue call itself fails.
+      const cost = songPostCost(req.body);
+      const paid = await spendCredits(token, cost, "song:post");
+      if (!paid.ok) return res.status(402).json({ error: paid.error });
+
+      let out;
+      try {
+        out = await rs("/song", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body || {}),
+        });
+      } catch (e) {
+        await refundCredits(userId, cost, "refund:song-unreachable");
+        throw e;
+      }
+
+      // No jobId means nothing was queued, so there is nothing to pay for.
+      if (!out.ok || !out.body || !out.body.jobId) {
+        await refundCredits(userId, cost, "refund:song-queue-failed");
+        return res.status(out.status || 502).json({
+          error: ((out.body && out.body.error) || "Couldn't start the song.") + " Your credits were refunded.",
+        });
+      }
 
       // Awaited, not fired and forgotten. A serverless function can be frozen
       // the moment it responds, so a background promise here would sometimes
@@ -113,7 +138,7 @@ export default async function handler(req, res) {
           console.error("[studio-song] scale-up failed: " + ((e && e.message) || e));
         }
       }
-      return res.status(out.status).json(out.body);
+      return res.status(out.status).json({ ...out.body, balance: paid.balance });
     }
 
     return res.status(405).json({ error: "Method not allowed" });

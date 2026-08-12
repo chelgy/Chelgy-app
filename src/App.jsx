@@ -10098,9 +10098,23 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
   const estSeconds = Math.round((wordCount / 150) * 60);
   const estShots = Math.max(1, Math.round(estSeconds / 5.5));
-  // Plus a couple of reference portraits. The exact number isn't known until the script
-  // has been read, so two is the common case — a film with one or two recurring people.
-  const cost = CREDIT_COSTS.faceless + (estShots + 2) * CREDIT_COSTS.image;
+  // The quote has to cover everything the run actually spends, or the pre-check
+  // passes on a number the job then blows through — and the customer ends up
+  // charged for half a set of images with no video at the end of it.
+  //
+  // Three things it used to leave out:
+  //   - CASTING. The planner returns up to SIX recurring characters and each one
+  //     is generated as its own portrait before a single shot is made. "+2" was
+  //     the common case quoted as if it were the worst case.
+  //   - THE VOICEOVER. /api/voice charges for itself unless they upload their own.
+  //   - THE SCORE. Only when they ask for one, but it is 600 when they do.
+  //
+  // Still an estimate — the true shot count comes from the planner, not from the
+  // word count — so it is quoted as a ceiling rather than a floor.
+  const MAX_CAST = 6;
+  const voEst    = voiceMode === "mine" ? 0 : CREDIT_COSTS.voiceover;
+  const scoreEst = music === "score" ? CREDIT_COSTS.musicScore : 0;
+  const cost = CREDIT_COSTS.faceless + (estShots + MAX_CAST) * CREDIT_COSTS.image + voEst + scoreEst;
 
   function chosenLook(){
     const t = lookText.trim();
@@ -12470,7 +12484,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
   );
 }
 
-function SessionStudioMount({ user }){
+function SessionStudioMount({ user, credits=0, useCredits=()=>true, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{} }){
   const [tok,setTok]=useState(null);
   const [ready,setReady]=useState(false);
   useEffect(()=>{ let live=true;
@@ -12478,7 +12492,15 @@ function SessionStudioMount({ user }){
     return ()=>{ live=false; };
   },[user&&user.id]);
   if(!ready) return <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Loading your sessions…</p>;
-  return <SessionStudio user={user} token={tok} />;
+  // Session Studio ran GPU pods with no credit path at all — it was mounted with
+  // nothing but a user and a token, so splitting, mixing and mastering were free
+  // while the identical re-sing work in the next tab was priced. The costs go in
+  // as props rather than being imported inside SessionStudio so the table in this
+  // file stays the single place prices live.
+  return <SessionStudio user={user} token={tok}
+    credits={credits} useCredits={useCredits} onBalance={onBalance}
+    onToolUse={onToolUse} onBuyCredits={onBuyCredits}
+    costs={{ separate:CREDIT_COSTS.songSeparate, mix:CREDIT_COSTS.songMix, master:CREDIT_COSTS.songMaster, convert:CREDIT_COSTS.songConvert }} />;
 }
 
 
@@ -13858,7 +13880,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="songstudio"&&<SongStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
       {tool==="mixmaster"&&<MixMaster user={user} />}
       {tool==="sunoprod"&&<SunoProduction user={user} />}
-      {tool==="sessions"&&<SessionStudioMount user={user} />}
+      {tool==="sessions"&&<SessionStudioMount user={user} credits={credits} useCredits={useCredits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="storyboard"&&<Storyboard credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="commercial"&&<CommercialFilm credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} user={user} />}
       {tool==="getfeatured"&&<GetFeatured useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -14246,6 +14268,15 @@ const MAX_EDIT_SECONDS = 2700;
 const CREDIT_COSTS = {
   songBeat: 400,   // Song Studio — must match BEAT_COST in api/song-beat.js.
                    // Only reachable when SONG_BEAT_FLOW_ENABLED is true.
+  // ── Session Studio. MUST MATCH SONG_COSTS in api/song-credits.js. ──────────
+  // Interim, on the same footing as songConvert below. The house formula
+  // (credits = L4 $/hr x minutes x 50) gives ~66 / ~44 / ~22 for these; they are
+  // set higher because the formula prices the WORK and ignores the POD, and a
+  // split that wakes a cold pod pays for the spin-up before touching any audio.
+  // Retime all three off a real run, wall-clock from queue to done.
+  songSeparate: 250, // Sessions — split a stem (Demucs), the expensive one
+  songMix: 150,      // Sessions — mix a session's stems down
+  songMaster: 100,   // Sessions — one mastering pass (synchronous)
   songConvert: 150, // Re-sing — convert / re-sing one vocal. RVC inference on a
                    // RunPod L4, no external model call. Interim figure: covers a
                    // ~7 min run at ~$0.44/hr with the house ~3x markup. Retime a
