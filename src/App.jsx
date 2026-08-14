@@ -11865,14 +11865,17 @@ function MixMaster({ user=null }){
 // song" output are all still here, just gated. The backend never changed —
 // song-route.js still accepts guideUrl, and api/song-beat.js is untouched.
 const SONG_BEAT_FLOW_ENABLED = false;
-function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null }){
+function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null, onLogout=null }){
   // undefined = still checking | null = checked, genuinely no voice | object = found.
   // profileErr is the fourth state the old code was missing: WE COULDN'T CHECK.
   // Saying "train a voice" when the real answer is "the lookup failed" tells
   // someone their trained voice is gone, which is the worst thing this screen
   // can say and the only one that isn't true.
   const [profile,setProfile]   = useState(undefined);
-  const [profileErr,setProfileErr] = useState(false);
+  // "" = fine | "net" = couldn't reach it | "auth" = the login itself is dead.
+  // These need different advice: retrying a dead session fails forever, and
+  // "try again" would just spin. Only a real sign-in fixes that one.
+  const [profileErr,setProfileErr] = useState("");
   const [file,setFile]         = useState(null);
   const [clipUrl,setClipUrl]   = useState("");
   const [inspo,setInspo]       = useState(null);   // an uploaded reference track (feel only)
@@ -11989,6 +11992,8 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     // mistaken for an empty result.
     const ask = async (url, token) => {
       const r = await fetch(url, { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
+      // 401/403 mean the token was rejected, which retrying cannot mend.
+      if(r.status===401 || r.status===403){ const e=new Error("auth"); e.kind="auth"; throw e; }
       if(!r.ok) throw new Error("http " + r.status);
       const j = await r.json();
       if(!Array.isArray(j)) throw new Error("unexpected reply");
@@ -11996,7 +12001,9 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     };
     try{
       const token = await freshToken();
-      if(!token) throw new Error("no session");
+      // freshToken() already tried to refresh. No token back means the refresh
+      // token is spent too — the session is genuinely over.
+      if(!token){ const e=new Error("no session"); e.kind="auth"; throw e; }
       // Newest TRAINED profile first: status ready AND a model file. A brand
       // new enrollment row is neither, so starting one can no longer hide the
       // voice that actually works.
@@ -12008,12 +12015,16 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
       if(!pick){
         pick = (await ask(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path&order=created_at.desc&limit=1", token))[0] || null;
       }
-      setProfile(pick); setProfileErr(false);
+      setProfile(pick); setProfileErr("");
     }catch(e){
-      // A stale token usually recovers on the next try, since freshToken() gets
-      // another chance to refresh the session. Retry twice before saying so.
-      if(attempt < 2){ setTimeout(()=>loadProfile(attempt+1), 1200*(attempt+1)); return; }
-      setProfile(undefined); setProfileErr(true);
+      const dead = e && e.kind === "auth";
+      // Retry only what retrying can fix. One extra go at an auth failure is
+      // worth it — freshToken() gets another chance to swap a spent access
+      // token for a good one — but after that it is a sign-in problem, and
+      // spinning on it just wastes the person's time.
+      const allowed = dead ? 1 : 2;
+      if(attempt < allowed){ setTimeout(()=>loadProfile(attempt+1), 1200*(attempt+1)); return; }
+      setProfile(undefined); setProfileErr(dead ? "auth" : "net");
     }
   }, []);
 
@@ -12287,13 +12298,25 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Checking your voice…</p>
       )}
 
-      {profileErr && (
+      {profileErr === "net" && (
         <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
             Couldn't check your voice just now — this is a connection problem, not a missing voice. Anything you've trained is still there.
           </p>
-          <button onClick={()=>{ setProfileErr(false); setProfile(undefined); loadProfile(); }}
+          <button onClick={()=>{ setProfileErr(""); setProfile(undefined); loadProfile(); }}
             style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Try again</button>
+        </div>
+      )}
+
+      {profileErr === "auth" && (
+        <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+            Your login expired while this tab was open, so we couldn't check your voice. Nothing has been lost — signing in again brings it straight back.
+          </p>
+          {onLogout
+            ? <button onClick={onLogout}
+                style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Sign in again</button>
+            : <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>Log out and back in from your profile to restore it.</p>}
         </div>
       )}
 
@@ -12616,7 +12639,7 @@ function wmSchema(flavor){
   const F = WM_FLAVORS[flavor] || WM_FLAVORS.site;
   return '{"theme":string (' + F.themeClause + '),"styleDNA":string (ONE sentence describing the shared photography art-direction for the ENTIRE site \u2014 palette, lighting, mood, finish \u2014 so every generated image looks like one cohesive editorial shoot),"brand":{"name":string,"nav":[{"label":string}] (3-4 short items like Shop/About/Contact),"footerNote":string (e.g. "\u00a9 2026 \u00b7 City")},"sections":' + WM_SCHEMA_SECTIONS + ',"credit":true}';
 }
-function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, lutMedia={}, isAdmin=false, startType=null }) {
+function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=>true, onBuyCredits=()=>{}, locked=false, onUpgrade=()=>{}, onBalance=()=>{}, bizCtx="", user=null, prefill=null, onPrefillDone=()=>{}, onBrandProgress=()=>{}, multiSite=false, marketerMode=false, fromLaunch=false, onBackToLaunch=()=>{}, onToolUse=()=>{}, toolMedia={}, lutMedia={}, isAdmin=false, startType=null, onLogout=null }) {
   const act = (fn) => () => { if(locked){ onUpgrade(); return; } fn(); };
   const ctxPre = bizCtx ? ("[Context about the business owner you're helping — use this to personalize your answer, but always follow their specific request below:]\n"+bizCtx+"\n\n") : "";
   // ── Website Builder state ──
@@ -13921,7 +13944,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       {tool==="stylematch"&&<StyleMatch credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="backdrop"&&<Backdrop credits={credits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
       {tool==="filmroom"&&<FilmRoom />}
-      {tool==="songstudio"&&<SongStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} />}
+      {tool==="songstudio"&&<SongStudio useCredits={useCredits} credits={credits} onBalance={onBalance} onToolUse={onToolUse} user={user} onBuyCredits={onBuyCredits} onLogout={onLogout} />}
       {tool==="mixmaster"&&<MixMaster user={user} />}
       {tool==="sunoprod"&&<SunoProduction user={user} />}
       {tool==="sessions"&&<SessionStudioMount user={user} credits={credits} useCredits={useCredits} onBalance={onBalance} onToolUse={onToolUse} onBuyCredits={onBuyCredits} />}
@@ -26026,7 +26049,7 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
           {tab==="tools"&&subTab!=="hub"&&subTab!=="launch"&&subTab!=="library"&&subTab!=="storebuilder"&&!CAT_BY_ID[subTab]&&(
             <div style={{paddingTop:28}}>
-              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} lutMedia={lutMedia} isAdmin={isAdmin} />
+              <ToolsPage tool={subTab} onBack={()=>{ setFromLaunch(false); setSubTab("hub"); }} onGoTool={(t)=>goTab("tools", t)} credits={credits} useCredits={useCredits} onBuyCredits={()=>setShowCredits(true)} locked={isTrial ? ((((user&&user.created_at)?((Date.now()-new Date(user.created_at).getTime())/86400000):0)>=7) ? true : !["content","viral","ads","audit","business","grants","platforms","dropshipping","library","backlinks"].includes(subTab)) : false} onUpgrade={()=>setShowPaywall(true)} onBalance={(n)=>{ if(typeof n==="number") setCredits(n); }} bizCtx={bizContext()} user={user} prefill={prefill} onPrefillDone={()=>setPrefill(null)} onBrandProgress={markBrand} multiSite={(isTeamSpace && marketerStatus==="approved") || isDemo || isMarketerSpace} marketerMode={isMarketerSpace || isDemo || (isTeamSpace && marketerStatus==="approved")} fromLaunch={fromLaunch} onBackToLaunch={()=>{ setFromLaunch(false); setSubTab("launch"); }} onToolUse={logLedger} toolMedia={toolMedia} lutMedia={lutMedia} isAdmin={isAdmin} onLogout={doLogout} />
             </div>
           )}
 
