@@ -11866,7 +11866,13 @@ function MixMaster({ user=null }){
 // song-route.js still accepts guideUrl, and api/song-beat.js is untouched.
 const SONG_BEAT_FLOW_ENABLED = false;
 function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUse=()=>{}, onBuyCredits=()=>{}, user=null }){
-  const [profile,setProfile]   = useState(undefined);   // undefined = still loading
+  // undefined = still checking | null = checked, genuinely no voice | object = found.
+  // profileErr is the fourth state the old code was missing: WE COULDN'T CHECK.
+  // Saying "train a voice" when the real answer is "the lookup failed" tells
+  // someone their trained voice is gone, which is the worst thing this screen
+  // can say and the only one that isn't true.
+  const [profile,setProfile]   = useState(undefined);
+  const [profileErr,setProfileErr] = useState(false);
   const [file,setFile]         = useState(null);
   const [clipUrl,setClipUrl]   = useState("");
   const [inspo,setInspo]       = useState(null);   // an uploaded reference track (feel only)
@@ -11894,7 +11900,10 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         const token=await freshToken();
         const r=await fetch("/api/generator-status",{ headers: token?{Authorization:"Bearer "+token}:{} });
         const j=await r.json();
-        if(!stop){ setGen(j); }
+        // A failed call answers {error:...} with no `state`, and every branch
+        // below tests `state` — so the card rendered as an empty box with a
+        // heading and nothing under it. Mark the shape we can't read instead.
+        if(!stop){ setGen(r.ok && j && j.state ? j : { state:"unknown" }); }
         // While a run is live, poll every 30s; otherwise this one look is enough.
         if(!stop && j && (j.state==="training"||j.state==="stalled")) t=setTimeout(poll, 30000);
       }catch(_){ }
@@ -11969,34 +11978,56 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
     ["indierock","Indie Rock"], ["neopsych","Neo-Psychedelia"], ["etherealwave","Ethereal Wave"],
   ];
 
-  useEffect(()=>{
-    let alive = true;
-    (async()=>{
-      try{
-        const token = await freshToken();
-        if(!token){ if(alive) setProfile(null); return; }
-        // Newest TRAINED profile first: status ready AND a model file. A brand
-        // new enrollment row is neither, so starting one can no longer hide the
-        // voice that actually works.
-        const r = await fetch(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path" +
-          "&status=eq.ready&model_path=not.is.null&order=created_at.desc&limit=1",
-          { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
-        const rows = await r.json();
-        let pick = (Array.isArray(rows) && rows[0]) || null;
-        // Nothing trained yet. Fall back to the newest row of any kind so the
-        // card can still say "recording" or "training" instead of vanishing —
-        // a first-time enrollment has no ready profile by definition.
-        if(!pick){
-          const r2 = await fetch(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path&order=created_at.desc&limit=1",
-            { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
-          const rows2 = await r2.json();
-          pick = (Array.isArray(rows2) && rows2[0]) || null;
-        }
-        if(alive) setProfile(pick);
-      }catch{ if(alive) setProfile(null); }
-    })();
-    return ()=>{ alive = false; };
+  // Loads the voice profile, telling "you have none" apart from "we couldn't ask".
+  //
+  // The old version queried Supabase directly and treated ANY non-array reply as
+  // no-voice. An expired token answers {message:"JWT expired"}, which is not an
+  // array — so a stale tab reported a trained voice as missing. It also ran once
+  // with [] deps and never retried, so the screen stayed wrong until a reload.
+  const loadProfile = useCallback(async (attempt = 0) => {
+    // Throws on anything that isn't a real answer, so failures cannot be
+    // mistaken for an empty result.
+    const ask = async (url, token) => {
+      const r = await fetch(url, { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+token } });
+      if(!r.ok) throw new Error("http " + r.status);
+      const j = await r.json();
+      if(!Array.isArray(j)) throw new Error("unexpected reply");
+      return j;
+    };
+    try{
+      const token = await freshToken();
+      if(!token) throw new Error("no session");
+      // Newest TRAINED profile first: status ready AND a model file. A brand
+      // new enrollment row is neither, so starting one can no longer hide the
+      // voice that actually works.
+      let pick = (await ask(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path" +
+        "&status=eq.ready&model_path=not.is.null&order=created_at.desc&limit=1", token))[0] || null;
+      // Nothing trained yet. Fall back to the newest row of any kind so the
+      // card can still say "recording" or "training" instead of vanishing —
+      // a first-time enrollment has no ready profile by definition.
+      if(!pick){
+        pick = (await ask(SUPABASE_URL + "/rest/v1/voice_profiles?select=id,name,status,model_path&order=created_at.desc&limit=1", token))[0] || null;
+      }
+      setProfile(pick); setProfileErr(false);
+    }catch(e){
+      // A stale token usually recovers on the next try, since freshToken() gets
+      // another chance to refresh the session. Retry twice before saying so.
+      if(attempt < 2){ setTimeout(()=>loadProfile(attempt+1), 1200*(attempt+1)); return; }
+      setProfile(undefined); setProfileErr(true);
+    }
   }, []);
+
+  useEffect(()=>{ loadProfile(); }, [loadProfile]);
+
+  // A tab left open overnight comes back with a dead token, which is exactly how
+  // this screen went wrong twice. Re-check when the tab is looked at again so it
+  // heals itself instead of waiting for someone to log out and back in.
+  useEffect(()=>{
+    const onWake = ()=>{ if(document.visibilityState === "visible") loadProfile(); };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    return ()=>{ document.removeEventListener("visibilitychange", onWake); window.removeEventListener("focus", onWake); };
+  }, [loadProfile]);
 
   // Stop polling when the room closes. Without this a finished render keeps
   // calling a status endpoint forever on a page nobody is looking at.
@@ -12244,16 +12275,29 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           </div>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:gen.state==="stalled"?"#C0392B":B.mid,margin:0}}>{gen.state==="stalled"?"Training looks stalled — "+(gen.label||"")+". Check the pod, or start it again.":(gen.label||"Training…")}</p>
         </>)}
+        {gen && gen.state==="unknown" && (
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>Couldn't check your generator just now — reload in a moment. Nothing you've trained is affected.</p>
+        )}
         {gen && gen.state==="ready" && (
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>✓ Your voice generator is trained and ready. Generator-sung songs are coming next — this is the voice they’ll use.</p>
         )}
       </div>
 
-      {profile === undefined && (
+      {profile === undefined && !profileErr && (
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Checking your voice…</p>
       )}
 
-      {profile === null && (
+      {profileErr && (
+        <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
+          <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>
+            Couldn't check your voice just now — this is a connection problem, not a missing voice. Anything you've trained is still there.
+          </p>
+          <button onClick={()=>{ setProfileErr(false); setProfile(undefined); loadProfile(); }}
+            style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,letterSpacing:"0.04em",padding:"9px 18px",border:"1px solid "+B.charcoal,background:B.inkBlock,color:B.inkText,cursor:"pointer"}}>Try again</button>
+        </div>
+      )}
+
+      {profile === null && !profileErr && (
         <div style={{border:"1px solid "+B.stone,padding:16,background:B.white}}>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:0}}>
             Re-sing needs a model of your voice before it can sing anything. Train one from the “Your voice — singing” card above — record or upload your singing and it trains in about 40 minutes.
