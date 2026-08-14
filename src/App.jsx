@@ -12271,6 +12271,16 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
         )}
       </div>
 
+      {/* HIDDEN — the DiffSinger "Voice generator" card. Hidden on request so only
+          the RVC voice ("Your voice — singing", above) is offered for now.
+
+          Nothing was deleted. startTraining, genErr, the /api/generator-status
+          poll and every route behind them are untouched, so bringing it back is
+          changing `false` to `true` on the next line and nothing else. Kept as a
+          gate rather than a comment because a commented-out JSX block stops being
+          compiled, and this one should keep compiling so it cannot rot while it
+          is away. */}
+      {false && (<>
       <div style={{border:"1px solid "+B.stone,padding:"14px 16px",marginBottom:20}}>
         <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:B.mid,marginBottom:6}}>Voice generator</div>
         {(!gen || gen.state==="none" || gen.state==="failed") && (<>
@@ -12293,6 +12303,7 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid,margin:0}}>✓ Your voice generator is trained and ready. Generator-sung songs are coming next — this is the voice they’ll use.</p>
         )}
       </div>
+      </>)}
 
       {profile === undefined && !profileErr && (
         <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13,color:B.mid}}>Checking your voice…</p>
