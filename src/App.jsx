@@ -25309,6 +25309,22 @@ Respond directly to them in 3 to 5 warm sentences: briefly celebrate the win if 
 
   return (
     <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",background:B.cream,minHeight:"100vh",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",color:B.charcoal}}>
+      {/* Form controls follow the OS accent, which is why every slider and checkbox
+          rendered macOS blue against a site that is otherwise ink and paper. Set once
+          here rather than inline on each control, so anything added later inherits it
+          instead of arriving blue again.
+
+          B.charcoal is the right token because it inverts: #111 on white in light
+          mode, bone #efe9df in dark. A hardcoded black would disappear against the
+          dark theme's near-black page. Read inside the render on purpose — `dark` is
+          state, so flipping the theme re-evaluates this string. */}
+      <style>{`
+        input[type="range"], input[type="checkbox"], input[type="radio"], progress {
+          accent-color: ${B.charcoal};
+        }
+        input[type="range"] { cursor: pointer; }
+      `}</style>
+
       {legalOverlay}
 
       {showIntake&&(isMarketerSpace?<MarketerIntakeFlow name={myName} onComplete={completeMarketerIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />:<IntakeFlow name={myName} onComplete={completeIntake} onSkip={()=>{try{localStorage.setItem("chelgy_intake_done","1");localStorage.setItem("chelgy_last_greeting",todayStr());}catch(e){} setShowIntake(false);}} />)}
