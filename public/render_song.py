@@ -48,12 +48,153 @@ def stage_tune(guide, out, strength):
 
 
 # ── 2 · YOUR VOICE ──────────────────────────────────────────────────────────
+#
+# How long a slice of audio goes to the GPU at once.
+#
+# RVC's attention step builds a T x T matrix, so memory grows with the SQUARE of
+# the input length. The whole vocal used to go in one pass, which is why a
+# 45-second take converted fine and a 4-minute one died at 18 GiB on a 22 GiB
+# card — and why a bigger GPU only moves the wall instead of removing it.
+#
+# At 30s the matrix is small enough that peak memory stops depending on song
+# length at all: a 10-minute vocal now costs the same per slice as a 30-second
+# one, it just takes more slices.
+CHUNK_SECONDS   = float(os.environ.get("RVC_CHUNK_SECONDS", "30"))
+# Slices overlap and are crossfaded together. Without this, every join is a hard
+# cut between two independently-converted pieces and you hear a click at each one.
+CROSSFADE_SECONDS = float(os.environ.get("RVC_CROSSFADE_SECONDS", "0.5"))
+
+
+def _vc_once(vc, src_path, model_index, index_rate, protect):
+    """
+    One RVC pass over one file. Returns (sample_rate, audio).
+
+    Raises instead of returning junk. RVC's vc_single catches its own errors
+    internally and hands back (None, None) — including on CUDA OOM. The old
+    guard tested `if wav is None`, which a (None, None) TUPLE sails straight
+    through, so an out-of-memory failure arrived downstream as
+    "IndexError: tuple index out of range" from soundfile trying to read the
+    shape of None. The real cause was in the log, but buried above a traceback
+    that pointed at the wrong line.
+    """
+    info, wav = vc.vc_single(
+        0, src_path,
+        0,                  # f0_up_key — see stage_voice
+        "rmvpe",            # best pitch tracker available here for singing
+        model_index or "",
+        index_rate,         # how hard to pull toward the real voice
+        0,                  # resample_sr 0 = keep the model's native rate
+        0.25,               # rms_mix_rate — keeps some of the guide's dynamics
+        protect,            # protects consonants and breaths from artefacts
+    )
+    if wav is None:
+        raise RuntimeError("Voice conversion returned nothing — check the model file.")
+    sr, audio = wav
+    if sr is None or audio is None:
+        # vc_single swallowed something. `info` carries RVC's own message, which
+        # is where the OOM text actually lives.
+        raise RuntimeError("Voice conversion failed inside RVC: " + str(info or "no detail given"))
+    audio = np.asarray(audio)
+    if audio.ndim == 0 or audio.size == 0:
+        raise RuntimeError("Voice conversion produced no audio: " + str(info or "no detail given"))
+    return sr, audio
+
+
+def _free_gpu():
+    """Hand memory back between slices so peak usage stays flat across a song."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
+def _convert_in_chunks(vc, tuned, model_index, index_rate, protect):
+    """
+    Convert a vocal of any length by running fixed-size slices and crossfading.
+
+    Slices step forward by CHUNK_SECONDS but each one is CROSSFADE_SECONDS
+    longer than the step, so consecutive outputs overlap by exactly the
+    crossfade. Joining with an equal-power fade across that overlap keeps the
+    seam inaudible — a linear fade would dip in the middle, because two
+    uncorrelated signals at half amplitude do not sum back to full loudness.
+
+    Anything short enough to fit in one slice takes the single-pass path, so
+    short takes behave exactly as they did before.
+    """
+    src, sr_in = sf.read(tuned, always_2d=False)
+    if getattr(src, "ndim", 1) > 1:          # RVC works in mono
+        src = src.mean(axis=1)
+    total = len(src)
+    step = int(CHUNK_SECONDS * sr_in)
+    fade_in = int(CROSSFADE_SECONDS * sr_in)
+
+    if total <= step + fade_in:
+        return _vc_once(vc, tuned, model_index, index_rate, protect)
+
+    n_chunks = int(math.ceil(total / step))
+    print(f"  vocal is {total/sr_in:.1f}s — converting in {n_chunks} slices "
+          f"of {CHUNK_SECONDS:.0f}s so memory stays flat")
+
+    tmpdir = tempfile.mkdtemp(prefix="rvcchunk-")
+    out_sr = None
+    acc = None
+    try:
+        for i in range(n_chunks):
+            a = i * step
+            b = min(total, a + step + fade_in)
+            if a >= total:
+                break
+            piece = os.path.join(tmpdir, f"chunk{i:04d}.wav")
+            sf.write(piece, src[a:b], sr_in)
+
+            sr, audio = _vc_once(vc, piece, model_index, index_rate, protect)
+            if audio.ndim > 1:
+                audio = audio.mean(axis=1)
+            audio = audio.astype(np.float32, copy=False)
+
+            if out_sr is None:
+                out_sr = sr
+            elif sr != out_sr:
+                raise RuntimeError(f"slice {i} came back at {sr} Hz, expected {out_sr}")
+
+            # The crossfade length in OUTPUT samples — the model may not return
+            # audio at the rate it was given.
+            fade_out = int(CROSSFADE_SECONDS * out_sr)
+
+            if acc is None:
+                acc = audio
+            elif fade_out <= 0 or len(acc) < fade_out or len(audio) < fade_out:
+                acc = np.concatenate([acc, audio])      # too short to fade — just join
+            else:
+                t = np.linspace(0.0, 1.0, fade_out, dtype=np.float32)
+                fade_down = np.cos(t * np.pi / 2.0)     # equal power: down² + up² = 1
+                fade_up   = np.sin(t * np.pi / 2.0)
+                head = acc[:-fade_out]
+                seam = acc[-fade_out:] * fade_down + audio[:fade_out] * fade_up
+                acc = np.concatenate([head, seam, audio[fade_out:]])
+
+            _free_gpu()
+            print(f"    slice {i+1}/{n_chunks} done ({len(acc)/out_sr:.1f}s so far)")
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+    if acc is None:
+        raise RuntimeError("Voice conversion produced no audio.")
+    return out_sr, acc
+
+
 def stage_voice(tuned, out, model_pth, model_index, index_rate, protect):
     """
     RVC inference against the fine-tuned model.
 
     f0_up_key stays 0. Transposing here would undo the tuning stage, which has
     already put the melody exactly where it belongs.
+
+    The vocal is converted in fixed-length slices — see _convert_in_chunks. The
+    model is loaded ONCE, above the loop, so slicing costs a little wall-clock
+    per seam and nothing in model-loading time.
     """
     weights = os.path.join(ROOT, "assets", "weights")
     os.makedirs(weights, exist_ok=True)
@@ -76,21 +217,10 @@ def stage_voice(tuned, out, model_pth, model_index, index_rate, protect):
     finally:
         sys.argv = saved_argv
 
-    _, wav = vc.vc_single(
-        0, tuned,
-        0,                  # f0_up_key — see above
-        "rmvpe",            # best pitch tracker available here for singing
-        model_index or "",
-        index_rate,         # how hard to pull toward the real voice
-        0,                  # resample_sr 0 = keep the model's native rate
-        0.25,               # rms_mix_rate — keeps some of the guide's dynamics
-        protect,            # protects consonants and breaths from artefacts
-    )
-    if wav is None:
-        raise RuntimeError("Voice conversion returned nothing — check the model file.")
-    sr, audio = wav
+    sr, audio = _convert_in_chunks(vc, tuned, model_index, index_rate, protect)
     sf.write(out, audio, sr)
     print(f"  {len(audio)/sr:.1f}s at {sr} Hz")
+    _free_gpu()
     return sr
 
 
