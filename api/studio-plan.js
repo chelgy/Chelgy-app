@@ -34,6 +34,16 @@
 // is 60 and the build will reject this, in which case put it back and lower WORD_LIMIT.
 export const maxDuration = 300;
 
+// This is a Pages Router API route, which defaults the request body to 1 MB. A
+// long-form multi-clip edit sends the whole word-timestamped transcript plus up
+// to MAX_FRAMES base64 stills, which clears 1 MB easily — and Next rejects the
+// POST with a 413 BEFORE this handler runs, so the frame cap below never gets a
+// chance to trim it. The frontend only sees "couldn't reach the edit planner".
+// 4.5 MB is Vercel's platform ceiling for a serverless request body; we can't go
+// higher. If an edit ever exceeds it, the fix is to stop inlining frames as
+// base64 and hand the planner storage URLs instead — not a bigger number here.
+export const config = { api: { bodyParser: { sizeLimit: "4.5mb" } } };
+
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 
