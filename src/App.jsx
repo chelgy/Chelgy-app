@@ -12480,6 +12480,11 @@ function SongStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolUs
                vocalSpace==="dry" ? "Clean and dry \u2014 no effects, for mixing it yourself." :
                "Produced \u2014 reverb and EQ so it sits in a mix."}
             </p>
+            {vocalSpace==="dry" && (
+              <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,color:B.charcoal,background:"rgba(0,0,0,0.03)",borderLeft:"2px solid "+B.gold,padding:"9px 12px",margin:"-4px 0 14px",lineHeight:1.55}}>
+                <strong>Note:</strong> &ldquo;Dry&rdquo; only stops us adding reverb or EQ &mdash; it can&rsquo;t remove effects already baked into the file you upload. A finished Suno track has its reverb printed into the audio, so it&rsquo;ll still be there. For a truly dry vocal, upload one that was recorded dry (or a clean stem with no reverb on it).
+              </p>
+            )}
           </>)}
 
           {outMode==="vocal" && (<>
