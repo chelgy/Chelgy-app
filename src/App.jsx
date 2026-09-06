@@ -12833,7 +12833,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   }
   async function saveProducts(){
     const d=JSON.parse(JSON.stringify(wmExisting.data||{}));
-    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined, buyUrl:(pr.buyUrl||"").trim()||undefined, cj:(pr.cj&&pr.cj.vid)?pr.cj:undefined }));
+    const items=edProducts.filter(pr=>(pr.name||"").trim()).map(pr=>({ name:pr.name, note:pr.note||"", price:pr.price||"", image:(pr.image&&pr.image.url)?{url:pr.image.url}:undefined, gallery:((pr.gallery||[]).filter(g=>g&&g.url).length?(pr.gallery||[]).filter(g=>g&&g.url).map(g=>({url:g.url})):undefined), buyUrl:(pr.buyUrl||"").trim()||undefined, cj:(pr.cj&&pr.cj.vid)?pr.cj:undefined }));
     const i=(d.sections||[]).findIndex(x=>x&&x.type==="offerings");
     if(i>=0){ d.sections[i].items=items; } else { d.sections=d.sections||[]; d.sections.push({type:"offerings",eyebrow:"Offerings",title:"What we offer",items}); }
     await saveData(d);
@@ -12879,6 +12879,25 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     if(!file) return; setEdProdBusy(idx); setWmErr("");
     wmRead(file, async(dataUrl)=>{ try{ const u=await uploadSiteImage(dataUrl, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,image:{url:u}}:x)); }catch(e){ setWmErr("Couldn't upload that image."); } setEdProdBusy(-1); });
   }
+  async function genProductGalleryImage(idx){
+    if(edProdBusy>=0) return; const pr=edProducts[idx]; if(!pr) return;
+    if((pr.gallery||[]).length>=3){ setWmErr("Up to 3 extra photos per product."); return; }
+    setEdProdBusy(idx); setWmErr("");
+    try{
+      const themeStyle=THEME_IMG_STYLE[(wmExisting.data&&wmExisting.data.theme)||"editorial-porcelain"]||THEME_IMG_STYLE["editorial-porcelain"];
+      const desc=(pr.name||"the product")+(pr.note?(" \u2014 "+pr.note):"");
+      const prompt="Another premium, editorial product photograph of "+desc+" \u2014 a different angle or detail shot. Clean, minimal luxury styling, soft professional lighting. Keep the product true to the reference: same item, colours and details. "+themeStyle+" No text, no words, no logos.";
+      const r=await generateGeminiImage(prompt, (pr.image&&pr.image.url)||null, "1:1", "standard");
+      if(r&&r.image){ if(typeof r.balance==="number") onBalance(r.balance); const u=await uploadSiteImage(r.image, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,gallery:[...(x.gallery||[]),{url:u}].slice(0,3)}:x)); }
+    }catch(e){ setWmErr("Couldn't generate that image \u2014 please try again."); }
+    setEdProdBusy(-1);
+  }
+  function uploadProductGalleryImage(idx, file){
+    if(!file || edProdBusy>=0) return; const pr=edProducts[idx];
+    if(pr&&(pr.gallery||[]).length>=3){ setWmErr("Up to 3 extra photos per product."); return; }
+    setEdProdBusy(idx); setWmErr("");
+    wmRead(file, async(dataUrl)=>{ try{ const u=await uploadSiteImage(dataUrl, user.id+"/prod-"+Date.now()+"-"+Math.random().toString(36).slice(2,5)+".png"); if(u) setEdProducts(a=>a.map((x,j)=>j===idx?{...x,gallery:[...(x.gallery||[]),{url:u}].slice(0,3)}:x)); }catch(e){ setWmErr("Couldn't upload that image."); } setEdProdBusy(-1); });
+  }
   async function aiCreateProduct(){
     if(edProdBusy>=0) return; setEdProdBusy(9999); setWmErr("");
     try{
@@ -12886,7 +12905,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
       const raw=await callClaude("For this business: "+b+". Suggest ONE new product or service that fits it well. Return ONLY JSON, no markdown: {\"name\":string,\"note\":string (one short line),\"price\":string (or empty)}.", 500);
       let t=(raw||"").trim().replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim(); const a=t.indexOf("{"),z=t.lastIndexOf("}"); if(a>=0&&z>a) t=t.slice(a,z+1);
       let obj; try{ obj=JSON.parse(t); }catch(e){ obj=null; }
-      if(obj&&obj.name){ setEdProducts(arr=>[...arr,{name:obj.name,price:obj.price||"",note:obj.note||"",image:null}]); }
+      if(obj&&obj.name){ setEdProducts(arr=>[...arr,{name:obj.name,price:obj.price||"",note:obj.note||"",image:null,gallery:[]}]); }
     }catch(e){ setWmErr("Couldn't create a product — please try again."); }
     setEdProdBusy(-1);
   }
@@ -13085,7 +13104,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   useEffect(()=>{ if(wmAutoBuild && wmName.trim() && wmDesc.trim()){ setWmAutoBuild(false); genWebsite(); } }, [wmAutoBuild]);
   useEffect(()=>{ if(iAutoRun && (iBiz.trim()||["ad","product","logo","flyer","banner"].includes(iType))){ setIAutoRun(false); genI(); } }, [iAutoRun]);
   useEffect(()=>{ if(adAutoRun && adBiz.trim()){ setAdAutoRun(false); genAd(); } }, [adAutoRun]);
-  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null,buyUrl:it.buyUrl||"",cj:it.cj||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
+  useEffect(()=>{ if(wmExisting&&wmExisting.data){ const d=wmExisting.data; const g=t=>(d.sections||[]).find(x=>x&&x.type===t)||{}; const hero=g("hero"),about=g("about"),contact=g("contact"); const off=(d.sections||[]).find(x=>x&&x.type==="offerings"); setEdProducts(((off&&off.items)||[]).map(it=>({name:it.name||"",price:it.price||"",note:it.note||"",image:it.image||null,gallery:Array.isArray(it.gallery)?it.gallery:[],buyUrl:it.buyUrl||"",cj:it.cj||null}))); setEdFields({ name:(d.brand&&d.brand.name)||"", headline:hero.headline||"", sub:hero.sub||"", aboutHeading:about.heading||"", aboutBody:(about.body&&about.body[0])||"", cHeading:contact.heading||"", details:(contact.details||[]).map(x=>({k:x.k||"",v:x.v||""})) }); } }, [wmExisting&&wmExisting.id]);
   function slugify(x){ return (x||"site").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40) || "site"; }
   // Estimated credit cost of a build — a logo (unless one is uploaded) plus one
   // standard image (120 cr) per section and offering, minus any photos the user
@@ -13573,12 +13592,31 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
                       <CreditTag n={CREDIT_COSTS.image} style={{alignSelf:"center"}} />
                       <button onClick={()=>setEdProducts(a=>a.filter((_,j)=>j!==i))} style={{background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"7px 12px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginLeft:"auto"}}>Remove product / service</button>
                     </div>
+                    {pr.image&&pr.image.url && (
+                      <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid "+B.offwhite}}>
+                        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:B.mid,marginBottom:8}}>More photos <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:B.mid}}>&mdash; up to 3 more, shown when someone taps the product</span></div>
+                        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-start"}}>
+                          {(pr.gallery||[]).map((g,gi)=>(
+                            <div key={gi} style={{width:64}}>
+                              <div style={{width:64,height:64,backgroundImage:"url("+((g&&g.url)||"")+")",backgroundSize:"cover",backgroundPosition:"center",border:"1px solid "+B.stone}} />
+                              <button onClick={()=>setEdProducts(a=>a.map((x,j)=>j===i?{...x,gallery:(x.gallery||[]).filter((_,k)=>k!==gi)}:x))} style={{width:"100%",marginTop:4,background:"none",border:"1px solid "+B.stone,color:B.mid,padding:"3px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8,letterSpacing:"0.06em",fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>Remove</button>
+                            </div>
+                          ))}
+                          {(pr.gallery||[]).length<3 && (
+                            <div style={{display:"flex",flexDirection:"column",gap:6,width:64}}>
+                              <label style={{width:64,height:64,boxSizing:"border-box",border:"1px dashed "+B.stone,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",color:B.mid,fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,lineHeight:1.2,cursor:edProdBusy>=0?"default":"pointer"}}>{edProdBusy===i?"\u2026":"+ Upload"}<input type="file" accept="image/*" disabled={edProdBusy>=0} onChange={e=>uploadProductGalleryImage(i,(e.target.files||[])[0])} style={{display:"none"}} /></label>
+                              <button disabled={edProdBusy>=0} onClick={()=>genProductGalleryImage(i)} style={{background:B.gold,color:B.inkText,border:"none",padding:"6px 4px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:8.5,letterSpacing:"0.05em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",textTransform:"uppercase",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===i?"\u2026":"\u2728 Generate"}</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
-              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null,buyUrl:""}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product / service</button>
+              <button onClick={()=>setEdProducts(a=>[...a,{name:"",price:"",note:"",image:null,gallery:[],buyUrl:""}])} style={{background:"none",border:"1px dashed "+B.gold,color:B.goldDark,padding:"10px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:"pointer"}}>+ Add product / service</button>
               <button disabled={edProdBusy>=0} onClick={aiCreateProduct} style={{background:"none",border:"1px solid "+B.stone,color:B.charcoal,padding:"10px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.08em",fontWeight:700,cursor:edProdBusy>=0?"default":"pointer",opacity:edProdBusy>=0?0.5:1}}>{edProdBusy===9999?"Writing…":"✨ Let Chelgy write one"}</button>
             </div>
             <Btn dark small onClick={saveProducts}>Save products / services</Btn>
@@ -17541,7 +17579,7 @@ function CollageLayout({ site }) {
       {phil && <section className="statement wrap" id="s-about"><div>{phil.eyebrow && <div className="eyebrow">{phil.eyebrow}</div>}<h2>{phil.heading}{phil.headingEm && <em> {phil.headingEm}</em>}</h2>{phil.body && phil.body[0] && <p>{phil.body[0]}</p>}</div></section>}
       <div className="marquee"><div><span>{mq}</span><span>{mq}</span></div></div>
       {about && <section className="meet" id="s-work"><div className="wrap meet-grid"><div className="collage"><div className="polaroid p1"><div className="ph" style={bgi(pics[0] || null)}></div></div><div className="polaroid p2"><div className="ph" style={bgi(pics[1] || null)}></div></div><div className="polaroid p3"><div className="ph" style={bgi(pics[2] || null)}></div></div></div><div>{about.eyebrow && <div className="eyebrow">{about.eyebrow}</div>}<h2>{about.heading}{about.headingEm && <span className="script"> {about.headingEm}</span>}</h2>{(about.body || []).map((p, j) => <p key={j}>{p}</p>)}<a href="#s-contact" className="btn-pill light">Meet me</a></div></div></section>}
-      {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j}><div className="ph" style={bgi(url(it.image))}></div><div className="nm">{it.name}</div><div className="meta"><span>{it.note}</span>{it.price && <span className="price">{it.price}</span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
+      {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j} data-cg-prod={j}><div className="ph" style={bgi(url(it.image))}></div><div className="nm">{it.name}</div><div className="meta"><span>{it.note}</span>{it.price && <span className="price">{it.price}</span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
       {quote && <section className="quote wrap"><div><p>{quote.text}</p>{quote.cite && <cite>{quote.cite}</cite>}</div></section>}
       {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow">{contact.eyebrow}</div>}<h2>{contact.heading}{contact.headingEm && <em> {contact.headingEm}</em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}>{d.v}</span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}>{contact.cta.label}</a></div>}</div></div></section>}
       <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
@@ -17991,7 +18029,7 @@ function AureliaLayout({ site }){
         {hero&&<h1 className="hero-title">{hero.headline}</h1>}
       </section>
       {(phil||hero)&&<div className="band"><p className="eyebrow">{(phil&&phil.eyebrow)||(hero&&hero.sub)||""}</p></div>}
-      {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><div className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</section>}
+      {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><div className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</section>}
       {phil&&<section className="manifesto" id="s-about"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>} {phil.body&&phil.body[0]?phil.body[0]:""}</p><a className="btn-outline" href="#s-work">{(hero&&hero.cta&&hero.cta.label)||"View gallery"}</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
@@ -18162,7 +18200,7 @@ function NocturneLayout({ site }){
         <div className="img-slot" style={bgi(url(hero&&hero.image))}></div>
         <div className="hero-copy">{hero&&<h1>{hero.headline}</h1>}{phil&&phil.eyebrow&&<p className="sub">{phil.eyebrow}</p>}{hero&&hero.cta&&<a className="btn-out" href="#s-offerings"><span className="hrt">&#9825;</span>{hero.cta.label}<span className="hrt">&#9825;</span></a>}</div>
       </section>
-      {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
+      {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
       {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
@@ -18326,7 +18364,7 @@ function MissiveLayout({ site }){
       {about&&<section className="about" id="s-about"><div className="grid"><div className="frame"><div className="flabel">About</div><div className="polaroid"><div className="img-slot" style={bgi(url(about.image))}></div></div></div><div><h2>{about.heading}{about.headingEm?(" "+about.headingEm):""}</h2>{about.body&&about.body[0]&&<p className="role">{about.body[0]}</p>}<a className="btn" href="#s-contact">My story</a></div></div></section>}
       {qtext&&<section className="qband"><div className="img-slot" style={bgi(qimg)}></div><div className="qtext"><p className="script">{qtext}</p></div></section>}
       {phil&&<section className="welcome"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>}</p></section>}
-      {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
+      {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{contact:true}} />
       <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18388,7 +18426,7 @@ function HavenLayout({ site }){
         </section>
         <section className="feature" id="s-offerings">
           <h1>{(hero&&hero.headline)||(phil&&phil.heading)||"Beautiful things for calm spaces."}</h1>
-          <div className="tiles">{items.map((it,i)=>{const body=[<div className="pad" key="p"><div className="img-slot" style={bgi(url(it.image))}></div></div>,<div className="name" key="n">{it.name}</div>];if(it.price)body.push(<div className="price" key="pr">{it.price}</div>);return it.buyUrl?<a className="tile" key={i} href={it.buyUrl} target="_blank" rel="noreferrer">{body}</a>:<div className="tile" key={i}>{body}</div>;})}</div>
+          <div className="tiles">{items.map((it,i)=>{const body=[<div className="pad" key="p"><div className="img-slot" style={bgi(url(it.image))}></div></div>,<div className="name" key="n">{it.name}</div>];if(it.price)body.push(<div className="price" key="pr">{it.price}</div>);return it.buyUrl?<a className="tile" key={i} data-cg-prod={i} href={it.buyUrl} target="_blank" rel="noreferrer">{body}</a>:<div className="tile" key={i} data-cg-prod={i}>{body}</div>;})}</div>
         </section>
         <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="fmark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-copy">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
       </div>
@@ -18471,7 +18509,7 @@ function LinenLayout({ site }){
       <section className="hero" id="s-top"><div className="bg"><div className="img-slot" style={bgi(url(hero&&hero.image))}></div></div><div className="hero-inner"><p className="kicker">{(phil&&phil.eyebrow)||"Timeless pieces for modern spaces"}</p><h1>{(hero&&hero.headline)||"Beautifully made for everyday living."}</h1><a className="pill-out" href="#s-cats">{(hero&&hero.cta&&hero.cta.label)||"Shop now"}</a></div></section>
       <div className="marquee" aria-hidden="true"><div className="track">{track}</div></div>
       {phil&&<section className="cats-head" id="s-cats"><h2>{phil.heading||"Shop by Category"}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}</section>}
-      {off&&<section className="cats">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="label">{it.name}</span></a>)}</section>}
+      {off&&<section className="cats">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="label">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div>{tag&&<div className="foot-tag">{tag}</div>}<nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18651,7 +18689,7 @@ function WillowLayout({ site }){
       {about&&about.body&&about.body.length>0&&<div className="card-wrap"><div className="card"><h3>{about.heading}</h3><ul className="painlist">{about.body.map((p,i)=><li key={i}>{p}</li>)}</ul></div></div>}
       {quote&&<section><div className="quote"><div className="qmark">&#8220;</div><blockquote>{quote.text}</blockquote>{quote.cite&&<div className="who"><div className="av"><div className="img-slot" style={{width:"100%",height:"100%"}}></div></div><div className="nm">{quote.cite}</div></div>}</div></section>}
       {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><div className="img-slot dark" style={bgi(url((ed&&ed.image))||url(hero&&hero.image))}></div></div></section>}
-      {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
+      {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i} data-cg-prod={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
       <StandardSections site={s} show={{contact:true}} />
       <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18847,7 +18885,94 @@ function SitePostPage({ site, post, backHref }) {
     </div>
   );
 }
-function SiteRender({ site }) {
+// ── PRODUCT GALLERY (published site) ─────────────────────────────────────────
+// A product can carry up to four photos: the primary `image` (shown on the card,
+// unchanged) plus up to three in `gallery`. Tapping a product opens a lightbox with
+// all of them, its name, price, description and Shop button. Wired once, at the site
+// root, via event delegation on a [data-cg-prod] marker each theme's card carries —
+// so a new photo works in every theme without restructuring thirteen layouts.
+function cgProductImages(it){
+  const out=[];
+  const u=(x)=> (x&&x.url)?x.url:(typeof x==="string"?x:"");
+  if(it){
+    const p=u(it.image); if(p) out.push(p);
+    if(Array.isArray(it.gallery)) it.gallery.forEach(g=>{ const gu=u(g); if(gu && out.indexOf(gu)<0) out.push(gu); });
+  }
+  return out;
+}
+
+function ProductGallery({ item, onClose }){
+  const imgs = cgProductImages(item);
+  const [idx,setIdx] = useState(0);
+  useEffect(()=>{
+    const onKey=(e)=>{
+      if(e.key==="Escape") onClose();
+      else if(e.key==="ArrowRight") setIdx(i=>Math.min(imgs.length-1,i+1));
+      else if(e.key==="ArrowLeft") setIdx(i=>Math.max(0,i-1));
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[imgs.length,onClose]);
+  if(!item) return null;
+  const safe=Math.min(idx,Math.max(0,imgs.length-1));
+  const cur=imgs[safe]||"";
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:2147483000,background:"rgba(17,17,17,0.82)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",maxWidth:560,width:"100%",maxHeight:"92vh",overflow:"auto",boxShadow:"0 30px 80px rgba(0,0,0,0.45)"}}>
+        <div style={{position:"relative",width:"100%",aspectRatio:"1 / 1",background:"#f2f0ec"}}>
+          {cur?<img src={cur} alt={item.name||""} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />:null}
+          <button onClick={onClose} aria-label="Close" style={{position:"absolute",top:10,right:10,width:34,height:34,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:20,lineHeight:"34px",cursor:"pointer"}}>&times;</button>
+          {imgs.length>1 && (<>
+            <button onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={safe<=0} aria-label="Previous" style={{position:"absolute",top:"50%",left:10,transform:"translateY(-50%)",width:38,height:38,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:22,lineHeight:"38px",cursor:safe<=0?"default":"pointer",opacity:safe<=0?0.4:1}}>&lsaquo;</button>
+            <button onClick={()=>setIdx(i=>Math.min(imgs.length-1,i+1))} disabled={safe>=imgs.length-1} aria-label="Next" style={{position:"absolute",top:"50%",right:10,transform:"translateY(-50%)",width:38,height:38,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:22,lineHeight:"38px",cursor:safe>=imgs.length-1?"default":"pointer",opacity:safe>=imgs.length-1?0.4:1}}>&rsaquo;</button>
+          </>)}
+        </div>
+        {imgs.length>1 && (<div style={{display:"flex",gap:6,padding:"10px 12px 0",flexWrap:"wrap"}}>
+          {imgs.map((im,ii)=><button key={ii} onClick={()=>setIdx(ii)} aria-label={"Photo "+(ii+1)} style={{width:52,height:52,padding:0,border:(ii===safe?"2px solid #111":"1px solid #ddd"),background:"#eee url("+im+") center/cover",cursor:"pointer"}} />)}
+        </div>)}
+        <div style={{padding:"14px 18px 20px",fontFamily:"Georgia,'Times New Roman',serif"}}>
+          <div style={{fontSize:20,color:"#141414",marginBottom:4}}>{item.name}</div>
+          {item.price && <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,letterSpacing:"0.04em",color:"#141414",marginBottom:10}}>{item.price}</div>}
+          {item.note && <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:13.5,lineHeight:1.6,color:"#555",marginBottom:14}}>{item.note}</div>}
+          {item.buyUrl && <a href={item.buyUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,letterSpacing:"0.16em",textTransform:"uppercase",background:"#141414",color:"#fff",padding:"11px 22px",textDecoration:"none"}}>Shop &rarr;</a>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductGalleryHost({ site, children }){
+  const [open,setOpen] = useState(null);
+  const off=((site&&site.sections)||[]).find(x=>x&&x.type==="offerings");
+  const items=(off&&Array.isArray(off.items))?off.items:[];
+  const onClick=(e)=>{
+    const t=e.target;
+    if(!t||!t.closest) return;
+    const card=t.closest("[data-cg-prod]");
+    if(!card) return;
+    const link=t.closest("a");
+    if(link && link!==card && card.contains(link)) return; // inner Shop link keeps working
+    const j=parseInt(card.getAttribute("data-cg-prod"),10);
+    const it=items[j];
+    if(!it) return;
+    if(cgProductImages(it).length<1) return;               // nothing to show — let a link card navigate
+    e.preventDefault(); e.stopPropagation();
+    setOpen(it);
+  };
+  return (
+    <div onClickCapture={onClick} style={{display:"contents"}}>
+      <style dangerouslySetInnerHTML={{ __html:"[data-cg-prod]{cursor:pointer;}" }} />
+      {children}
+      {open && <ProductGallery item={open} onClose={()=>setOpen(null)} />}
+    </div>
+  );
+}
+
+function SiteRender({ site }){
+  return <ProductGalleryHost site={site}><SiteRenderInner site={site} /></ProductGalleryHost>;
+}
+
+function SiteRenderInner({ site }) {
   const s0 = site || {};
   // Nav menu links removed sitewide — they pointed to anchors that didn't reliably resolve
   const s = s0.brand ? { ...s0, brand: { ...s0.brand, nav: [] } } : s0;
@@ -18928,7 +19053,7 @@ function SiteRender({ site }) {
             </div>
             <div className="cards">
               {(sec.items||[]).map((it,j)=>(
-                <article className="card" key={j}>
+                <article className="card" key={j} data-cg-prod={j}>
                   <div className="ph" style={bg(it.image)}>{!(it.image&&it.image.url)&&<span className="tag">Product image</span>}</div>
                   <div className="cardcap">
                     <div className="nm">{it.name}</div>
