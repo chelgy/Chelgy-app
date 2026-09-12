@@ -12683,7 +12683,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     setEdDomainLoad(true); setWmErr(""); setEdDomainDns(null); setEdDomainMsg("");
     try{
       const tok=await freshToken(); if(!tok) throw new Error("Please log in again.");
-      const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d }) });
+      const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, site_id:(wmExisting&&wmExisting.id)||null }) });
       const j=await res.json();
       if(!res.ok||j.error) throw new Error(j.error||"Couldn't connect that domain.");
       setEdDomainDns(j.dns||null); setEdDomainMsg("Domain saved. Add the DNS record(s) below at your registrar, then tap Check status. It can take a few minutes to 48 hours.");
@@ -12739,7 +12739,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     setEdDomainLoad(true); setEdDomainMsg("");
     try{
       const tok=await freshToken();
-      const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"status" }) });
+      const res=await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"status", site_id:(wmExisting&&wmExisting.id)||null }) });
       const j=await res.json();
       if(j.error) throw new Error(j.error);
       setEdDomainMsg(j.misconfigured===false ? "✓ Your domain is connected and live!" : "Not resolving yet — DNS can take a few minutes to 48 hours. Add the record below and check again shortly.");
@@ -12751,7 +12751,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
     setEdDomainLoad(true); setWmErr(""); setEdDomainMsg("");
     try{
       const tok=await freshToken();
-      await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"remove" }) });
+      await fetch("/api/add-domain",{ method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+tok }, body:JSON.stringify({ domain:d, action:"remove", site_id:(wmExisting&&wmExisting.id)||null }) });
       setWmExisting(x=>({ ...x, domain:null })); setEdDomainDns(null); setEdDomainMsg(""); setEdDomain("");
     }catch(e){ setWmErr("Couldn't remove the domain — try again."); }
     setEdDomainLoad(false);

@@ -23,6 +23,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const action = body.action || "add";
     let d = String(body.domain || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const siteId = body.site_id ? String(body.site_id) : "";
 
     // 1) Verify the signed-in user
     const token = (req.headers.authorization || "").replace(/^Bearer /, "");
@@ -31,10 +32,19 @@ export default async function handler(req, res) {
     const user = await ures.json();
     if (!user || !user.id) return res.status(401).json({ error: "Please sign in again." });
 
-    // 2) Find this user's site
-    const sres = await fetch(SUPABASE_URL + "/rest/v1/websites?select=id,slug,custom_domain&user_id=eq." + user.id + "&limit=1", { headers: { apikey: SVC, Authorization: "Bearer " + SVC } });
+    // 2) Find the site this domain action is actually for.
+    // A member on the marketer side can own several sites, so "user_id=eq.<id>&limit=1"
+    // silently grabs an arbitrary one of them — the request may land on the wrong site's
+    // domain instead of the one the member is looking at. When the caller knows which site
+    // (site_id, sent by the multi-site marketer UI), scope to exactly that one, still checked
+    // against user_id so a member can't touch a site that isn't theirs. Single-site callers
+    // (the regular app) never send site_id, so they keep today's behavior unchanged.
+    const siteFilter = siteId
+      ? "id=eq." + encodeURIComponent(siteId) + "&user_id=eq." + user.id
+      : "user_id=eq." + user.id;
+    const sres = await fetch(SUPABASE_URL + "/rest/v1/websites?select=id,slug,custom_domain&" + siteFilter + "&limit=1", { headers: { apikey: SVC, Authorization: "Bearer " + SVC } });
     const rows = await sres.json();
-    if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: "Build a site first, then connect a domain." });
+    if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: siteId ? "Couldn't find that site." : "Build a site first, then connect a domain." });
     const site = rows[0];
 
     if (!VT || !VP) return res.status(500).json({ error: "Domains aren't configured yet. (Missing Vercel token or project id.)" });
