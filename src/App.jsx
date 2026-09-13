@@ -22330,7 +22330,7 @@ export default function ChelgyApp() {
   // Clean up the old sticky flag from previous builds — it no longer does anything.
   useEffect(()=>{ try{ localStorage.removeItem("chelgy_marketer"); }catch(e){} },[]);
   const [publicSlug] = useState(()=>{ try { return new URLSearchParams(window.location.search).get("site")||null; } catch { return null; } });
-  const [customDomain] = useState(()=>{ try { const h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; return h; } catch { return null; } });
+  const [customDomain] = useState(()=>{ try { let h=(window.location.hostname||"").toLowerCase(); if(!h||h==="localhost"||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||h.endsWith(".local")||h.endsWith("chelgy.app")||h.endsWith("chelgy.com")||h.endsWith("vercel.app")) return null; if(h.startsWith("www.")) h=h.slice(4); return h; } catch { return null; } });
   const [domainMiss,setDomainMiss] = useState(false);
   const [marketerStatus, setMarketerStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
   const [teamMode, setTeamMode] = useState("signup"); // 'signup' | 'login'
