@@ -17582,7 +17582,7 @@ function CollageLayout({ site }) {
       {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow">{off.eyebrow}</div>}{off.title && <h3>{off.title}</h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j} data-cg-prod={j}><div className="ph" style={bgi(url(it.image))}></div><div className="nm">{it.name}</div><div className="meta"><span>{it.note}</span>{it.price && <span className="price">{it.price}</span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
       {quote && <section className="quote wrap"><div><p>{quote.text}</p>{quote.cite && <cite>{quote.cite}</cite>}</div></section>}
       {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow">{contact.eyebrow}</div>}<h2>{contact.heading}{contact.headingEm && <em> {contact.headingEm}</em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}>{d.v}</span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}>{contact.cta.label}</a></div>}</div></div></section>}
-      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
@@ -17724,7 +17724,7 @@ function DuetLayout({ site }) {
         {contact.cta && <a href="#" className="btn-out">{contact.cta.label}</a>}
       </div></section>}
       <StandardSections site={s} show={{about:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="wm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
@@ -17849,7 +17849,7 @@ function RougeLayout({ site }) {
         {contact.cta && <a href="#" className="btn cream">{contact.cta.label}</a>}
       </div></section>}
       <StandardSections site={s} show={{about:true,quote:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="bm">{brand.name || "Your Brand"}</div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}>{brand.footerNote || "© 2026"}</div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
   );
@@ -17957,7 +17957,7 @@ function VigorLayout({ site }){
         {contact.cta&&<a className="btn light" href="#">{contact.cta.label}</a>}
       </section>}
       <StandardSections site={s} show={{quote:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></div>}</footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}</div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></div>}</footer>
     </div>
   );
 }
@@ -18032,7 +18032,7 @@ function AureliaLayout({ site }){
       {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><div className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</section>}
       {phil&&<section className="manifesto" id="s-about"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>} {phil.body&&phil.body[0]?phil.body[0]:""}</p><a className="btn-outline" href="#s-work">{(hero&&hero.cta&&hero.cta.label)||"View gallery"}</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav></div><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18125,7 +18125,7 @@ function ClaretLayout({ site }){
       {off&&<section className="services" id="s-offerings"><span className="eyebrow c">{off.eyebrow||"Our services"}</span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name">{it.name}</span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}
       {bandStmt&&bandStmt.line&&<section className="band" id="s-contact"><h2 className="stmt">{bandStmt.line}{bandStmt.em&&<em> {bandStmt.em}</em>}</h2>{contact&&contact.cta&&<a className="btn on-wine" href="#">{contact.cta.label}</a>}</section>}
       <StandardSections site={s} show={{contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18203,7 +18203,7 @@ function NocturneLayout({ site }){
       {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><div className="img-slot" style={bgi(url(it.image))}></div></div><div className="label">{it.name}</div></a>)}</div></section>}
       {phil&&<section className="store" id="s-about"><p className="eyebrow">{phil.eyebrow||"Welcome"}</p><h2>{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#">{d.v}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18279,7 +18279,7 @@ function SableLayout({ site }){
       {phil&&<section className="headline" id="s-about"><h1>{phil.heading}{phil.headingEm&&<em> {phil.headingEm}</em>}</h1>{phil.body&&phil.body[0]&&<p className="sub">{phil.body[0]}</p>}</section>}
       {off&&<section className="services" id="s-offerings"><div className="grid"><div><span className="eyebrow">{off.eyebrow||"Full-spectrum services"}</span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name">{it.name}</span></li>)}</ul></div><div className="img-slot" style={bgi(gi(2)||gi(0))}></div></div></section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18366,7 +18366,7 @@ function MissiveLayout({ site }){
       {phil&&<section className="welcome"><p>{phil.heading} {phil.headingEm&&<em>{phil.headingEm}</em>}</p></section>}
       {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="clabel">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><div className="foot-sub">{(contact&&contact.cta&&contact.cta.label)||"let's create together"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18428,7 +18428,7 @@ function HavenLayout({ site }){
           <h1>{(hero&&hero.headline)||(phil&&phil.heading)||"Beautiful things for calm spaces."}</h1>
           <div className="tiles">{items.map((it,i)=>{const body=[<div className="pad" key="p"><div className="img-slot" style={bgi(url(it.image))}></div></div>,<div className="name" key="n">{it.name}</div>];if(it.price)body.push(<div className="price" key="pr">{it.price}</div>);return it.buyUrl?<a className="tile" key={i} data-cg-prod={i} href={it.buyUrl} target="_blank" rel="noreferrer">{body}</a>:<div className="tile" key={i} data-cg-prod={i}>{body}</div>;})}</div>
         </section>
-        <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="fmark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-copy">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+        <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="fmark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-copy">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
       </div>
     </div>
   );
@@ -18511,7 +18511,7 @@ function LinenLayout({ site }){
       {phil&&<section className="cats-head" id="s-cats"><h2>{phil.heading||"Shop by Category"}</h2>{phil.body&&phil.body[0]&&<p>{phil.body[0]}</p>}</section>}
       {off&&<section className="cats">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="img-slot" style={bgi(url(it.image))}></div><span className="label">{it.name}</span></a>)}</section>}
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div>{tag&&<div className="foot-tag">{tag}</div>}<nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div>{tag&&<div className="foot-tag">{tag}</div>}<nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18588,7 +18588,7 @@ function UmberLayout({ site }){
       {phil&&<section className="known" id="s-known"><div className="ghost" aria-hidden="true">{brand.name||""}</div><div className="inner"><p className="eyebrow i">{phil.eyebrow||"Best known for"}</p><h2>{phil.heading} {phil.headingEm&&<span className="hollow">{phil.headingEm}</span>}</h2>{phil.body&&phil.body[0]&&<p className="body">{phil.body[0]}</p>}{contact&&contact.cta&&<a className="pill solid" href="#s-contact">{contact.cta.label}</a>}</div></section>}
       {about&&<section className="meet" id="s-about"><div className="grid"><div><h2>{about.heading}</h2>{(about.headingEm||about.eyebrow)&&<p className="role">{about.headingEm||about.eyebrow}</p>}{about.body&&about.body[0]&&<p className="body">{about.body[0]}</p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><div className="img-slot" style={bgi(url(about.image))}></div></div></section>}
       <StandardSections site={s} show={{quote:true,contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18691,7 +18691,7 @@ function WillowLayout({ site }){
       {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><div className="img-slot dark" style={bgi(url((ed&&ed.image))||url(hero&&hero.image))}></div></div></section>}
       {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i} data-cg-prod={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
       <StandardSections site={s} show={{contact:true}} />
-      <SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18735,6 +18735,228 @@ function StandardSections({ site, show }){
       {sh.about&&about&&<section className="cg-sec"><div className="cg-about"><div className="cg-img" style={bgi(url(about.image))}></div><div>{about.eyebrow&&<div className="cg-eyebrow">{about.eyebrow}</div>}<h3>{about.heading}{about.headingEm?(" "+about.headingEm):""}</h3>{(about.body||[]).map((pp,i)=><p key={i}>{pp}</p>)}</div></div></section>}
       {sh.quote&&quote&&quote.text&&<section className="cg-quote"><blockquote>&ldquo;{quote.text}&rdquo;</blockquote>{quote.cite&&<div className="cg-cite">{quote.cite}</div>}</section>}
       {sh.contact&&contact&&<section className="cg-contact"><h3>{contact.heading||"Get in touch"}{contact.headingEm?(" "+contact.headingEm):""}</h3><div className="cg-rows">{(contact.details||[]).map((d,i)=><div className="cg-row" key={i}><div className="k">{d.k}</div><div className="v">{d.v}</div></div>)}</div>{contact.cta&&contact.cta.label&&<a className="cg-cta" href={em?("mailto:"+em.v):"#"}>{contact.cta.label}</a>}</section>}
+    </div>
+  );
+}
+
+const CG_LIB_CSS = `
+#cg-site .cg-lib{--_fg:var(--cg-fg,var(--ink,currentColor));--_muted:var(--cg-muted,var(--muted,rgba(120,120,120,.9)));--_line:var(--cg-line,var(--line,rgba(128,128,128,.22)));--_serif:var(--cg-serif,var(--serif,var(--display,Georgia,serif)));--_sans:var(--cg-sans,var(--sans,inherit));color:var(--_fg);}
+#cg-site .cg-lib .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,72px);}
+#cg-site .cg-lib .cg-sec{padding:clamp(52px,8vw,104px) 0;}
+#cg-site .cg-lib .cg-center{text-align:center;}
+#cg-site .cg-lib .cg-grid{display:grid;gap:clamp(16px,2.4vw,30px);}
+#cg-site .cg-lib .cg-g2{grid-template-columns:repeat(2,1fr);}
+#cg-site .cg-lib .cg-g3{grid-template-columns:repeat(3,1fr);}
+#cg-site .cg-lib .cg-g4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:820px){#cg-site .cg-lib .cg-g2,#cg-site .cg-lib .cg-g3,#cg-site .cg-lib .cg-g4{grid-template-columns:1fr;}}
+#cg-site .cg-lib .eyebrow{font-family:var(--_sans);font-weight:600;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--_muted);margin-bottom:14px;}
+#cg-site .cg-lib h2{font-family:var(--_serif);font-weight:400;font-size:clamp(26px,3.6vw,44px);line-height:1.14;color:var(--_fg);margin:0 0 6px;}
+#cg-site .cg-lib h2 em{font-style:italic;}
+#cg-site .cg-lib .card{border:1px solid var(--_line);padding:26px;}
+#cg-site .cg-lib .nm{font-family:var(--_serif);font-size:1.15rem;color:var(--_fg);}
+#cg-site .cg-lib .note{font-family:var(--_sans);font-size:14px;line-height:1.7;color:var(--_muted);}
+#cg-site .cg-lib .lede{font-family:var(--_sans);font-size:15px;line-height:1.8;color:var(--_muted);max-width:62ch;}
+#cg-site .cg-lib .btn-line,#cg-site .cg-lib .cta{display:inline-block;font-family:var(--_sans);font-weight:600;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--_fg);border:1px solid var(--_fg);padding:13px 30px;text-decoration:none;}
+#cg-site .cg-lib .cg-stat{font-family:var(--_serif);font-size:clamp(32px,5vw,54px);line-height:1;color:var(--_fg);}
+#cg-site .cg-lib .cg-statl{font-family:var(--_sans);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--_muted);margin-top:8px;}
+#cg-site .cg-lib .cg-stars{letter-spacing:2px;opacity:.85;font-size:.9rem;color:var(--_fg);}
+#cg-site .cg-lib .cg-badges{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;}
+#cg-site .cg-lib .cg-badge{border:1px solid var(--_line);border-radius:30px;padding:9px 18px;font-size:.82rem;color:var(--_fg);}
+#cg-site .cg-lib .cg-faq{border-top:1px solid var(--_line);padding:18px 0;}
+#cg-site .cg-lib .cg-faq:last-child{border-bottom:1px solid var(--_line);}
+#cg-site .cg-lib .cg-q{font-family:var(--_serif);font-size:1.15rem;color:var(--_fg);}
+#cg-site .cg-lib .cg-a{color:var(--_muted);margin-top:7px;font-family:var(--_sans);line-height:1.7;}
+#cg-site .cg-lib .cg-num{font-family:var(--_serif);font-size:2.1rem;color:var(--_muted);}
+#cg-site .cg-lib .cg-price{font-family:var(--_serif);font-size:2.1rem;color:var(--_fg);}
+#cg-site .cg-lib .cg-book{border:1px solid var(--_line);padding:clamp(28px,5vw,56px);text-align:center;}
+#cg-site .cg-lib .cg-check{font-size:1.4rem;margin-bottom:8px;color:var(--_muted);}
+#cg-site .cg-lib .cg-ph{position:relative;overflow:hidden;min-height:210px;background:linear-gradient(155deg,#e3daca,#c4b7a1 48%,#9c8d76);}
+#cg-site .cg-lib .cg-ph span{position:absolute;inset:0;display:grid;place-content:center;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.8);}
+#cg-site .cg-lib .cg-lab{position:absolute;top:10px;left:10px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;background:rgba(0,0,0,.55);color:#fff;padding:4px 9px;z-index:2;}
+#cg-site .cg-lib .cg-ba{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+`;
+
+// SectionLibrary — the shared, theme-aware renderer for the "extra" section types
+// (services, whyus, process, stats, team, testimonials, faq, cta, trustbadges,
+// beforeafter, pricing, booking, gallery, serviceareas, hours). These already render
+// on the default editorial theme via the fallback layout; this component lets every
+// NAMED theme (Willow, etc.) render them too, styled off that theme's own --cg-* tokens.
+// Named themes render none of these types bespoke, so there is no double-render.
+function SectionLibrary({ site }){
+  const s = site || {};
+  const sections = Array.isArray(s.sections) ? s.sections : [];
+  const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")", backgroundSize:"cover", backgroundPosition:"center" } : undefined;
+  const EXTRA = ["services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
+  const libs = sections.map((sec,i)=>({sec,i})).filter(x=>x.sec && EXTRA.includes(x.sec.type));
+  if(!libs.length) return null;
+  return (
+    <div className="cg-lib">
+      <style dangerouslySetInnerHTML={{__html: CG_LIB_CSS}} />
+      {libs.map(({sec,i})=>{
+        if(sec.type==="services") return (
+          <section className="cg-sec" id="s-services" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.items||[]).map((it,j)=>(
+                  <div className="card" key={j}><div className="cardcap"><div className="nm">{it.name}</div>{it.desc&&<p className="note" style={{marginTop:8}}>{it.desc}</p>}</div></div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="whyus") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g4" style={{marginTop:34}}>
+                {(sec.points||[]).map((p,j)=><div className="card cg-center" key={j}><div className="cg-check">✓</div><div className="nm">{p}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="process") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g4" style={{marginTop:38}}>
+                {(sec.steps||[]).map((st,j)=><div className="cg-center" key={j}><div className="cg-num">{String(j+1).padStart(2,"0")}</div><div className="nm" style={{marginTop:8}}>{st}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="stats") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap cg-grid cg-g4">
+              {(sec.items||[]).map((s2,j)=><div className="cg-center" key={j}><div className="cg-stat">{s2[0]}</div><div className="cg-statl">{s2[1]}</div></div>)}
+            </div>
+          </section>
+        );
+        if(sec.type==="team") return (
+          <section className="cg-sec" id="s-team" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.people||[]).map((p,j)=><div className="cg-center" key={j}><div className="cg-ph" style={Object.assign({aspectRatio:"1/1"},bg(p.image))}>{!(p.image&&p.image.url)&&<span>Photo</span>}</div><div className="nm" style={{marginTop:12}}>{p.name||"Name"}</div><div className="cg-statl">{p.role}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="testimonials") return (
+          <section className="cg-sec" id="s-reviews" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.cards||[]).map((c,j)=><div className="card" key={j}><div className="cg-stars">★★★★★</div><p style={{margin:"12px 0"}}>{"“"+(c.quote||"")+"”"}</p><div className="cg-statl">{c.name}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="faq") return (
+          <section className="cg-sec" id="s-faq" key={i}>
+            <div className="wrap" style={{maxWidth:820}}>
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div style={{marginTop:24}}>
+                {(sec.qs||[]).map((q,j)=><div className="cg-faq" key={j}><div className="cg-q">{q.q}</div><div className="cg-a">{q.a}</div></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="cta") return (
+          <section className="cg-sec cg-center" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+              <h2>{sec.headline}</h2>
+              {sec.cta&&<a className="btn-line" href={sec.cta.href||"#"} style={{marginTop:14}}>{sec.cta.label} <span>→</span></a>}
+            </div>
+          </section>
+        );
+        if(sec.type==="trustbadges") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap cg-badges">
+              {(sec.items||[]).map((b,j)=><span className="cg-badge" key={j}>{b}</span>)}
+            </div>
+          </section>
+        );
+        if(sec.type==="beforeafter") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g2" style={{marginTop:30}}>
+                {(sec.pairs||[]).map((p,j)=>(
+                  <div className="cg-ba" key={j}>
+                    <div className="cg-ph" style={Object.assign({aspectRatio:"1/1"},bg(p.before))}><div className="cg-lab">Before</div>{!(p.before&&p.before.url)&&<span>Before</span>}</div>
+                    <div className="cg-ph" style={Object.assign({aspectRatio:"1/1"},bg(p.after))}><div className="cg-lab">After</div>{!(p.after&&p.after.url)&&<span>After</span>}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="pricing") return (
+          <section className="cg-sec" id="s-pricing" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:34}}>
+                {(sec.tiers||[]).map((t,j)=><div className="card cg-center" key={j}><div className="cg-statl">{t.name}</div><div className="cg-price">{t.price}</div><p className="note" style={{margin:"10px 0 16px"}}>{t.desc}</p>{t.cta&&<a className="btn-line" href={t.cta.href||"#"}>{t.cta.label||"Choose"} <span>→</span></a>}</div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="booking") return (
+          <section className="cg-sec" id="s-booking" key={i}>
+            <div className="wrap">
+              <div className="cg-book">
+                {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+                <h2>{sec.title}</h2>
+                {sec.sub&&<p className="lede" style={{margin:"0 auto 20px"}}>{sec.sub}</p>}
+                <a className="btn-line" href={sec.url||"#"} target="_blank" rel="noreferrer">{sec.cta||"Book Now"} <span>→</span></a>
+                {sec.provider&&<div className="cg-statl" style={{marginTop:14}}>{"Powered by "+sec.provider}</div>}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="gallery") return (
+          <section className="cg-sec" id="s-gallery" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow cg-center">{sec.eyebrow}</div>}
+              {sec.title&&<h2 className="cg-center">{sec.title}</h2>}
+              <div className="cg-grid cg-g3" style={{marginTop:30}}>
+                {(sec.images||[]).map((im,j)=><div className="cg-ph" style={Object.assign({aspectRatio:j%3===0?"3/4":"1/1"},bg(im))} key={j}>{!(im&&im.url)&&<span>{"Image "+(j+1)}</span>}</div>)}
+              </div>
+            </div>
+          </section>
+        );
+        if(sec.type==="serviceareas") return (
+          <section className="cg-sec cg-center" key={i}>
+            <div className="wrap">
+              {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+              {sec.title&&<h2>{sec.title}</h2>}
+              <p className="lede" style={{margin:"0 auto"}}>{"Proudly serving "+((sec.areas||[]).join(", "))+"."}</p>
+            </div>
+          </section>
+        );
+        if(sec.type==="hours") return (
+          <section className="cg-sec" key={i}>
+            <div className="wrap" style={{maxWidth:520,textAlign:"center"}}>
+              {sec.eyebrow&&<div className="eyebrow">{sec.eyebrow}</div>}
+              {sec.title&&<h2>{sec.title}</h2>}
+              <div style={{marginTop:16}}>
+                {(sec.rows||[]).map((r,j)=><div key={j} style={{display:"flex",justifyContent:"space-between",borderBottom:"1px solid var(--_line)",padding:"12px 0"}}><span>{r[0]}</span><span style={{opacity:.7}}>{r[1]}</span></div>)}
+              </div>
+            </div>
+          </section>
+        );
+        return null;
+      })}
     </div>
   );
 }
