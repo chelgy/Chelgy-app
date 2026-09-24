@@ -18667,33 +18667,46 @@ const WILLOW_CSS = `
 @media (max-width:820px){#cg-site .two,#cg-site .intro .wrap,#cg-site .module{grid-template-columns:1fr;}#cg-site .module:nth-child(even){direction:ltr;}#cg-site .two .img-slot,#cg-site .module .img-slot{aspect-ratio:16/11;}}
 `;
 
-function WillowLayout({ site }){
+function WillowLayout({ site, editable }){
+  if(editable) return <WillowInner site={site} />;
+  const ro = { edit:false, get:(p)=>cgGetPath(site,p), update:()=>{}, mutate:()=>{}, onUpload:null, user:null };
+  return <CgEditCtx.Provider value={ro}><WillowInner site={site} /></CgEditCtx.Provider>;
+}
+function WillowInner({ site }){
+  const { edit, mutate } = React.useContext(CgEditCtx);
   const s=site||{}; const brand=s.brand||{}; const sections=Array.isArray(s.sections)?s.sections:[];
-  const get=t=>sections.find(x=>x&&x.type===t);
-  const hero=get("hero"),phil=get("philosophy"),about=get("about"),off=get("offerings"),ed=get("editorial"),quote=get("quote"),contact=get("contact");
+  const idx=t=>sections.findIndex(x=>x&&x.type===t);
+  const hi=idx("hero"),pi=idx("philosophy"),ai=idx("about"),oi=idx("offerings"),ei=idx("editorial"),qi=idx("quote");
+  const hero=hi>=0?sections[hi]:null,phil=pi>=0?sections[pi]:null,about=ai>=0?sections[ai]:null,off=oi>=0?sections[oi]:null,ed=ei>=0?sections[ei]:null,quote=qi>=0?sections[qi]:null,contact=idx("contact")>=0?sections[idx("contact")]:null;
   const url=im=>(im&&im.url)?im.url:null; const bgi=u=>u?{backgroundImage:"url("+u+")",backgroundSize:"cover",backgroundPosition:"center"}:undefined;
   const custom=s.custom?buildCustomCSS(s.custom):""; const nav=brand.nav||[];
   const items=(off&&Array.isArray(off.items))?off.items:[];
   const introH=(ed&&ed.line)?{line:ed.line,em:ed.lineEm}:{line:(phil&&phil.headingEm)||"The mentorship you've been waiting for",em:""};
   const enroll=(contact&&contact.cta&&contact.cta.label)||"Enroll now";
+  const P=(...r)=>["sections",...r].join(".");
+  const addItem=()=>mutate(d=>{ const a=(d.sections[oi].items||[]).slice(); a.push({name:"New item",note:"What this covers.",image:null}); d.sections[oi].items=a; return d; });
+  const delItem=i=>mutate(d=>{ d.sections[oi].items=d.sections[oi].items.filter((_,j)=>j!==i); return d; });
+  const moveItem=(i,dir)=>mutate(d=>{ const a=d.sections[oi].items.slice(); const j=i+dir; if(j<0||j>=a.length) return d; const t=a[i];a[i]=a[j];a[j]=t; d.sections[oi].items=a; return d; });
+  const addBody=()=>mutate(d=>{ d.sections[ai].body=[...(d.sections[ai].body||[]),"A new point."]; return d; });
+  const delBody=i=>mutate(d=>{ d.sections[ai].body=d.sections[ai].body.filter((_,j)=>j!==i); return d; });
   return (
     <div id="cg-site" data-theme="willow">
       <style dangerouslySetInnerHTML={{__html:WILLOW_CSS}} />
       {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
       <div className="countdown"><span>{(hero&&hero.eyebrow)||"Limited-time offer"}</span><span className="arrow">&#8594;</span></div>
       <section className="hero" id="s-top">
-        <div className="bg"><div className="img-slot" style={bgi(url(hero&&hero.image))}></div></div>
-        <div className="hero-head">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="mark">{brand.name||"Your Brand"}</div>}</div>
-        <div className="hero-inner">{hero&&hero.sub&&<p className="eyebrow" style={{color:"rgba(237,235,229,.85)"}}>{(phil&&phil.eyebrow)||"Time to move differently"}</p>}<h1>{(hero&&hero.headline)||"This is where it begins."}</h1>{hero&&hero.sub&&<p className="sub">{hero.sub}</p>}<a className="btn light" href="#s-enroll">{(hero&&hero.cta&&hero.cta.label)||enroll}</a></div>
+        <div className="bg"><CgImage path={P(hi,"image")} /></div>
+        <div className="hero-head">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<CgText as="div" className="mark" path="brand.name" placeholder="Your Brand" />}</div>
+        <div className="hero-inner">{hero&&hero.sub&&<p className="eyebrow" style={{color:"rgba(237,235,229,.85)"}}>{(phil&&phil.eyebrow)||"Time to move differently"}</p>}<CgText as="h1" path={P(hi,"headline")} placeholder="This is where it begins." />{hero&&hero.sub&&<CgText as="p" className="sub" path={P(hi,"sub")} block />}<CgText as="a" className="btn light" href="#s-enroll" path={P(hi,"cta.label")} placeholder={enroll} /></div>
         <div className="wave" aria-hidden="true"><svg viewBox="0 0 1440 90" preserveAspectRatio="none"><path d="M0,70 C240,10 480,10 720,45 C960,80 1200,80 1440,30 L1440,90 L0,90 Z" fill="#FFFFFF"/></svg></div>
       </section>
-      {phil&&<section id="s-about"><div className="two"><div className="img-slot" style={bgi(url((about&&about.image))||url(hero&&hero.image))}></div><div><p className="eyebrow">{phil.eyebrow||"Let's be honest"}</p><h2 className="soft-head">{phil.heading}{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p className="body-copy">{phil.body[0]}</p>}</div></div></section>}
-      {about&&about.body&&about.body.length>0&&<div className="card-wrap"><div className="card"><h3>{about.heading}</h3><ul className="painlist">{about.body.map((p,i)=><li key={i}>{p}</li>)}</ul></div></div>}
-      {quote&&<section><div className="quote"><div className="qmark">&#8220;</div><blockquote>{quote.text}</blockquote>{quote.cite&&<div className="who"><div className="av"><div className="img-slot" style={{width:"100%",height:"100%"}}></div></div><div className="nm">{quote.cite}</div></div>}</div></section>}
-      {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><div className="img-slot dark" style={bgi(url((ed&&ed.image))||url(hero&&hero.image))}></div></div></section>}
-      {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><h2>{off.title||"Here's what you'll learn"}</h2></section><div className="modules">{items.map((it,i)=><div className="module" key={i} data-cg-prod={i}><div className="img-slot" style={bgi(url(it.image))}></div><div><p className="num">{"Module "+(i+1)}</p><h3>{it.name}</h3>{it.note&&<p>{it.note}</p>}<a className="btn" href="#s-contact">Take me inside</a></div></div>)}</div></>}
+      {phil&&<section id="s-about"><div className="two"><CgImage path={ai>=0?P(ai,"image"):P(hi,"image")} fb={P(hi,"image")} /><div><CgText as="p" className="eyebrow" path={P(pi,"eyebrow")} placeholder="Let's be honest" /><h2 className="soft-head"><CgText bare path={P(pi,"heading")} />{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<CgText as="p" className="body-copy" path={P(pi,"body.0")} block />}</div></div></section>}
+      {about&&about.body&&about.body.length>0&&<div className="card-wrap"><div className="card"><CgText as="h3" path={P(ai,"heading")} /><ul className="painlist">{about.body.map((p,i)=><li key={i}><CgText bare path={P(ai,"body."+i)} block />{edit&&<button onClick={()=>delBody(i)} className="cg-del">✕</button>}</li>)}</ul>{edit&&<button className="cg-iadd" onClick={addBody}>+ Add point</button>}</div></div>}
+      {quote&&<section><div className="quote"><div className="qmark">&#8220;</div><blockquote><CgText bare path={P(qi,"text")} block /></blockquote>{quote.cite&&<div className="who"><div className="av"><div className="img-slot" style={{width:"100%",height:"100%"}}></div></div><CgText as="div" className="nm" path={P(qi,"cite")} /></div>}</div></section>}
+      {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><p className="eyebrow on-dark">Introducing…</p><h2>{introH.line}{introH.em?(" "+introH.em):""}</h2><ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul><a className="btn light" href="#s-contact">{enroll}</a></div><CgImage path={ei>=0?P(ei,"image"):P(hi,"image")} fb={P(hi,"image")} dark /></div></section>}
+      {off&&items.length>0&&<><section className="breakdown"><p className="eyebrow">Course breakdown</p><CgText as="h2" path={P(oi,"title")} placeholder="Here's what you'll learn" /></section><div className="modules">{items.map((it,i)=><div className="module" key={i} data-cg-prod={i}><CgImage path={P(oi,"items."+i+".image")} /><div><p className="num">{"Module "+(i+1)}</p><CgText as="h3" path={P(oi,"items."+i+".name")} />{it.note&&<CgText as="p" path={P(oi,"items."+i+".note")} block />}<a className="btn" href="#s-contact">Take me inside</a>{edit&&<div className="cg-itools"><button onClick={()=>moveItem(i,-1)}>↑</button><button onClick={()=>moveItem(i,1)}>↓</button><button onClick={()=>delItem(i)}>🗑</button></div>}</div></div>)}</div>{edit&&<button className="cg-iadd" onClick={addItem}>+ Add item</button>}</>}
       <StandardSections site={s} show={{contact:true}} />
-      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark">{brand.name||"Your Brand"}</div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
+      <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><CgText as="div" className="foot-mark" path="brand.name" placeholder="Your Brand" /><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
   );
 }
@@ -18977,22 +18990,29 @@ function cgGetPath(o,p){ return String(p).split(".").reduce((a,k)=>(a==null?a:a[
 function cgSetPath(o,p,v){ const ks=String(p).split("."); const r=Array.isArray(o)?o.slice():Object.assign({},o); let c=r; for(let i=0;i<ks.length-1;i++){ const k=ks[i],nx=c[k]; c[k]=Array.isArray(nx)?nx.slice():Object.assign({},nx||{}); c=c[k]; } c[ks[ks.length-1]]=v; return r; }
 const cgClone = o => JSON.parse(JSON.stringify(o));
 
-function CgText({ path, as="span", className, placeholder, block }){
+function CgText({ path, as="span", className, style, placeholder, block, bare, children, ...rest }){
   const { edit, get, update } = React.useContext(CgEditCtx);
   const ref = React.useRef(null);
   const val = (get ? get(path) : "") || "";
   React.useEffect(()=>{ const n=ref.current; if(n && document.activeElement!==n && n.innerText!==val) n.innerText=val; });
   const Tag = as;
-  if(!edit) return <Tag className={className}>{val || placeholder || ""}</Tag>;
-  return <Tag ref={ref} className={(className?className+" ":"")+"cg-ed"} contentEditable suppressContentEditableWarning data-ph={placeholder||""}
+  if(!edit){
+    if(bare) return <>{val || placeholder || ""}{children}</>;
+    return <Tag className={className} style={style} {...rest}>{val || placeholder || ""}{children}</Tag>;
+  }
+  const { href, ...safeRest } = rest;
+  return <Tag ref={ref} className={(className?className+" ":"")+"cg-ed"} style={style} {...safeRest} contentEditable suppressContentEditableWarning data-ph={placeholder||""}
+    onClick={as==="a"?(e=>e.preventDefault()):undefined}
     onBlur={e=>update(path, e.currentTarget.innerText.replace(/\s+$/,""))}
     onKeyDown={e=>{ if(!block && e.key==="Enter"){ e.preventDefault(); e.currentTarget.blur(); } }} />;
 }
-function CgImage({ path, className, dark }){
+function CgImage({ path, fb, className, dark, style }){
   const { edit, get, update, onUpload, user } = React.useContext(CgEditCtx);
-  const img = get ? get(path) : null; const url = img && img.url;
+  const img = get ? get(path) : null; let url = img && img.url;
+  if(!url && fb){ const f = get ? get(fb) : null; url = f && f.url; }
   const [busy,setBusy] = React.useState(false);
-  const bg = url ? { backgroundImage:"url("+url+")", backgroundSize:"cover", backgroundPosition:"center" } : undefined;
+  const bgurl = url ? { backgroundImage:"url("+url+")", backgroundSize:"cover", backgroundPosition:"center" } : undefined;
+  const styleFinal = style ? Object.assign({}, bgurl, style) : bgurl;
   const onFile = e => {
     const f = e.target.files && e.target.files[0]; if(!f) return; e.target.value="";
     const reader = new FileReader();
@@ -19007,120 +19027,15 @@ function CgImage({ path, className, dark }){
     reader.readAsDataURL(f);
   };
   return (
-    <div className={"img-slot"+(dark?" dark":"")+(className?" "+className:"")} style={bg}>
+    <div className={"img-slot"+(dark?" dark":"")+(className?" "+className:"")} style={styleFinal}>
       {edit && <label className="cg-imgbtn">{busy?"Uploading…":(url?"Change photo":"Add photo")}<input type="file" accept="image/*" onChange={onFile} style={{display:"none"}} /></label>}
     </div>
   );
 }
 
-// Editable mirror of Willow. Edits ONLY the fields WillowLayout renders from data,
-// so what you change here is exactly what your published Willow site shows. The fixed
-// labels Willow hardcodes ("Course breakdown", "Module N", etc.) stay fixed here too.
-function CgWillowEditable({ site }){
-  const s = site || {}; const brand = s.brand || {}; const sections = Array.isArray(s.sections) ? s.sections : [];
-  const { edit, mutate } = React.useContext(CgEditCtx);
-  const idx = t => sections.findIndex(x=>x&&x.type===t);
-  const hi=idx("hero"), pi=idx("philosophy"), ai=idx("about"), oi=idx("offerings"), ei=idx("editorial"), qi=idx("quote"), ci=idx("contact");
-  const hero=hi>=0?sections[hi]:null, phil=pi>=0?sections[pi]:null, about=ai>=0?sections[ai]:null, off=oi>=0?sections[oi]:null, ed=ei>=0?sections[ei]:null, quote=qi>=0?sections[qi]:null, contact=ci>=0?sections[ci]:null;
-  const custom = s.custom ? buildCustomCSS(s.custom) : "";
-  const nav = brand.nav || [];
-  const items = (off && Array.isArray(off.items)) ? off.items : [];
-  const introLine = (ed&&ed.line) || (phil&&phil.headingEm) || "The mentorship you've been waiting for";
-  const introEm = (ed&&ed.lineEm) || "";
-  const enroll = (hero&&hero.cta&&hero.cta.label) || (contact&&contact.cta&&contact.cta.label) || "Enroll now";
-  const P = (...r)=>["sections",...r].join(".");
-  const addItem = ()=>mutate(d=>{ const a=(d.sections[oi].items||[]).slice(); a.push({name:"New item",note:"What this covers.",image:null}); d.sections[oi].items=a; return d; });
-  const delItem = i=>mutate(d=>{ d.sections[oi].items=d.sections[oi].items.filter((_,j)=>j!==i); return d; });
-  const moveItem = (i,dir)=>mutate(d=>{ const a=d.sections[oi].items.slice(); const j=i+dir; if(j<0||j>=a.length) return d; const t=a[i];a[i]=a[j];a[j]=t; d.sections[oi].items=a; return d; });
-  const addBody = ()=>mutate(d=>{ d.sections[ai].body=[...(d.sections[ai].body||[]),"A new point."]; return d; });
-  const delBody = i=>mutate(d=>{ d.sections[ai].body=d.sections[ai].body.filter((_,j)=>j!==i); return d; });
-
-  return (
-    <div id="cg-site" data-theme="willow">
-      <style dangerouslySetInnerHTML={{__html:WILLOW_CSS}} />
-      {custom&&<style dangerouslySetInnerHTML={{__html:custom}} />}
-      {hi>=0 && <div className="countdown"><CgText path={P(hi,"eyebrow")} placeholder="Limited-time offer" /><span className="arrow">&#8594;</span></div>}
-      {hi>=0 && (
-        <section className="hero" id="s-top">
-          <div className="bg"><CgImage path={P(hi,"image")} /></div>
-          <div className="hero-head">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="mark"><CgText path="brand.name" placeholder="Your Brand" /></div>}</div>
-          <div className="hero-inner">
-            {pi>=0 && <p className="eyebrow" style={{color:"rgba(237,235,229,.85)"}}><CgText path={P(pi,"eyebrow")} placeholder="Time to move differently" /></p>}
-            <h1><CgText as="span" path={P(hi,"headline")} placeholder="This is where it begins." /></h1>
-            <p className="sub"><CgText path={P(hi,"sub")} block placeholder="One refined sentence about the offer." /></p>
-            <a className="btn light"><CgText path={P(hi,"cta.label")} placeholder="Enroll now" /></a>
-          </div>
-          <div className="wave" aria-hidden="true"><svg viewBox="0 0 1440 90" preserveAspectRatio="none"><path d="M0,70 C240,10 480,10 720,45 C960,80 1200,80 1440,30 L1440,90 L0,90 Z" fill="#FFFFFF"/></svg></div>
-        </section>
-      )}
-      {pi>=0 && (
-        <section id="s-about"><div className="two">
-          <CgImage path={ai>=0?P(ai,"image"):P(hi,"image")} />
-          <div>
-            <p className="eyebrow"><CgText path={P(pi,"eyebrow")} placeholder="Let's be honest" /></p>
-            <h2 className="soft-head"><CgText as="span" path={P(pi,"heading")} placeholder="A soft, honest headline" />{phil&&phil.headingEm?(" "+phil.headingEm):""}</h2>
-            <p className="body-copy"><CgText path={P(pi,"body.0")} block placeholder="A sentence or two of story." /></p>
-          </div>
-        </div></section>
-      )}
-      {ai>=0 && about && about.body && about.body.length>0 && (
-        <div className="card-wrap"><div className="card">
-          <h3><CgText as="span" path={P(ai,"heading")} placeholder="What's been holding you back" /></h3>
-          <ul className="painlist">
-            {(about.body||[]).map((p,i)=>(
-              <li key={i}><CgText path={P(ai,"body."+i)} block placeholder="A pain point…" />{edit&&<button onClick={()=>delBody(i)} style={{marginLeft:8,border:"none",background:"none",cursor:"pointer",color:"#b23"}}>&#10005;</button>}</li>
-            ))}
-          </ul>
-          {edit&&<button className="cg-iadd" onClick={addBody}>+ Add point</button>}
-        </div></div>
-      )}
-      {qi>=0 && quote && (
-        <section><div className="quote">
-          <div className="qmark">&#8220;</div>
-          <blockquote><CgText path={P(qi,"text")} block placeholder="A short, glowing testimonial." /></blockquote>
-          {quote.cite&&<div className="who"><div className="nm"><CgText path={P(qi,"cite")} placeholder="— Name, descriptor" /></div></div>}
-        </div></section>
-      )}
-      {off && (
-        <section className="intro" id="s-enroll"><div className="wrap">
-          <div>
-            <p className="eyebrow on-dark">Introducing&hellip;</p>
-            <h2>{introLine}{introEm?(" "+introEm):""}</h2>
-            <ul className="checks">{items.map((it,i)=><li key={i}>{it.name}</li>)}</ul>
-            <a className="btn light">{enroll}</a>
-          </div>
-          <CgImage path={ei>=0?P(ei,"image"):P(hi,"image")} dark />
-        </div></section>
-      )}
-      {off && items.length>0 && (
-        <React.Fragment>
-          <section className="breakdown"><p className="eyebrow">Course breakdown</p><h2><CgText as="span" path={P(oi,"title")} placeholder="Here's what you'll learn" /></h2></section>
-          <div className="modules">
-            {items.map((it,i)=>(
-              <div className="module" key={i}>
-                <CgImage path={P(oi,"items."+i+".image")} />
-                <div>
-                  <p className="num">{"Module "+(i+1)}</p>
-                  <h3><CgText as="span" path={P(oi,"items."+i+".name")} placeholder="Module title" /></h3>
-                  <p><CgText path={P(oi,"items."+i+".note")} block placeholder="What this covers." /></p>
-                  <a className="btn">Take me inside</a>
-                  {edit&&<div className="cg-itools"><button onClick={()=>moveItem(i,-1)}>&#8593;</button><button onClick={()=>moveItem(i,1)}>&#8595;</button><button onClick={()=>delItem(i)}>&#128465;</button></div>}
-                </div>
-              </div>
-            ))}
-          </div>
-          {edit&&<button className="cg-iadd" onClick={addItem}>+ Add item</button>}
-        </React.Fragment>
-      )}
-      <SectionLibrary site={s} />
-      <footer className="foot" id="s-contact">
-        <div className="foot-mark"><CgText path="brand.name" placeholder="Your Brand" /></div>
-        <nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav>
-        <div className="foot-bar">{brand.footerNote||"© 2026"}{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div>
-      </footer>
-    </div>
-  );
-}
+// (The editable Willow mirror was removed in Deploy 2b — WillowLayout itself
+//  now renders through the CgText/CgImage primitives, so the overlay edits the
+//  real theme component and published sites render byte-identically.)
 
 const CG_INLINE_CSS = `
 .cg-ovl{position:fixed;inset:0;z-index:9999;background:#e8e4da;display:flex;flex-direction:column;}
@@ -19176,7 +19091,7 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
       </div>
       <div className="cg-ovl-body" data-edit={edit?"1":"0"}>
         <CgEditCtx.Provider value={ctx}>
-          {isWillow ? <CgWillowEditable site={draft} /> : <div style={{padding:"60px 24px",textAlign:"center",fontFamily:"Jost,Helvetica,Arial,sans-serif",color:"#555"}}>On-page editing is available for the Willow theme so far — more themes are coming next.</div>}
+          {isWillow ? <WillowLayout site={draft} editable /> : <div style={{padding:"60px 24px",textAlign:"center",fontFamily:"Jost,Helvetica,Arial,sans-serif",color:"#555"}}>On-page editing is available for the Willow theme so far — more themes are coming next.</div>}
         </CgEditCtx.Provider>
       </div>
     </div>
