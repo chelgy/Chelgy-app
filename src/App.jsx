@@ -19021,7 +19021,10 @@ function CgText({ path, v, as="span", className, style, placeholder, block, bare
   // every theme with or without an edit context. Edit mode always reads the draft.
   const raw = (!edit && v !== undefined) ? v : (get ? get(path) : undefined);
   const val = raw == null ? "" : String(raw);
-  useEffect(()=>{ const n=ref.current; if(n && document.activeElement!==n && n.innerText!==val) n.innerText=val; });
+  // In edit mode the box holds the same words the published page shows (saved value,
+  // or the theme's default), as real text — so every field can be clicked and typed in.
+  const shown = val || placeholder || "";
+  useEffect(()=>{ const n=ref.current; if(n && document.activeElement!==n && n.innerText!==shown) n.innerText=shown; });
   const Tag = as;
   if(!edit){
     if(bare) return <>{val || placeholder || ""}{children}</>;
@@ -19030,7 +19033,7 @@ function CgText({ path, v, as="span", className, style, placeholder, block, bare
   const { href, ...safeRest } = rest;
   return <Tag ref={ref} className={(className?className+" ":"")+"cg-ed"} style={style} {...safeRest} contentEditable suppressContentEditableWarning data-ph={placeholder||""}
     onClick={as==="a"?(e=>e.preventDefault()):undefined}
-    onBlur={e=>update(path, e.currentTarget.innerText.replace(/\s+$/,""))}
+    onBlur={e=>{ const t=e.currentTarget.innerText.replace(/\s+$/,""); if(t!==shown) update(path, t); }}
     onKeyDown={e=>{ if(!block && e.key==="Enter"){ e.preventDefault(); e.currentTarget.blur(); } }} />;
 }
 function CgImage({ path, fb, className, dark, style }){
@@ -19077,9 +19080,10 @@ const CG_INLINE_CSS = `
 .cg-ovl-body{flex:1;overflow:auto;}
 #cg-site .cg-x,#cg-site .cg-del{display:inline-block;margin:8px 0 0;font-family:'Jost',Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border:1px solid rgba(178,34,51,.35);background:#fff;color:#b23;cursor:pointer;border-radius:3px;line-height:1.4;}
 #cg-site .cg-lib .cg-iadd,#cg-site .cg-std .cg-iadd{margin:22px auto 0;}
-[data-edit="1"] #cg-site .cg-ed{outline:1.5px dashed rgba(70,120,240,.85);outline-offset:2px;border-radius:3px;background:rgba(90,140,255,.10);cursor:text;transition:background .15s,outline-color .15s;}
-[data-edit="1"] #cg-site .cg-ed:hover{outline-color:#3f78ff;background:rgba(90,140,255,.18);}
-[data-edit="1"] #cg-site .cg-ed:focus{outline:2px solid #3f78ff;background:rgba(90,140,255,.2);}
+[data-edit="1"] #cg-site .cg-ed{outline:1.5px dashed rgba(70,120,240,.85);outline-offset:2px;border-radius:3px;background-image:linear-gradient(rgba(90,140,255,.10),rgba(90,140,255,.10));cursor:text;transition:outline-color .15s;}
+[data-edit="1"] #cg-site .cg-ed:hover{outline-color:#3f78ff;background-image:linear-gradient(rgba(90,140,255,.18),rgba(90,140,255,.18));}
+[data-edit="1"] #cg-site .cg-ed:focus{outline:2px solid #3f78ff;background-image:linear-gradient(rgba(90,140,255,.2),rgba(90,140,255,.2));}
+[data-edit="1"] #cg-site .cg-ed:empty{display:inline-block;min-width:3em;}
 [data-edit="1"] #cg-site .cg-ed:empty:before{content:attr(data-ph);opacity:.5;}
 #cg-site .cg-imgbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;background:rgba(20,19,15,.82);color:#fff;font-family:'Jost',Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:9px 15px;border-radius:999px;cursor:pointer;opacity:0;transition:opacity .15s;border:1px solid rgba(255,255,255,.3);}
 [data-edit="1"] #cg-site .img-slot:hover .cg-imgbtn{opacity:1;}
