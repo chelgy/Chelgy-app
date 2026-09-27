@@ -24,6 +24,10 @@
     {
       "path": "/api/domain-reconcile",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/calendar-sync",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

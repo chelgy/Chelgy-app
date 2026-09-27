@@ -13491,7 +13491,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           <div style={{marginBottom:22}}>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Live preview</div>
             {(wmExisting&&wmExisting.data)&&<button onClick={()=>setWmInline(true)} style={{background:B.gold,color:B.inkText,border:"none",padding:"10px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginBottom:10}}>&#9998; Edit on page (beta)</button>}
-            {wmInline&&wmExisting&&<CgInlineEditor initial={wmExisting.data} onSaveData={saveData} onUpload={uploadSiteImage} user={user} slug={wmExisting.slug} onClose={()=>setWmInline(false)} />}
+            {wmInline&&wmExisting&&<CgInlineEditor initial={wmExisting.data} onSaveData={saveData} onUpload={uploadSiteImage} user={user} slug={wmExisting.slug} siteId={wmExisting.id} onClose={()=>setWmInline(false)} />}
             <div style={{border:"1px solid "+B.stone,background:B.white,height:520,overflow:"hidden"}}>
               <iframe key={wmPreview} title="Site preview" src={window.location.origin+"/?site="+wmExisting.slug} style={{width:"100%",height:"100%",border:"none"}} />
             </div>
@@ -19192,6 +19192,16 @@ const CG_INLINE_CSS = `
 .cg-cp-btn:disabled{opacity:.35;cursor:default;}
 .cg-cp-chip{display:inline-flex;align-items:center;gap:6px;background:#f6f2ea;border-radius:999px;padding:5px 6px 5px 11px;font-size:12px;margin:0 6px 6px 0;}
 .cg-cp-chip button{border:0;background:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:10px;}
+.cg-cp-sub{font-size:13px;font-weight:600;color:#171512;margin:4px 0 4px;}
+.cg-cp-feed{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid rgba(23,21,18,.12);border-radius:6px;padding:8px 10px;margin-bottom:8px;background:#fcfbf8;font-size:13px;}
+.cg-cp-feed div{display:flex;flex-direction:column;min-width:0;}.cg-cp-feed span{font-size:12px;color:#7a7266;}
+.cg-cp-feed button{border:1px solid rgba(23,21,18,.18);background:#fff;border-radius:5px;padding:6px 10px;font-family:inherit;font-size:12px;cursor:pointer;color:#9A2F2F;}
+.cg-cp-link{display:block;border:0;background:none;padding:4px 0;font-family:inherit;font-size:12px;color:#3f5fbf;text-decoration:underline;cursor:pointer;}
+.cg-cp-help{background:#f6f2ea;border-radius:6px;padding:8px 12px;font-size:12px;line-height:1.55;color:#3d3830;margin:6px 0;}
+.cg-cp-help p{margin:6px 0;}
+.cg-cp-err{margin-top:8px;padding:8px 10px;border-radius:6px;background:#F7E6E6;color:#9A2F2F;font-size:12px;}
+a.cg-cp-btn{display:inline-block;}
+
 
 .cg-srow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 8px;border-bottom:1px solid rgba(23,21,18,.07);font-size:14px;}
 .cg-srow.core{background:#f6f2ea;color:#5b5348;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;margin:4px 0;border:0;}
@@ -19541,8 +19551,58 @@ function CgCalendar({ site, sec, i }){
   );
 }
 
+// ---------- Calendar sync (inside Booking settings) ----------
+function cgAgo(iso){ if(!iso) return "never"; const m=Math.round((Date.now()-Date.parse(iso))/60000); return m<1?"just now":m<60?m+" min ago":m<1440?Math.round(m/60)+" hr ago":Math.round(m/1440)+" days ago"; }
+function CgCalendarSync({ siteId }){
+  const [feeds,setFeeds]=useState(null);
+  const [url,setUrl]=useState("");
+  const [busy,setBusy]=useState("");
+  const [err,setErr]=useState("");
+  const [help,setHelp]=useState(false);
+  const [link,setLink]=useState(null);
+  const [copied,setCopied]=useState(false);
+  const call=async(payload)=>{ const tok=await freshToken(); if(!tok) throw new Error("Please log in again."); const r=await fetch("/api/calendar-connect",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||"Something went wrong."); return j; };
+  useEffect(()=>{ if(!siteId) return; let c=false; call({action:"list",site_id:siteId}).then(j=>{ if(!c) setFeeds(j.feeds||[]); }).catch(e=>{ if(!c){ setFeeds([]); setErr(e.message); } }); return ()=>{c=true;}; },[siteId]);
+  const run=async(key,payload,after)=>{ setBusy(key); setErr(""); try{ const j=await call(payload); after(j); }catch(e){ setErr(e.message); } setBusy(""); };
+  if(!siteId) return null;
+  return (
+    <div>
+      <div className="cg-cp-h" style={{marginTop:18}}>Calendar sync</div>
+      <div className="cg-cp-sub">Block times you're busy</div>
+      <div className="cg-cp-hint" style={{marginTop:0,marginBottom:8}}>Connect your Google, Apple or Outlook calendar and anything busy on it can't be booked. Checked every 10 minutes.</div>
+      {(feeds||[]).map(f=>(
+        <div className="cg-cp-feed" key={f.id}>
+          <div><b>{f.label}</b><span>{f.error?<em style={{color:"#b23"}}>{f.error}</em>:"Synced "+cgAgo(f.last_synced)}</span></div>
+          <button disabled={!!busy} onClick={()=>{ if(window.confirm("Disconnect this calendar?")) run("rm"+f.id,{action:"remove",id:f.id},()=>setFeeds(x=>x.filter(y=>y.id!==f.id))); }}>Remove</button>
+        </div>))}
+      <div className="cg-cp-row"><input className="grow" value={url} placeholder="Paste your calendar's private link" onChange={e=>setUrl(e.target.value)} />
+        <button className="cg-cp-btn" disabled={!url.trim()||!!busy} onClick={()=>run("add",{action:"add",site_id:siteId,url:url.trim()},j=>{ setFeeds(j.feeds||[]); setUrl(""); })}>{busy==="add"?"Checking…":"Connect"}</button></div>
+      {feeds&&feeds.length>0&&<button className="cg-cp-link" disabled={!!busy} onClick={()=>run("sync",{action:"sync",site_id:siteId},j=>setFeeds(j.feeds||[]))}>{busy==="sync"?"Syncing…":"Sync now"}</button>}
+      <button className="cg-cp-link" onClick={()=>setHelp(h=>!h)}>{help?"Hide":"Where do I find my private link?"}</button>
+      {help&&<div className="cg-cp-help">
+        <p><b>Google Calendar</b> (on a computer): Settings ⚙ → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>.</p>
+        <p><b>Apple Calendar</b> (iPhone): Calendars → tap ⓘ next to your calendar → turn on <b>Public Calendar</b> → <b>Share Link</b> → Copy.</p>
+        <p><b>Outlook</b>: Settings → Calendar → <b>Shared calendars</b> → Publish a calendar → <b>Can view when I'm busy</b> → Publish → copy the <b>ICS</b> link.</p>
+        <p style={{color:"#7a7266"}}>Chelgy only reads when you're busy — it never changes your calendar, and your link is never shown on your site.</p>
+      </div>}
+      <div className="cg-cp-sub" style={{marginTop:16}}>See your bookings in your calendar</div>
+      <div className="cg-cp-hint" style={{marginTop:0,marginBottom:8}}>Every new booking appears in your calendar automatically. Booking emails also include an "Add to calendar" button.</div>
+      {!link ? <button className="cg-cp-btn" disabled={!!busy} onClick={()=>run("link",{action:"feed_link"},setLink)}>{busy==="link"?"One moment…":"Get my calendar link"}</button> : <div>
+        <div className="cg-cp-row">
+          <a className="cg-cp-btn" href={link.google} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>Add to Google Calendar</a>
+          <a className="cg-cp-btn" href={link.webcal} style={{textDecoration:"none"}}>Add to Apple / Outlook</a>
+        </div>
+        <div className="cg-cp-row"><input className="grow" readOnly value={link.url} onFocus={e=>e.target.select()} />
+          <button className="cg-cp-btn" onClick={()=>{ try{ navigator.clipboard.writeText(link.url); setCopied(true); setTimeout(()=>setCopied(false),1500); }catch(e){} }}>{copied?"Copied":"Copy"}</button></div>
+        <div className="cg-cp-hint">Keep this link private — anyone with it can see your bookings. Google refreshes subscribed calendars every few hours; Apple and Outlook more often. <button className="cg-cp-link" style={{display:"inline",padding:0}} disabled={!!busy} onClick={()=>{ if(window.confirm("Make a new link? The old one will stop working and you'll need to add the new one to your calendar.")) run("reset",{action:"feed_link",reset:true},setLink); }}>Reset link</button></div>
+      </div>}
+      {err&&<div className="cg-cp-err">{err}</div>}
+    </div>
+  );
+}
+
 // ---------- Booking settings panel (on-page editor) ----------
-function CgCalendarPanel({ draft, update, mutate, idx, onClose }){
+function CgCalendarPanel({ draft, update, mutate, idx, onClose, siteId }){
   const sec = (draft.sections||[])[idx];
   const [stripeOk,setStripeOk] = useState(null);
   const [newClosed,setNewClosed] = useState("");
@@ -19614,6 +19674,7 @@ function CgCalendarPanel({ draft, update, mutate, idx, onClose }){
         <div className="cg-cp-row"><input type="date" value={extra.date} onChange={e=>setExtra(x=>({...x,date:e.target.value}))} /><input type="time" step="900" value={extra.from} onChange={e=>setExtra(x=>({...x,from:e.target.value}))} /><input type="time" step="900" value={extra.to} onChange={e=>setExtra(x=>({...x,to:e.target.value}))} />
           <button className="cg-cp-btn" disabled={!extra.date||extra.from>=extra.to} onClick={()=>{ update(P("dates"),[...dates.filter(x=>x.date!==extra.date),{date:extra.date,ranges:[[extra.from,extra.to]]}].sort((a,b)=>a.date<b.date?-1:1)); setExtra(x=>({...x,date:""})); }}>Add</button></div>
         {dates.map(x=><div className="cg-cp-chip" key={x.date}>{x.date} · {(x.ranges||[]).map(r=>r.join("–")).join(", ")}<button onClick={()=>update(P("dates"),dates.filter(y=>y.date!==x.date))}>✕</button></div>)}
+        <CgCalendarSync siteId={siteId} />
         <div style={{height:14}} />
       </div>
     </div>
@@ -19669,7 +19730,7 @@ function CgBookingsTab({ siteId }){
 
 // The full-screen editor overlay. Holds a draft of the site's data, renders the
 // editable mirror live, and debounce-saves through the editor's saveData().
-function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose, slug }){
+function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose, slug, siteId }){
   const [draft,setDraft] = useState(()=>cgClone(initial||{}));
   const [edit,setEdit] = useState(true);
   const [saveState,setSaveState] = useState("saved");
@@ -19704,7 +19765,7 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose, slug }){
           <button className="cg-ovl-done" onClick={onClose}>Done</button>
         </div>
       </div>
-      {panel==="calendar" && <CgCalendarPanel draft={draft} update={update} mutate={mutate} idx={calIdx} onClose={()=>setPanel(null)} />}
+      {panel==="calendar" && <CgCalendarPanel draft={draft} update={update} mutate={mutate} idx={calIdx} siteId={siteId} onClose={()=>setPanel(null)} />}
       {panel==="sections" && <CgSectionsPanel draft={draft} mutate={mutate} onClose={()=>setPanel(null)} />}
       {panel==="items" && <CgItemsPanel draft={draft} mutate={mutate} update={update} onUpload={onUpload} user={user} onClose={()=>setPanel(null)} />}
       <div className="cg-ovl-body" data-edit={edit?"1":"0"} onClickCapture={e=>{ const t=e.target; if(t&&t.closest&&t.closest("a")) e.preventDefault(); }}>

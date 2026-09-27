@@ -193,9 +193,16 @@ export async function busyBetween(siteId, fromMs, toMs) {
     "&status=in.(pending,confirmed)&start_at=lt." + encodeURIComponent(new Date(toMs).toISOString()) +
     "&block_end=gt." + encodeURIComponent(new Date(fromMs).toISOString()));
   const graceMs = HOLD_GRACE_MINUTES * 60000;
-  return (Array.isArray(q.j) ? q.j : [])
+  const own = (Array.isArray(q.j) ? q.j : [])
     .filter(b => b.status === "confirmed" || !b.expires_at || Date.parse(b.expires_at) + graceMs > Date.now())
     .map(b => ({ start: Date.parse(b.start_at), blockEnd: Date.parse(b.block_end) }));
+  // + busy times from the owner's connected calendars (refreshed by api/calendar-sync.js)
+  const f = await sb("calendar_feeds?select=busy&site_id=eq." + encodeURIComponent(siteId));
+  const ext = [];
+  (Array.isArray(f.j) ? f.j : []).forEach(row => (Array.isArray(row.busy) ? row.busy : []).forEach(r => {
+    if (Array.isArray(r) && r[1] > fromMs && r[0] < toMs) ext.push({ start: r[0], blockEnd: r[1] });
+  }));
+  return own.concat(ext);
 }
 export async function connectedAccount(userId) {
   const q = await sb("stripe_accounts?select=account_id,charges_enabled&user_id=eq." + encodeURIComponent(userId) + "&limit=1");
@@ -235,7 +242,7 @@ export function emailHtml(title, rows, foot) {
 ${foot ? `<p style="font-size:14px;line-height:1.6;color:#3d3830;margin:20px 0 0">${foot}</p>` : ""}
 </div><p style="text-align:center;font-size:11px;color:#9a9286;margin-top:16px">Booked with Chelgy</p></div></body></html>`;
 }
-export async function sendEmail({ to, subject, html, replyTo }) {
+export async function sendEmail({ to, subject, html, replyTo, attachments }) {
   // Same Resend key + sender as the domain-reminder emails (BOOKING_FROM can override the sender).
   const from = (process.env.BOOKING_FROM || process.env.REMINDER_FROM || "Chelgy <onboarding@resend.dev>").trim();
   const resend = (process.env.RESEND_API_KEY || "").trim();
@@ -244,31 +251,59 @@ export async function sendEmail({ to, subject, html, replyTo }) {
   try {
     if (resend) {
       const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + resend, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }) });
+        body: JSON.stringify({ from, to: [to], subject, html, ...(replyTo ? { reply_to: replyTo } : {}),
+          ...(attachments && attachments.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.content })) } : {}) }) });
       return r.ok;
     }
     if (sendgrid) {
       const m = from.match(/^(.*)<(.+)>$/);
       const r = await fetch("https://api.sendgrid.com/v3/mail/send", { method: "POST", headers: { Authorization: "Bearer " + sendgrid, "Content-Type": "application/json" },
         body: JSON.stringify({ personalizations: [{ to: [{ email: to }] }], from: m ? { email: m[2].trim(), name: m[1].trim() } : { email: from }, subject,
-          content: [{ type: "text/html", value: html }], ...(replyTo ? { reply_to: { email: replyTo } } : {}) }) });
+          content: [{ type: "text/html", value: html }], ...(replyTo ? { reply_to: { email: replyTo } } : {}),
+          ...(attachments && attachments.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.content, type: a.type || "text/calendar", disposition: "attachment" })) } : {}) }) });
       return r.ok;
     }
   } catch { }
   return false;
 }
-// Customer confirmation + owner notification for a confirmed booking row.
+// Customer confirmation + owner notification for a confirmed booking row. Both include an
+// "Add to Google Calendar" button and an .ics file (opens in Apple Calendar / Outlook / Google).
 export async function sendBookingEmails(b, brandName) {
-  const when = formatWhen(Date.parse(b.start_at), b.tz);
-  const biz = brandName || "your appointment";
-  const rows = [["Service", b.service_name], ["When", when], ["Length", b.duration_min + " minutes"],
+  let name = brandName || "", location = "";
+  try {
+    const q = await sb("websites?select=data&id=eq." + encodeURIComponent(b.site_id) + "&limit=1");
+    const d = Array.isArray(q.j) && q.j[0] && q.j[0].data;
+    if (d) {
+      if (!name) name = (d.brand && d.brand.name) || "";
+      const c = (d.sections || []).find(x => x && x.type === "contact");
+      const row = c && Array.isArray(c.details) ? c.details.find(r => /address|location|studio|salon|shop|where/i.test((r && r.k) || "")) : null;
+      if (row && row.v) location = String(row.v).replace(/\s*\n\s*/g, ", ");
+    }
+  } catch { }
+  const startMs = Date.parse(b.start_at), endMs = Date.parse(b.end_at);
+  const when = formatWhen(startMs, b.tz);
+  const biz = name || "your appointment";
+  const rows = [["Service", b.service_name], ["When", when], ["Length", b.duration_min + " minutes"], location ? ["Where", location] : null,
     b.amount_paid_cents ? ["Paid", money(b.amount_paid_cents, b.currency)] : null,
     b.balance_due_cents ? ["Balance due", money(b.balance_due_cents, b.currency)] : null];
+  const btn = (href) => `<p style="margin:18px 0 0"><a href="${href}" style="display:inline-block;background:#171512;color:#fff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px">Add to Google Calendar</a><br><span style="font-size:12px;color:#7a7266">Apple Calendar or Outlook: open the attached appointment.ics</span></p>`;
+  const custTitle = b.service_name + (name ? " — " + name : "");
+  const custIcs = Buffer.from(icsCalendar(name || "Appointment", [{ uid: b.id + "@chelgy.app", start: startMs, end: endMs, summary: custTitle, location,
+    description: (b.balance_due_cents ? "Balance due: " + money(b.balance_due_cents, b.currency) + "\n" : "") + "Booked with Chelgy" }])).toString("base64");
   const oEmail = await ownerEmail(b.owner_id);
-  await sendEmail({ to: b.customer_email, replyTo: oEmail || undefined, subject: "You're booked: " + b.service_name + " — " + (brandName || "Confirmed"),
-    html: emailHtml("You're booked with " + biz, rows, b.balance_due_cents ? "The remaining balance is collected at or after your appointment. Reply to this email if you need to change anything." : "Reply to this email if you need to change anything.") });
-  if (oEmail) await sendEmail({ to: oEmail, replyTo: b.customer_email, subject: "New booking: " + b.customer_name + " — " + b.service_name,
-    html: emailHtml("New booking", [["Customer", b.customer_name], ["Email", b.customer_email], ["Phone", b.customer_phone], ...rows, ["Notes", b.notes]], "Manage it in your Chelgy dashboard → Website → Bookings.") });
+  await sendEmail({ to: b.customer_email, replyTo: oEmail || undefined, subject: "You're booked: " + b.service_name + " — " + (name || "Confirmed"),
+    attachments: [{ filename: "appointment.ics", content: custIcs }],
+    html: emailHtml("You're booked with " + biz, rows, (b.balance_due_cents ? "The remaining balance is collected at or after your appointment. " : "") + "Reply to this email if you need to change anything." +
+      btn(googleCalLink({ title: custTitle, start: startMs, end: endMs, location, details: "Booked with Chelgy" }))) });
+  if (oEmail) {
+    const ownTitle = b.customer_name + " — " + b.service_name;
+    const ownDesc = [b.customer_email, b.customer_phone, b.notes ? "Notes: " + b.notes : "", b.balance_due_cents ? "Balance due: " + money(b.balance_due_cents, b.currency) : ""].filter(Boolean).join("\n");
+    const ownIcs = Buffer.from(icsCalendar(name || "Bookings", [{ uid: b.id + "@chelgy.app", start: startMs, end: endMs, summary: ownTitle, description: ownDesc, location }])).toString("base64");
+    await sendEmail({ to: oEmail, replyTo: b.customer_email, subject: "New booking: " + b.customer_name + " — " + b.service_name,
+      attachments: [{ filename: "appointment.ics", content: ownIcs }],
+      html: emailHtml("New booking", [["Customer", b.customer_name], ["Email", b.customer_email], ["Phone", b.customer_phone], ...rows, ["Notes", b.notes]],
+        "Manage it in your Chelgy dashboard → Website → Bookings." + btn(googleCalLink({ title: ownTitle, start: startMs, end: endMs, location, details: ownDesc }))) });
+  }
 }
 
 export function ipHash(req) {
@@ -277,3 +312,32 @@ export function ipHash(req) {
 }
 export function okUrl(u, f) { return (typeof u === "string" && /^https?:\/\//.test(u)) ? u : f; }
 export function body(req) { return typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {}); }
+
+// ---------- outbound: write .ics ----------
+function icsEsc(s) { return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+function fold(line) { // RFC 5545: max 75 octets per line
+  const bytes = Buffer.from(line, "utf8"); if (bytes.length <= 75) return line;
+  const out = []; let cur = ""; let len = 0;
+  for (const ch of line) { const b = Buffer.byteLength(ch); if (len + b > (out.length ? 74 : 75)) { out.push(cur); cur = ""; len = 0; } cur += ch; len += b; }
+  out.push(cur); return out.join("\r\n ");
+}
+const utc = ms => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+export function icsCalendar(name, events) {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Chelgy//Bookings//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:" + icsEsc(name), "X-PUBLISHED-TTL:PT15M", "REFRESH-INTERVAL;VALUE=DURATION:PT15M"];
+  events.forEach(e => {
+    lines.push("BEGIN:VEVENT", "UID:" + e.uid, "DTSTAMP:" + utc(e.stamp || Date.now()), "DTSTART:" + utc(e.start), "DTEND:" + utc(e.end),
+      "SUMMARY:" + icsEsc(e.summary), "STATUS:" + (e.status || "CONFIRMED"), "TRANSP:OPAQUE");
+    if (e.description) lines.push("DESCRIPTION:" + icsEsc(e.description));
+    if (e.location) lines.push("LOCATION:" + icsEsc(e.location));
+    if (e.url) lines.push("URL:" + e.url);
+    lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  return lines.map(fold).join("\r\n") + "\r\n";
+}
+export function googleCalLink({ title, start, end, details, location }) {
+  const p = new URLSearchParams({ action: "TEMPLATE", text: title || "Appointment", dates: utc(start) + "/" + utc(end) });
+  if (details) p.set("details", details);
+  if (location) p.set("location", location);
+  return "https://calendar.google.com/calendar/render?" + p.toString();
+}
