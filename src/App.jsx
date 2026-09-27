@@ -3863,12 +3863,16 @@ function ShareBar({ url, title, text, file, filename }){
 }
 
 const SECTION_LABELS = {
-  hero:"Hero", philosophy:"Philosophy", about:"About", offerings:"Products / Offerings", editorial:"Editorial feature", quote:"Quote", contact:"Contact",
+  calendar:"Calendar / Booking", hero:"Hero", philosophy:"Philosophy", about:"About", offerings:"Products / Offerings", editorial:"Editorial feature", quote:"Quote", contact:"Contact",
   services:"Services", whyus:"Why us", process:"Process / How it works", stats:"Stats", team:"Team", testimonials:"Testimonials", faq:"FAQ", cta:"Call to action", trustbadges:"Trust badges", beforeafter:"Before & after", pricing:"Pricing", booking:"Booking", gallery:"Gallery", serviceareas:"Service areas", hours:"Hours"
 };
-const SECTION_ADD_ORDER = ["services","offerings","about","testimonials","faq","whyus","process","stats","pricing","team","gallery","beforeafter","trustbadges","booking","serviceareas","hours","cta","editorial","quote","philosophy","contact","hero"];
+const SECTION_ADD_ORDER = ["calendar","services","offerings","about","testimonials","faq","whyus","process","stats","pricing","team","gallery","beforeafter","trustbadges","booking","serviceareas","hours","cta","editorial","quote","philosophy","contact","hero"];
 function defaultSection(type){
   switch(type){
+    case "calendar": { const wk=[["09:00","17:00"]]; let tz="America/New_York"; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone||tz; }catch(e){}
+      return {type:"calendar",eyebrow:"Book",title:"Book an appointment",sub:"Pick a service and a time that works for you.",tz,interval:30,buffer:15,notice:12,horizon:60,
+        hours:{mon:wk,tue:wk,wed:wk,thu:wk,fri:wk,sat:[["10:00","16:00"]],sun:[]},blocked:[],dates:[],
+        services:[{name:"Consultation",duration:30,price:"",pay:"none",desc:""},{name:"Appointment",duration:60,price:"100",pay:"deposit",deposit:"25",depositType:"amount",desc:""}]}; }
     case "hero": return {type:"hero",eyebrow:"WELCOME",headline:"Your headline here",headlineEm:"",sub:"A short refined sentence about what you do.",cta:{label:"Learn more",href:"#"}};
     case "philosophy": return {type:"philosophy",eyebrow:"OUR APPROACH",heading:"What we believe",body:["Write a sentence or two about your philosophy.","Add a second short paragraph here."]};
     case "about": return {type:"about",eyebrow:"ABOUT",heading:"Our story",body:["Introduce the person or story behind the business."]};
@@ -13487,7 +13491,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           <div style={{marginBottom:22}}>
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.14em",color:B.mid,marginBottom:8,textTransform:"uppercase"}}>Live preview</div>
             {(wmExisting&&wmExisting.data)&&<button onClick={()=>setWmInline(true)} style={{background:B.gold,color:B.inkText,border:"none",padding:"10px 16px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,letterSpacing:"0.12em",fontWeight:700,cursor:"pointer",textTransform:"uppercase",marginBottom:10}}>&#9998; Edit on page (beta)</button>}
-            {wmInline&&wmExisting&&<CgInlineEditor initial={wmExisting.data} onSaveData={saveData} onUpload={uploadSiteImage} user={user} onClose={()=>setWmInline(false)} />}
+            {wmInline&&wmExisting&&<CgInlineEditor initial={wmExisting.data} onSaveData={saveData} onUpload={uploadSiteImage} user={user} slug={wmExisting.slug} onClose={()=>setWmInline(false)} />}
             <div style={{border:"1px solid "+B.stone,background:B.white,height:520,overflow:"hidden"}}>
               <iframe key={wmPreview} title="Site preview" src={window.location.origin+"/?site="+wmExisting.slug} style={{width:"100%",height:"100%",border:"none"}} />
             </div>
@@ -13495,7 +13499,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           </div>
 
           <div style={{display:"flex",gap:2,flexWrap:"wrap",marginBottom:20,borderBottom:"1px solid "+B.stone}}>
-            {[["design","Theme"],["sections","Sections"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["blog","Blog"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
+            {[["design","Theme"],["sections","Sections"],["bookings","Bookings"],["business","Business"],["contact","Contact"],["products","Products / Services"],["orders","Orders"],["photos","Photos"],["blog","Blog"],["refine","Refine"],["domain","Domain"]].map(([id,l])=>(
               <button key={id} onClick={()=>setEdTab(id)} style={{background:"none",border:"none",borderBottom:edTab===id?"2px solid "+B.charcoal:"2px solid transparent",padding:"10px 13px",fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,fontWeight:edTab===id?700:400,letterSpacing:"0.07em",textTransform:"uppercase",color:edTab===id?B.charcoal:B.mid,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
@@ -13564,6 +13568,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
             <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10.5,color:B.mid,lineHeight:1.5,background:B.offwhite,border:"1px solid "+B.stone,padding:"9px 11px",marginTop:16}}>New sections come with placeholder text and adapt to your theme automatically. Photo-based sections (team, gallery, before &amp; after) start empty — add images in the <strong>Photos</strong> tab or your own uploads.</div>
           </div>}
           {edTab==="orders"&&<OrdersPanel user={user} />}
+          {edTab==="bookings"&&<CgBookingsTab siteId={wmExisting.id} />}
           {edTab==="products"&&<div>
             <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
             <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
@@ -18806,7 +18811,7 @@ const CG_LIB_CSS = `
 // after whichever core block precedes them in site.sections. Opt-in per site: only
 // applies once site.orderMode === "custom" (set the first time the owner reorders), so
 // existing sites keep rendering exactly as before until their owner moves something.
-const CG_EXTRA_TYPES = ["services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
+const CG_EXTRA_TYPES = ["calendar","services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
 const CG_THEME_FLOW = {
   willow:[["hero"],["philosophy"],["about"],["quote"],["offerings","editorial"],["contact"]],
   muse:[["hero"],["philosophy"],["about"],["offerings"],["quote"],["contact"]],
@@ -18868,7 +18873,7 @@ function SectionLibrary({ site, only }){
   if(!only && s.orderMode==="custom" && CG_THEME_FLOW[s.theme]) return null;
   const sections = Array.isArray(s.sections) ? s.sections : [];
   const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")", backgroundSize:"cover", backgroundPosition:"center" } : undefined;
-  const EXTRA = ["services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
+  const EXTRA = ["calendar","services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
   const libs = sections.map((sec,i)=>({sec,i})).filter(x=>x.sec && EXTRA.includes(x.sec.type) && (!only || only.includes(x.i)));
   if(!libs.length) return null;
   const P=(i,f)=>"sections."+i+"."+f;
@@ -18881,6 +18886,7 @@ function SectionLibrary({ site, only }){
     <div className="cg-lib">
       <style dangerouslySetInnerHTML={{__html: CG_LIB_CSS}} />
       {libs.map(({sec,i})=>{
+        if(sec.type==="calendar") return <CgCalendar key={i} site={s} sec={sec} i={i} />;
         if(sec.type==="services") return (
           <section className="cg-sec" id="s-services" key={i}>
             <div className="wrap">
@@ -19167,6 +19173,26 @@ const CG_INLINE_CSS = `
 .cg-ovl-seg button.on{background:#EDEBE5;color:#141310;}
 .cg-ovl-done{background:#C8A96A;color:#141310;border:0;padding:9px 18px;border-radius:4px;font-family:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;cursor:pointer;}
 .cg-ovl-body{flex:1;overflow:auto;}
+.cg-panel-wide{width:min(440px,calc(100vw - 24px));}
+.cg-cp{padding:10px 14px;}
+.cg-cp-h{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#171512;margin:6px 0 10px;}
+.cg-cp-svc{border:1px solid rgba(23,21,18,.12);border-radius:8px;padding:10px;margin-bottom:10px;background:#fcfbf8;}
+.cg-cp-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap;}
+.cg-cp-row label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#7a7266;letter-spacing:.04em;flex:1;min-width:110px;}
+.cg-cp-row .grow{flex:2;}
+.cg-cp input,.cg-cp select{border:1px solid rgba(23,21,18,.18);border-radius:5px;padding:8px 9px;font-family:inherit;font-size:14px;color:#171512;background:#fff;min-width:0;}
+.cg-cp-row > input{flex:1;}
+.cg-cp-desc{width:100%;box-sizing:border-box;font-size:13px!important;}
+.cg-cp-dep{display:flex;gap:4px;}.cg-cp-dep input{width:70px;}
+.cg-cp-hint{font-size:12px;color:#7a7266;margin-top:6px;}
+.cg-cp-day{align-items:center;}.cg-cp-day input[type=time]{flex:1;}
+.cg-cp-chk{flex-direction:row!important;align-items:center;gap:6px!important;min-width:70px!important;flex:0 0 70px!important;font-size:13px!important;color:#171512!important;}
+.cg-cp-off{flex:1;font-size:13px;color:#a39b8f;}
+.cg-cp-btn{padding:8px 14px;border:0;border-radius:5px;background:#171512;color:#fff;font-family:inherit;font-size:12px;cursor:pointer;}
+.cg-cp-btn:disabled{opacity:.35;cursor:default;}
+.cg-cp-chip{display:inline-flex;align-items:center;gap:6px;background:#f6f2ea;border-radius:999px;padding:5px 6px 5px 11px;font-size:12px;margin:0 6px 6px 0;}
+.cg-cp-chip button{border:0;background:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:10px;}
+
 .cg-srow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 8px;border-bottom:1px solid rgba(23,21,18,.07);font-size:14px;}
 .cg-srow.core{background:#f6f2ea;color:#5b5348;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;margin:4px 0;border:0;}
 .cg-stag{font-size:9px;letter-spacing:.12em;opacity:.7;}
@@ -19314,9 +19340,336 @@ function CgSectionsPanel({ draft, mutate, onClose }){
   );
 }
 
+
+// ===================== Calendar / booking section =====================
+// Public widget: pick a service → day → time → details → pay (or confirm free).
+// All prices, availability and payments are decided server-side (api/booking-*.js);
+// this component only displays them and sends "which service, which time, who".
+const CG_TZ_LIST = ["America/New_York","America/Chicago","America/Denver","America/Phoenix","America/Los_Angeles","America/Anchorage","Pacific/Honolulu","America/Toronto","America/Vancouver","America/Puerto_Rico","Europe/London","Europe/Dublin","Europe/Paris","Europe/Berlin","Europe/Madrid","Africa/Johannesburg","Africa/Harare","Africa/Lagos","Africa/Nairobi","Asia/Dubai","Asia/Kolkata","Australia/Sydney"];
+const CG_DAYS = [["mon","Mon"],["tue","Tue"],["wed","Wed"],["thu","Thu"],["fri","Fri"],["sat","Sat"],["sun","Sun"]];
+function cgCents(v){ const n=parseFloat(String(v==null?"":v).replace(/[^0-9.]/g,"")); return isFinite(n)&&n>0?Math.round(n*100):0; }
+function cgCalMoney(c){ return "$"+((c||0)/100).toFixed((c||0)%100?2:0); }
+function cgBrowserTz(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||"America/New_York"; }catch(e){ return "America/New_York"; } }
+// Display-only mirror of the server's service rules (the server re-checks everything).
+function cgCalServices(sec){
+  return (Array.isArray(sec&&sec.services)?sec.services:[]).map((v,i)=>{
+    const price=cgCents(v&&v.price); let pay=["none","full","deposit"].includes(v&&v.pay)?v.pay:(price?"full":"none"); if(!price) pay="none";
+    let dep=0; if(pay==="deposit"){ dep=(v.depositType==="percent")?Math.round(price*Math.min(100,Math.max(1,parseFloat(v.deposit)||0))/100):cgCents(v.deposit); dep=Math.min(price,dep); if(dep<100) pay=price>=100?"full":"none"; if(dep>=price) pay="full"; }
+    const duration=Math.min(720,Math.max(5,parseInt(v&&v.duration,10)||60));
+    return { index:i, name:(v&&v.name)||"Appointment", desc:(v&&v.desc)||"", duration, price, pay, charge:pay==="full"?price:pay==="deposit"?dep:0, balance:pay==="deposit"?price-dep:0 };
+  });
+}
+function cgDur(m){ return m<60?m+" min":(m%60?Math.floor(m/60)+" hr "+(m%60)+" min":(m/60)+(m===60?" hr":" hrs")); }
+function cgPayNote(s){ if(!s.price) return "Free"; if(s.pay==="deposit") return cgCalMoney(s.charge)+" deposit to book · "+cgCalMoney(s.balance)+" at appointment"; if(s.pay==="full") return "Pay "+cgCalMoney(s.charge)+" to book"; return "Pay "+cgCalMoney(s.price)+" at your appointment"; }
+function cgFmt(iso,tz,opt){ try{ return new Intl.DateTimeFormat("en-US",{timeZone:tz,...opt}).format(new Date(iso)); }catch(e){ return ""; } }
+function cgMonthAdd(ym,n){ const [y,m]=ym.split("-").map(Number); const d=new Date(Date.UTC(y,m-1+n,1)); return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0"); }
+
+const CG_CAL_CSS = `
+#cg-site .cg-lib .cg-cal .cg-cal-body{margin-top:30px;}
+#cg-site .cg-lib .cg-cal-step{font-family:var(--_sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--_muted);margin:28px 0 12px;}
+#cg-site .cg-lib .cg-cal-tz{letter-spacing:.06em;text-transform:none;}
+#cg-site .cg-lib .cg-cal-svcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+#cg-site .cg-lib .cg-cal-svc{display:block;text-align:left;width:100%;font:inherit;color:var(--_fg);background:transparent;border:1px solid var(--_line);padding:16px 18px;cursor:pointer;border-radius:2px;transition:border-color .15s,background .15s;}
+#cg-site .cg-lib .cg-cal-svc:hover{border-color:var(--_fg);}
+#cg-site .cg-lib .cg-cal-svc.on{border:2px solid var(--_fg);padding:15px 17px;background:color-mix(in srgb,var(--_fg) 6%,transparent);}
+#cg-site .cg-lib .cg-cal-meta{font-family:var(--_sans);font-size:13px;color:var(--_muted);margin-top:4px;}
+#cg-site .cg-lib .cg-cal-desc{font-family:var(--_sans);font-size:13px;line-height:1.5;color:var(--_muted);margin-top:6px;}
+#cg-site .cg-lib .cg-cal-pay{font-family:var(--_sans);font-size:11px;letter-spacing:.06em;color:var(--_fg);opacity:.75;margin-top:10px;}
+#cg-site .cg-lib .cg-cal-month{border:1px solid var(--_line);padding:16px;max-width:420px;}
+#cg-site .cg-lib .cg-cal-mhead{display:flex;justify-content:space-between;align-items:center;font-family:var(--_serif);font-size:1.1rem;margin-bottom:10px;color:var(--_fg);}
+#cg-site .cg-lib .cg-cal-mhead button{background:none;border:1px solid var(--_line);color:var(--_fg);width:34px;height:34px;font-size:18px;cursor:pointer;border-radius:50%;}
+#cg-site .cg-lib .cg-cal-mhead button:disabled{opacity:.25;cursor:default;}
+#cg-site .cg-lib .cg-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+#cg-site .cg-lib .cg-cal-dow{font-family:var(--_sans);font-size:10px;letter-spacing:.1em;text-align:center;color:var(--_muted);padding:4px 0;}
+#cg-site .cg-lib .cg-cal-day{aspect-ratio:1/1;font:500 14px var(--_sans);color:var(--_fg);background:color-mix(in srgb,var(--_fg) 5%,transparent);border:1px solid transparent;border-radius:50%;cursor:pointer;}
+#cg-site .cg-lib .cg-cal-day:hover:not(:disabled){border-color:var(--_fg);}
+#cg-site .cg-lib .cg-cal-day.on{background:var(--_fg);color:var(--cg-bg,#fff);border-color:var(--_fg);}
+#cg-site .cg-lib .cg-cal-day:disabled{background:transparent;opacity:.3;cursor:default;font-weight:400;}
+#cg-site .cg-lib .cg-cal-times{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}
+#cg-site .cg-lib .cg-cal-time{font:500 14px var(--_sans);color:var(--_fg);background:transparent;border:1px solid var(--_line);padding:11px 6px;cursor:pointer;border-radius:2px;}
+#cg-site .cg-lib .cg-cal-time:hover{border-color:var(--_fg);}
+#cg-site .cg-lib .cg-cal-time.on{border:2px solid var(--_fg);padding:10px 5px;background:color-mix(in srgb,var(--_fg) 8%,transparent);}
+#cg-site .cg-lib .cg-cal-sum{font-family:var(--_sans);font-size:14px;color:var(--_fg);margin-bottom:12px;}
+#cg-site .cg-lib .cg-cal-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+#cg-site .cg-lib .cg-cal-form input,#cg-site .cg-lib .cg-cal-form textarea{font:15px var(--_sans);color:var(--_fg);background:transparent;border:1px solid var(--_line);padding:12px 13px;border-radius:2px;width:100%;box-sizing:border-box;}
+#cg-site .cg-lib .cg-cal-form textarea{grid-column:1/-1;resize:vertical;}
+#cg-site .cg-lib .cg-cal-form input::placeholder,#cg-site .cg-lib .cg-cal-form textarea::placeholder{color:var(--_muted);opacity:.8;}
+#cg-site .cg-lib .cg-cal-go{background:transparent;cursor:pointer;font-size:12px;padding:15px 34px;}
+#cg-site .cg-lib .cg-cal-go:disabled{opacity:.5;cursor:default;}
+#cg-site .cg-lib .cg-cal-err{margin-top:14px;padding:11px 14px;border:1px solid #c0392b;color:#c0392b;font:14px var(--_sans);text-align:center;}
+#cg-site .cg-lib .cg-cal-note{margin:22px auto 0;max-width:560px;padding:12px 16px;border:1px solid var(--_line);font:14px var(--_sans);color:var(--_fg);text-align:center;}
+#cg-site .cg-lib .cg-cal-done{text-align:center;margin-top:34px;border:1px solid var(--_line);padding:36px 20px;}
+#cg-site .cg-lib .cg-cal-check{font-size:26px;width:54px;height:54px;line-height:52px;border-radius:50%;border:1px solid var(--_fg);margin:0 auto 14px;color:var(--_fg);}
+@media(max-width:640px){#cg-site .cg-lib .cg-cal-form{grid-template-columns:1fr;}#cg-site .cg-lib .cg-cal-month{max-width:none;}}
+`;
+function CgCalendar({ site, sec, i }){
+  const { live, edit, slug:ctxSlug, openPanel } = useContext(CgEditCtx);
+  const slug = (site&&site.__slug) || ctxSlug || "";
+  const services = cgCalServices(sec);
+  const nowYm = (()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); })();
+  const [svc,setSvc]=useState(null);
+  const [month,setMonth]=useState(nowYm);
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [date,setDate]=useState(null);
+  const [time,setTime]=useState(null);
+  const [form,setForm]=useState({name:"",email:"",phone:"",notes:""});
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const [done,setDone]=useState(null);
+  const [notice,setNotice]=useState("");
+  const P=f=>"sections."+i+"."+f;
+
+  // Returning from Stripe: booked / backed out / balance paid.
+  useEffect(()=>{
+    if(live) return;
+    try{
+      const u=new URL(window.location.href); let changed=false;
+      if(u.searchParams.get("booked")){ setDone({ paid:true }); u.searchParams.delete("booked"); changed=true; }
+      const rel=u.searchParams.get("booking_release"), t=u.searchParams.get("t");
+      if(rel&&t){ fetch("/api/booking-checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"release",booking_id:rel,token:t})}).catch(()=>{});
+        setNotice("Your booking wasn't completed, so that time was released. You can pick another."); u.searchParams.delete("booking_release"); u.searchParams.delete("t"); changed=true; }
+      if(u.searchParams.get("balance_paid")){ setNotice("Thank you — your balance is paid."); u.searchParams.delete("balance_paid"); changed=true; }
+      if(changed) window.history.replaceState(null,"",u.pathname+(u.searchParams.toString()?"?"+u.searchParams.toString():"")+u.hash);
+      if(changed){ const el=document.getElementById("s-book"); if(el) setTimeout(()=>el.scrollIntoView({behavior:"smooth",block:"start"}),300); }
+    }catch(e){}
+  },[live]);
+
+  const load = useCallback(async (svcIdx, ym)=>{
+    if(!slug||svcIdx==null) return;
+    setLoading(true); setErr("");
+    try{
+      const [y,m]=ym.split("-").map(Number); const dim=new Date(Date.UTC(y,m,0)).getUTCDate();
+      const r=await fetch("/api/booking-slots?slug="+encodeURIComponent(slug)+"&section="+i+"&service="+svcIdx+"&from="+ym+"-01&days="+dim);
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||"");
+      setData(j);
+    }catch(e){ setErr(e.message||"Couldn't load times. Please try again."); setData(null); }
+    setLoading(false);
+  },[slug,i]);
+  useEffect(()=>{ if(svc!=null&&!live) load(svc,month); },[svc,month,load,live]);
+
+  const tz = (data&&data.tz) || sec.tz || cgBrowserTz();
+  const dayMap = {}; ((data&&data.days)||[]).forEach(d=>{ dayMap[d.date]=d.slots; });
+  const chosen = svc!=null ? services[svc] : null;
+
+  async function submit(){
+    setErr("");
+    if(!form.name.trim()) return setErr("Please enter your name.");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) return setErr("Please enter a valid email.");
+    setBusy(true);
+    try{
+      const here=window.location.origin+window.location.pathname+window.location.search;
+      const r=await fetch("/api/booking-checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug,section:i,service:svc,start:time,...form,success_url:here,cancel_url:here})});
+      const j=await r.json().catch(()=>({}));
+      if(r.ok&&j.url){ window.location.href=j.url; return; }
+      if(r.ok&&j.confirmed){ setDone({ paid:false, when:j.when }); setBusy(false); return; }
+      if(j.code==="slot_taken"){ setTime(null); await load(svc,month); }
+      setErr(j.error||"Something went wrong. Please try again.");
+    }catch(e){ setErr("Something went wrong. Please try again."); }
+    setBusy(false);
+  }
+
+  // Month grid
+  const [yy,mm]=month.split("-").map(Number);
+  const firstDow=(new Date(Date.UTC(yy,mm-1,1)).getUTCDay()+6)%7; // Monday first
+  const dim=new Date(Date.UTC(yy,mm,0)).getUTCDate();
+  const cells=[]; for(let k=0;k<firstDow;k++) cells.push(null); for(let d=1;d<=dim;d++) cells.push(month+"-"+String(d).padStart(2,"0"));
+  const monthLabel=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(Date.UTC(yy,mm-1,1)));
+
+  return (
+    <section className="cg-sec cg-cal" id="s-book">
+      <style dangerouslySetInnerHTML={{__html:CG_CAL_CSS}} />
+      <div className="wrap" style={{maxWidth:880}}>
+        {(sec.eyebrow||live)&&<CgText as="div" className="eyebrow cg-center" path={P("eyebrow")} v={sec.eyebrow} placeholder={live?"Book":""} />}
+        <CgText as="h2" className="cg-center" path={P("title")} v={sec.title} placeholder="Book an appointment" />
+        {(sec.sub||live)&&<CgText as="p" className="lede cg-center" style={{margin:"10px auto 0"}} path={P("sub")} v={sec.sub} placeholder="Pick a service and a time that works for you." block />}
+        {notice&&<div className="cg-cal-note">{notice}</div>}
+        {live ? (
+          <div className="cg-cal-body">
+            <div className="cg-cal-svcs">{services.map(s=>(<div className="cg-cal-svc" key={s.index}><div className="nm">{s.name}</div><div className="cg-cal-meta">{cgDur(s.duration)}{s.price?" · "+cgCalMoney(s.price):""}</div><div className="cg-cal-pay">{cgPayNote(s)}</div></div>))}</div>
+            {!services.length&&<p className="note cg-center">No services yet — add them in Booking settings.</p>}
+            {edit&&<div className="cg-center" style={{marginTop:22}}><button className="cg-iadd" style={{display:"inline-block",margin:0}} onClick={()=>openPanel&&openPanel("calendar",i)}>⚙ Booking settings</button></div>}
+            <p className="note cg-center" style={{marginTop:14}}>Customers pick a day and time and book here on your published site.</p>
+          </div>
+        ) : done ? (
+          <div className="cg-cal-done"><div className="cg-cal-check">✓</div><h3 className="nm">You're booked</h3><p className="note">{done.when?done.when+". ":""}A confirmation is on its way to your email.</p></div>
+        ) : (
+          <div className="cg-cal-body">
+            <div className="cg-cal-step">1 · Choose a service</div>
+            <div className="cg-cal-svcs">{services.map(s=>(
+              <button type="button" className={"cg-cal-svc"+(svc===s.index?" on":"")} key={s.index} onClick={()=>{ setSvc(s.index); setDate(null); setTime(null); setErr(""); }}>
+                <div className="nm">{s.name}</div><div className="cg-cal-meta">{cgDur(s.duration)}{s.price?" · "+cgCalMoney(s.price):""}</div>
+                {s.desc&&<div className="cg-cal-desc">{s.desc}</div>}<div className="cg-cal-pay">{cgPayNote(s)}</div>
+              </button>))}</div>
+            {chosen&&<>
+              <div className="cg-cal-step">2 · Pick a day</div>
+              <div className="cg-cal-month">
+                <div className="cg-cal-mhead">
+                  <button type="button" onClick={()=>{ setMonth(cgMonthAdd(month,-1)); setDate(null); setTime(null); }} disabled={month<=nowYm} aria-label="Previous month">‹</button>
+                  <span>{monthLabel}</span>
+                  <button type="button" onClick={()=>{ setMonth(cgMonthAdd(month,1)); setDate(null); setTime(null); }} disabled={month>=cgMonthAdd(nowYm,12)} aria-label="Next month">›</button>
+                </div>
+                <div className="cg-cal-grid">
+                  {["M","T","W","T","F","S","S"].map((d,k)=><div className="cg-cal-dow" key={"h"+k}>{d}</div>)}
+                  {cells.map((d,k)=> d ? <button type="button" key={d} className={"cg-cal-day"+(date===d?" on":"")} disabled={loading||!(dayMap[d]&&dayMap[d].length)} onClick={()=>{ setDate(d); setTime(null); }}>{Number(d.slice(8))}</button> : <div key={"e"+k} />)}
+                </div>
+                {loading&&<div className="note cg-center" style={{marginTop:10}}>Loading times…</div>}
+                {!loading&&data&&!Object.values(dayMap).some(x=>x&&x.length)&&<div className="note cg-center" style={{marginTop:10}}>No openings this month — try the next one.</div>}
+              </div>
+            </>}
+            {chosen&&date&&<>
+              <div className="cg-cal-step">3 · Pick a time <span className="cg-cal-tz">({cgFmt((dayMap[date]||[])[0]||new Date().toISOString(),tz,{timeZoneName:"short"}).split(" ").pop()})</span></div>
+              <div className="cg-cal-times">{(dayMap[date]||[]).map(t=><button type="button" key={t} className={"cg-cal-time"+(time===t?" on":"")} onClick={()=>setTime(t)}>{cgFmt(t,tz,{hour:"numeric",minute:"2-digit"})}</button>)}</div>
+            </>}
+            {chosen&&time&&<>
+              <div className="cg-cal-step">4 · Your details</div>
+              <div className="cg-cal-sum"><b>{chosen.name}</b> · {cgFmt(time,tz,{weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})}</div>
+              <div className="cg-cal-form">
+                <input placeholder="Full name" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} autoComplete="name" />
+                <input placeholder="Email" type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} autoComplete="email" />
+                <input placeholder="Phone (optional)" type="tel" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} autoComplete="tel" />
+                <textarea placeholder="Anything we should know? (optional)" rows={3} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} />
+              </div>
+              <div className="cg-center"><button type="button" className="btn-line cg-cal-go" onClick={submit} disabled={busy}>{busy?"One moment…":chosen.charge?("Pay "+cgCalMoney(chosen.charge)+(chosen.pay==="deposit"?" deposit":"")+" & book"):"Confirm booking"}</button></div>
+              {chosen.charge>0&&<p className="note cg-center" style={{marginTop:10,fontSize:12}}>Secure payment by Stripe.{chosen.pay==="deposit"?" The remaining "+cgCalMoney(chosen.balance)+" is collected at your appointment.":""}</p>}
+            </>}
+            {err&&<div className="cg-cal-err">{err}</div>}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------- Booking settings panel (on-page editor) ----------
+function CgCalendarPanel({ draft, update, mutate, idx, onClose }){
+  const sec = (draft.sections||[])[idx];
+  const [stripeOk,setStripeOk] = useState(null);
+  const [newClosed,setNewClosed] = useState("");
+  const [extra,setExtra] = useState({date:"",from:"10:00",to:"14:00"});
+  useEffect(()=>{ let c=false; (async()=>{ try{ const tok=await freshToken(); if(!tok) return; const r=await fetch("/api/stripe-status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({access_token:tok})}); const d=await r.json().catch(()=>({})); if(!c) setStripeOk(!!d.charges_enabled); }catch(e){} })(); return ()=>{c=true;}; },[]);
+  if(!sec||sec.type!=="calendar") return null;
+  const P=f=>"sections."+idx+"."+f;
+  const services=Array.isArray(sec.services)?sec.services:[];
+  const hours=sec.hours||{};
+  const needsPay=cgCalServices(sec).some(s=>s.pay!=="none");
+  const setSvc=(j,k,v)=>update(P("services."+j+"."+k),v);
+  const addSvc=()=>mutate(d=>{ const s=d.sections[idx]; s.services=[...(s.services||[]),{name:"New service",duration:60,price:"",pay:"none"}]; return d; });
+  const delSvc=j=>{ if(!window.confirm("Remove this service?")) return; mutate(d=>{ const s=d.sections[idx]; s.services=s.services.filter((_,x)=>x!==j); return d; }); };
+  const moveSvc=(j,dir)=>mutate(d=>{ const a=d.sections[idx].services.slice(); const k=j+dir; if(k<0||k>=a.length) return d; const t=a[j]; a[j]=a[k]; a[k]=t; d.sections[idx].services=a; return d; });
+  const setDay=(day,range)=>update(P("hours."+day),range?[range]:[]);
+  const closed=Array.isArray(sec.blocked)?sec.blocked:[];
+  const dates=Array.isArray(sec.dates)?sec.dates:[];
+  const opt=(vals,fmt)=>vals.map(v=><option key={v} value={v}>{fmt(v)}</option>);
+  return (
+    <div className="cg-panel cg-panel-wide" onClick={e=>e.stopPropagation()}>
+      <div className="cg-panel-h"><span>Booking settings</span><button onClick={onClose} aria-label="Close">✕</button></div>
+      <div className="cg-panel-list cg-cp">
+        {needsPay&&stripeOk===false&&<div className="cg-panel-note" style={{margin:"4px 0 12px"}}>To take deposits or payments, connect Stripe first: <b>Website → Orders → Connect Stripe</b>. Until then, paid services can't be booked.</div>}
+
+        <div className="cg-cp-h">Services</div>
+        {services.map((s,j)=>{ const pay=s.pay||(cgCents(s.price)?"full":"none"); return (
+          <div className="cg-cp-svc" key={j}>
+            <div className="cg-cp-row"><input className="grow" value={s.name||""} placeholder="Service name" onChange={e=>setSvc(j,"name",e.target.value)} />
+              <div className="cg-pbtns"><button onClick={()=>moveSvc(j,-1)} disabled={!j}>↑</button><button onClick={()=>moveSvc(j,1)} disabled={j===services.length-1}>↓</button><button onClick={()=>delSvc(j)}>🗑</button></div></div>
+            <div className="cg-cp-row">
+              <label>Length<select value={parseInt(s.duration,10)||60} onChange={e=>setSvc(j,"duration",+e.target.value)}>{opt([15,30,45,60,75,90,105,120,150,180,210,240,270,300,360,420,480,540,600],cgDur)}</select></label>
+              <label>Price ($)<input inputMode="decimal" value={s.price||""} placeholder="0" onChange={e=>setSvc(j,"price",e.target.value)} /></label>
+            </div>
+            <div className="cg-cp-row">
+              <label className="grow">To book<select value={pay} onChange={e=>setSvc(j,"pay",e.target.value)}>
+                <option value="none">{cgCents(s.price)?"Pay at appointment":"Free"}</option><option value="deposit">Deposit</option><option value="full">Pay in full</option></select></label>
+              {pay==="deposit"&&<label>Deposit<span className="cg-cp-dep"><input inputMode="decimal" value={s.deposit||""} placeholder="25" onChange={e=>setSvc(j,"deposit",e.target.value)} />
+                <select value={s.depositType||"amount"} onChange={e=>setSvc(j,"depositType",e.target.value)}><option value="amount">$</option><option value="percent">%</option></select></span></label>}
+            </div>
+            <input className="cg-cp-desc" value={s.desc||""} placeholder="Short description (optional)" onChange={e=>setSvc(j,"desc",e.target.value)} />
+            <div className="cg-cp-hint">{cgPayNote(cgCalServices({services:[s]})[0])}</div>
+          </div>); })}
+        <button className="cg-padd" style={{margin:"4px 0 16px",width:"100%"}} onClick={addSvc}>+ Add service</button>
+
+        <div className="cg-cp-h">Weekly hours</div>
+        {CG_DAYS.map(([d,lbl])=>{ const r=(hours[d]&&hours[d][0])||null; return (
+          <div className="cg-cp-row cg-cp-day" key={d}>
+            <label className="cg-cp-chk"><input type="checkbox" checked={!!r} onChange={e=>setDay(d,e.target.checked?["09:00","17:00"]:null)} />{lbl}</label>
+            {r?<><input type="time" step="900" value={r[0]} onChange={e=>setDay(d,[e.target.value,r[1]])} /><span>to</span><input type="time" step="900" value={r[1]} onChange={e=>setDay(d,[r[0],e.target.value])} /></>:<span className="cg-cp-off">Closed</span>}
+          </div>); })}
+
+        <div className="cg-cp-h" style={{marginTop:16}}>Booking rules</div>
+        <div className="cg-cp-row"><label className="grow">Time zone<select value={sec.tz||cgBrowserTz()} onChange={e=>update(P("tz"),e.target.value)}>{[...new Set([sec.tz||cgBrowserTz(),...CG_TZ_LIST])].map(z=><option key={z} value={z}>{z.replace(/_/g," ")}</option>)}</select></label></div>
+        <div className="cg-cp-row">
+          <label>Start times every<select value={sec.interval||30} onChange={e=>update(P("interval"),+e.target.value)}>{opt([15,30,45,60,90,120],cgDur)}</select></label>
+          <label>Break after each<select value={sec.buffer||0} onChange={e=>update(P("buffer"),+e.target.value)}>{opt([0,5,10,15,20,30,45,60],v=>v?cgDur(v):"None")}</select></label>
+        </div>
+        <div className="cg-cp-row">
+          <label>Notice needed<select value={sec.notice==null?12:sec.notice} onChange={e=>update(P("notice"),+e.target.value)}>{opt([0,1,2,4,8,12,24,48,72,168],v=>v===0?"None":v<24?v+" hr":(v/24)+(v===24?" day":" days"))}</select></label>
+          <label>Book up to<select value={sec.horizon||60} onChange={e=>update(P("horizon"),+e.target.value)}>{opt([7,14,30,60,90,180,365],v=>v+" days ahead")}</select></label>
+        </div>
+
+        <div className="cg-cp-h" style={{marginTop:16}}>Days off</div>
+        <div className="cg-cp-row"><input type="date" value={newClosed} onChange={e=>setNewClosed(e.target.value)} /><button className="cg-cp-btn" disabled={!newClosed} onClick={()=>{ update(P("blocked"),[...new Set([...closed,newClosed])].sort()); setNewClosed(""); }}>Add</button></div>
+        {closed.map(d=><div className="cg-cp-chip" key={d}>{d}<button onClick={()=>update(P("blocked"),closed.filter(x=>x!==d))}>✕</button></div>)}
+
+        <div className="cg-cp-h" style={{marginTop:16}}>Extra open days</div>
+        <div className="cg-cp-hint" style={{marginTop:-4}}>Open on a day you're normally closed, or different hours for one day.</div>
+        <div className="cg-cp-row"><input type="date" value={extra.date} onChange={e=>setExtra(x=>({...x,date:e.target.value}))} /><input type="time" step="900" value={extra.from} onChange={e=>setExtra(x=>({...x,from:e.target.value}))} /><input type="time" step="900" value={extra.to} onChange={e=>setExtra(x=>({...x,to:e.target.value}))} />
+          <button className="cg-cp-btn" disabled={!extra.date||extra.from>=extra.to} onClick={()=>{ update(P("dates"),[...dates.filter(x=>x.date!==extra.date),{date:extra.date,ranges:[[extra.from,extra.to]]}].sort((a,b)=>a.date<b.date?-1:1)); setExtra(x=>({...x,date:""})); }}>Add</button></div>
+        {dates.map(x=><div className="cg-cp-chip" key={x.date}>{x.date} · {(x.ranges||[]).map(r=>r.join("–")).join(", ")}<button onClick={()=>update(P("dates"),dates.filter(y=>y.date!==x.date))}>✕</button></div>)}
+        <div style={{height:14}} />
+      </div>
+    </div>
+  );
+}
+
+// ---------- Bookings tab (website dashboard) ----------
+function CgBookingsTab({ siteId }){
+  const [scope,setScope]=useState("upcoming");
+  const [rows,setRows]=useState(null);
+  const [err,setErr]=useState(""); const [msg,setMsg]=useState(""); const [busy,setBusy]=useState("");
+  const call=async(payload)=>{ const tok=await freshToken(); if(!tok) throw new Error("Please log in again."); const r=await fetch("/api/booking-manage",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||"Something went wrong."); return j; };
+  const load=useCallback(async()=>{ setErr(""); try{ const j=await call({action:"list",scope,site_id:siteId}); setRows(j.bookings||[]); }catch(e){ setErr(e.message); setRows([]); } },[scope,siteId]);
+  useEffect(()=>{ setRows(null); load(); },[load]);
+  const act=async(b,action,extra,confirmText)=>{ if(confirmText&&!window.confirm(confirmText)) return; setBusy(b.id+action); setMsg(""); setErr("");
+    try{ const j=await call({action,booking_id:b.id,...(extra||{})});
+      setMsg(action==="charge_balance"?(j.link_sent?"The card needs the customer's approval — we emailed them a payment link.":"Charged "+cgCalMoney(j.charged_cents)+"."):action==="send_balance_link"?"Payment link emailed to "+b.customer_email+".":action==="cancel"?(j.refunded_cents?"Cancelled and refunded "+cgCalMoney(j.refunded_cents)+".":"Cancelled."):"Marked done.");
+      await load(); }catch(e){ setErr(e.message); } setBusy(""); };
+  const f="Jost,Helvetica,Arial,sans-serif";
+  const btn=(on)=>({background:on?B.charcoal:B.white,color:on?B.white:B.charcoal,border:"1px solid "+(on?B.charcoal:B.stone),padding:"8px 14px",fontFamily:f,fontSize:11,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer"});
+  const small={background:B.white,border:"1px solid "+B.stone,color:B.charcoal,padding:"7px 11px",fontFamily:f,fontSize:11,letterSpacing:"0.04em",cursor:"pointer"};
+  const chip=st=>({confirmed:["#E7F2EA","#2F6B43"],completed:["#ECEAE6","#5B5348"],cancelled:["#F7E6E6","#9A2F2F"]}[st]||["#eee","#555"]);
+  return (
+    <div style={{fontFamily:f}}>
+      <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:19,color:B.charcoal,marginBottom:6}}>Bookings</div>
+      <p style={{fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 14px"}}>Appointments booked through the Calendar section on this site. To take bookings, add a <b>Calendar / Booking</b> section, then set services and hours in <b>Edit on page → Booking</b>.</p>
+      <div style={{display:"flex",gap:6,marginBottom:14}}>{[["upcoming","Upcoming"],["past","Past"],["all","All"]].map(([k,l])=><button key={k} onClick={()=>setScope(k)} style={btn(scope===k)}>{l}</button>)}</div>
+      {msg&&<div style={{background:"#E7F2EA",color:"#2F6B43",padding:"10px 12px",fontSize:13,marginBottom:10}}>{msg}</div>}
+      {err&&<div style={{background:"#F7E6E6",color:"#9A2F2F",padding:"10px 12px",fontSize:13,marginBottom:10}}>{err}</div>}
+      {rows===null?<div style={{color:B.mid,fontSize:14}}>Loading…</div>:!rows.length?<div style={{color:B.mid,fontSize:14,padding:"18px 0"}}>{scope==="upcoming"?"No upcoming bookings yet.":"Nothing here yet."}</div>:
+        rows.map(b=>{ const [bg,fg]=chip(b.status); const active=["confirmed","completed"].includes(b.status); return (
+          <div key={b.id} style={{border:"1px solid "+B.stone,background:B.white,padding:"14px 16px",marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap",alignItems:"baseline"}}>
+              <div style={{fontSize:16,color:B.charcoal,fontWeight:600}}>{cgFmt(b.start_at,b.tz,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})}</div>
+              <span style={{background:bg,color:fg,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",padding:"4px 8px"}}>{b.status}</span>
+            </div>
+            <div style={{fontSize:14,color:B.charcoal,marginTop:4}}>{b.service_name} · {cgDur(b.duration_min)}</div>
+            <div style={{fontSize:13,color:B.mid,marginTop:4}}>{b.customer_name} · <a href={"mailto:"+b.customer_email} style={{color:B.mid}}>{b.customer_email}</a>{b.customer_phone?<> · <a href={"tel:"+b.customer_phone} style={{color:B.mid}}>{b.customer_phone}</a></>:null}</div>
+            {b.notes&&<div style={{fontSize:13,color:B.charcoal,marginTop:6,background:"#FAF8F4",padding:"8px 10px"}}>“{b.notes}”</div>}
+            <div style={{fontSize:13,color:B.mid,marginTop:6}}>{b.price_cents?"Price "+cgCalMoney(b.price_cents)+" · ":""}Paid {cgCalMoney(b.amount_paid_cents)}{b.balance_due_cents?" · Balance "+cgCalMoney(b.balance_due_cents):""}{b.refunded_cents?" · Refunded "+cgCalMoney(b.refunded_cents):""}</div>
+            {active&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:10}}>
+              {b.balance_due_cents>=50&&(b.has_card
+                ?<button style={small} disabled={!!busy} onClick={()=>act(b,"charge_balance",null,"Charge "+cgCalMoney(b.balance_due_cents)+" to the card "+b.customer_name+" used when booking?")}>{busy===b.id+"charge_balance"?"Charging…":"Charge "+cgCalMoney(b.balance_due_cents)+" to card"}</button>
+                :<button style={small} disabled={!!busy} onClick={()=>act(b,"send_balance_link",null,"Email "+b.customer_name+" a link to pay "+cgCalMoney(b.balance_due_cents)+"?")}>{busy===b.id+"send_balance_link"?"Sending…":"Email pay link "+cgCalMoney(b.balance_due_cents)}</button>)}
+              {b.status==="confirmed"&&<button style={small} disabled={!!busy} onClick={()=>act(b,"complete")}>Mark done</button>}
+              {b.amount_paid_cents>0&&<button style={{...small,color:"#9A2F2F"}} disabled={!!busy} onClick={()=>act(b,"cancel",{refund:true},"Cancel this booking and refund "+cgCalMoney(b.amount_paid_cents)+" to "+b.customer_name+"?")}>Cancel & refund</button>}
+              <button style={{...small,color:"#9A2F2F"}} disabled={!!busy} onClick={()=>act(b,"cancel",{refund:false},b.amount_paid_cents?"Cancel WITHOUT refunding? (The "+cgCalMoney(b.amount_paid_cents)+" already paid is kept.)":"Cancel this booking?")}>{b.amount_paid_cents?"Cancel, keep payment":"Cancel"}</button>
+            </div>}
+          </div>); })}
+    </div>
+  );
+}
+
 // The full-screen editor overlay. Holds a draft of the site's data, renders the
 // editable mirror live, and debounce-saves through the editor's saveData().
-function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
+function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose, slug }){
   const [draft,setDraft] = useState(()=>cgClone(initial||{}));
   const [edit,setEdit] = useState(true);
   const [saveState,setSaveState] = useState("saved");
@@ -19331,8 +19684,11 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
   const update = useCallback((p,v)=>{ setDraft(d=>cgSetPath(d,p,v)); scheduleSave(); },[scheduleSave]);
   const mutate = useCallback((fn)=>{ setDraft(d=>fn(cgClone(d))); scheduleSave(); },[scheduleSave]);
   useEffect(()=>()=>{ if(timer.current) clearTimeout(timer.current); },[]);
-  const ctx = { edit, get, update, mutate, onUpload, user, live:true };
   const [panel,setPanel] = useState(null);
+  const [calIdx,setCalIdx] = useState(-1);
+  const openPanel = useCallback((kind,i)=>{ if(kind==="calendar"){ setCalIdx(i); setPanel("calendar"); } },[]);
+  const ctx = { edit, get, update, mutate, onUpload, user, live:true, slug, openPanel };
+  const firstCal = (draft.sections||[]).findIndex(x=>x&&x.type==="calendar");
   const itemCount = ((draft.sections||[]).find(x=>x&&x.type==="offerings")||{}).items;
   return (
     <div className="cg-ovl">
@@ -19341,12 +19697,14 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
         <span className="t">Edit on page · beta</span>
         <div className="r">
           <span className="cg-ovl-save">{saveState==="saving"?"Saving…":saveState==="error"?"Couldn't save — retrying":"All changes saved"}</span>
+          {firstCal>=0&&<button className={"cg-ovl-tool"+(panel==="calendar"?" on":"")} onClick={()=>{ if(panel==="calendar") setPanel(null); else openPanel("calendar", calIdx>=0&&(draft.sections||[])[calIdx]&&draft.sections[calIdx].type==="calendar"?calIdx:firstCal); }}>Booking</button>}
           <button className={"cg-ovl-tool"+(panel==="sections"?" on":"")} onClick={()=>setPanel(p=>p==="sections"?null:"sections")}>Sections</button>
           <button className={"cg-ovl-tool"+(panel==="items"?" on":"")} onClick={()=>setPanel(p=>p==="items"?null:"items")}>{"Items"+(Array.isArray(itemCount)?" ("+itemCount.length+")":"")}</button>
           <div className="cg-ovl-seg"><button className={edit?"on":""} onClick={()=>setEdit(true)}>Edit</button><button className={!edit?"on":""} onClick={()=>setEdit(false)}>Preview</button></div>
           <button className="cg-ovl-done" onClick={onClose}>Done</button>
         </div>
       </div>
+      {panel==="calendar" && <CgCalendarPanel draft={draft} update={update} mutate={mutate} idx={calIdx} onClose={()=>setPanel(null)} />}
       {panel==="sections" && <CgSectionsPanel draft={draft} mutate={mutate} onClose={()=>setPanel(null)} />}
       {panel==="items" && <CgItemsPanel draft={draft} mutate={mutate} update={update} onUpload={onUpload} user={user} onClose={()=>setPanel(null)} />}
       <div className="cg-ovl-body" data-edit={edit?"1":"0"} onClickCapture={e=>{ const t=e.target; if(t&&t.closest&&t.closest("a")) e.preventDefault(); }}>
@@ -19624,6 +19982,7 @@ function SiteRenderInner({ site }) {
         </div>
       </header>
       {sections.map((sec,i)=>{
+        if(sec.type==="calendar") return <SectionLibrary key={i} site={s} only={[i]} />;
         if(sec.type==="hero") return (
           <section className="hero" id="s-top" key={i}>
             <CgBg as="div" path={"sections."+i+".image"} className="hero-img" style={bg(sec.image)}></CgBg>
