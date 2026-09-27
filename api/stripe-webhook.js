@@ -4,6 +4,7 @@
 //   • Marketer / member membership subscription → flip account to "active"
 //   • Subscription cancel / payment failure / recovery → adjust access
 //   • Store sales (Stripe Connect stores) → record the order in store_orders
+//   • Calendar bookings → confirm on payment, release on abandoned checkout, record balances
 //
 // Stripe calls this URL after a payment. We verify the request is genuinely from
 // Stripe (signature check), then act using the Supabase service-role key — which
@@ -17,6 +18,7 @@
 //   STRIPE_WEBHOOK_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import crypto from "crypto";
+import { sb, stripe, sendBookingEmails, sendEmail, emailHtml, money, formatWhen, ownerEmail } from "./_booking-lib.js";
 
 // We need Stripe's RAW request body to verify the signature, so turn off
 // Vercel's automatic body parsing for this function.
@@ -320,6 +322,70 @@ export default async function handler(req, res) {
     } catch { /* swallow: order may have gone through; avoid a wrong refund */ }
   }
 
+  // ── Calendar bookings (api/booking-checkout.js + api/booking-manage.js) ──
+  async function bookingRow(id) {
+    const q = await sb("bookings?select=*&id=eq." + encodeURIComponent(id || "x") + "&limit=1");
+    return Array.isArray(q.j) && q.j[0] ? q.j[0] : null;
+  }
+  async function brandName(siteId) {
+    const q = await sb("websites?select=data&id=eq." + encodeURIComponent(siteId) + "&limit=1");
+    const w = Array.isArray(q.j) && q.j[0];
+    return (w && w.data && w.data.brand && w.data.brand.name) || "";
+  }
+  // Payment landed → confirm the held slot. Idempotent (Stripe retries). If the hold had
+  // already lapsed AND someone else took the time meanwhile, the database refuses the
+  // overlap → refund in full and tell the customer. Never leaves a paid, unconfirmed booking.
+  async function confirmBooking(s, meta) {
+    try {
+      const row = await bookingRow(meta.booking_id);
+      if (!row) return;
+      if (["confirmed", "completed", "cancelled"].includes(row.status) && row.session_id === s.id) return;
+      let pm = null, pi = s.payment_intent ? String(s.payment_intent) : null;
+      if (pi) { const r = await stripe("payment_intents/" + encodeURIComponent(pi)); if (r.ok) pm = r.j.payment_method || null; }
+      const up = await sb("bookings?id=eq." + encodeURIComponent(row.id) + "&status=in.(pending,expired)", {
+        method: "PATCH", headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ status: "confirmed", confirmed_at: new Date().toISOString(), expires_at: null, session_id: s.id,
+          amount_paid_cents: typeof s.amount_total === "number" ? s.amount_total : row.amount_paid_cents,
+          payment_intent: pi, stripe_customer: s.customer ? String(s.customer) : null, payment_method: pm }),
+      });
+      const done = up.ok && Array.isArray(up.j) && up.j[0];
+      if (done) { await sendBookingEmails(done, await brandName(done.site_id)); return; }
+      const now = await bookingRow(row.id);
+      if (now && now.status === "confirmed") return;
+      // Slot is gone → full refund (Chelgy's fee too; the customer got nothing).
+      if (pi) await stripe("refunds", { payment_intent: pi, reverse_transfer: "true", refund_application_fee: "true" });
+      await sb("bookings?id=eq." + encodeURIComponent(row.id), { method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ status: "failed", payment_intent: pi, refunded_cents: typeof s.amount_total === "number" ? s.amount_total : 0 }) });
+      const nm = await brandName(row.site_id); const oe = await ownerEmail(row.owner_id);
+      await sendEmail({ to: row.customer_email, replyTo: oe || undefined, subject: "That time was no longer available — you've been refunded",
+        html: emailHtml("Sorry — that time was taken", [["Service", row.service_name], ["Time", formatWhen(Date.parse(row.start_at), row.tz)], ["Refunded", money(s.amount_total, row.currency)]],
+          "Your payment took longer than the hold on that time, and someone else booked it in the meantime. You've been fully refunded" + (nm ? " — please book another time with " + nm : "") + ".") });
+    } catch { /* swallow; Stripe retries on non-200 only, and we always 200 */ }
+  }
+  // Balance paid through the emailed link.
+  async function payBookingBalance(s, meta) {
+    try {
+      const row = await bookingRow(meta.booking_id);
+      if (!row || (s.payment_intent && row.balance_intent === String(s.payment_intent))) return;
+      const amt = typeof s.amount_total === "number" ? s.amount_total : 0;
+      await sb("bookings?id=eq." + encodeURIComponent(row.id), { method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ amount_paid_cents: (row.amount_paid_cents || 0) + amt, balance_due_cents: Math.max(0, (row.balance_due_cents || 0) - amt), balance_intent: s.payment_intent ? String(s.payment_intent) : null }) });
+      const nm = await brandName(row.site_id); const oe = await ownerEmail(row.owner_id);
+      await sendEmail({ to: row.customer_email, replyTo: oe || undefined, subject: "Receipt — " + row.service_name + (nm ? " — " + nm : ""),
+        html: emailHtml("Payment received", [["Service", row.service_name], ["When", formatWhen(Date.parse(row.start_at), row.tz)], ["Paid", money(amt, row.currency)]], "Thank you!") });
+      if (oe) await sendEmail({ to: oe, subject: "Balance paid: " + row.customer_name + " — " + money(amt, row.currency),
+        html: emailHtml("Balance paid", [["Customer", row.customer_name], ["Service", row.service_name], ["Amount", money(amt, row.currency)]]) });
+    } catch { }
+  }
+
+  if (event.type === "checkout.session.expired") {
+    const s = event.data.object || {};
+    const meta = s.metadata || {};
+    if (meta.type === "booking" && meta.booking_id) {
+      await sb("bookings?id=eq." + encodeURIComponent(meta.booking_id) + "&status=eq.pending", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "expired" }) });
+    }
+  }
+
   if (event.type === "checkout.session.completed") {
     const s = event.data.object || {};
     const meta = s.metadata || {};
@@ -363,6 +429,14 @@ export default async function handler(req, res) {
     // ── Domain renewed through Chelgy → extend it another year ──
     if (paid && meta.type === "domain_renew" && meta.domain && meta.owner_id) {
       await renewDomain(s, meta);
+    }
+
+    // ── Calendar booking paid → confirm the held slot; balance paid → record it ──
+    if (paid && meta.type === "booking" && meta.booking_id) {
+      await confirmBooking(s, meta);
+    }
+    if (paid && meta.type === "booking_balance" && meta.booking_id) {
+      await payBookingBalance(s, meta);
     }
 
     // ── Printed product bought through Chelgy → send it to Gelato to print + ship ──
