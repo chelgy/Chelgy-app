@@ -19120,6 +19120,23 @@ const CG_INLINE_CSS = `
 .cg-ovl-seg button.on{background:#EDEBE5;color:#141310;}
 .cg-ovl-done{background:#C8A96A;color:#141310;border:0;padding:9px 18px;border-radius:4px;font-family:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;cursor:pointer;}
 .cg-ovl-body{flex:1;overflow:auto;}
+.cg-ovl-tool{background:transparent;border:1px solid rgba(237,235,229,.35);color:#EDEBE5;padding:7px 13px;border-radius:999px;font-family:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
+.cg-ovl-tool.on{background:#EDEBE5;color:#141310;}
+.cg-panel{position:fixed;top:calc(58px + env(safe-area-inset-top));right:12px;z-index:10000;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 90px);display:flex;flex-direction:column;background:#fff;color:#171512;border:1px solid rgba(23,21,18,.15);border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.25);font-family:'Jost',Helvetica,Arial,sans-serif;overflow:hidden;}
+.cg-panel-h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(23,21,18,.1);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
+.cg-panel-h button{border:0;background:none;font-size:14px;cursor:pointer;color:#555;}
+.cg-panel-note{margin:10px 14px 0;padding:9px 11px;background:#f6f2ea;border-radius:6px;font-size:12px;line-height:1.5;color:#5b5348;}
+.cg-panel-list{overflow:auto;padding:8px 10px;}
+.cg-prow{display:flex;align-items:center;gap:9px;padding:8px 6px;border-bottom:1px solid rgba(23,21,18,.07);}
+.cg-prow.hidden{opacity:.5;}
+.cg-pthumb{flex:none;width:46px;height:46px;border-radius:6px;background:#ece7de center/cover no-repeat;display:grid;place-items:center;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#7a7266;cursor:pointer;text-align:center;line-height:1.2;}
+.cg-pname{flex:1;min-width:0;border:1px solid rgba(23,21,18,.15);border-radius:5px;padding:8px 9px;font-family:inherit;font-size:14px;color:#171512;background:#fff;}
+.cg-pbtns{display:flex;gap:4px;flex:none;}
+.cg-pbtns button{width:30px;height:30px;border:1px solid rgba(23,21,18,.18);background:#fff;border-radius:5px;cursor:pointer;font-size:13px;color:#171512;}
+.cg-pbtns button:disabled{opacity:.3;cursor:default;}
+.cg-padd{margin:10px 14px 14px;padding:11px;border:1px dashed rgba(23,21,18,.35);background:#faf8f4;border-radius:6px;font-family:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:#171512;}
+@media(max-width:640px){.cg-ovl-bar .t{display:none;}.cg-ovl-save{display:none;}}
+
 #cg-site .cg-bgbtn{position:absolute;top:12px;left:12px;z-index:9;background:rgba(20,19,15,.82);color:#fff;font-family:'Jost',Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:8px 13px;border-radius:999px;cursor:pointer;border:1px solid rgba(255,255,255,.35);opacity:.75;transition:opacity .15s;line-height:1.2;}
 [data-edit="1"] #cg-site .cg-bg-ed:hover > .cg-bgbtn{opacity:1;}
 [data-edit="1"] #cg-site .cg-bg-ed{outline:1.5px dashed rgba(70,120,240,.6);outline-offset:-3px;}
@@ -19136,6 +19153,53 @@ const CG_INLINE_CSS = `
 .cg-itools button{font-family:'Jost',Helvetica,Arial,sans-serif;font-size:12px;padding:7px 11px;border:1px solid rgba(23,21,18,.25);background:#fff;color:#171512;cursor:pointer;border-radius:3px;}
 .cg-iadd{font-family:'Jost',Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:9px 15px;border:1px dashed rgba(23,21,18,.4);background:rgba(255,255,255,.7);color:#171512;cursor:pointer;border-radius:3px;margin:10px auto 30px;display:block;}
 `;
+
+
+// How many offering items each theme displays (the rest are kept, just not shown).
+const CG_THEME_ITEM_LIMIT = { duet:5, rouge:4, missive:2, haven:6, linen:5 };
+
+// Items panel — add / remove / reorder / rename / re-photo the site's offering items.
+// Works the same on every theme because it edits the data, not the theme's markup.
+function CgItemsPanel({ draft, mutate, update, onUpload, user, onClose }){
+  const secs = Array.isArray(draft.sections) ? draft.sections : [];
+  const oi = secs.findIndex(x=>x&&x.type==="offerings");
+  const items = oi>=0 && Array.isArray(secs[oi].items) ? secs[oi].items : [];
+  const limit = CG_THEME_ITEM_LIMIT[draft.theme];
+  const [busy,setBusy] = useState(-1);
+  const add = ()=>mutate(d=>{ let k=d.sections.findIndex(x=>x&&x.type==="offerings");
+    if(k<0){ d.sections.push({type:"offerings",title:"Offerings",items:[]}); k=d.sections.length-1; }
+    d.sections[k].items=[...(d.sections[k].items||[]),{name:"New item",note:"A short description.",image:null}]; return d; });
+  const del = j=>{ if(typeof window!=="undefined" && !window.confirm("Remove \""+(items[j].name||"this item")+"\"?")) return; mutate(d=>{ d.sections[oi].items=d.sections[oi].items.filter((_,x)=>x!==j); return d; }); };
+  const move = (j,dir)=>mutate(d=>{ const a=d.sections[oi].items.slice(); const k=j+dir; if(k<0||k>=a.length) return d; const t=a[j]; a[j]=a[k]; a[k]=t; d.sections[oi].items=a; return d; });
+  const photo = (j,e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value="";
+    const r=new FileReader(); r.onload=async()=>{ setBusy(j); const path="sections."+oi+".items."+j+".image";
+      try{ const u=onUpload? await onUpload(r.result,((user&&user.id)?user.id:"site")+"/inline-"+Date.now()+"-"+Math.random().toString(36).slice(2,6)+".png") : null; update(path,{url:u||r.result}); }
+      catch(err){ update(path,{url:r.result}); } setBusy(-1); }; r.readAsDataURL(f); };
+  return (
+    <div className="cg-panel" onClick={e=>e.stopPropagation()}>
+      <div className="cg-panel-h"><span>Items</span><button onClick={onClose} aria-label="Close">✕</button></div>
+      {limit && items.length>limit && <div className="cg-panel-note">{"This theme shows your first "+limit+" items. Move the ones you want featured to the top."}</div>}
+      {oi<0 && <div className="cg-panel-note">This site doesn't have an items section yet. Adding an item creates one.</div>}
+      <div className="cg-panel-list">
+        {items.map((it,j)=>(
+          <div className={"cg-prow"+(limit && j>=limit?" hidden":"")} key={j}>
+            <label className="cg-pthumb" style={it.image&&it.image.url?{backgroundImage:"url("+it.image.url+")"}:undefined} title="Change photo">
+              {busy===j?"…":(it.image&&it.image.url?"":"+ Photo")}
+              <input type="file" accept="image/*" onChange={e=>photo(j,e)} style={{display:"none"}} />
+            </label>
+            <input className="cg-pname" value={it.name||""} placeholder="Item name" onChange={e=>update("sections."+oi+".items."+j+".name", e.target.value)} />
+            <div className="cg-pbtns">
+              <button onClick={()=>move(j,-1)} disabled={j===0} aria-label="Move up">↑</button>
+              <button onClick={()=>move(j,1)} disabled={j===items.length-1} aria-label="Move down">↓</button>
+              <button onClick={()=>del(j)} aria-label="Remove">🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="cg-padd" onClick={add}>+ Add item</button>
+    </div>
+  );
+}
 
 // The full-screen editor overlay. Holds a draft of the site's data, renders the
 // editable mirror live, and debounce-saves through the editor's saveData().
@@ -19155,6 +19219,8 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
   const mutate = useCallback((fn)=>{ setDraft(d=>fn(cgClone(d))); scheduleSave(); },[scheduleSave]);
   useEffect(()=>()=>{ if(timer.current) clearTimeout(timer.current); },[]);
   const ctx = { edit, get, update, mutate, onUpload, user, live:true };
+  const [panel,setPanel] = useState(null);
+  const itemCount = ((draft.sections||[]).find(x=>x&&x.type==="offerings")||{}).items;
   return (
     <div className="cg-ovl">
       <style dangerouslySetInnerHTML={{__html:CG_INLINE_CSS}} />
@@ -19162,10 +19228,12 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
         <span className="t">Edit on page · beta</span>
         <div className="r">
           <span className="cg-ovl-save">{saveState==="saving"?"Saving…":saveState==="error"?"Couldn't save — retrying":"All changes saved"}</span>
+          <button className={"cg-ovl-tool"+(panel==="items"?" on":"")} onClick={()=>setPanel(p=>p==="items"?null:"items")}>{"Items"+(Array.isArray(itemCount)?" ("+itemCount.length+")":"")}</button>
           <div className="cg-ovl-seg"><button className={edit?"on":""} onClick={()=>setEdit(true)}>Edit</button><button className={!edit?"on":""} onClick={()=>setEdit(false)}>Preview</button></div>
           <button className="cg-ovl-done" onClick={onClose}>Done</button>
         </div>
       </div>
+      {panel==="items" && <CgItemsPanel draft={draft} mutate={mutate} update={update} onUpload={onUpload} user={user} onClose={()=>setPanel(null)} />}
       <div className="cg-ovl-body" data-edit={edit?"1":"0"} onClickCapture={e=>{ const t=e.target; if(t&&t.closest&&t.closest("a")) e.preventDefault(); }}>
         <CgEditCtx.Provider value={ctx}>
           <SiteRenderInner site={draft} />
