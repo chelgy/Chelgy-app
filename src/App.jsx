@@ -13024,15 +13024,15 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
   }
   const [secBusy,setSecBusy]=useState(false);
   function curSections(){ return (wmExisting&&wmExisting.data&&Array.isArray(wmExisting.data.sections))?wmExisting.data.sections:[]; }
-  async function saveSections(newSecs){
+  async function saveSections(newSecs, reordered){
     if(!wmExisting) return; setSecBusy(true); setWmErr("");
-    try{ const d=JSON.parse(JSON.stringify(wmExisting.data||{})); d.sections=newSecs; await saveData(d); setWmPreview(p=>p+1); }
+    try{ const d=JSON.parse(JSON.stringify(wmExisting.data||{})); d.sections=newSecs; if(reordered) d.orderMode="custom"; await saveData(d); setWmPreview(p=>p+1); }
     catch(e){ setWmErr("Couldn't save your layout — please try again."); }
     setSecBusy(false);
   }
   async function addSection(type){ const secs=curSections().slice(); const contactAt=secs.findIndex(s=>s&&s.type==="contact"); const item=defaultSection(type); if(contactAt>=0){ secs.splice(contactAt,0,item); } else { secs.push(item); } await saveSections(secs); }
   async function removeSection(idx){ const secs=curSections().slice(); if(idx<0||idx>=secs.length) return; secs.splice(idx,1); await saveSections(secs); }
-  async function moveSection(idx,dir){ const secs=curSections().slice(); const j=idx+dir; if(j<0||j>=secs.length) return; const t=secs[idx]; secs[idx]=secs[j]; secs[j]=t; await saveSections(secs); }
+  async function moveSection(idx,dir){ const secs=curSections().slice(); const j=idx+dir; if(j<0||j>=secs.length) return; const t=secs[idx]; secs[idx]=secs[j]; secs[j]=t; await saveSections(secs, true); }
   useEffect(()=>{
     if(!WM_TOOLS.includes(tool)||!user||!user.id) return;
     let cancel=false;
@@ -17577,13 +17577,13 @@ function CollageLayout({ site }) {
         {brand.logo ? <img className="brandlogo" src={brand.logo} alt={brand.name || ""} style={{ height: 44 }} /> : <div className="brand"><CgText bare path={"brand.name"} v={brand.name || "Your Brand"} placeholder={"Your Brand"} /></div>}
         <nav className="menu">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}<a href="#s-contact" className="btn-pill" style={{ padding: "10px 22px" }}>Book</a></nav>
       </div></header>
-      {hero && <section className="hero" id="s-top"><div className="hero-card"><CgBg as="div" path={cgPath(sections,hero,"image")} className="hero-img" style={bgi(url(hero.image))}></CgBg>{!url(hero.image) && <span className="hero-cap">Hero imagery</span>}<span className="badge">hi!</span><div className="hero-inner">{hero.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,hero,"eyebrow")} v={hero.eyebrow} /></div>}<h1><CgText bare path={cgPath(sections,hero,"headline")} v={hero.headline} /> {hero.headlineEm && <span className="script"><CgText bare path={cgPath(sections,hero,"headlineEm")} v={hero.headlineEm} /></span>}</h1>{hero.cta && <a href="#s-contact" className="btn-pill light"><CgText bare path={cgPath(sections,hero,"cta.label")} v={hero.cta.label} /></a>}</div></div></section>}
-      {phil && <section className="statement wrap" id="s-about"><div>{phil.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm && <em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</h2>{phil.body && phil.body[0] && <p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}</div></section>}
+      {hero && <section className="hero" id="s-top"><div className="hero-card"><CgBg as="div" path={cgPath(sections,hero,"image")} className="hero-img" style={bgi(url(hero.image))}></CgBg>{!url(hero.image) && <span className="hero-cap">Hero imagery</span>}<span className="badge">hi!</span><div className="hero-inner">{hero.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,hero,"eyebrow")} v={hero.eyebrow} /></div>}<h1><CgText bare path={cgPath(sections,hero,"headline")} v={hero.headline} /> {hero.headlineEm && <span className="script"><CgText bare path={cgPath(sections,hero,"headlineEm")} v={hero.headlineEm} /></span>}</h1>{hero.cta && <a href="#s-contact" className="btn-pill light"><CgText bare path={cgPath(sections,hero,"cta.label")} v={hero.cta.label} /></a>}</div></div></section>}<CgSlot site={s} after={["hero"]} />
+      {phil && <section className="statement wrap" id="s-about"><div>{phil.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm && <em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</h2>{phil.body && phil.body[0] && <p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}</div></section>}<CgSlot site={s} after={["philosophy"]} />
       <div className="marquee"><div><span>{mq}</span><span>{mq}</span></div></div>
-      {about && <section className="meet" id="s-work"><div className="wrap meet-grid"><div className="collage"><div className="polaroid p1"><CgBg as="div" path={cgUrlPath(sections,pics[0] || null)} className="ph" style={bgi(pics[0] || null)}></CgBg></div><div className="polaroid p2"><CgBg as="div" path={cgUrlPath(sections,pics[1] || null)} className="ph" style={bgi(pics[1] || null)}></CgBg></div><div className="polaroid p3"><CgBg as="div" path={cgUrlPath(sections,pics[2] || null)} className="ph" style={bgi(pics[2] || null)}></CgBg></div></div><div>{about.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,about,"eyebrow")} v={about.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} />{about.headingEm && <span className="script"> <CgText bare path={cgPath(sections,about,"headingEm")} v={about.headingEm} /></span>}</h2>{(about.body || []).map((p, j) => <p key={j}><CgText bare path={cgPath(sections,about,"body."+j)} v={p} /></p>)}<a href="#s-contact" className="btn-pill light">Meet me</a></div></div></section>}
-      {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow} /></div>}{off.title && <h3><CgText bare path={cgPath(sections,off,"title")} v={off.title} /></h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j} data-cg-prod={j}><CgBg as="div" path={cgPath(sections,off,"items."+j+".image")} className="ph" style={bgi(url(it.image))}></CgBg><div className="nm"><CgText bare path={cgPath(sections,off,"items."+j+".name")} v={it.name} /></div><div className="meta"><span><CgText bare path={cgPath(sections,off,"items."+j+".note")} v={it.note} /></span>{it.price && <span className="price"><CgText bare path={cgPath(sections,off,"items."+j+".price")} v={it.price} /></span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}
-      {quote && <section className="quote wrap"><div><p><CgText bare path={cgPath(sections,quote,"text")} v={quote.text} /></p>{quote.cite && <cite><CgText bare path={cgPath(sections,quote,"cite")} v={quote.cite} /></cite>}</div></section>}
-      {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,contact,"eyebrow")} v={contact.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,contact,"heading")} v={contact.heading} />{contact.headingEm && <em> <CgText bare path={cgPath(sections,contact,"headingEm")} v={contact.headingEm} /></em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}><CgText bare path={cgPath(sections,contact,"details."+j+".v")} v={d.v} /></span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a></div>}</div></div></section>}
+      {about && <section className="meet" id="s-work"><div className="wrap meet-grid"><div className="collage"><div className="polaroid p1"><CgBg as="div" path={cgUrlPath(sections,pics[0] || null)} className="ph" style={bgi(pics[0] || null)}></CgBg></div><div className="polaroid p2"><CgBg as="div" path={cgUrlPath(sections,pics[1] || null)} className="ph" style={bgi(pics[1] || null)}></CgBg></div><div className="polaroid p3"><CgBg as="div" path={cgUrlPath(sections,pics[2] || null)} className="ph" style={bgi(pics[2] || null)}></CgBg></div></div><div>{about.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,about,"eyebrow")} v={about.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} />{about.headingEm && <span className="script"> <CgText bare path={cgPath(sections,about,"headingEm")} v={about.headingEm} /></span>}</h2>{(about.body || []).map((p, j) => <p key={j}><CgText bare path={cgPath(sections,about,"body."+j)} v={p} /></p>)}<a href="#s-contact" className="btn-pill light">Meet me</a></div></div></section>}<CgSlot site={s} after={["about"]} />
+      {off && <section className="offer wrap" id="s-offerings"><div className="offer-head">{off.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow} /></div>}{off.title && <h3><CgText bare path={cgPath(sections,off,"title")} v={off.title} /></h3>}</div><div className="cards">{(off.items || []).map((it, j) => <div className="card" key={j} data-cg-prod={j}><CgBg as="div" path={cgPath(sections,off,"items."+j+".image")} className="ph" style={bgi(url(it.image))}></CgBg><div className="nm"><CgText bare path={cgPath(sections,off,"items."+j+".name")} v={it.name} /></div><div className="meta"><span><CgText bare path={cgPath(sections,off,"items."+j+".note")} v={it.note} /></span>{it.price && <span className="price"><CgText bare path={cgPath(sections,off,"items."+j+".price")} v={it.price} /></span>}</div>{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn-pill" style={{ marginTop: 14, padding: "9px 20px", fontSize: "0.62rem" }}>Shop</a>}</div>)}</div></section>}<CgSlot site={s} after={["offerings"]} />
+      {quote && <section className="quote wrap"><div><p><CgText bare path={cgPath(sections,quote,"text")} v={quote.text} /></p>{quote.cite && <cite><CgText bare path={cgPath(sections,quote,"cite")} v={quote.cite} /></cite>}</div></section>}<CgSlot site={s} after={["quote"]} />
+      {contact && <section className="contact" id="s-contact"><div className="wrap"><div className="contact-card">{contact.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,contact,"eyebrow")} v={contact.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,contact,"heading")} v={contact.heading} />{contact.headingEm && <em> <CgText bare path={cgPath(sections,contact,"headingEm")} v={contact.headingEm} /></em>}</h2>{(contact.details || []).map((d, j) => <span className="line" key={j}><CgText bare path={cgPath(sections,contact,"details."+j+".v")} v={d.v} /></span>)}{contact.cta && <div><a href="#" className="btn-pill light" style={{ marginTop: 22 }}><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a></div>}</div></div></section>}<CgSlot site={s} after={["contact"]} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="brand"><CgText bare path={"brand.name"} v={brand.name || "Your Brand"} placeholder={"Your Brand"} /></div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}><CgText bare path={"brand.footerNote"} v={brand.footerNote || "© 2026"} placeholder={"© 2026"} /></div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
     </div>
@@ -17700,31 +17700,31 @@ function DuetLayout({ site }) {
           {duetName(brand.name)}
           {hero && hero.sub && <div className="sub"><CgText bare path={cgPath(sections,hero,"sub")} v={hero.sub} /></div>}
         </div>
-      </section>
+      </section><CgSlot site={s} after={["hero"]} />
       {(phil || hero) && <section className="statement wrap" id="s-about"><div>
         {phil && phil.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow} /></div>}
         <h2><CgText bare path={(phil && phil.heading)?cgPath(sections,phil,"heading"):(hero && hero.headline)?cgPath(sections,hero,"headline"):cgPath(sections,phil,"heading")} v={(phil && phil.heading) || (hero && hero.headline)} />{phil && phil.headingEm && <em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}{!phil && hero && hero.headlineEm && <em> <CgText bare path={cgPath(sections,hero,"headlineEm")} v={hero.headlineEm} /></em>}</h2>
         {phil && phil.body && phil.body[0] && <p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}
         <a href="#s-offerings" className="btn-out"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero && hero.cta && hero.cta.label) || "View the work"} placeholder={"View the work"} /></a>
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["philosophy"]} />
       {ed && <section className="framed wrap"><div className="framed-grid">
         <div className="stack"><CgBg as="div" path={cgUrlPath(sections,gi(2))} className="ph tall" style={bgi(gi(2))}></CgBg><CgBg as="div" path={cgUrlPath(sections,gi(3))} className="ph wide" style={bgi(gi(3))}></CgBg></div>
         <div className="mid">{ed.eyebrow && <div className="lab"><CgText bare path={cgPath(sections,ed,"eyebrow")} v={ed.eyebrow} /></div>}<div className="big"><CgText bare path={cgPath(sections,ed,"line")} v={ed.line} />{ed.lineEm && <em> <CgText bare path={cgPath(sections,ed,"lineEm")} v={ed.lineEm} /></em>}</div><a href="#s-contact" className="btn-out">Book now</a></div>
         <div className="stack"><CgBg as="div" path={cgUrlPath(sections,gi(4))} className="ph wide" style={bgi(gi(4))}></CgBg><CgBg as="div" path={cgUrlPath(sections,gi(5))} className="ph tall" style={bgi(gi(5))}></CgBg></div>
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["editorial"]} />
       {off && <section className="services" id="s-offerings"><div className="wrap services-grid">
         <div>{off.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow} /></div>}{off.title && <h3><CgText bare path={cgPath(sections,off,"title")} v={off.title} /></h3>}
           {items.map((it, j) => <div className="svc" key={j}><div className="no">{("0" + (j + 1)).slice(-2)}</div><div><div className="nm"><CgText bare path={cgPath(sections,off,"items."+j+".name")} v={it.name} /></div>{it.buyUrl && <a className="shop" href={it.buyUrl} target="_blank" rel="noreferrer">Shop</a>}</div>{it.price && <div className="pr"><CgText bare path={cgPath(sections,off,"items."+j+".price")} v={it.price} /></div>}</div>)}
         </div>
         <CgBg as="div" path={cgUrlPath(sections,gi(2) || gi(0))} className="pic" style={bgi(gi(2) || gi(0))}></CgBg>
-      </div></section>}
-      {quote && <section className="quote wrap"><div><p><CgText bare path={cgPath(sections,quote,"text")} v={quote.text} /></p>{quote.cite && <cite><CgText bare path={cgPath(sections,quote,"cite")} v={quote.cite} /></cite>}</div></section>}
+      </div></section>}<CgSlot site={s} after={["offerings"]} />
+      {quote && <section className="quote wrap"><div><p><CgText bare path={cgPath(sections,quote,"text")} v={quote.text} /></p>{quote.cite && <cite><CgText bare path={cgPath(sections,quote,"cite")} v={quote.cite} /></cite>}</div></section>}<CgSlot site={s} after={["quote"]} />
       {contact && <section className="contact wrap" id="s-contact"><div>
         {contact.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,contact,"eyebrow")} v={contact.eyebrow} /></div>}
         <h2><CgText bare path={cgPath(sections,contact,"heading")} v={contact.heading} />{contact.headingEm && <em> <CgText bare path={cgPath(sections,contact,"headingEm")} v={contact.headingEm} /></em>}</h2>
         <div className="rows">{(contact.details || []).map((d, j) => <div key={j}><div className="k"><CgText bare path={cgPath(sections,contact,"details."+j+".k")} v={d.k} /></div><div className="v"><CgText bare path={cgPath(sections,contact,"details."+j+".v")} v={d.v} /></div></div>)}</div>
         {contact.cta && <a href="#" className="btn-out"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["contact"]} />
       <StandardSections site={s} show={{about:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="wm"><CgText bare path={"brand.name"} v={brand.name || "Your Brand"} placeholder={"Your Brand"} /></div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}><CgText bare path={"brand.footerNote"} v={brand.footerNote || "© 2026"} placeholder={"© 2026"} /></div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
@@ -17826,15 +17826,15 @@ function RougeLayout({ site }) {
         {hero && hero.eyebrow && <div className="label"><CgText bare path={cgPath(sections,hero,"eyebrow")} v={hero.eyebrow} /></div>}
         {loc && <div className="loc">{loc.v}</div>}
         <div className="wordmark"><CgText bare path={"brand.name"} v={brand.name || "Your Brand"} placeholder={"Your Brand"} /></div>
-      </section>
+      </section><CgSlot site={s} after={["hero"]} />
       {phil && <section className="intro wrap" id="s-about"><div className="intro-grid">
         <div>{phil.eyebrow && <div className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow} /></div>}<h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm && <span className="script"> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></span>}</h2>{phil.body && phil.body[0] && <p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}<a href="#s-offerings" className="btn"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero && hero.cta && hero.cta.label) || "Learn more"} placeholder={"Learn more"} /></a></div>
         <CgBg as="div" path={cgUrlPath(sections,gi(2))} className="pic" style={bgi(gi(2))}></CgBg>
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["philosophy"]} />
       {ed && <section className="redblock" id="s-work"><div className="wrap red-grid">
         <div className="scatter"><div className="pola s1"><CgBg as="div" path={cgUrlPath(sections,gi(3) || gi(0))} className="ph" style={bgi(gi(3) || gi(0))}></CgBg></div><div className="pola s2"><CgBg as="div" path={cgUrlPath(sections,gi(4) || gi(1))} className="ph" style={bgi(gi(4) || gi(1))}></CgBg></div><div className="pola s3"><CgBg as="div" path={cgUrlPath(sections,gi(5) || gi(2))} className="ph" style={bgi(gi(5) || gi(2))}></CgBg></div></div>
         <div>{ed.eyebrow && <div className="tag">[ <CgText bare path={cgPath(sections,ed,"eyebrow")} v={ed.eyebrow} /> ]</div>}<h2><CgText bare path={cgPath(sections,ed,"line")} v={ed.line} />{ed.lineEm && <span className="script"> <CgText bare path={cgPath(sections,ed,"lineEm")} v={ed.lineEm} /></span>}</h2><a href="#s-offerings" className="btn cream">Learn more</a></div>
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["editorial"]} />
       <div className="marquee"><div><span>{"★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★  "}</span><span>{"★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★ " + ((off && off.title) || "Our Offerings") + " ★  "}</span></div></div>
       {off && <section className="services wrap" id="s-offerings">
         <div className="big"><CgText bare path={cgPath(sections,off,"title")} v={off.title || "Signature Services"} placeholder={"Signature Services"} /></div>
@@ -17843,13 +17843,13 @@ function RougeLayout({ site }) {
           <div className="pics"><CgBg as="div" path={cgUrlPath(sections,gi(2))} className="ph" style={bgi(gi(2))}></CgBg><CgBg as="div" path={cgUrlPath(sections,gi(3) || gi(0))} className="ph" style={bgi(gi(3) || gi(0))}></CgBg></div>
           <div>{items.map((it, j) => <div key={j} style={{ marginBottom: 22 }}><h3><CgText bare path={cgPath(sections,off,"items."+j+".name")} v={it.name} /></h3>{it.price && <div className="price"><CgText bare path={cgPath(sections,off,"items."+j+".price")} v={it.price} /></div>}{it.note && <ul><li><CgText bare path={cgPath(sections,off,"items."+j+".note")} v={it.note} /></li></ul>}{it.buyUrl && <a href={it.buyUrl} target="_blank" rel="noreferrer" className="btn" style={{ marginTop: 4 }}>Shop</a>}</div>)}{!items.some(it => it.buyUrl) && <a href="#s-contact" className="btn">Book now</a>}</div>
         </div>
-      </section>}
+      </section>}<CgSlot site={s} after={["offerings"]} />
       {contact && <section className="contact" id="s-contact"><div className="wrap">
         {contact.eyebrow && <div className="eyebrow" style={{ color: "rgba(247,242,232,0.9)" }}><CgText bare path={cgPath(sections,contact,"eyebrow")} v={contact.eyebrow} /></div>}
         <h2><CgText bare path={cgPath(sections,contact,"heading")} v={contact.heading} />{contact.headingEm && <span className="script"> <CgText bare path={cgPath(sections,contact,"headingEm")} v={contact.headingEm} /></span>}</h2>
         <div className="kick">let's talk</div>
         {contact.cta && <a href="#" className="btn cream"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["contact"]} />
       <StandardSections site={s} show={{about:true,quote:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="wrap"><div className="bm"><CgText bare path={"brand.name"} v={brand.name || "Your Brand"} placeholder={"Your Brand"} /></div><nav className="fnav">{(brand.nav || []).map((n, i) => <a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--mid)" }}><CgText bare path={"brand.footerNote"} v={brand.footerNote || "© 2026"} placeholder={"© 2026"} /></div></div></footer>
       {s.credit !== false && <div className="credit"><span><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></span></div>}
@@ -17936,11 +17936,11 @@ function VigorLayout({ site }){
           <div className="hero-word"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div>
           {hero&&hero.sub&&<p className="hero-estd"><CgText bare path={cgPath(sections,hero,"sub")} v={hero.sub} /></p>}
         </div>
-      </section>
+      </section><CgSlot site={s} after={["hero"]} />
       {phil&&<section className="welcome" id="s-about">
         <p className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"Welcome"} placeholder={"Welcome"} /></p>
         <h1 className="headline"><span className="l1"><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /></span>{phil.headingEm&&<span className="l2"><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></span>}</h1>
-      </section>}
+      </section>}<CgSlot site={s} after={["philosophy"]} />
       {about&&<section className="intro"><div className="grid">
         <CgBg as="div" path={cgPath(sections,about,"image")} className="img-slot" style={bgi(url(about.image))}></CgBg>
         <div>
@@ -17948,16 +17948,16 @@ function VigorLayout({ site }){
           {about.body&&about.body[0]&&<p className="body"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}
           <a className="btn" href="#s-offerings"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"Explore"} placeholder={"Explore"} /></a>
         </div>
-      </div></section>}
+      </div></section>}<CgSlot site={s} after={["about"]} />
       {off&&<section className="vg-classes" id="s-offerings">
         {off.eyebrow&&<p className="eyebrow"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow} /></p>}
         {(off.items||[]).map((it,i)=><div className="vg-row" key={i}><div className="nm"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></div><div className="pr"><CgText bare path={cgPath(sections,off,"items."+i+".note")} v={it.note} />{it.price?(" · "+it.price):""}{it.buyUrl&&<a className="shop" href={it.buyUrl} target="_blank" rel="noreferrer">Shop</a>}</div></div>)}
-      </section>}
+      </section>}<CgSlot site={s} after={["offerings"]} />
       {contact&&<section className="cta" id="s-contact">
         <h2><CgText bare path={cgPath(sections,contact,"heading")} v={contact.heading} />{contact.headingEm?(" "+contact.headingEm):""}</h2>
         {contact.details&&contact.details[0]&&<p>{contact.details.map((d,__cgi)=>d.v).join("   ·   ")}</p>}
         {contact.cta&&<a className="btn light" href="#"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}
-      </section>}
+      </section>}<CgSlot site={s} after={["contact"]} />
       <StandardSections site={s} show={{quote:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} /></div>{s.credit!==false&&<div className="foot-bar" style={{marginTop:14}}><a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></div>}</footer>
     </div>
@@ -18029,10 +18029,10 @@ function AureliaLayout({ site }){
       <section className="hero" id="s-top">
         <CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg>
         {hero&&<h1 className="hero-title"><CgText bare path={cgPath(sections,hero,"headline")} v={hero.headline} /></h1>}
-      </section>
+      </section><CgSlot site={s} after={["hero"]} />
       {(phil||hero)&&<div className="band"><p className="eyebrow"><CgText bare path={(phil&&phil.eyebrow)?cgPath(sections,phil,"eyebrow"):(hero&&hero.sub)?cgPath(sections,hero,"sub"):cgPath(sections,phil,"eyebrow")} v={(phil&&phil.eyebrow)||(hero&&hero.sub)||""} placeholder={""} /></p></div>}
-      {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></CgBg></div><div className="label"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></div></a>)}</section>}
-      {phil&&<section className="manifesto" id="s-about"><p><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /> {phil.headingEm&&<em><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>} <CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body&&phil.body[0]?phil.body[0]:""} /></p><a className="btn-outline" href="#s-work"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"View gallery"} placeholder={"View gallery"} /></a></section>}
+      {off&&<section className="grid" id="s-work">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="frame"><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className={"img-slot"+(i%3===2?" cool":"")} style={bgi(url(it.image))}></CgBg></div><div className="label"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></div></a>)}</section>}<CgSlot site={s} after={["offerings"]} />
+      {phil&&<section className="manifesto" id="s-about"><p><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /> {phil.headingEm&&<em><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>} <CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body&&phil.body[0]?phil.body[0]:""} /></p><a className="btn-outline" href="#s-work"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"View gallery"} placeholder={"View gallery"} /></a></section>}<CgSlot site={s} after={["philosophy"]} />
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-top"><div className="foot-logo"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#"><CgText bare path={cgPath(sections,contact,"details."+i+".v")} v={d.v} /></a>)}</nav></div><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18120,12 +18120,12 @@ function ClaretLayout({ site }){
         <div className="bg"><CgBg as="div" path={cgUrlPath(sections,gi(0))} className="img-slot" style={bgi(gi(0))}></CgBg></div>
         <div className="hero-inner"><div className="wordmark"><h1><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></h1><div className="inset"><CgBg as="div" path={cgUrlPath(sections,gi(1))} className="img-slot" style={bgi(gi(1))}></CgBg></div></div></div>
         <div className="hero-foot"><span><CgText bare path={cgPath(sections,hero,"eyebrow")} v={(hero&&hero.eyebrow)||"Studio"} placeholder={"Studio"} /></span><span className="rule"></span><span>{loc?loc.v:((hero&&hero.sub)||"")}</span></div>
-      </section>
-      {phil&&<section className="about" id="s-about"><p className="eyebrow c"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"About"} placeholder={"About"} /></p><h2 className="stmt"><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm&&<em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</h2><a className="btn on-wine" href="#s-work"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"Learn more"} placeholder={"Learn more"} /></a></section>}
+      </section><CgSlot site={s} after={["hero"]} />
+      {phil&&<section className="about" id="s-about"><p className="eyebrow c"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"About"} placeholder={"About"} /></p><h2 className="stmt"><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm&&<em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</h2><a className="btn on-wine" href="#s-work"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"Learn more"} placeholder={"Learn more"} /></a></section>}<CgSlot site={s} after={["philosophy"]} />
       <div className="strip">{[0,1,2,3,4].map(i=><CgBg as="div" path={cgUrlPath(sections,gi(2+i)||gi(0))} className="img-slot" key={i} style={bgi(gi(2+i)||gi(0))}></CgBg>)}</div>
-      {about&&<section className="work" id="s-work"><div className="ghost" aria-hidden="true">{(brand.name||"")+" "+(brand.name||"")}</div><div className="grid"><div><p className="eyebrow i"><CgText bare path={cgPath(sections,about,"eyebrow")} v={about.eyebrow||"Our work"} placeholder={"Our work"} /></p><h2 className="stmt"><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} />{about.headingEm&&<em> <CgText bare path={cgPath(sections,about,"headingEm")} v={about.headingEm} /></em>}</h2>{about.body&&about.body[0]&&<p className="body"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}<a className="btn on-cream" href="#s-offerings">View more</a></div><div className="stack"><CgBg as="div" path={cgUrlPath(sections,gi(1))} className="img-slot" style={bgi(gi(1))}></CgBg><CgBg as="div" path={cgUrlPath(sections,gi(3))} className="img-slot wine" style={bgi(gi(3))}></CgBg></div></div></section>}
-      {off&&<section className="services" id="s-offerings"><span className="eyebrow c"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow||"Our services"} placeholder={"Our services"} /></span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}
-      {bandStmt&&bandStmt.line&&<section className="band" id="s-contact"><h2 className="stmt">{bandStmt.line}{bandStmt.em&&<em> {bandStmt.em}</em>}</h2>{contact&&contact.cta&&<a className="btn on-wine" href="#"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}</section>}
+      {about&&<section className="work" id="s-work"><div className="ghost" aria-hidden="true">{(brand.name||"")+" "+(brand.name||"")}</div><div className="grid"><div><p className="eyebrow i"><CgText bare path={cgPath(sections,about,"eyebrow")} v={about.eyebrow||"Our work"} placeholder={"Our work"} /></p><h2 className="stmt"><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} />{about.headingEm&&<em> <CgText bare path={cgPath(sections,about,"headingEm")} v={about.headingEm} /></em>}</h2>{about.body&&about.body[0]&&<p className="body"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}<a className="btn on-cream" href="#s-offerings">View more</a></div><div className="stack"><CgBg as="div" path={cgUrlPath(sections,gi(1))} className="img-slot" style={bgi(gi(1))}></CgBg><CgBg as="div" path={cgUrlPath(sections,gi(3))} className="img-slot wine" style={bgi(gi(3))}></CgBg></div></div></section>}<CgSlot site={s} after={["about"]} />
+      {off&&<section className="services" id="s-offerings"><span className="eyebrow c"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow||"Our services"} placeholder={"Our services"} /></span>{(off.items||[]).map((it,i)=><div className="svc" key={i}><span className="name"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span><span className="num">{it.price||WD[i]||String(i+1)}</span></div>)}</section>}<CgSlot site={s} after={["offerings"]} />
+      {bandStmt&&bandStmt.line&&<section className="band" id="s-contact"><h2 className="stmt">{bandStmt.line}{bandStmt.em&&<em> {bandStmt.em}</em>}</h2>{contact&&contact.cta&&<a className="btn on-wine" href="#"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}</section>}<CgSlot site={s} after={["editorial","quote"]} />
       <StandardSections site={s} show={{contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot"><div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18201,9 +18201,9 @@ function NocturneLayout({ site }){
       <section className="hero" id="s-top">
         <CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg>
         <div className="hero-copy">{hero&&<h1><CgText bare path={cgPath(sections,hero,"headline")} v={hero.headline} /></h1>}{phil&&phil.eyebrow&&<p className="sub"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow} /></p>}{hero&&hero.cta&&<a className="btn-out" href="#s-offerings"><span className="hrt">&#9825;</span><CgText bare path={cgPath(sections,hero,"cta.label")} v={hero.cta.label} /><span className="hrt">&#9825;</span></a>}</div>
-      </section>
-      {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg></div><div className="label"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></div></a>)}</div></section>}
-      {phil&&<section className="store" id="s-about"><p className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"Welcome"} placeholder={"Welcome"} /></p><h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}
+      </section><CgSlot site={s} after={["hero"]} />
+      {off&&<section className="cats" id="s-offerings"><div className="cats-track">{items.map((it,i)=><a className="cat" href={it.buyUrl||"#s-about"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><div className="ring"><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg></div><div className="label"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></div></a>)}</div></section>}<CgSlot site={s} after={["offerings"]} />
+      {phil&&<section className="store" id="s-about"><p className="eyebrow"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"Welcome"} placeholder={"Welcome"} /></p><h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm?(" "+phil.headingEm):""}</h2>{phil.body&&phil.body[0]&&<p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}<a className="btn-out" href="#s-offerings">Shop now</a></section>}<CgSlot site={s} after={["philosophy"]} />
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}{contact&&(contact.details||[]).map((d,i)=><a key={"d"+i} href="#"><CgText bare path={cgPath(sections,contact,"details."+i+".v")} v={d.v} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18277,9 +18277,9 @@ function SableLayout({ site }){
         <div className="pane"><CgBg as="div" path={cgUrlPath(sections,gi(0))} className="img-slot" style={bgi(gi(0))}></CgBg><a className="cap left" href="#s-offerings">View portfolio</a></div>
         <div className="pane"><CgBg as="div" path={cgUrlPath(sections,gi(1)||gi(0))} className="img-slot" style={bgi(gi(1)||gi(0))}></CgBg><a className="cap right" href="#s-offerings">Discover services</a></div>
         <div className="mark" aria-hidden="true">{(brand.name||"S").trim().charAt(0)}</div>
-      </div></section>
-      {phil&&<section className="headline" id="s-about"><h1><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm&&<em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</h1>{phil.body&&phil.body[0]&&<p className="sub"><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}</section>}
-      {off&&<section className="services" id="s-offerings"><div className="grid"><div><span className="eyebrow"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow||"Full-spectrum services"} placeholder={"Full-spectrum services"} /></span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span></li>)}</ul></div><CgBg as="div" path={cgUrlPath(sections,gi(2)||gi(0))} className="img-slot" style={bgi(gi(2)||gi(0))}></CgBg></div></section>}
+      </div></section><CgSlot site={s} after={["hero"]} />
+      {phil&&<section className="headline" id="s-about"><h1><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} />{phil.headingEm&&<em> <CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</h1>{phil.body&&phil.body[0]&&<p className="sub"><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}</section>}<CgSlot site={s} after={["philosophy"]} />
+      {off&&<section className="services" id="s-offerings"><div className="grid"><div><span className="eyebrow"><CgText bare path={cgPath(sections,off,"eyebrow")} v={off.eyebrow||"Full-spectrum services"} placeholder={"Full-spectrum services"} /></span><ul className="svc-list">{(off.items||[]).map((it,i)=><li key={i}><span className="num">{("0"+(i+1)).slice(-2)}</span><span className="name"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span></li>)}</ul></div><CgBg as="div" path={cgUrlPath(sections,gi(2)||gi(0))} className="img-slot" style={bgi(gi(2)||gi(0))}></CgBg></div></section>}<CgSlot site={s} after={["offerings"]} />
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact">{tagline&&<p className="tagline">{tagline}</p>}<div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18362,11 +18362,11 @@ function MissiveLayout({ site }){
         <div className="bg"><CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg></div>
         <div className="hero-inner"><span className="script"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></span>{hero&&(hero.sub||hero.headline)&&<p className="sub"><CgText bare path={(hero.sub)?cgPath(sections,hero,"sub"):(hero.headline)?cgPath(sections,hero,"headline"):cgPath(sections,hero,"sub")} v={hero.sub||hero.headline} /></p>}</div>
         <div className="nav-cue"><div className="script">navigate</div><div className="bar"></div></div>
-      </section>
-      {about&&<section className="about" id="s-about"><div className="grid"><div className="frame"><div className="flabel">About</div><div className="polaroid"><CgBg as="div" path={cgPath(sections,about,"image")} className="img-slot" style={bgi(url(about.image))}></CgBg></div></div><div><h2><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} />{about.headingEm?(" "+about.headingEm):""}</h2>{about.body&&about.body[0]&&<p className="role"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}<a className="btn" href="#s-contact">My story</a></div></div></section>}
-      {qtext&&<section className="qband"><CgBg as="div" path={cgUrlPath(sections,qimg)} className="img-slot" style={bgi(qimg)}></CgBg><div className="qtext"><p className="script">{qtext}</p></div></section>}
-      {phil&&<section className="welcome"><p><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /> {phil.headingEm&&<em><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</p></section>}
-      {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg><span className="clabel"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span></a>)}</section>}
+      </section><CgSlot site={s} after={["hero"]} />
+      {about&&<section className="about" id="s-about"><div className="grid"><div className="frame"><div className="flabel">About</div><div className="polaroid"><CgBg as="div" path={cgPath(sections,about,"image")} className="img-slot" style={bgi(url(about.image))}></CgBg></div></div><div><h2><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} />{about.headingEm?(" "+about.headingEm):""}</h2>{about.body&&about.body[0]&&<p className="role"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}<a className="btn" href="#s-contact">My story</a></div></div></section>}<CgSlot site={s} after={["about"]} />
+      {qtext&&<section className="qband"><CgBg as="div" path={cgUrlPath(sections,qimg)} className="img-slot" style={bgi(qimg)}></CgBg><div className="qtext"><p className="script">{qtext}</p></div></section>}<CgSlot site={s} after={["quote","editorial"]} />
+      {phil&&<section className="welcome"><p><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /> {phil.headingEm&&<em><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></em>}</p></section>}<CgSlot site={s} after={["philosophy"]} />
+      {off&&items.length>0&&<section className="cats" id="s-work">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg><span className="clabel"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span></a>)}</section>}<CgSlot site={s} after={["offerings"]} />
       <StandardSections site={s} show={{contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><div className="foot-sub"><CgText bare path={cgPath(sections,contact,"cta.label")} v={(contact&&contact.cta&&contact.cta.label)||"let's create together"} placeholder={"let's create together"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18425,11 +18425,11 @@ function HavenLayout({ site }){
         <section className="hero" id="s-top">
           <div className="topbar">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<div className="brand"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div>}<div className="right"><nav className="main">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><span className="cart">Cart · 0</span></div></div>
           <CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg>
-        </section>
+        </section><CgSlot site={s} after={["hero"]} />
         <section className="feature" id="s-offerings">
           <h1><CgText bare path={(hero&&hero.headline)?cgPath(sections,hero,"headline"):(phil&&phil.heading)?cgPath(sections,phil,"heading"):cgPath(sections,hero,"headline")} v={(hero&&hero.headline)||(phil&&phil.heading)||"Beautiful things for calm spaces."} placeholder={"Beautiful things for calm spaces."} /></h1>
           <div className="tiles">{items.map((it,i)=>{const body=[<div className="pad" key="p"><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg></div>,<div className="name" key="n"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></div>];if(it.price)body.push(<div className="price" key="pr"><CgText bare path={cgPath(sections,off,"items."+i+".price")} v={it.price} /></div>);return it.buyUrl?<a className="tile" key={i} data-cg-prod={i} href={it.buyUrl} target="_blank" rel="noreferrer">{body}</a>:<div className="tile" key={i} data-cg-prod={i}>{body}</div>;})}</div>
-        </section>
+        </section><CgSlot site={s} after={["offerings","philosophy"]} />
         <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="fmark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-copy"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
       </div>
     </div>
@@ -18508,10 +18508,10 @@ function LinenLayout({ site }){
         <div className="brand"><div className="name"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div>{tag&&<div className="tag">{tag}</div>}</div>
         <div className="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg></div>
       </header>
-      <section className="hero" id="s-top"><div className="bg"><CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg></div><div className="hero-inner"><p className="kicker"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={(phil&&phil.eyebrow)||"Timeless pieces for modern spaces"} placeholder={"Timeless pieces for modern spaces"} /></p><h1><CgText bare path={cgPath(sections,hero,"headline")} v={(hero&&hero.headline)||"Beautifully made for everyday living."} placeholder={"Beautifully made for everyday living."} /></h1><a className="pill-out" href="#s-cats"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"Shop now"} placeholder={"Shop now"} /></a></div></section>
+      <section className="hero" id="s-top"><div className="bg"><CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg></div><div className="hero-inner"><p className="kicker"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={(phil&&phil.eyebrow)||"Timeless pieces for modern spaces"} placeholder={"Timeless pieces for modern spaces"} /></p><h1><CgText bare path={cgPath(sections,hero,"headline")} v={(hero&&hero.headline)||"Beautifully made for everyday living."} placeholder={"Beautifully made for everyday living."} /></h1><a className="pill-out" href="#s-cats"><CgText bare path={cgPath(sections,hero,"cta.label")} v={(hero&&hero.cta&&hero.cta.label)||"Shop now"} placeholder={"Shop now"} /></a></div></section><CgSlot site={s} after={["hero"]} />
       <div className="marquee" aria-hidden="true"><div className="track">{track}</div></div>
-      {phil&&<section className="cats-head" id="s-cats"><h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading||"Shop by Category"} placeholder={"Shop by Category"} /></h2>{phil.body&&phil.body[0]&&<p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}</section>}
-      {off&&<section className="cats">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg><span className="label"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span></a>)}</section>}
+      {phil&&<section className="cats-head" id="s-cats"><h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading||"Shop by Category"} placeholder={"Shop by Category"} /></h2>{phil.body&&phil.body[0]&&<p><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}</section>}<CgSlot site={s} after={["philosophy"]} />
+      {off&&<section className="cats">{items.map((it,i)=><a className="catcard" href={it.buyUrl||"#s-contact"} key={i} data-cg-prod={i} target={it.buyUrl?"_blank":undefined} rel={it.buyUrl?"noreferrer":undefined}><CgBg as="div" path={cgPath(sections,off,"items."+i+".image")} className="img-slot" style={bgi(url(it.image))}></CgBg><span className="label"><CgText bare path={cgPath(sections,off,"items."+i+".name")} v={it.name} /></span></a>)}</section>}<CgSlot site={s} after={["offerings"]} />
       <StandardSections site={s} show={{about:true,quote:true,contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div>{tag&&<div className="foot-tag">{tag}</div>}<nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18586,9 +18586,9 @@ function UmberLayout({ site }){
         <div className="portrait"><CgBg as="div" path={cgPath(sections,hero,"image")} className="img-slot" style={bgi(url(hero&&hero.image))}></CgBg></div>
         <div className="meta"><p className="tiny"><CgText bare path={cgPath(sections,hero,"headline")} v={(hero&&hero.headline)||""} placeholder={""} /></p><div><p className="tiny r"><CgText bare path={cgPath(sections,off,"title")} v={(off&&off.title)||""} placeholder={""} /></p></div></div>
         {hero&&hero.cta&&<div className="cta"><a className="pill on-brown" href="#s-known"><CgText bare path={cgPath(sections,hero,"cta.label")} v={hero.cta.label} /> &#8594;</a></div>}
-      </section>
-      {phil&&<section className="known" id="s-known"><div className="ghost" aria-hidden="true"><CgText bare path={"brand.name"} v={brand.name||""} placeholder={""} /></div><div className="inner"><p className="eyebrow i"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"Best known for"} placeholder={"Best known for"} /></p><h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /> {phil.headingEm&&<span className="hollow"><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></span>}</h2>{phil.body&&phil.body[0]&&<p className="body"><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}{contact&&contact.cta&&<a className="pill solid" href="#s-contact"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}</div></section>}
-      {about&&<section className="meet" id="s-about"><div className="grid"><div><h2><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} /></h2>{(about.headingEm||about.eyebrow)&&<p className="role"><CgText bare path={(about.headingEm)?cgPath(sections,about,"headingEm"):(about.eyebrow)?cgPath(sections,about,"eyebrow"):cgPath(sections,about,"headingEm")} v={about.headingEm||about.eyebrow} /></p>}{about.body&&about.body[0]&&<p className="body"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><CgBg as="div" path={cgPath(sections,about,"image")} className="img-slot" style={bgi(url(about.image))}></CgBg></div></section>}
+      </section><CgSlot site={s} after={["hero"]} />
+      {phil&&<section className="known" id="s-known"><div className="ghost" aria-hidden="true"><CgText bare path={"brand.name"} v={brand.name||""} placeholder={""} /></div><div className="inner"><p className="eyebrow i"><CgText bare path={cgPath(sections,phil,"eyebrow")} v={phil.eyebrow||"Best known for"} placeholder={"Best known for"} /></p><h2><CgText bare path={cgPath(sections,phil,"heading")} v={phil.heading} /> {phil.headingEm&&<span className="hollow"><CgText bare path={cgPath(sections,phil,"headingEm")} v={phil.headingEm} /></span>}</h2>{phil.body&&phil.body[0]&&<p className="body"><CgText bare path={cgPath(sections,phil,"body.0")} v={phil.body[0]} /></p>}{contact&&contact.cta&&<a className="pill solid" href="#s-contact"><CgText bare path={cgPath(sections,contact,"cta.label")} v={contact.cta.label} /></a>}</div></section>}<CgSlot site={s} after={["philosophy"]} />
+      {about&&<section className="meet" id="s-about"><div className="grid"><div><h2><CgText bare path={cgPath(sections,about,"heading")} v={about.heading} /></h2>{(about.headingEm||about.eyebrow)&&<p className="role"><CgText bare path={(about.headingEm)?cgPath(sections,about,"headingEm"):(about.eyebrow)?cgPath(sections,about,"eyebrow"):cgPath(sections,about,"headingEm")} v={about.headingEm||about.eyebrow} /></p>}{about.body&&about.body[0]&&<p className="body"><CgText bare path={cgPath(sections,about,"body.0")} v={about.body[0]} /></p>}{hero&&hero.cta&&<div style={{marginTop:28}}><a className="pill on-brown" href="#s-contact">Work with me</a></div>}</div><CgBg as="div" path={cgPath(sections,about,"image")} className="img-slot" style={bgi(url(about.image))}></CgBg></div></section>}<CgSlot site={s} after={["about"]} />
       <StandardSections site={s} show={{quote:true,contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><div className="foot-mark"><CgText bare path={"brand.name"} v={brand.name||"Your Brand"} placeholder={"Your Brand"} /></div><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}><CgText bare path={"brand.nav."+i+".label"} v={n.label} /></a>)}</nav><div className="foot-bar"><CgText bare path={"brand.footerNote"} v={brand.footerNote||"© 2026"} placeholder={"© 2026"} />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18700,12 +18700,12 @@ function WillowInner({ site }){
         <div className="hero-head">{brand.logo?<img className="brandlogo" src={brand.logo} alt={brand.name||""} />:<CgText as="div" className="mark" path="brand.name" placeholder="Your Brand" />}</div>
         <div className="hero-inner">{hero&&hero.sub&&<CgText as="p" className="eyebrow" style={{color:"rgba(237,235,229,.85)"}} path={P(pi,"eyebrow")} placeholder="Time to move differently" />}<CgText as="h1" path={P(hi,"headline")} placeholder="This is where it begins." />{hero&&hero.sub&&<CgText as="p" className="sub" path={P(hi,"sub")} block />}<CgText as="a" className="btn light" href="#s-enroll" path={P(hi,"cta.label")} placeholder={enroll} /></div>
         <div className="wave" aria-hidden="true"><svg viewBox="0 0 1440 90" preserveAspectRatio="none"><path d="M0,70 C240,10 480,10 720,45 C960,80 1200,80 1440,30 L1440,90 L0,90 Z" fill="#FFFFFF"/></svg></div>
-      </section>
-      {phil&&<section id="s-about"><div className="two"><CgImage path={ai>=0?P(ai,"image"):P(hi,"image")} fb={P(hi,"image")} /><div><CgText as="p" className="eyebrow" path={P(pi,"eyebrow")} placeholder="Let's be honest" /><h2 className="soft-head"><CgText bare path={P(pi,"heading")} />{phil.headingEm&&<>{" "}<CgText bare path={P(pi,"headingEm")} /></>}</h2>{phil.body&&phil.body[0]&&<CgText as="p" className="body-copy" path={P(pi,"body.0")} block />}</div></div></section>}
-      {about&&about.body&&about.body.length>0&&<div className="card-wrap"><div className="card"><CgText as="h3" path={P(ai,"heading")} /><ul className="painlist">{about.body.map((p,i)=><li key={i}><CgText bare path={P(ai,"body."+i)} block />{edit&&<button onClick={()=>delBody(i)} className="cg-del">✕ Remove</button>}</li>)}</ul>{edit&&<button className="cg-iadd" onClick={addBody}>+ Add point</button>}</div></div>}
-      {quote&&<section><div className="quote"><div className="qmark">&#8220;</div><blockquote><CgText bare path={P(qi,"text")} block /></blockquote>{quote.cite&&<div className="who"><div className="av"><div className="img-slot" style={{width:"100%",height:"100%"}}></div></div><CgText as="div" className="nm" path={P(qi,"cite")} /></div>}</div></section>}
+      </section><CgSlot site={s} after={["hero"]} />
+      {phil&&<section id="s-about"><div className="two"><CgImage path={ai>=0?P(ai,"image"):P(hi,"image")} fb={P(hi,"image")} /><div><CgText as="p" className="eyebrow" path={P(pi,"eyebrow")} placeholder="Let's be honest" /><h2 className="soft-head"><CgText bare path={P(pi,"heading")} />{phil.headingEm&&<>{" "}<CgText bare path={P(pi,"headingEm")} /></>}</h2>{phil.body&&phil.body[0]&&<CgText as="p" className="body-copy" path={P(pi,"body.0")} block />}</div></div></section>}<CgSlot site={s} after={["philosophy"]} />
+      {about&&about.body&&about.body.length>0&&<div className="card-wrap"><div className="card"><CgText as="h3" path={P(ai,"heading")} /><ul className="painlist">{about.body.map((p,i)=><li key={i}><CgText bare path={P(ai,"body."+i)} block />{edit&&<button onClick={()=>delBody(i)} className="cg-del">✕ Remove</button>}</li>)}</ul>{edit&&<button className="cg-iadd" onClick={addBody}>+ Add point</button>}</div></div>}<CgSlot site={s} after={["about"]} />
+      {quote&&<section><div className="quote"><div className="qmark">&#8220;</div><blockquote><CgText bare path={P(qi,"text")} block /></blockquote>{quote.cite&&<div className="who"><div className="av"><div className="img-slot" style={{width:"100%",height:"100%"}}></div></div><CgText as="div" className="nm" path={P(qi,"cite")} /></div>}</div></section>}<CgSlot site={s} after={["quote"]} />
       {off&&<section className="intro" id="s-enroll"><div className="wrap"><div><CgText as="p" className="eyebrow on-dark" path={P(oi,"introEyebrow")} placeholder="Introducing…" /><h2><CgText bare path={(ed&&ed.line)?P(ei,"line"):P(oi,"introLine")} placeholder={introH.line} />{introH.em&&<>{" "}<CgText bare path={P(ei,"lineEm")} /></>}</h2><ul className="checks">{items.map((it,i)=><CgText as="li" key={i} path={P(oi,"items."+i+".name")} />)}</ul><CgText as="a" className="btn light" href="#s-contact" path={P(oi,"introCta")} placeholder={enroll} /></div><CgImage path={ei>=0?P(ei,"image"):P(hi,"image")} fb={P(hi,"image")} dark /></div></section>}
-      {off&&items.length>0&&<><section className="breakdown"><CgText as="p" className="eyebrow" path={P(oi,"breakdownEyebrow")} placeholder="Course breakdown" /><CgText as="h2" path={P(oi,"title")} placeholder="Here's what you'll learn" /></section><div className="modules">{items.map((it,i)=><div className="module" key={i} data-cg-prod={i}><CgImage path={P(oi,"items."+i+".image")} /><div><p className="num"><CgText bare path={P(oi,"itemLabel")} placeholder="Module" />{" "+(i+1)}</p><CgText as="h3" path={P(oi,"items."+i+".name")} />{it.note&&<CgText as="p" path={P(oi,"items."+i+".note")} block />}<CgText as="a" className="btn" href="#s-contact" path={P(oi,"itemCta")} placeholder="Take me inside" />{edit&&<div className="cg-itools"><button onClick={()=>moveItem(i,-1)}>↑</button><button onClick={()=>moveItem(i,1)}>↓</button><button onClick={()=>delItem(i)}>🗑</button></div>}</div></div>)}</div>{edit&&<button className="cg-iadd" onClick={addItem}>+ Add item</button>}</>}
+      {off&&items.length>0&&<><section className="breakdown"><CgText as="p" className="eyebrow" path={P(oi,"breakdownEyebrow")} placeholder="Course breakdown" /><CgText as="h2" path={P(oi,"title")} placeholder="Here's what you'll learn" /></section><div className="modules">{items.map((it,i)=><div className="module" key={i} data-cg-prod={i}><CgImage path={P(oi,"items."+i+".image")} /><div><p className="num"><CgText bare path={P(oi,"itemLabel")} placeholder="Module" />{" "+(i+1)}</p><CgText as="h3" path={P(oi,"items."+i+".name")} />{it.note&&<CgText as="p" path={P(oi,"items."+i+".note")} block />}<CgText as="a" className="btn" href="#s-contact" path={P(oi,"itemCta")} placeholder="Take me inside" />{edit&&<div className="cg-itools"><button onClick={()=>moveItem(i,-1)}>↑</button><button onClick={()=>moveItem(i,1)}>↓</button><button onClick={()=>delItem(i)}>🗑</button></div>}</div></div>)}</div>{edit&&<button className="cg-iadd" onClick={addItem}>+ Add item</button>}</>}<CgSlot site={s} after={["offerings","editorial"]} />
       <StandardSections site={s} show={{contact:true}} />
       <SectionLibrary site={site} /><SiteBlogSection site={site} /><footer className="foot" id="s-contact"><CgText as="div" className="foot-mark" path="brand.name" placeholder="Your Brand" /><nav className="foot-nav">{nav.map((n,i)=><a key={i} href={navHref(n.label)}>{n.label}</a>)}</nav><div className="foot-bar"><CgText bare path="brand.footerNote" placeholder="© 2026" />{s.credit!==false?<>{" · "}<a href="https://chelgy.app" target="_blank" rel="noopener" style={{color:"inherit",textDecoration:"underline",textUnderlineOffset:"2px"}}>Built by Chelgy</a></>:""}</div></footer>
     </div>
@@ -18754,8 +18754,11 @@ function StandardSections({ site, show }){
     <div className="cg-std">
       <style dangerouslySetInnerHTML={{__html:STD_CSS}} />
       {sh.about&&about&&<section className="cg-sec"><div className="cg-about"><div className="cg-img" style={bgi(url(about.image))}></div><div>{about.eyebrow&&<CgText as="div" className="cg-eyebrow" path={P(ai,"eyebrow")} v={about.eyebrow} />}<h3><CgText bare path={P(ai,"heading")} v={about.heading} />{about.headingEm&&<>{" "}<CgText bare path={P(ai,"headingEm")} v={about.headingEm} /></>}</h3>{(about.body||[]).map((pp,i)=><CgText as="p" key={i} path={P(ai,"body."+i)} v={pp} block />)}</div></div></section>}
+      {sh.about&&<CgSlot site={s} after={["about"]} />}
       {sh.quote&&quote&&quote.text&&<section className="cg-quote"><blockquote>&ldquo;<CgText bare path={P(qi,"text")} v={quote.text} block />&rdquo;</blockquote>{quote.cite&&<CgText as="div" className="cg-cite" path={P(qi,"cite")} v={quote.cite} />}</section>}
+      {sh.quote&&<CgSlot site={s} after={["quote"]} />}
       {sh.contact&&contact&&<section className="cg-contact"><h3><CgText bare path={P(ci,"heading")} v={contact.heading} placeholder="Get in touch" />{contact.headingEm&&<>{" "}<CgText bare path={P(ci,"headingEm")} v={contact.headingEm} /></>}</h3><div className="cg-rows">{(contact.details||[]).map((d,i)=><div className="cg-row" key={i}><CgText as="div" className="k" path={P(ci,"details."+i+".k")} v={d.k} /><CgText as="div" className="v" path={P(ci,"details."+i+".v")} v={d.v} block />{edit&&<button className="cg-x" onClick={()=>delRow(i)}>✕ Remove</button>}</div>)}</div>{edit&&<button className="cg-iadd" onClick={addRow}>+ Add contact row</button>}{contact.cta&&contact.cta.label&&<CgText as="a" className="cg-cta" href={em?("mailto:"+em.v):"#"} path={P(ci,"cta.label")} v={contact.cta.label} />}</section>}
+      {sh.contact&&<CgSlot site={s} after={["contact"]} />}
     </div>
   );
 }
@@ -18797,6 +18800,48 @@ const CG_LIB_CSS = `
 #cg-site .cg-lib .cg-ba{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
 `;
 
+
+// ---------- Section ordering for named themes ----------
+// Each named theme is a fixed story of core blocks. Added ("extra") sections sit right
+// after whichever core block precedes them in site.sections. Opt-in per site: only
+// applies once site.orderMode === "custom" (set the first time the owner reorders), so
+// existing sites keep rendering exactly as before until their owner moves something.
+const CG_EXTRA_TYPES = ["services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
+const CG_THEME_FLOW = {
+  willow:[["hero"],["philosophy"],["about"],["quote"],["offerings","editorial"],["contact"]],
+  muse:[["hero"],["philosophy"],["about"],["offerings"],["quote"],["contact"]],
+  duet:[["hero"],["philosophy"],["editorial"],["offerings"],["quote"],["contact"],["about"]],
+  rouge:[["hero"],["philosophy"],["editorial"],["offerings"],["contact"],["about"],["quote"]],
+  vigor:[["hero"],["philosophy"],["about"],["offerings"],["contact"],["quote"]],
+  aurelia:[["hero"],["offerings"],["philosophy"],["about"],["quote"],["contact"]],
+  claret:[["hero"],["philosophy"],["about"],["offerings"],["editorial","quote"],["contact"]],
+  nocturne:[["hero"],["offerings"],["philosophy"],["about"],["quote"],["contact"]],
+  sable:[["hero"],["philosophy"],["offerings"],["about"],["quote"],["contact"]],
+  missive:[["hero"],["about"],["quote","editorial"],["philosophy"],["offerings"],["contact"]],
+  haven:[["hero"],["offerings","philosophy"]],
+  linen:[["hero"],["philosophy"],["offerings"],["about"],["quote"],["contact"]],
+  umber:[["hero"],["philosophy"],["about"],["quote"],["contact"]],
+};
+// anchor type (or "__top") -> indices of extra sections placed after it
+function cgPlaceExtras(site){
+  const flow=CG_THEME_FLOW[site.theme]; if(!flow) return null;
+  const shown=new Set([].concat(...flow)); const out={}; let last=null;
+  (Array.isArray(site.sections)?site.sections:[]).forEach((sec,i)=>{ if(!sec) return;
+    if(shown.has(sec.type)) last=sec.type;
+    else if(CG_EXTRA_TYPES.includes(sec.type)){ const k=last||"__top"; (out[k]=out[k]||[]).push(i); } });
+  return out;
+}
+function CgSlot({ site, after }){
+  const s=site||{}; if(s.orderMode!=="custom") return null;
+  const flow=CG_THEME_FLOW[s.theme]; if(!flow) return null;
+  const place=cgPlaceExtras(s); let idx=[];
+  after.forEach(t=>{ if(place[t]) idx=idx.concat(place[t]); });
+  if(after.some(t=>flow[0].includes(t)) && place.__top) idx=idx.concat(place.__top);
+  if(!idx.length) return null;
+  idx.sort((a,b)=>a-b);
+  return <SectionLibrary site={s} only={idx} />;
+}
+
 // Add/remove templates for list-style library sections: [field, makeNewRow].
 const CG_LIST_TPL = {
   services:["items",()=>({name:"New service",desc:"A short description."})],
@@ -18816,13 +18861,15 @@ const CG_LIST_TPL = {
 // beforeafter, pricing, booking, gallery, serviceareas, hours). Every text field
 // renders through CgText with its value passed as `v`, so published output is the
 // same on every theme, and the on-page editor can edit it in place.
-function SectionLibrary({ site }){
+function SectionLibrary({ site, only }){
   const { edit, mutate } = useContext(CgEditCtx);
   const s = site || {};
+  // custom order on a named theme: sections render in their CgSlots instead of down here
+  if(!only && s.orderMode==="custom" && CG_THEME_FLOW[s.theme]) return null;
   const sections = Array.isArray(s.sections) ? s.sections : [];
   const bg = (im) => (im && im.url) ? { backgroundImage:"url("+im.url+")", backgroundSize:"cover", backgroundPosition:"center" } : undefined;
   const EXTRA = ["services","whyus","process","stats","team","testimonials","faq","cta","trustbadges","beforeafter","pricing","booking","gallery","serviceareas","hours"];
-  const libs = sections.map((sec,i)=>({sec,i})).filter(x=>x.sec && EXTRA.includes(x.sec.type));
+  const libs = sections.map((sec,i)=>({sec,i})).filter(x=>x.sec && EXTRA.includes(x.sec.type) && (!only || only.includes(x.i)));
   if(!libs.length) return null;
   const P=(i,f)=>"sections."+i+"."+f;
   const addRow=(i,type)=>mutate(d=>{ const [k,mk]=CG_LIST_TPL[type]; const sec=d.sections[i]; sec[k]=[...(sec[k]||[]),mk()]; return d; });
@@ -19120,6 +19167,17 @@ const CG_INLINE_CSS = `
 .cg-ovl-seg button.on{background:#EDEBE5;color:#141310;}
 .cg-ovl-done{background:#C8A96A;color:#141310;border:0;padding:9px 18px;border-radius:4px;font-family:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;cursor:pointer;}
 .cg-ovl-body{flex:1;overflow:auto;}
+.cg-srow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 8px;border-bottom:1px solid rgba(23,21,18,.07);font-size:14px;}
+.cg-srow.core{background:#f6f2ea;color:#5b5348;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;margin:4px 0;border:0;}
+.cg-stag{font-size:9px;letter-spacing:.12em;opacity:.7;}
+.cg-sname{min-width:0;display:flex;flex-direction:column;}
+.cg-sname b{font-weight:600;}
+.cg-sname span{font-size:12px;color:#7a7266;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
+.cg-sadd{display:flex;gap:8px;margin:10px 14px 14px;}
+.cg-sadd select{flex:1;padding:9px;border:1px solid rgba(23,21,18,.2);border-radius:6px;font-family:inherit;font-size:13px;background:#fff;color:#171512;}
+.cg-sadd button{padding:9px 14px;border:0;border-radius:6px;background:#171512;color:#fff;font-family:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;}
+.cg-sadd button:disabled{opacity:.35;cursor:default;}
+
 .cg-ovl-tool{background:transparent;border:1px solid rgba(237,235,229,.35);color:#EDEBE5;padding:7px 13px;border-radius:999px;font-family:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
 .cg-ovl-tool.on{background:#EDEBE5;color:#141310;}
 .cg-panel{position:fixed;top:calc(58px + env(safe-area-inset-top));right:12px;z-index:10000;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 90px);display:flex;flex-direction:column;background:#fff;color:#171512;border:1px solid rgba(23,21,18,.15);border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.25);font-family:'Jost',Helvetica,Arial,sans-serif;overflow:hidden;}
@@ -19201,6 +19259,61 @@ function CgItemsPanel({ draft, mutate, update, onUpload, user, onClose }){
   );
 }
 
+
+// Sections panel — the page top to bottom as the theme shows it. Theme blocks are fixed
+// markers; added sections move between them. Moving opts the site into custom order.
+function cgSectionUnits(draft){
+  const secs=Array.isArray(draft.sections)?draft.sections:[]; const flow=CG_THEME_FLOW[draft.theme];
+  if(!flow) return { flow:false, units: secs.map((x,i)=>({kind:"extra",i})).filter(u=>secs[u.i]) };
+  const custom=draft.orderMode==="custom"; const place=custom?cgPlaceExtras(draft):{}; const used=new Set(); const units=[];
+  flow.forEach((g,gi)=>{
+    const cores=[]; secs.forEach((x,i)=>{ if(x&&g.includes(x.type)&&!used.has(i)){ cores.push(i); used.add(i); } });
+    if(cores.length) units.push({kind:"group",cores});
+    let ex=[]; g.forEach(t=>{ if(place[t]) ex=ex.concat(place[t]); }); if(gi===0&&place.__top) ex=ex.concat(place.__top);
+    ex.sort((a,b)=>a-b).forEach(i=>{ units.push({kind:"extra",i}); used.add(i); });
+  });
+  if(!custom) secs.forEach((x,i)=>{ if(x&&CG_EXTRA_TYPES.includes(x.type)){ units.push({kind:"extra",i}); used.add(i); } });
+  return { flow:true, units, rest: secs.map((x,i)=>i).filter(i=>!used.has(i)) };
+}
+function CgSectionsPanel({ draft, mutate, onClose }){
+  const secs=Array.isArray(draft.sections)?draft.sections:[];
+  const { flow, units, rest } = cgSectionUnits(draft);
+  const [addType,setAddType] = useState("");
+  const label = x => (SECTION_LABELS&&SECTION_LABELS[x.type]) || x.type;
+  const sub = x => { const v=x.title||x.headline||x.heading||""; return typeof v==="string"?v:""; };
+  const move=(k,dir)=>{ const u=units.slice(); const j=k+dir; if(j<0||j>=u.length) return; if(flow&&j===0) return; const t=u[k]; u[k]=u[j]; u[j]=t;
+    mutate(d=>{ const S=d.sections; const order=[].concat(...u.map(x=>x.kind==="group"?x.cores:[x.i])).concat(rest||[]); d.sections=order.map(i=>S[i]); d.orderMode="custom"; return d; }); };
+  const del=i=>{ if(typeof window!=="undefined" && !window.confirm("Remove the "+label(secs[i])+" section?")) return; mutate(d=>{ d.sections=d.sections.filter((_,x)=>x!==i); return d; }); };
+  const add=()=>{ if(!addType) return; mutate(d=>{ d.sections=[...(d.sections||[]),defaultSection(addType)]; return d; }); setAddType(""); };
+  return (
+    <div className="cg-panel" onClick={e=>e.stopPropagation()}>
+      <div className="cg-panel-h"><span>Sections</span><button onClick={onClose} aria-label="Close">✕</button></div>
+      {flow && <div className="cg-panel-note">This theme's own blocks keep their designed order. Move your added sections up or down to place them between them.</div>}
+      <div className="cg-panel-list">
+        {units.map((u,k)=> u.kind==="group" ? (
+          <div className="cg-srow core" key={"g"+k}>{u.cores.map(i=>label(secs[i])).join(" + ")}<span className="cg-stag">Theme block</span></div>
+        ) : (
+          <div className="cg-srow" key={"e"+u.i}>
+            <div className="cg-sname"><b>{label(secs[u.i])}</b>{sub(secs[u.i])?<span>{sub(secs[u.i])}</span>:null}</div>
+            <div className="cg-pbtns">
+              <button onClick={()=>move(k,-1)} disabled={k===0||(flow&&k===1)} aria-label="Move up">↑</button>
+              <button onClick={()=>move(k,1)} disabled={k===units.length-1} aria-label="Move down">↓</button>
+              {CG_EXTRA_TYPES.includes(secs[u.i].type) && <button onClick={()=>del(u.i)} aria-label="Remove">🗑</button>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="cg-sadd">
+        <select value={addType} onChange={e=>setAddType(e.target.value)}>
+          <option value="">Add a section…</option>
+          {CG_EXTRA_TYPES.map(t=><option key={t} value={t}>{(SECTION_LABELS&&SECTION_LABELS[t])||t}</option>)}
+        </select>
+        <button onClick={add} disabled={!addType}>Add</button>
+      </div>
+    </div>
+  );
+}
+
 // The full-screen editor overlay. Holds a draft of the site's data, renders the
 // editable mirror live, and debounce-saves through the editor's saveData().
 function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
@@ -19228,11 +19341,13 @@ function CgInlineEditor({ initial, onSaveData, onUpload, user, onClose }){
         <span className="t">Edit on page · beta</span>
         <div className="r">
           <span className="cg-ovl-save">{saveState==="saving"?"Saving…":saveState==="error"?"Couldn't save — retrying":"All changes saved"}</span>
+          <button className={"cg-ovl-tool"+(panel==="sections"?" on":"")} onClick={()=>setPanel(p=>p==="sections"?null:"sections")}>Sections</button>
           <button className={"cg-ovl-tool"+(panel==="items"?" on":"")} onClick={()=>setPanel(p=>p==="items"?null:"items")}>{"Items"+(Array.isArray(itemCount)?" ("+itemCount.length+")":"")}</button>
           <div className="cg-ovl-seg"><button className={edit?"on":""} onClick={()=>setEdit(true)}>Edit</button><button className={!edit?"on":""} onClick={()=>setEdit(false)}>Preview</button></div>
           <button className="cg-ovl-done" onClick={onClose}>Done</button>
         </div>
       </div>
+      {panel==="sections" && <CgSectionsPanel draft={draft} mutate={mutate} onClose={()=>setPanel(null)} />}
       {panel==="items" && <CgItemsPanel draft={draft} mutate={mutate} update={update} onUpload={onUpload} user={user} onClose={()=>setPanel(null)} />}
       <div className="cg-ovl-body" data-edit={edit?"1":"0"} onClickCapture={e=>{ const t=e.target; if(t&&t.closest&&t.closest("a")) e.preventDefault(); }}>
         <CgEditCtx.Provider value={ctx}>
