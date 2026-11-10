@@ -30,7 +30,7 @@ let deviceTurn = Promise.resolve();
 
 // The styles the engine reproduces exactly. MUST match SUPPORTED_STYLES in the engine's
 // render.js and LOCAL_STYLES in api/studio-ffmpeg.js.
-export const LOCAL_RENDER_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase", "fashion"];
+export const LOCAL_RENDER_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase", "fashion", "musicvideo", "musicvideofx"];
 
 // Can this device render edits? Answered once per page load. Cheap: no encoding, just
 // "does the browser say it can". The real proof is the first render; if that fails the
@@ -290,4 +290,25 @@ export async function findBeatOnDevice(url, hint) {
       return m.type === "beat" ? m.beat || null : null;
     } finally { try { w.terminate(); } catch {} }
   } catch { return null; }
+}
+
+// Music video: what the render server's musicvideo-route.js did before planning — hear
+// the song and every clip, line each clip up with the song, find the beat, plan the cut.
+// Same code as the render server's (align-clip.js, musicvideo-plan.js), same answers.
+// song: File. clips: [{ file, klass, singing }]. Resolves { segments, warnings, stats, beat }
+// or throws with a message she can read.
+export async function musicVideoOnDevice({ song, clips, pace, onStage } = {}) {
+  const w = new Worker(ENGINE + "render-worker.js", { type: "module", name: "chelgy-musicvideo" });
+  try {
+    return await new Promise((resolve, reject) => {
+      w.onerror = (e) => reject(new Error("The video engine didn't load on this device. " + ((e && e.message) || "")));
+      w.onmessage = (ev) => {
+        const m = ev.data || {};
+        if (m.type === "stage" && onStage) { try { onStage(m.stage); } catch {} }
+        else if (m.type === "musicvideo") resolve(m);
+        else if (m.type === "error") reject(new Error(String(m.error || "").split("\n")[0] || "Couldn't match the footage to the song."));
+      };
+      w.postMessage({ musicvideo: { song, clips, pace } });
+    });
+  } finally { try { w.terminate(); } catch {} }
 }

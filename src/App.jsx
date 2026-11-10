@@ -468,7 +468,7 @@ function ChelgyAssistant({ onNavigate, userName, isPaid }) {
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 import SessionStudio from "./SessionStudio.jsx";
 import { listSessions as sessListSessions, registerStem as sessRegisterStem } from "./songSession.js";
-import { localRenderCaps, runLocalRender, analyzeOnDevice, findBeatOnDevice, LOCAL_RENDER_STYLES } from "./localRender.js";
+import { localRenderCaps, runLocalRender, analyzeOnDevice, findBeatOnDevice, musicVideoOnDevice, LOCAL_RENDER_STYLES } from "./localRender.js";
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
 
@@ -10766,6 +10766,16 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
     if(!song) return setErr("Add the song first.");
     if(!clips.length) return setErr("Add at least one clip of footage.");
     if(!useCredits(cost)) return;
+    // Device-only rendering: say so NOW, before an upload she'd wait through for nothing.
+    try{
+      const caps = await localRenderCaps();
+      if(!caps || !caps.ok){
+        const token = await freshToken();
+        const cr = await fetch("/api/studio-ffmpeg", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ action:"config" }) });
+        const cd = await cr.json();
+        if(cd && cd.pods === false) return setErr("Music videos render right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad.");
+      }
+    }catch(_){ }
 
     setBusy(true);
     try{
@@ -10812,6 +10822,27 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
         if(cr.ok && cd && Array.isArray(cd.clips)) cd.clips.forEach(c=>{ byId[String(c.id)] = c; });
       }catch(_){ }
 
+      const clipInfo = urls.map((u,i)=>({
+        url:u,
+        klass:(byId[String(i)] && byId[String(i)].klass) || "locked",
+        singing:!!(byId[String(i)] && byId[String(i)].singing)
+      }));
+
+      // ON THIS DEVICE: hear the song and every clip, line them up, find the beat and
+      // plan the cut right here (the same code the render server ran), then render it
+      // here too. Nothing is charged until the server has the plan.
+      let deviceCaps = null, mv = null, deviceErr = "";
+      try{ deviceCaps = await localRenderCaps(); }catch(_){ }
+      if(deviceCaps && deviceCaps.ok){
+        try{
+          mv = await musicVideoOnDevice({
+            song: song.file,
+            clips: clipInfo.map((c,i)=>({ file: clips[i].file, klass: c.klass, singing: c.singing })),
+            pace, onStage: (st)=>setStage(st)
+          });
+        }catch(e){ deviceErr = (e && e.message) || ""; mv = null; }
+      }
+
       setStage("Starting your music video");
       const token2 = await freshToken();
       const rr = await fetch("/api/musicvideo-render", {
@@ -10819,19 +10850,29 @@ function MusicVideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, on
         headers:{ "Content-Type":"application/json", ...(token2?{Authorization:"Bearer "+token2}:{}) },
         body: JSON.stringify({
           songUrl: su.url,
-          clips: urls.map((u,i)=>({
-            url:u,
-            klass:(byId[String(i)] && byId[String(i)].klass) || "locked",
-            singing:!!(byId[String(i)] && byId[String(i)].singing)
-          })),
-          pace, orientation:orient, footage, look:grade, effects
+          clips: clipInfo,
+          pace, orientation:orient, footage, look:grade, effects,
+          ...(mv ? { device: deviceCaps, segments: mv.segments, warnings: mv.warnings, stats: mv.stats } : {})
         })
       });
       const rd = await rr.json();
-      if(!rr.ok || !rd || !rd.id) throw new Error((rd && rd.error) || "Couldn't start the render.");
+      if(!rr.ok || !rd || !rd.id) throw new Error((rd && rd.error) || deviceErr || "Couldn't start the render.");
       onBalance();
+      if(mv && Array.isArray(mv.warnings)) setNotes(mv.warnings.slice(0, 8));
 
-      const url = await pollVideo(rd.id, (p,st)=>{ setStage(st || ("Rendering "+(p||0)+"%")); });
+      // Rendering here, alongside the normal poll (which reads the progress this reports).
+      if(rd.local && rd.local.token){
+        const files = { [su.url]: song.file };
+        urls.forEach((u,i)=>{ if(clips[i] && clips[i].file) files[u] = clips[i].file; });
+        runLocalRender({ token: rd.local.token, job: rd.local.job, files, wait: cgWait })
+          .then((r)=>{ if(r !== "done") console.warn("music video render stopped on this device:", r); })
+          .catch(()=>{});
+      }
+
+      const here = !!(rd.local && rd.local.token);
+      const url = await pollVideo(rd.id, (p,st)=>{ setStage(here
+        ? "Rendering on your device — " + (p||0) + "%. Keep Chelgy open and on screen until it's done; if you switch away it pauses and carries on when you're back."
+        : (st || ("Rendering "+(p||0)+"%"))); });
       if(!url) throw new Error(lastFfError || "The render didn't finish.");
       setOutUrl(url);
       setStage("");
