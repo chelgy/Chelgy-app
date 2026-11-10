@@ -3430,6 +3430,9 @@ const COMMERCIAL_ENABLED = false;
 // initialises to false, so with the box hidden the SFX branch simply never runs and
 // the edit is byte-for-byte what it was with the box left unticked.
 const SFX_ENABLED = false;
+// The voiceover upload in the video editor. Off: it was rarely used and never worked
+// well. The code behind it is left in place; set this to true to bring the option back.
+const NARRATION_ENABLED = false;
 
 // The original Fake It (preset restaging), High Fashion and Beauty are hidden. The
 // Backdrop tool — describe any setting in words — does the same job better and without
@@ -7288,7 +7291,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
 
       </div>
 
-      {(style==="cinematic"||style==="vlog") && (
+      {NARRATION_ENABLED && (style==="cinematic"||style==="vlog") && (
         <div style={{marginBottom:14,padding:"12px 14px",border:"1px solid "+B.stone,background:B.offwhite}}>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:B.charcoal,margin:"0 0 6px"}}>Voiceover <span style={{color:B.mid,fontWeight:400,textTransform:"none",letterSpacing:0}}>— optional</span></p>
           <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12,color:B.mid,lineHeight:1.6,margin:"0 0 8px"}}>
