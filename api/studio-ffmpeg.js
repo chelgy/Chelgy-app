@@ -19,6 +19,9 @@
 import { ensurePods, podsMuted } from "./render-scale.js";
 import { rescueStalled } from "./render-local.js";
 import crypto from "node:crypto";
+// The render server's own planner (job-plan.js planChunks), bundled to run here.
+// Built from the same source the engine's tests check against: identical chunk specs.
+import { planChunks } from "./_lib/plan-chunks.js";
 
 export const maxDuration = 60;
 
@@ -146,6 +149,48 @@ async function registerBrowserDevice(userId, caps) {
     if (!r.ok) console.error("[local] couldn't register this browser: " + r.status);
     return typeof id === "string" && id ? { id, token } : null;
   } catch (e) { console.error("[local] couldn't register this browser: " + ((e && e.message) || e)); return null; }
+}
+
+// PLANNING WITHOUT THE RENDER SERVER, for edits going to the customer's device.
+//
+// What the render server's /plan does (job-plan.js planJob), done here: split the edit
+// into chunk specs and write the job + chunk rows. A device render needs nothing else
+// from the render server, so it no longer depends on that machine being up at all.
+// (planJob's one extra step, snapping cuts to the beat, only applies to fashion and
+// showcase, which don't render on devices.)
+async function planHere({ userId, edl, creditsCharged }) {
+  const { specs } = planChunks(edl);
+  if (!specs.length) throw new Error("That edit has nothing to render.");
+  const H = { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" };
+  const r = await fetch(SB_URL + "/rest/v1/render_jobs", {
+    method: "POST", headers: { ...H, Prefer: "return=representation" },
+    body: JSON.stringify({ user_id: userId, edl, status: "rendering", stage: "Rendering",
+                           chunk_total: specs.length, credits_charged: creditsCharged || 0, edl_hash: edl.hash || null })
+  });
+  const rows = await r.json().catch(() => null);
+  const job = Array.isArray(rows) ? rows[0] : null;
+  if (!r.ok || !job || !job.id) throw new Error("couldn't save the job (" + r.status + ")");
+  // Every chunk in ONE request, same as planJob, so the set is never seen half-written.
+  const c = await fetch(SB_URL + "/rest/v1/render_chunks", {
+    method: "POST", headers: { ...H, Prefer: "return=minimal" },
+    body: JSON.stringify(specs.map((x) => ({ job_id: job.id, idx: x.idx, spec: x.spec })))
+  });
+  if (!c.ok) throw new Error("couldn't save the chunks (" + c.status + ")");
+  return { jobId: job.id, chunks: specs.length };
+}
+
+// Same reply shape as the render server's /plan, so the code after it doesn't change.
+async function planVia(here, url, init) {
+  if (!here) return fetch(url, init);
+  try {
+    const b = JSON.parse(init.body);
+    const d = await planHere(b);
+    return { ok: true, status: 200, json: async () => d };
+  } catch (e) {
+    console.error("[plan] planning here failed: " + ((e && e.message) || e));
+    const msg = "Couldn't set up the render (" + ((e && e.message) || "unknown") + ").";
+    return { ok: false, status: 500, json: async () => ({ error: msg }) };
+  }
 }
 
 export default async function handler(req, res) {
@@ -450,7 +495,7 @@ export default async function handler(req, res) {
     const devMax = Math.min(LOCAL_MAX_SECONDS, Number(dev && dev.maxSeconds) || LOCAL_MAX_SECONDS);
     const localEdit = (process.env.LOCAL_RENDER || "1").trim() !== "0" &&
       LOCAL_STYLES.includes(style) && !narration && !ambience && !sfx.length && !fx.length && outSeconds <= LOCAL_MAX_SECONDS;
-    const deviceCan = (process.env.CHUNKED_RENDER || "").trim() === "1" && localEdit && dev && dev.ok === true && outSeconds <= devMax;
+    const deviceCan = localEdit && dev && dev.ok === true && outSeconds <= devMax;
 
     // PODS MUTED: the device is the only renderer. Anything it can't do is refused HERE,
     // before the charge, with what to do about it — never queued for a machine that
@@ -489,9 +534,10 @@ export default async function handler(req, res) {
     // into chunks and a worker pool renders them in parallel. Unset, it takes the
     // original single-server path. Same response shape either way, so the app
     // doesn't know or care which one ran — and a bad day is one env var to undo.
-    if ((process.env.CHUNKED_RENDER || "").trim() === "1") {
+    if ((process.env.CHUNKED_RENDER || "").trim() === "1" || browser) {
       try {
-        const r = await fetch(RS_URL + "/plan", {
+        // A device render is planned right here; only pod renders need the render server.
+        const r = await planVia(!!browser, RS_URL + "/plan", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
           body: JSON.stringify({
@@ -572,7 +618,9 @@ export default async function handler(req, res) {
         } catch (e) {
           console.error("[scale] skipped: " + ((e && e.message) || e));
         }
-      } catch {
+      } catch (e) {
+        // The real reason goes to the logs; she gets the plain version.
+        console.error("[start] render setup failed: " + ((e && e.stack) || e));
         await refund(userId, cost, "refund:video-editor-plan-unreachable");
         return res.status(502).json({ error: "Couldn't reach the render engine. Your credits were refunded." });
       }
