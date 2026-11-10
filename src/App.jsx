@@ -468,6 +468,7 @@ function ChelgyAssistant({ onNavigate, userName, isPaid }) {
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 import SessionStudio from "./SessionStudio.jsx";
 import { listSessions as sessListSessions, registerStem as sessRegisterStem } from "./songSession.js";
+import { localRenderCaps, runLocalRender, analyzeOnDevice, LOCAL_RENDER_STYLES } from "./localRender.js";
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
 
@@ -1338,7 +1339,10 @@ const GENRE_BPM = { classical:70, orchestral:80, piano:68, ambient:60, acoustic:
                     // the one worth snapping cuts to. 118 matches the reference track.
                     downtempo:118, runway:124, frenchclassical:66 };
 
-async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx, fx){
+// `opts.device`: this device's localRenderCaps() result. When it passed and the edit is
+// one the browser engine does, the API routes the job to this tab and the reply carries
+// `local: { token, job }` (see localRender.js). Same price either way.
+async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, footage, look, words, clipFootage, chapters, broll, transitions, music, showcase, narration, subtitle, clipRotate, fontPack, bpmHint, ambience, sfx, fx, opts){
   try{
     const token = await freshToken();
     const list = Array.isArray(urls) ? urls : [urls];
@@ -1349,10 +1353,11 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
         action:"start", urls: list, url: list[0], keep, title, subtitle: subtitle||"", orientation, rawDuration,
         style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[], fx: Array.isArray(fx)?fx:[],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
-        music: music || null, showcase: showcase || [], narration: narration || null
+        music: music || null, showcase: showcase || [], narration: narration || null,
+        device: (opts && opts.device) || null
       })
     });
-    return await res.json(); // { id:"ff:...", balance, charged } or { error }
+    return await res.json(); // { id:"ff:...", balance, charged, local? } or { error }
   } catch { return { error: "Couldn't reach the render engine." }; }
 }
 
@@ -5790,6 +5795,16 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
   // A ref rather than state on purpose: reusing a cached bridge must not trigger a
   // re-render, and it should survive every re-render in between.
   const transitionCache = useRef(new Map());
+  // Are the cloud render machines on? While they're muted (PODS=off on the server) the
+  // customer's own device does every render, so styles it can't do yet show as "soon"
+  // and a device that can't render is told before anything uploads.
+  const [podsOn,setPodsOn]         = useState(true);
+  useEffect(()=>{ (async()=>{ try{
+    const token = await freshToken();
+    const r = await fetch("/api/studio-ffmpeg", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ action:"config" }) });
+    const d = await r.json();
+    if(d && typeof d.pods === "boolean") setPodsOn(d.pods);
+  }catch(_){ } })(); }, []);
   const [style,setStyle]           = useState("talkinghead");
   const [mode,setMode]             = useState("edit");     // "edit" = I have footage · "script" = write my script first
   const [scTopic,setScTopic]       = useState("");
@@ -6005,7 +6020,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     // it "· soon"; `hidden` removes it from view entirely.
     { id:"entrepreneur", label:"Founder Film", note:"You, talking about your business, cut to feel expensive. Changes setup on every finished thought rather than mid-sentence, alternates moving and seated shots so it never goes flat, and adds whip-pans between them. Ends on the shot it opened with so it loops. Give it a few setups in the same outfit.", ready:true, hidden:true },
     { id:"realestate",  label:"Property Tour", note:"A walkthrough with structure: you talking, then a fast burst of the property, then you again. The silent stretches are kept on purpose — that\u2019s the tour. Opens on the exterior, closes on the widest shot you have. Film yourself presenting plus plenty of rooms and details.", ready:true, hidden:true },
-  ];
+  ].map(s => (podsOn || LOCAL_RENDER_STYLES.includes(s.id)) ? s : { ...s, ready:false });
   // Cinematic grades. `id` is the WIRE VALUE sent to the render server and is also
   // referenced by the style auto-select below — it must never change. `label` is
   // the customer-facing name and can be renamed freely.
@@ -6255,6 +6270,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     if(noDur.length){ setErr("Couldn't read the length of " + noDur.length + " file" + (noDur.length>1?"s":"") + ". Remove " + (noDur.length>1?"them":"it") + " and try again — the edit needs real durations to line the clips up."); return; }
     if(totalDur > 3600){ setErr("That's " + Math.round(totalDur/60) + " minutes of footage. The limit is 60 minutes across all clips for now — remove a few and try again."); return; }
     if(Number(credits) < COST){ setErr("This edit costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
+    // Device-only rendering: say so NOW, before an upload she'd wait through for nothing.
+    if(!podsOn){
+      if(!LOCAL_RENDER_STYLES.includes(style)){ setErr("This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process and Cinematic all work right now."); return; }
+      let caps = null; try{ caps = await localRenderCaps(); }catch(_){ }
+      if(!caps || !caps.ok){ setErr("Your video renders right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad."); return; }
+      // These are bought before the render, so they must be caught before, too.
+      if(narrationFile || useSfx){ setErr("Narration and sound effects are taking a short break while we move them onto your device. Turn them off and try again."); return; }
+    }
 
     setBusy(true);
     const n = clips.length;
@@ -6440,7 +6463,22 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         const c = clips[i];
         let listenUrl = uploaded[i].url, audioPath = null;
         const needsExtraction = wantsActivity || (c.size||0) > 200 * 1024 * 1024;
-        if(needsExtraction){
+        // ON THE DEVICE FIRST. The clip is already here, so the speech audio and the
+        // movement track come straight off it — no machine anywhere has to download the
+        // footage back. Only if this device can't (or it fails) does the server do it.
+        let onDevice = false;
+        if(needsExtraction && c.file){
+          const dv = await analyzeOnDevice(c.file, { wantActivity: wantsActivity });
+          if(dv && dv.audio){
+            const apath = ((user&&user.id)||"anon") + "/editor-" + Date.now() + "-" + i + "-audio.m4a";
+            const up = await uploadVideoInput(new File([dv.audio], "audio.m4a", { type:"audio/mp4" }), apath, ()=>{});
+            if(up && up.ok){
+              listenUrl = up.url; audioPath = up.path; onDevice = true;
+              if(dv.activity && Array.isArray(dv.activity.activity)) perClipActivity[i] = dv.activity.activity;
+            }
+          }
+        }
+        if(needsExtraction && !onDevice){
           const au = await studioAudio(uploaded[i].url, wantsActivity, c.dur||0);
           if(au && au.id){
             const done = await pollAudioJob(au.id, ()=>{});
@@ -6701,7 +6739,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // person has reviewed and adjusted the cut — from a fresh call.
       const ctx = {
         plan, offsets, perClipWords, uploaded, cleanup, orient, footage,
-        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage, role:c.role||"main", label:c.label||"", dur:Number(c.dur)||0, rotate:Number(c.rotate)||0})),
+        totalDur, globalWords, frame, n, many, clips: clips.map(c=>({footage:c.footage, role:c.role||"main", label:c.label||"", dur:Number(c.dur)||0, rotate:Number(c.rotate)||0, file:c.file||null})),
         userId: user.id, COST, style, grade, music, musicGenre, useTransitions,
         alsoShorts, showcaseLabels, narrationUrl, fontPack
       };
@@ -6949,6 +6987,9 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       const subtitleForRender = showTitles ? ((userSubtitle||"").trim() || (plan.subtitle||"")) : "";
       const chaptersForRender = showTitles ? chapterCues : [];
       const showcaseForRender = showTitles ? (showcaseLabels||[]) : [];
+      // Can this device render it itself? Never blocks the render: any doubt → pods.
+      let deviceCaps = null;
+      try{ deviceCaps = await localRenderCaps(); }catch(_){ }
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
         style, footage, grade, wordsForRender, clipFootages,
@@ -6960,7 +7001,8 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100),
         ambienceUrl, sfxList,
         // The planner's transition choices. Without this they never leave the app.
-        Array.isArray(plan && plan.fx) ? plan.fx : []
+        Array.isArray(plan && plan.fx) ? plan.fx : [],
+        { device: deviceCaps && deviceCaps.ok ? deviceCaps : null }
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -6968,6 +7010,20 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         setBusy(false); setStage(""); return;
       }
       if(typeof started.balance==="number") onBalance(started.balance);
+
+      // RENDERING ON THIS DEVICE. Runs alongside the normal poll below, which reads the
+      // progress this reports and returns the finished URL exactly as for a pod render.
+      // If it can't finish, the job moves to the pods by itself and the poll just waits
+      // a little longer — no error, no refund, nothing for her to do.
+      let onDevice = false;
+      if(started.local && started.local.token){
+        onDevice = true;
+        const files = {};
+        uploaded.forEach((u,i)=>{ const f = ctx.clips && ctx.clips[i] && ctx.clips[i].file; if(u && u.url && f) files[u.url] = f; });
+        runLocalRender({ token: started.local.token, job: started.local.job, files, wait: cgWait })
+          .then((r)=>{ if(r !== "done"){ onDevice = false; console.warn("render moved to the cloud:", r); } })
+          .catch(()=>{ onDevice = false; });
+      }
 
       let clipIds=[], clipHooks=[];
       if(alsoShorts && !many){
@@ -6980,6 +7036,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       setStage(clipIds.length ? "Rendering your video + "+clipIds.length+" clips. A few minutes — keep this tab open." : "Rendering your video — a few minutes. Keep this tab open.");
       const results = await Promise.all([
         pollVideo(started.id, (pct,st)=>{
+          if(onDevice){ setStage("Rendering on your device — " + pct + "%. Keep Chelgy open and on screen until it's done; if you switch away it pauses and carries on when you're back."); return; }
           const label = st==="downloading" ? "Fetching your footage" : st==="uploading" ? "Finishing up" : "Rendering your video";
           setStage(label + " — " + pct + "%. Keep this tab open.");
         }),

@@ -206,7 +206,15 @@ async function createPod(n) {
 // Additive still respects PER_JOB as a total ceiling, so this cannot run away: six
 // concurrent edits get six workers, the seventh waits. And workers retire themselves
 // on their idle timer, so an extra pod costs about a cent.
+// THE MUTE. PODS=off in Vercel and no pod is ever started, by anything — every caller
+// comes through here. Nothing is deleted: set it back (or remove it) and the fleet
+// works exactly as before. While muted, renders happen on the customer's own device
+// (see api/render-local.js and src/localRender.js) and anything that can't is refused
+// up front instead of queued for a machine that will never come.
+export const podsMuted = () => (process.env.PODS || "").trim().toLowerCase() === "off";
+
 export async function ensurePods(demand, reason, opts) {
+  if (podsMuted()) { console.log("[scale] pods muted (PODS=off), not starting any for: " + reason); return { ok: true, muted: true, created: 0, running: 0 }; }
   if (!KEY) return { ok: false, skipped: "no RUNPOD_API_KEY" };
   const want = Math.max(0, Math.min(PER_JOB, Number(demand) || 0));
   if (!want) return { ok: true, created: 0, running: 0 };

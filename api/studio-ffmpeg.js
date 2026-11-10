@@ -16,7 +16,9 @@
 // Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET,
 //               SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
-import { ensurePods } from "./render-scale.js";
+import { ensurePods, podsMuted } from "./render-scale.js";
+import { rescueStalled } from "./render-local.js";
+import crypto from "node:crypto";
 
 export const maxDuration = 60;
 
@@ -48,6 +50,15 @@ const MAX_CLIPS = 40;        // sanity bound; the real limit is upload time
 // edits start erroring on audio, the fix is downloading each clip once rather than
 // lowering this back.
 const MAX_OUT_SECONDS = 2700;
+
+// RENDERING ON THE CUSTOMER'S OWN DEVICE (browser engine, public/render-engine/).
+// The styles the engine reproduces exactly. MUST match SUPPORTED_STYLES in the engine's
+// render.js — a style added there without being added here simply keeps using pods,
+// which is the safe way round. The price is the same wherever it renders.
+const LOCAL_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process"];
+// The finished file is held in memory until it uploads, so very long edits stay on the
+// pods for now. The app sends a lower number for phones.
+const LOCAL_MAX_SECONDS = 1200;
 
 async function getUserId(token) {
   if (!token) return null;
@@ -114,6 +125,29 @@ async function logCost(id, userId, tool, duration, credits, estUsd) {
   } catch {}
 }
 
+// A one-edit "device" for the browser tab that will render this job. Same lane system
+// as a linked Mac: the database routes the job to it, it checks in while it works, and
+// if it stops (tab closed, phone locked, render failed) the job moves to the pods.
+async function registerBrowserDevice(userId, caps) {
+  try {
+    const small = {};
+    for (const [k, v] of Object.entries(caps && typeof caps === "object" ? caps : {}).slice(0, 30))
+      if (v === null || ["boolean", "number"].includes(typeof v)) small[k.slice(0, 40)] = v;
+      else if (typeof v === "string") small[k.slice(0, 40)] = v.slice(0, 80);
+    small.ok = true;
+    const token = crypto.randomBytes(32).toString("base64url");
+    const r = await fetch(SB_URL + "/rest/v1/rpc/register_browser_render_device", {
+      method: "POST",
+      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_user: userId, p_token_hash: crypto.createHash("sha256").update(token).digest("hex"), p_caps: small })
+    });
+    const t = r.ok ? (await r.text()).trim() : "";
+    let id = null; try { id = JSON.parse(t); } catch { id = t; }
+    if (!r.ok) console.error("[local] couldn't register this browser: " + r.status);
+    return typeof id === "string" && id ? { id, token } : null;
+  } catch (e) { console.error("[local] couldn't register this browser: " + ((e && e.message) || e)); return null; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -126,6 +160,11 @@ export default async function handler(req, res) {
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please log in again." });
 
+    // ── CONFIG: what the editor needs to know before it starts ──
+    if (action === "config") {
+      return res.status(200).json({ pods: !podsMuted(), localStyles: LOCAL_STYLES, localMaxSeconds: LOCAL_MAX_SECONDS });
+    }
+
     // ── AUDIO: pull just the audio track out of the video for transcription.
     // Free (it's part of the edit) and it makes transcription independent of how
     // large the footage is — a 3GB video becomes a ~2MB audio file.
@@ -136,6 +175,10 @@ export default async function handler(req, res) {
       // is opt-in and travels no further than the render server when it's false.
       const wantActivity = body.activity === true;
       const duration = Number(body.duration) || 0;
+      // With the pods muted the app reads the audio on the device. The render server
+      // would queue this for a pod that never comes, so say no at once and let the app
+      // move on (it transcribes the upload directly instead).
+      if (podsMuted()) return res.status(503).json({ error: "Audio is read on your device now.", device: true });
       const uploadPath = userId + "/audio-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp3";
       try {
         const r = await fetch(RS_URL + "/audio", {
@@ -178,7 +221,7 @@ export default async function handler(req, res) {
       // job; if not, fall through to the old in-memory endpoint.
       try {
         const q = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(jid) +
-                              "&select=status,progress,output_url,error,stage,edl", {
+                              "&select=*", {
           headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC }
         });
         const rows = await q.json();
@@ -198,9 +241,25 @@ export default async function handler(req, res) {
               await refund(userId, job.cost, "refund:video-editor-ffmpeg");
               await clearJob("ff:" + jid);
             }
-            return res.status(200).json({ status: "error", error: (j.error || "The render failed.") + " Your credits were refunded." });
+            // A device render that didn't finish: plain words, not the technical reason.
+            const msg = j.lane === "local" ? "Your device couldn't finish this render. Try again, and keep Chelgy open and on screen until it's done." : (j.error || "The render failed.");
+            return res.status(200).json({ status: "error", error: msg + " Your credits were refunded." });
           }
-          return res.status(200).json({ status: "pending", progress: j.progress || 0, stage: j.stage || null });
+          // RENDERING ON HER MAC. If the Mac went quiet (lid closed, app quit, Wi-Fi
+          // dropped), this poll is what notices first: the job goes straight back to
+          // the pods instead of waiting for the cron. Cheap no-op while the Mac is fine.
+          if (j.lane === "local") {
+            try {
+              // Handed back on this very poll: say so now, not on the next one.
+              if (await rescueStalled(jid)) {
+                // Pods muted: it was given up on and refunded just now.
+                if (podsMuted()) return res.status(200).json({ status: "error", error: "Your device couldn't finish this render. Try again, and keep Chelgy open and on screen until it's done. Your credits were refunded." });
+                j.lane = "cloud"; j.stage = "Rendering";
+              }
+            } catch (e) { console.error("[local] rescue check failed: " + ((e && e.message) || e)); }
+          }
+          return res.status(200).json({ status: "pending", progress: j.progress || 0, stage: j.stage || null,
+                                        where: j.lane === "local" ? "mac" : "cloud" });
         }
       } catch { /* not a chunked job, or a blip — try the legacy path */ }
 
@@ -385,6 +444,32 @@ export default async function handler(req, res) {
              Math.round(MAX_OUT_SECONDS / 60) + ". Split the footage into parts and edit them separately. You haven't been charged."
     });
 
+    // Can THIS device render it? The app answers for the device (its own check of the
+    // browser's encoders); this answers for the edit. Anything not covered → pods.
+    const dev = body.device && typeof body.device === "object" ? body.device : null;
+    const devMax = Math.min(LOCAL_MAX_SECONDS, Number(dev && dev.maxSeconds) || LOCAL_MAX_SECONDS);
+    const localEdit = (process.env.LOCAL_RENDER || "1").trim() !== "0" &&
+      LOCAL_STYLES.includes(style) && !narration && !ambience && !sfx.length && !fx.length && outSeconds <= LOCAL_MAX_SECONDS;
+    const deviceCan = (process.env.CHUNKED_RENDER || "").trim() === "1" && localEdit && dev && dev.ok === true && outSeconds <= devMax;
+
+    // PODS MUTED: the device is the only renderer. Anything it can't do is refused HERE,
+    // before the charge, with what to do about it — never queued for a machine that
+    // will never come.
+    if (podsMuted() && !deviceCan) {
+      const mins = (x) => Math.round(x / 60);
+      const why = !LOCAL_STYLES.includes(style)
+          ? "This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process and Cinematic all work right now."
+        : (narration || ambience || sfx.length)
+          ? "Narration, ambience and sound effects are taking a short break while we move them onto your device. Turn them off and try again."
+        : fx.length
+          ? "The transition effects for this edit are taking a short break while we move them onto your device. Try again without them."
+        : !(dev && dev.ok === true)
+          ? "Your video renders right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad."
+        : outSeconds > devMax
+          ? "This edit comes out at " + mins(outSeconds) + " minutes, and the longest this device can render is " + mins(devMax) + ". Use a Mac for longer edits, or split the footage into parts."
+          : "This edit can't render on this device right now.";
+      return res.status(400).json({ error: why + " You haven't been charged.", device: true });
+    }
     // Cost scales with clip count: every extra clip is its own audio extraction,
     // its own transcription and its own set of cuts on the render box. This MUST
     // match the figure the app shows on the button or she gets charged something
@@ -395,6 +480,9 @@ export default async function handler(req, res) {
     if (!paid.ok) return res.status(402).json({ error: paid.error });
 
     const uploadPath = userId + "/edit-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp4";
+
+    const browser = deviceCan ? await registerBrowserDevice(userId, dev) : null;
+
 
     let started;
     // CHUNKED_RENDER=1 sends the edit to the fan-out pipeline: the job is planned
@@ -424,7 +512,13 @@ export default async function handler(req, res) {
                   // whole captions like "QUARTZ COUNTERTOPS" as one unit.
                   ? { perLine: 3, fontScale: 0.040, marginScale: 0.20 }
                 : {},
-              uploadPath
+              uploadPath,
+              // This edit can render on the customer's own device (the engine does
+              // everything in it). The database decides at insert time whether it
+              // actually does: the tab that asked, or a linked Mac, if one is checked in.
+              localOk: localEdit,
+              // The tab that will render it, when it can. Unset → a linked Mac or the pods.
+              ...(browser ? { localDevice: browser.id } : {})
             }
           })
         });
@@ -442,7 +536,37 @@ export default async function handler(req, res) {
         // Deliberately not awaited into the response path beyond a best effort: a
         // scaler that's having a bad minute must never stop a render from starting.
         // The chunks sit in the queue and whatever pods exist will work through them.
+        // ROUTED TO HER MAC? The database decided when the job row was written. A local
+        // job needs no pods at all — starting them would bill for machines with nothing
+        // to claim. If the Mac drops out, render-local.js starts pods at that moment.
+        let lane = "cloud";
         try {
+          const lr = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(d.jobId) + "&select=lane", {
+            headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC }
+          });
+          const rows = lr.ok ? await lr.json() : null;
+          if (Array.isArray(rows) && rows[0] && rows[0].lane === "local") lane = "local";
+        } catch { /* unknown → treat as cloud, which is always safe */ }
+
+        // Muted and it didn't land on a device after all (the tab went quiet in the last
+        // second): nothing will ever render it, so undo it now.
+        if (podsMuted() && lane !== "local") {
+          try {
+            await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(d.jobId), {
+              method: "PATCH",
+              headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify({ status: "error", error: "no device took it", finished_at: new Date().toISOString() })
+            });
+          } catch {}
+          await refund(userId, cost, "refund:video-editor-no-device");
+          return res.status(503).json({ error: "Your device didn't pick up the render. Please try again, and keep Chelgy open. Your credits were refunded." });
+        }
+
+        // Handed to this tab: give it the key it renders with. Nothing else changes —
+        // the app polls status exactly as for a pod render.
+        if (lane === "local" && browser) started.local = { token: browser.token, job: d.jobId };
+
+        if (lane !== "local") try {
           const want = Math.max(1, Number(d.chunks) || 1);
           await ensurePods(want, "render of job " + d.jobId + " (" + want + " chunks)");
         } catch (e) {
@@ -498,7 +622,7 @@ export default async function handler(req, res) {
     const estUsd = Math.round((0.05 * (outSeconds / 60)) * 10000) / 10000;
     await logCost(id, userId, "ffmpeg-" + style + "-" + footage + "-" + look + "-x" + urls.length, outSeconds, cost, estUsd);
 
-    return res.status(200).json({ id, balance: paid.balance, charged: cost });
+    return res.status(200).json({ id, balance: paid.balance, charged: cost, ...(started.local ? { local: started.local } : {}) });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }
