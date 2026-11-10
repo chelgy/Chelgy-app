@@ -23,6 +23,28 @@ var init_fs = __esm({
   }
 });
 
+// ../rs/beat.js
+function snapToBeat(segments, beat, tolerance) {
+  if (!beat || !Array.isArray(segments) || !segments.length) return { segments, moved: 0 };
+  const period = 60 / beat.bpm;
+  const tol = typeof tolerance === "number" ? tolerance : 0.15;
+  let moved = 0;
+  const nearest = (t) => {
+    const k = Math.round((t - beat.phase) / period);
+    return beat.phase + k * period;
+  };
+  const out = segments.map((sg) => {
+    const s = Number(sg.s) || 0, e = Number(sg.e) || 0;
+    const dur = e - s;
+    if (dur <= 0) return sg;
+    const target = nearest(s);
+    if (Math.abs(target - s) > tol || target < 0) return sg;
+    moved++;
+    return { ...sg, s: Math.round(target * 1e3) / 1e3, e: Math.round((target + dur) * 1e3) / 1e3 };
+  });
+  return { segments: out, moved };
+}
+
 // ../rs/job-plan.js
 init_fs_promises();
 
@@ -890,5 +912,6 @@ function ghostFor(style, idx, kind, dur) {
   return { opacity: 0.35, driftX: 0.03, driftY: 0.012 };
 }
 export {
-  planChunks
+  planChunks,
+  snapToBeat
 };

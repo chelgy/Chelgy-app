@@ -18,10 +18,8 @@
 
 import { ensurePods, podsMuted } from "./render-scale.js";
 import { rescueStalled } from "./render-local.js";
-import crypto from "node:crypto";
-// The render server's own planner (job-plan.js planChunks), bundled to run here.
-// Built from the same source the engine's tests check against: identical chunk specs.
-import { planChunks } from "./_lib/plan-chunks.js";
+// Sending a render to the customer's own device (shared with studio-shorts.js).
+import { registerBrowserDevice, planVia } from "./_lib/local-lane.js";
 
 export const maxDuration = 60;
 
@@ -58,7 +56,7 @@ const MAX_OUT_SECONDS = 2700;
 // The styles the engine reproduces exactly. MUST match SUPPORTED_STYLES in the engine's
 // render.js — a style added there without being added here simply keeps using pods,
 // which is the safe way round. The price is the same wherever it renders.
-const LOCAL_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process"];
+const LOCAL_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase"];
 // The finished file is held in memory until it uploads, so very long edits stay on the
 // pods for now. The app sends a lower number for phones.
 const LOCAL_MAX_SECONDS = 1200;
@@ -128,70 +126,7 @@ async function logCost(id, userId, tool, duration, credits, estUsd) {
   } catch {}
 }
 
-// A one-edit "device" for the browser tab that will render this job. Same lane system
-// as a linked Mac: the database routes the job to it, it checks in while it works, and
-// if it stops (tab closed, phone locked, render failed) the job moves to the pods.
-async function registerBrowserDevice(userId, caps) {
-  try {
-    const small = {};
-    for (const [k, v] of Object.entries(caps && typeof caps === "object" ? caps : {}).slice(0, 30))
-      if (v === null || ["boolean", "number"].includes(typeof v)) small[k.slice(0, 40)] = v;
-      else if (typeof v === "string") small[k.slice(0, 40)] = v.slice(0, 80);
-    small.ok = true;
-    const token = crypto.randomBytes(32).toString("base64url");
-    const r = await fetch(SB_URL + "/rest/v1/rpc/register_browser_render_device", {
-      method: "POST",
-      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" },
-      body: JSON.stringify({ p_user: userId, p_token_hash: crypto.createHash("sha256").update(token).digest("hex"), p_caps: small })
-    });
-    const t = r.ok ? (await r.text()).trim() : "";
-    let id = null; try { id = JSON.parse(t); } catch { id = t; }
-    if (!r.ok) console.error("[local] couldn't register this browser: " + r.status);
-    return typeof id === "string" && id ? { id, token } : null;
-  } catch (e) { console.error("[local] couldn't register this browser: " + ((e && e.message) || e)); return null; }
-}
 
-// PLANNING WITHOUT THE RENDER SERVER, for edits going to the customer's device.
-//
-// What the render server's /plan does (job-plan.js planJob), done here: split the edit
-// into chunk specs and write the job + chunk rows. A device render needs nothing else
-// from the render server, so it no longer depends on that machine being up at all.
-// (planJob's one extra step, snapping cuts to the beat, only applies to fashion and
-// showcase, which don't render on devices.)
-async function planHere({ userId, edl, creditsCharged }) {
-  const { specs } = planChunks(edl);
-  if (!specs.length) throw new Error("That edit has nothing to render.");
-  const H = { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" };
-  const r = await fetch(SB_URL + "/rest/v1/render_jobs", {
-    method: "POST", headers: { ...H, Prefer: "return=representation" },
-    body: JSON.stringify({ user_id: userId, edl, status: "rendering", stage: "Rendering",
-                           chunk_total: specs.length, credits_charged: creditsCharged || 0, edl_hash: edl.hash || null })
-  });
-  const rows = await r.json().catch(() => null);
-  const job = Array.isArray(rows) ? rows[0] : null;
-  if (!r.ok || !job || !job.id) throw new Error("couldn't save the job (" + r.status + ")");
-  // Every chunk in ONE request, same as planJob, so the set is never seen half-written.
-  const c = await fetch(SB_URL + "/rest/v1/render_chunks", {
-    method: "POST", headers: { ...H, Prefer: "return=minimal" },
-    body: JSON.stringify(specs.map((x) => ({ job_id: job.id, idx: x.idx, spec: x.spec })))
-  });
-  if (!c.ok) throw new Error("couldn't save the chunks (" + c.status + ")");
-  return { jobId: job.id, chunks: specs.length };
-}
-
-// Same reply shape as the render server's /plan, so the code after it doesn't change.
-async function planVia(here, url, init) {
-  if (!here) return fetch(url, init);
-  try {
-    const b = JSON.parse(init.body);
-    const d = await planHere(b);
-    return { ok: true, status: 200, json: async () => d };
-  } catch (e) {
-    console.error("[plan] planning here failed: " + ((e && e.message) || e));
-    const msg = "Couldn't set up the render (" + ((e && e.message) || "unknown") + ").";
-    return { ok: false, status: 500, json: async () => ({ error: msg }) };
-  }
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -496,6 +431,11 @@ export default async function handler(req, res) {
     const localEdit = (process.env.LOCAL_RENDER || "1").trim() !== "0" &&
       LOCAL_STYLES.includes(style) && !narration && !ambience && !sfx.length && !fx.length && outSeconds <= LOCAL_MAX_SECONDS;
     const deviceCan = localEdit && dev && dev.ok === true && outSeconds <= devMax;
+    // The score's beat, measured on the device. Clamped, not trusted; missing = no snap,
+    // which is also what the pods do when they can't find one.
+    const bb = body.beat && typeof body.beat === "object" ? body.beat : null;
+    const beat = bb && Number(bb.bpm) >= 40 && Number(bb.bpm) <= 240 && Number(bb.phase) >= 0 && Number(bb.phase) < 2
+      ? { bpm: Number(bb.bpm), phase: Number(bb.phase) } : null;
 
     // PODS MUTED: the device is the only renderer. Anything it can't do is refused HERE,
     // before the charge, with what to do about it — never queued for a machine that
@@ -503,7 +443,7 @@ export default async function handler(req, res) {
     if (podsMuted() && !deviceCan) {
       const mins = (x) => Math.round(x / 60);
       const why = !LOCAL_STYLES.includes(style)
-          ? "This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process and Cinematic all work right now."
+          ? "This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process, Cinematic and Showcase all work right now."
         : (narration || ambience || sfx.length)
           ? "Narration, ambience and sound effects are taking a short break while we move them onto your device. Turn them off and try again."
         : fx.length
@@ -567,7 +507,7 @@ export default async function handler(req, res) {
               ...(browser ? { localDevice: browser.id } : {})
             }
           })
-        });
+        }, beat);
         const d = await r.json();
         if (!r.ok || !d || !d.jobId) {
           await refund(userId, cost, "refund:video-editor-plan");

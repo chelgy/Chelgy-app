@@ -16,6 +16,8 @@
 // Env: GEMINI_API_KEY, RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 import { podsMuted } from "./render-scale.js";
+// Rendering the clips on the customer's own device (shared with studio-ffmpeg.js).
+import { registerBrowserDevice, planHere } from "./_lib/local-lane.js";
 
 export const maxDuration = 60;
 
@@ -132,10 +134,14 @@ export default async function handler(req, res) {
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please log in again." });
 
-    // PODS MUTED (PODS=off). Clips render on the pods and haven't moved onto the
-    // customer's device yet. Refused BEFORE the charge, so nobody pays for clips no
-    // machine will ever render. The main edit is unaffected.
-    if (podsMuted())
+    // ON THE DEVICE when it can: each clip is a short one-segment edit, which the
+    // device engine renders exactly as the pods do. The app sends its device check.
+    const dev = body.device && typeof body.device === "object" ? body.device : null;
+    const deviceCan = !!(dev && dev.ok === true) && (process.env.LOCAL_RENDER || "1").trim() !== "0";
+
+    // PODS MUTED (PODS=off) and this device can't render: refused BEFORE the charge, so
+    // nobody pays for clips no machine will ever render. The main edit is unaffected.
+    if (podsMuted() && !deviceCan)
       return res.status(503).json({ error: "Viral clips are taking a short break while we move them onto your device. You haven't been charged for them." });
 
     // ── Charge once for the whole pack ──
@@ -195,37 +201,50 @@ export default async function handler(req, res) {
     const perClipCost = Math.floor(SHORTS_COST / clips.length);
     const ids = [];
     const hooks = [];
+    const locals = [];   // per id: { token, job } when this tab renders it, else null
     for (const c of clips) {
       const d = Math.round((c.e - c.s) * 100) / 100;
       const uploadPath = userId + "/clip-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp4";
-      let started = null;
-      try {
+      let started = null, local = null;
+      const edl = {
+        sources: [url],
+        segments: [{ s: c.s, e: c.e }],
+        words,
+        title: c.hook || "",
+        orientation: "portrait",
+        fps: 30,
+        size: { w: 1080, h: 1920 },
+        grade: { footage: "standard", look: grade, clipFootage: [] },
+        chapters: [], broll: [], transitions: [], music: null, showcase: [], narration: null,
+        captionStyle: {},
+        uploadPath
+      };
+      if (deviceCan) {
+        // Planned here and routed to this tab. Same edl the pods would get, plus the tab.
+        try {
+          const b = await registerBrowserDevice(userId, dev);
+          if (b) {
+            const p = await planHere({ userId, creditsCharged: perClipCost, edl: { ...edl, localOk: true, localDevice: b.id } });
+            const lr = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(p.jobId) + "&select=lane", {
+              headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC } });
+            const rows = lr.ok ? await lr.json() : null;
+            if (Array.isArray(rows) && rows[0] && rows[0].lane === "local") { started = p.jobId; local = { token: b.token, job: p.jobId }; }
+            else {
+              // The tab went quiet in the last second. Nothing will render this row.
+              await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(p.jobId), {
+                method: "PATCH", headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+                body: JSON.stringify({ status: "error", error: "no device took it", finished_at: new Date().toISOString() }) });
+            }
+          }
+        } catch (e) {
+          console.error("[shorts] device setup failed for a clip: " + ((e && e.message) || e));
+        }
+      }
+      if (!started && !podsMuted()) try {
         const r = await fetch(RS_URL + "/plan", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-render-secret": RS_SECRET },
-          body: JSON.stringify({
-            userId, creditsCharged: perClipCost,
-            edl: {
-              sources: [url],
-              segments: [{ s: c.s, e: c.e }],
-              // The FULL transcript, exactly as the main edit sends it — the renderer
-              // windows the words to the kept segment itself. Pre-trimming here would
-              // duplicate that logic and is how the two would drift apart again.
-              words,
-              // The hook becomes the title, so it gets the Caveline display treatment
-              // rather than Creatomate's boxed text.
-              title: c.hook || "",
-              orientation: "portrait",
-              fps: 30,
-              size: { w: 1080, h: 1920 },
-              // Clips have no per-clip camera info, so no log conversion — just the
-              // film look. Same shape the main edit sends.
-              grade: { footage: "standard", look: grade, clipFootage: [] },
-              chapters: [], broll: [], transitions: [], music: null, showcase: [], narration: null,
-              captionStyle: {},
-              uploadPath
-            }
-          })
+          body: JSON.stringify({ userId, creditsCharged: perClipCost, edl })
         });
         const dj = await r.json().catch(() => ({}));
         if (r.ok && dj && dj.jobId) started = dj.jobId;
@@ -237,6 +256,7 @@ export default async function handler(req, res) {
         const id = "ff:" + started;
         ids.push(id);
         hooks.push(c.hook || "");
+        locals.push(local);
         await recordVideoJob(id, userId, perClipCost);
         // Real pod cost, not Creatomate's per-render price. ~$0.40/hr across the pods
         // a short clip spreads over; deliberately a slight over-estimate.
@@ -245,11 +265,15 @@ export default async function handler(req, res) {
       }
     }
     if (!ids.length) {
+      // Nothing started (the clips' shares are refunded below as one).
       await refund(userId, SHORTS_COST, "refund:viral-clips-submit");
       return res.status(502).json({ error: "Couldn't start the clip renders. Your credits were refunded." });
     }
 
-    return res.status(200).json({ ids, hooks, balance: paid.balance });
+    // Clips that didn't start are refunded their share now, rather than silently kept.
+    if (ids.length < clips.length) await refund(userId, perClipCost * (clips.length - ids.length), "refund:viral-clips-partial");
+
+    return res.status(200).json({ ids, hooks, balance: paid.balance, ...(locals.some(Boolean) ? { local: locals } : {}) });
   } catch (e) {
     return res.status(500).json({ error: "Server error: " + (e && e.message ? e.message : "unknown") });
   }

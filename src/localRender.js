@@ -22,9 +22,15 @@ const CHECK_IN_MS = 20000;            // lease is 120s on the server; this leave
 
 let capsPromise = null;
 
+// ONE RENDER AT A TIME ON THIS DEVICE. An edit with viral clips is several jobs (the main
+// edit, then each clip). Every job is claimed and kept alive at once, so none of them is
+// given up on while it waits, but the device renders them in turn: two 4K renders at
+// once would only make both slower, and on a phone run it out of memory.
+let deviceTurn = Promise.resolve();
+
 // The styles the engine reproduces exactly. MUST match SUPPORTED_STYLES in the engine's
 // render.js and LOCAL_STYLES in api/studio-ffmpeg.js.
-export const LOCAL_RENDER_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process"];
+export const LOCAL_RENDER_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase"];
 
 // Can this device render edits? Answered once per page load. Cheap: no encoding, just
 // "does the browser say it can". The real proof is the first render; if that fails the
@@ -146,6 +152,15 @@ export async function runLocalRender({ token, job, files = {}, wait, onStage } =
     window.addEventListener("pagehide", onLeave);
     release = () => { stopScreen(); window.removeEventListener("pagehide", onLeave); };
 
+    // Wait for this device to be free. Checking in carries on meanwhile.
+    const before = deviceTurn;
+    let freeDevice;
+    deviceTurn = new Promise((r) => { freeDevice = r; });
+    const releaseTurn = release;
+    release = () => { try { freeDevice(); } catch {} releaseTurn(); };
+    await before;
+    if (stopped) { heartbeat = false; return "stopped"; }
+
     say("Rendering on your device — keep Chelgy open until it's done.");
     const renderOnce = () => new Promise((resolve, reject) => {
       worker = new Worker(ENGINE + "render-worker.js", { type: "module", name: "chelgy-render" });
@@ -257,4 +272,22 @@ export function analyzeOnDevice(file, { wantActivity = false, onProgress } = {})
   const p = analyzeChain.then(run, run);
   analyzeChain = p.catch(() => {});
   return p;
+}
+
+// The score's tempo and first downbeat, measured here — what the render server's beat.js
+// did before planning a style that cuts to the music. Same maths, same answers. Resolves
+// { bpm, phase } or null (no snap, which is also what the pods did when they found none).
+export async function findBeatOnDevice(url, hint) {
+  try {
+    const caps = await localRenderCaps();
+    if (!caps.ok || !url) return null;
+    const w = new Worker(ENGINE + "render-worker.js", { type: "module", name: "chelgy-beat" });
+    try {
+      const m = await Promise.race([
+        new Promise((resolve) => { w.onmessage = (ev) => resolve(ev.data || {}); w.onerror = () => resolve({}); w.postMessage({ beat: { url, hint, seconds: 60 } }); }),
+        new Promise((resolve) => setTimeout(() => resolve({}), 30000)),   // the pods' own 30s cap
+      ]);
+      return m.type === "beat" ? m.beat || null : null;
+    } finally { try { w.terminate(); } catch {} }
+  } catch { return null; }
 }

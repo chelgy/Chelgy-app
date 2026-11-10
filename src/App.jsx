@@ -468,7 +468,7 @@ function ChelgyAssistant({ onNavigate, userName, isPaid }) {
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 import SessionStudio from "./SessionStudio.jsx";
 import { listSessions as sessListSessions, registerStem as sessRegisterStem } from "./songSession.js";
-import { localRenderCaps, runLocalRender, analyzeOnDevice, LOCAL_RENDER_STYLES } from "./localRender.js";
+import { localRenderCaps, runLocalRender, analyzeOnDevice, findBeatOnDevice, LOCAL_RENDER_STYLES } from "./localRender.js";
 const SUPABASE_URL = "https://yuzvpmxbtjpqtapborhr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_F_hsngWtnCkBZx9SpMDbSw_laaYfTor";
 
@@ -1354,7 +1354,8 @@ async function studioFfmpeg(urls, keep, title, orientation, rawDuration, style, 
         style, footage, look, words, clipFootage: clipFootage || [], clipRotate: clipRotate || [], fontPack: fontPack || "editorial", bpmHint: bpmHint || 100, ambience: ambience||null, sfx: Array.isArray(sfx)?sfx:[], fx: Array.isArray(fx)?fx:[],
         chapters: chapters || [], broll: broll || [], transitions: transitions || [],
         music: music || null, showcase: showcase || [], narration: narration || null,
-        device: (opts && opts.device) || null
+        device: (opts && opts.device) || null,
+        beat: (opts && opts.beat) || null
       })
     });
     return await res.json(); // { id:"ff:...", balance, charged, local? } or { error }
@@ -1517,12 +1518,22 @@ async function studioScript(topic, audience, style, length){
     return await res.json(); // { hook, beats, cta, balance } or { error }
   } catch { return { error: "Couldn't reach the script writer." }; }
 }
-async function studioShorts(url, words, duration, frame, grade){
+// `device`: this device's localRenderCaps() result. When it passed, the clips render here
+// and the reply carries `local` — one { token, job } (or null) per id.
+async function studioShorts(url, words, duration, frame, grade, device){
   try{
     const token = await freshToken();
-    const res = await fetch("/api/studio-shorts", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, words, duration, frame: frame||null, grade }) });
-    return await res.json(); // { ids, hooks, balance } or { error }
+    const res = await fetch("/api/studio-shorts", { method:"POST", headers:{ "Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{}) }, body: JSON.stringify({ url, words, duration, frame: frame||null, grade, device: device||null }) });
+    return await res.json(); // { ids, hooks, balance, local? } or { error }
   } catch { return { error: "Couldn't reach the clip maker." }; }
+}
+// Render a set of jobs on this device, alongside their normal polls. Each one claims its
+// job straight away; the device works through them one at a time (localRender.js).
+function renderJobsHere(locals, files){
+  (Array.isArray(locals) ? locals : []).forEach((l)=>{
+    if(l && l.token) runLocalRender({ token: l.token, job: l.job, files, wait: cgWait })
+      .then((r)=>{ if(r !== "done") console.warn("clip render moved off this device:", r); }).catch(()=>{});
+  });
 }
 // Large-footage optimize: Creatomate pulls the giant source once and outputs a
 // lean 1080p working copy (audio intact) the whole pipeline uses instead.
@@ -6251,10 +6262,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       if(!tr || tr.error || !Array.isArray(tr.words) || !tr.words.length){ setShErr((tr&&tr.error)||"Couldn't hear any speech in that video."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
       setShStage("Finding your most viral moments…");
       const frame = await captureVideoFrame(videoPreview, Math.min(2, Math.max(0.5,(videoDur||4)/2)));
-      const d = await studioShorts(sourceUrl, tr.words, tr.duration, frame, grade);
+      let shCaps = null; try{ shCaps = await localRenderCaps(); }catch(_){ }
+      const d = await studioShorts(sourceUrl, tr.words, tr.duration, frame, grade, shCaps && shCaps.ok ? shCaps : null);
       if(!d || d.error || !Array.isArray(d.ids) || !d.ids.length){ setShErr((d&&d.error)||"Couldn't make clips from that footage."); await deleteSiteObject(up.path); setShBusy(false); setShStage(""); return; }
       if(typeof d.balance==="number") onBalance(d.balance);
-      setShStage("Rendering "+d.ids.length+" clip"+(d.ids.length>1?"s":"")+" — hooks, captions and grade. A few minutes. Keep this tab open.");
+      if(d.local) renderJobsHere(d.local, { [sourceUrl]: videoFile });
+      setShStage("Rendering "+d.ids.length+" clip"+(d.ids.length>1?"s":"")+" — hooks, captions and grade." + (d.local ? " On your device — keep Chelgy open and on screen until they're done." : " A few minutes. Keep this tab open."));
       const outs = await Promise.all(d.ids.map(id=>pollVideo(id)));
       await deleteSiteObject(up.path);
       if(proxyId) studioProxyDelete(proxyId);
@@ -6277,7 +6290,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     if(Number(credits) < COST){ setErr("This edit costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     // Device-only rendering: say so NOW, before an upload she'd wait through for nothing.
     if(!podsOn){
-      if(!LOCAL_RENDER_STYLES.includes(style)){ setErr("This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process and Cinematic all work right now."); return; }
+      if(!LOCAL_RENDER_STYLES.includes(style)){ setErr("This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process, Cinematic and Showcase all work right now."); return; }
       let caps = null; try{ caps = await localRenderCaps(); }catch(_){ }
       if(!caps || !caps.ok){ setErr("Your video renders right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad."); return; }
       // These are bought before the render, so they must be caught before, too.
@@ -6995,6 +7008,14 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // Can this device render it itself? Never blocks the render: any doubt → pods.
       let deviceCaps = null;
       try{ deviceCaps = await localRenderCaps(); }catch(_){ }
+      // Styles cut to the music get their cuts snapped to its beat. The pods measured the
+      // beat; on the device it's measured here, the same way, before the edit is planned.
+      const bpmHintForRender = ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100);
+      let beat = null;
+      if(deviceCaps && deviceCaps.ok && musicUrl && style === "showcase"){
+        setStage("Finding the beat in your music…");
+        try{ beat = await findBeatOnDevice(musicUrl, bpmHintForRender); }catch(_){ }
+      }
       const started = await studioFfmpeg(
         uploaded.map(u=>u.url), segs, titleForRender, orient, totalDur,
         style, footage, grade, wordsForRender, clipFootages,
@@ -7007,7 +7028,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
         ambienceUrl, sfxList,
         // The planner's transition choices. Without this they never leave the app.
         Array.isArray(plan && plan.fx) ? plan.fx : [],
-        { device: deviceCaps && deviceCaps.ok ? deviceCaps : null }
+        { device: deviceCaps && deviceCaps.ok ? deviceCaps : null, beat }
       );
       if(!started || !started.id){
         setErr((started && started.error) || "Couldn't start the render. Please try again.");
@@ -7033,8 +7054,12 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       let clipIds=[], clipHooks=[];
       if(alsoShorts && !many){
         setStage("Also finding your viral clips…");
-        const sh = await studioShorts(uploaded[0].url, globalWords, totalDur, frame, grade);
-        if(sh && Array.isArray(sh.ids) && sh.ids.length){ clipIds=sh.ids; clipHooks=sh.hooks||[]; if(typeof sh.balance==="number") onBalance(sh.balance); }
+        const sh = await studioShorts(uploaded[0].url, globalWords, totalDur, frame, grade, deviceCaps && deviceCaps.ok ? deviceCaps : null);
+        if(sh && Array.isArray(sh.ids) && sh.ids.length){
+          clipIds=sh.ids; clipHooks=sh.hooks||[]; if(typeof sh.balance==="number") onBalance(sh.balance);
+          const f0 = ctx.clips && ctx.clips[0] && ctx.clips[0].file;
+          if(sh.local && f0) renderJobsHere(sh.local, { [uploaded[0].url]: f0 });
+        }
         else if(sh && sh.error){ setErr("Heads up — the clips part didn't start ("+sh.error+"), but your main edit is still rendering."); }
       }
 
