@@ -15,6 +15,8 @@
 // title, the rule under it, the caption style and the LUT automatically.
 // Env: GEMINI_API_KEY, RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
+import { podsMuted } from "./render-scale.js";
+
 export const maxDuration = 60;
 
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
@@ -129,6 +131,12 @@ export default async function handler(req, res) {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please log in again." });
+
+    // PODS MUTED (PODS=off). Clips render on the pods and haven't moved onto the
+    // customer's device yet. Refused BEFORE the charge, so nobody pays for clips no
+    // machine will ever render. The main edit is unaffected.
+    if (podsMuted())
+      return res.status(503).json({ error: "Viral clips are taking a short break while we move them onto your device. You haven't been charged for them." });
 
     // ── Charge once for the whole pack ──
     const paid = await spend(token, SHORTS_COST, "viral-clips");

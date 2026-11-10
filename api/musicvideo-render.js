@@ -22,6 +22,8 @@
 // Env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 //      RENDER_SERVER_URL, RENDER_SECRET
 
+import { podsMuted } from "./render-scale.js";
+
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
 const SB_SVC  = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -97,6 +99,12 @@ export default async function handler(req, res) {
 
     if (!RS_URL || !RS_SECRET)
       return res.status(500).json({ error: "Render engine is not configured." });
+
+    // PODS MUTED (PODS=off). Music videos render on the pods and haven't moved onto
+    // the customer's device yet, so say so before anything is charged rather than
+    // queue a job no machine will ever pick up.
+    if (podsMuted())
+      return res.status(503).json({ error: "Music videos are taking a short break while we move them onto your device. You haven't been charged." });
 
     const songUrl = String(body.songUrl || "").trim();
     const pace = PACES.includes(String(body.pace)) ? String(body.pace) : "normal";
