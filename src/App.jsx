@@ -6290,7 +6290,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
     if(Number(credits) < COST){ setErr("This edit costs "+COST.toLocaleString()+" credits. You have "+Number(credits).toLocaleString()+"."); onBuyCredits(); return; }
     // Device-only rendering: say so NOW, before an upload she'd wait through for nothing.
     if(!podsOn){
-      if(!LOCAL_RENDER_STYLES.includes(style)){ setErr("This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process, Cinematic and Showcase all work right now."); return; }
+      if(!LOCAL_RENDER_STYLES.includes(style)){ setErr("This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process, Cinematic, Showcase and Fashion Film all work right now."); return; }
       let caps = null; try{ caps = await localRenderCaps(); }catch(_){ }
       if(!caps || !caps.ok){ setErr("Your video renders right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad."); return; }
       // These are bought before the render, so they must be caught before, too.
@@ -7012,7 +7012,7 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
       // beat; on the device it's measured here, the same way, before the edit is planned.
       const bpmHintForRender = ctx.music === "own" ? 0 : (GENRE_BPM[ctx.musicGenre] || 100);
       let beat = null;
-      if(deviceCaps && deviceCaps.ok && musicUrl && style === "showcase"){
+      if(deviceCaps && deviceCaps.ok && musicUrl && (style === "showcase" || style === "fashion")){
         setStage("Finding the beat in your music…");
         try{ beat = await findBeatOnDevice(musicUrl, bpmHintForRender); }catch(_){ }
       }

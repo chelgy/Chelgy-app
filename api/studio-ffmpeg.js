@@ -56,7 +56,7 @@ const MAX_OUT_SECONDS = 2700;
 // The styles the engine reproduces exactly. MUST match SUPPORTED_STYLES in the engine's
 // render.js — a style added there without being added here simply keeps using pods,
 // which is the safe way round. The price is the same wherever it renders.
-const LOCAL_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase"];
+const LOCAL_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase", "fashion"];
 // The finished file is held in memory until it uploads, so very long edits stay on the
 // pods for now. The app sends a lower number for phones.
 const LOCAL_MAX_SECONDS = 1200;
@@ -428,8 +428,11 @@ export default async function handler(req, res) {
     // browser's encoders); this answers for the edit. Anything not covered → pods.
     const dev = body.device && typeof body.device === "object" ? body.device : null;
     const devMax = Math.min(LOCAL_MAX_SECONDS, Number(dev && dev.maxSeconds) || LOCAL_MAX_SECONDS);
+    // The planner's transition effects: the device engine draws Fashion's (push, flash,
+    // drain, echo, roll, slow-mo, ramp, whip). Other styles' still need the pods.
+    const FX_ON_DEVICE = ["fashion"];
     const localEdit = (process.env.LOCAL_RENDER || "1").trim() !== "0" &&
-      LOCAL_STYLES.includes(style) && !narration && !ambience && !sfx.length && !fx.length && outSeconds <= LOCAL_MAX_SECONDS;
+      LOCAL_STYLES.includes(style) && !narration && !ambience && !sfx.length && (!fx.length || FX_ON_DEVICE.includes(style)) && outSeconds <= LOCAL_MAX_SECONDS;
     const deviceCan = localEdit && dev && dev.ok === true && outSeconds <= devMax;
     // The score's beat, measured on the device. Clamped, not trusted; missing = no snap,
     // which is also what the pods do when they can't find one.
@@ -443,7 +446,7 @@ export default async function handler(req, res) {
     if (podsMuted() && !deviceCan) {
       const mins = (x) => Math.round(x / 60);
       const why = !LOCAL_STYLES.includes(style)
-          ? "This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process, Cinematic and Showcase all work right now."
+          ? "This style is taking a short break while we move it onto your device. Talking-head, Vlog, Tutorial, Process, Cinematic, Showcase and Fashion Film all work right now."
         : (narration || ambience || sfx.length)
           ? "Narration, ambience and sound effects are taking a short break while we move them onto your device. Turn them off and try again."
         : fx.length
