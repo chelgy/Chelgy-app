@@ -10250,6 +10250,12 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
     // Falls back to the stored value so a script written before this existed still has
     // a world to be drawn in.
     const activeLook = chosenLook() || look;
+    // The video is put together on THIS device. Checked before a single credit is
+    // spent: a voiceover and fifty pictures for a video that can't be assembled here
+    // would be money for nothing.
+    let deviceCaps = null;
+    try{ deviceCaps = await localRenderCaps(); }catch(_){ deviceCaps = null; }
+    if(!deviceCaps || !deviceCaps.ok) return setErr("Faceless videos are put together right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad.");
     if(!useCredits(cost)) return;
 
     setBusy(true);
@@ -10474,15 +10480,28 @@ function FacelessStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onTo
             // loud for the first — after the duck it still competes with the voice.
             musicDb: -27,
           },
-          // assembleCommercial ducks the music under the voice on its own — the mix is
-          // already built for a narrated film, which is exactly what this is.
-          voUrl, musicUrl, words
+          // The music is ducked under the voice as it's mixed — the mix is built for a
+          // narrated film, which is exactly what this is.
+          voUrl, musicUrl, words,
+          // Put together on this device, not a render server.
+          faceless: true, device: deviceCaps, orientation: orient
         })
       });
       const rd = await rr.json();
       if(!rr.ok || !rd.taskId) throw new Error(rd.error||"Couldn't start the render.");
 
-      const url = await pollVideo(rd.taskId, (p,st)=>setStage(st||("Rendering "+(p||0)+"%")));
+      const here = !!(rd.local && rd.local.token);
+      if(here){
+        runLocalRender({ token: rd.local.token, job: rd.local.job, files: {}, wait: cgWait })
+          .then((r)=>{ if(r !== "done") console.warn("faceless video stopped on this device:", r); })
+          .catch(()=>{});
+      }
+      const url = await pollVideo(rd.taskId, (p,st)=>setStage(here
+        ? "Putting your video together on this device — " + (p||0) + "%. Keep Chelgy open and on screen until it's done; if you switch away it pauses and carries on when you're back."
+        : (st||("Rendering "+(p||0)+"%"))));
+      // Nothing is charged for putting it together (the pictures and voice were paid for
+      // as they were made), so a device failure has no refund to mention.
+      if(!url && here && lastFfError) lastFfError = lastFfError.replace(/\s*Your credits were refunded\.?/i, "");
       // lastFfError carries what actually happened — the render server's own message,
       // or the note that it is still going. "The render didn't finish" on its own tells
       // nobody anything and hides a job that may well have succeeded.

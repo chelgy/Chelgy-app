@@ -23,13 +23,17 @@
 // last images with no error anywhere. Measured that on an eleven-second plan against a
 // ten-second voiceover: the final shot simply was not there.
 //
-// Env: ANTHROPIC_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
+// THE WRITER IS CHATGPT (OpenAI), the same account that already makes every picture.
+// The model is FACELESS_MODEL if set, otherwise the newest one in WRITER_MODELS this
+// account can use; one that isn't available falls through to the next.
+//
+// Env: OPENAI_API_KEY, FACELESS_MODEL (optional), SUPABASE_URL, SUPABASE_ANON_KEY
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const SB_URL  = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
-const CLAUDE_MODEL = (process.env.PLANNER_MODEL || "claude-opus-4-8").trim();
+const WRITER_MODELS = [(process.env.FACELESS_MODEL || "").trim(), "gpt-5.5", "gpt-5.4", "gpt-4.1"].filter(Boolean);
 
 // Speech runs at about 150 words a minute for narration — slower than conversation,
 // which is what makes it listenable. Used only to ask for roughly the right LENGTH of
@@ -84,33 +88,45 @@ async function getUserId(token) {
   } catch { return null; }
 }
 
-async function callClaude(AKEY, { system, content, maxTokens }) {
+// One call to ChatGPT. Same contract as before: { ok, text } or { ok:false, error }.
+// Retries what is worth retrying (busy, rate limited), and steps down the model list
+// when a model isn't available on this account rather than failing the customer.
+async function callWriter(KEY, { system, content, maxTokens, effort }) {
   let lastErr = "The writer is busy. Please try again in a moment.";
-  for (let i = 0; i < 3; i++) {
-    try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "x-api-key": AKEY, "anthropic-version": "2023-06-01",
-                   "Content-Type": "application/json" },
-        // No temperature: Opus 4.8 deprecated it and rejects the request if present.
-        body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: maxTokens || 8000,
-                               system, messages: [{ role: "user", content }] }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        lastErr = (d && d.error && d.error.message) || ("Model error " + r.status);
-        if (r.status === 429 || r.status >= 500 || overloaded(lastErr)) {
+  for (let m = 0; m < WRITER_MODELS.length; m++) {
+    const model = WRITER_MODELS[m];
+    let tryEffort = !!effort;
+    for (let i = 0; i < 3; i++) {
+      try {
+        const payload = { model, max_completion_tokens: maxTokens || 8000,
+                          messages: [{ role: "system", content: system }, { role: "user", content }] };
+        if (tryEffort) payload.reasoning_effort = effort;
+        const r = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + KEY, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          lastErr = (d && d.error && d.error.message) || ("Model error " + r.status);
+          // A model this account can't use: the next one down.
+          if (r.status === 404 || /model.*(does not exist|not found|not have access)|unknown model/i.test(lastErr)) break;
+          // A model that takes no reasoning setting: the same model without it.
+          if (tryEffort && /reasoning/i.test(lastErr)) { tryEffort = false; continue; }
+          if (r.status === 429 || r.status >= 500 || overloaded(lastErr)) { await sleep(1500 * (i + 1)); continue; }
+          return { ok: false, error: lastErr };
+        }
+        const choice = d && Array.isArray(d.choices) ? d.choices[0] : null;
+        const text = String((choice && choice.message && choice.message.content) || "");
+        if (!text) {
+          lastErr = choice && choice.finish_reason === "length" ? "The writer ran out of room. Try a shorter script." : "The writer returned nothing.";
           await sleep(1200 * (i + 1)); continue;
         }
-        return { ok: false, error: lastErr };
+        return { ok: true, text };
+      } catch (e) {
+        lastErr = (e && e.message) || "Network error contacting the writer.";
+        await sleep(1200 * (i + 1));
       }
-      const text = (Array.isArray(d.content) ? d.content : [])
-        .map((b) => (b && b.type === "text" ? b.text : "")).join("");
-      if (!text) { lastErr = "The writer returned nothing."; await sleep(1200 * (i + 1)); continue; }
-      return { ok: true, text };
-    } catch (e) {
-      lastErr = (e && e.message) || "Network error contacting the writer.";
-      await sleep(1200 * (i + 1));
     }
   }
   return { ok: false, error: lastErr };
@@ -513,7 +529,7 @@ export default async function handler(req, res) {
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please sign in again." });
 
-    const AKEY = (process.env.ANTHROPIC_API_KEY || "").trim();
+    const AKEY = (process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "").trim();
     if (!AKEY) return res.status(500).json({ error: "The writer is not configured." });
 
     // ── write the script ──
@@ -528,10 +544,10 @@ export default async function handler(req, res) {
       // at a wedding" and it is treated exactly like a built-in.
       const chosenLook = String(body.look || "").trim().slice(0, 400);
 
-      const r = await callClaude(AKEY, {
+      const r = await callWriter(AKEY, {
         system: SCRIPT_SYSTEM,
         content: scriptPrompt(topic, seconds, tone, chosenLook),
-        maxTokens: 4000,
+        maxTokens: 12000, effort: "medium",
       });
       if (!r.ok) return res.status(502).json({ error: r.error });
 
@@ -590,10 +606,10 @@ export default async function handler(req, res) {
       // a watchable if disconnected film, rather than no film at all.
       let bible = { characters: [], places: [], arc: "" };
       if (script) {
-        const br = await callClaude(AKEY, {
+        const br = await callWriter(AKEY, {
           system: BIBLE_SYSTEM,
           content: biblePrompt(script, look, topic),
-          maxTokens: 3000,
+          maxTokens: 8000, effort: "low",
         });
         if (br.ok) {
           const bj = parseJson(br.text);
@@ -622,10 +638,10 @@ export default async function handler(req, res) {
       }
 
       // STEP TWO: the shots, designed against that.
-      const r = await callClaude(AKEY, {
+      const r = await callWriter(AKEY, {
         system: IMAGE_SYSTEM,
         content: imagePrompt(shots, bible, look, topic),
-        maxTokens: 16000,
+        maxTokens: 32000, effort: "low",
       });
       if (!r.ok) return res.status(502).json({ error: r.error });
 

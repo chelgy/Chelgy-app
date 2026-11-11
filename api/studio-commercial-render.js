@@ -27,12 +27,21 @@
 // from scratch on this side. The render server rejects a plan whose sources have no
 // url, with a message saying so.
 //
-// Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
+// FACELESS VIDEOS NOW GO TOGETHER ON THE CUSTOMER'S DEVICE. A start that carries
+// { faceless: true, device } is planned here into chunk specs for the browser engine
+// and handed to her tab ({ taskId: "ff:<job>", local }). No render server involved;
+// "ff:" polls through api/studio-ffmpeg.js like every other device render.
+//
+// Env (Vercel): RENDER_SERVER_URL, RENDER_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY,
+//               SUPABASE_SERVICE_ROLE_KEY
+
+import { registerBrowserDevice, planFaceless, saveJob, copyToStorage } from "./_lib/local-lane.js";
 
 export const maxDuration = 60;
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_ANON = (process.env.SUPABASE_ANON_KEY || "").trim();
+const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const RS_URL = (process.env.RENDER_SERVER_URL || "").trim().replace(/\/+$/, "");
 const RS_SECRET = (process.env.RENDER_SECRET || "").trim();
 
@@ -54,9 +63,58 @@ export default async function handler(req, res) {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
     const userId = await getUserId(token);
     if (!userId) return res.status(401).json({ error: "Please sign in again." });
-    if (!RS_URL || !RS_SECRET) return res.status(500).json({ error: "The render server is not configured." });
-
     const body = req.body || {};
+
+    // ---- start, on this device (faceless) ----------------------------------
+    if (body.faceless === true && !body.taskId) {
+      const dev = body.device && typeof body.device === "object" ? body.device : null;
+      if (!dev || dev.ok !== true) {
+        return res.status(400).json({ error: "Faceless videos are put together right here on your device, and this browser can't do that yet. Open Chelgy in Safari on a Mac, or on your iPhone or iPad." });
+      }
+      let built;
+      try {
+        const musicUrl = isUrl(body.musicUrl)
+          ? await copyToStorage(body.musicUrl, userId + "/faceless/score-" + Date.now() + ".audio")
+          : null;
+        built = planFaceless({ plan: body.plan || {}, words: body.words, orientation: body.orientation, voUrl: body.voUrl, musicUrl });
+      } catch (e) {
+        return res.status(400).json({ error: String((e && e.message) || e) });
+      }
+      const devMax = Math.min(1200, Number(dev.maxSeconds) || 1200);
+      if (built.seconds > devMax) return res.status(400).json({ error: "This video is too long for this device to put together. Use a Mac, or shorten the script." });
+      const browser = await registerBrowserDevice(userId, dev);
+      if (!browser) return res.status(503).json({ error: "Couldn't set this device up to put the video together. Please try again." });
+      const edl = { ...built.edl,
+        uploadPath: userId + "/faceless-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".mp4",
+        localOk: true, localDevice: browser.id };
+      let saved;
+      try { saved = await saveJob({ userId, edl, creditsCharged: 0 }, built.specs); }
+      catch (e) {
+        console.error("[faceless] couldn't save the job: " + ((e && e.message) || e));
+        return res.status(502).json({ error: "Couldn't set up the video. Please try again." });
+      }
+      // The database routes it to this tab as the row is written. If it didn't land
+      // here, nothing else will ever pick a faceless job up, so say so now.
+      let lane = "cloud";
+      try {
+        const lr = await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(saved.jobId) + "&select=lane", {
+          headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC } });
+        const rows = lr.ok ? await lr.json() : null;
+        if (Array.isArray(rows) && rows[0] && rows[0].lane === "local") lane = "local";
+      } catch {}
+      if (lane !== "local") {
+        try {
+          await fetch(SB_URL + "/rest/v1/render_jobs?id=eq." + encodeURIComponent(saved.jobId), {
+            method: "PATCH",
+            headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ status: "error", error: "no device took it", finished_at: new Date().toISOString() }) });
+        } catch {}
+        return res.status(503).json({ error: "Your device didn't pick up the video. Please try again, and keep Chelgy open." });
+      }
+      return res.status(200).json({ taskId: "ff:" + saved.jobId, local: { token: browser.token, job: saved.jobId }, seconds: built.seconds });
+    }
+
+    if (!RS_URL || !RS_SECRET) return res.status(500).json({ error: "The render server is not configured." });
 
     // ---- poll ------------------------------------------------------------
     if (typeof body.taskId === "string" && body.taskId) {

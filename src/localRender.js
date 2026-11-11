@@ -30,7 +30,7 @@ let deviceTurn = Promise.resolve();
 
 // The styles the engine reproduces exactly. MUST match SUPPORTED_STYLES in the engine's
 // render.js and LOCAL_STYLES in api/studio-ffmpeg.js.
-export const LOCAL_RENDER_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase", "fashion", "musicvideo", "musicvideofx"];
+export const LOCAL_RENDER_STYLES = ["talkinghead", "vlog", "tutorial", "cinematic", "process", "showcase", "fashion", "musicvideo", "musicvideofx", "faceless"];
 
 // Can this device render edits? Answered once per page load. Cheap: no encoding, just
 // "does the browser say it can". The real proof is the first render; if that fails the

@@ -912,6 +912,8 @@ function ghostFor(style, idx, kind, dur) {
   return { opacity: 0.35, driftX: 0.03, driftY: 0.012 };
 }
 export {
+  assForWindow,
+  buildAssEvents,
   planChunks,
   snapToBeat
 };

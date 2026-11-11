@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 // The render server's own planner and beat snap (job-plan.js planChunks, beat.js
 // snapToBeat), bundled to run here. Identical chunk specs to the render server's.
-import { planChunks, snapToBeat } from "./plan-chunks.js";
+import { planChunks, snapToBeat, buildAssEvents, assForWindow } from "./plan-chunks.js";
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -47,6 +47,12 @@ export async function planHere({ userId, edl, creditsCharged }, beat) {
     console.log("[plan] beat " + beat.bpm + " BPM (phase " + beat.phase + "s), snapped " + r.moved + " of " + edl.segments.length + " cuts");
   }
   const { specs } = planChunks(edl);
+  return saveJob({ userId, edl, creditsCharged }, specs);
+}
+
+// Write the job and its chunks, the way planJob does. The database trigger routes the
+// job to the device named in edl.localDevice the moment the row lands.
+export async function saveJob({ userId, edl, creditsCharged }, specs) {
   if (!specs.length) throw new Error("That edit has nothing to render.");
   const H = { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": "application/json" };
   const r = await fetch(SB_URL + "/rest/v1/render_jobs", {
@@ -78,4 +84,70 @@ export async function planVia(here, url, init, beat) {
     const msg = "Couldn't set up the render (" + ((e && e.message) || "unknown") + ").";
     return { ok: false, status: 500, json: async () => ({ error: msg }) };
   }
+}
+
+// ── FACELESS VIDEOS ON THE DEVICE ──────────────────────────────────────────────────
+// What the render server's commercial.js did with a faceless plan, as chunk specs for
+// the device engine: one chunk per picture (its frames, its push / pull / hold), the
+// title over the opening seconds, and the word-by-word captions sliced to each shot
+// (buildAssEvents + assForWindow, the render server's own caption code, bundled).
+export const FACELESS_FPS = 30;
+const isUrl = (v) => typeof v === "string" && /^https?:\/\//.test(v);
+export function planFaceless({ plan, words, orientation, voUrl, musicUrl }) {
+  const fps = FACELESS_FPS;
+  const size = orientation === "landscape" ? { w: 1920, h: 1080 } : { w: 1080, h: 1920 };
+  const sources = new Map((Array.isArray(plan && plan.sources) ? plan.sources : []).map((s) => [String(s && s.id), s]));
+  const timeline = Array.isArray(plan && plan.timeline) ? plan.timeline : [];
+  if (!timeline.length) throw new Error("That plan has no timeline.");
+  if (timeline.length > 120) throw new Error("Too many shots (" + timeline.length + ").");
+  if (!isUrl(voUrl)) throw new Error("The voiceover is missing.");
+  const shots = [];
+  let at = 0;
+  for (const e of timeline) {
+    const src = sources.get(String(e && e.src));
+    if (!src || !isUrl(src.url)) throw new Error("A picture hasn't finished generating yet.");
+    const dur = Number(e.out) - (Number(e.in) || 0);
+    if (!(dur > 0) || dur > 8.01) throw new Error("A shot is " + (dur > 0 ? dur.toFixed(1) + "s" : "empty") + "; each picture holds 8 seconds at most.");
+    const frames = Math.max(1, Math.round(dur * fps));
+    const fx = Array.isArray(e.fx) ? e.fx.map(String) : [];
+    shots.push({ url: src.url, frames, start: at, move: fx.includes("push") ? "push" : fx.includes("pull") ? "pull" : "",
+                 title: e.title ? { text: String(e.title).slice(0, 80), from: Math.max(0, Number(e.titleFrom) || 0), to: Number(e.titleTo) || 0, font: "Monoton-Regular.ttf" } : null });
+    at += frames / fps;
+  }
+  const total = at;
+  let header = null, events = null;
+  const w = (Array.isArray(words) ? words : []).slice(0, 20000)
+    .map((x) => ({ w: String((x && (x.w || x.word || x.text)) || "").slice(0, 60), s: Number(x && (x.s ?? x.start)) || 0, e: Number(x && (x.e ?? x.end)) || 0 }))
+    .filter((x) => x.w && x.e >= x.s);
+  if (w.length) {
+    // perLine 1 and fontScale 0.055: the commercial caption style (one word at a time).
+    const built = buildAssEvents(w, [{ clip: 0, s: 0, e: total }], size, { fontPack: "editorial", perLine: 1, fontScale: 0.055 }, "");
+    header = built.header; events = built.events;
+  }
+  const specs = shots.map((sh, idx) => ({ idx, spec: {
+    kind: "still", url: sh.url, frames: sh.frames, move: sh.move, title: sh.title,
+    ass: header ? assForWindow(header, events, sh.start, sh.start + sh.frames / fps) : null,
+  } }));
+  const musicDb = Number.isFinite(Number(plan.musicDb)) ? Math.max(-40, Math.min(0, Number(plan.musicDb))) : -27;
+  const edl = { style: "faceless", fps, size, orientation: orientation === "landscape" ? "landscape" : "portrait",
+                voice: voUrl, music: isUrl(musicUrl) ? musicUrl : null, musicDb };
+  return { edl, specs, seconds: total };
+}
+
+// A score the device can read. Generated scores live on the music provider's servers,
+// which a browser may not be allowed to fetch from; a copy in our own storage always is.
+export async function copyToStorage(url, path) {
+  try {
+    if (!isUrl(url) || url.indexOf(SB_URL + "/storage/") === 0) return url;
+    const r = await fetch(url);
+    if (!r.ok) return url;
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length || buf.length > 40 * 1024 * 1024) return url;
+    const up = await fetch(SB_URL + "/storage/v1/object/sites/" + path, {
+      method: "POST",
+      headers: { apikey: SB_SVC, Authorization: "Bearer " + SB_SVC, "Content-Type": r.headers.get("content-type") || "audio/mpeg", "x-upsert": "true" },
+      body: buf,
+    });
+    return up.ok ? SB_URL + "/storage/v1/object/public/sites/" + path : url;
+  } catch { return url; }
 }
