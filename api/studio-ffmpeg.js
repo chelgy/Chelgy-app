@@ -19,7 +19,7 @@
 import { ensurePods, podsMuted } from "./render-scale.js";
 import { rescueStalled } from "./render-local.js";
 // Sending a render to the customer's own device (shared with studio-shorts.js).
-import { registerBrowserDevice, planVia } from "./_lib/local-lane.js";
+import { registerBrowserDevice, planVia, copyToStorage } from "./_lib/local-lane.js";
 
 export const maxDuration = 60;
 
@@ -143,6 +143,17 @@ export default async function handler(req, res) {
     // ── CONFIG: what the editor needs to know before it starts ──
     if (action === "config") {
       return res.status(200).json({ pods: !podsMuted(), localStyles: LOCAL_STYLES, localMaxSeconds: LOCAL_MAX_SECONDS });
+    }
+
+    // ── COPY_SCORE: a composed score, copied into our own storage. It comes back on the
+    // music provider's servers, which a browser may not be allowed to read from — and
+    // the device has to read it, to find its beat and to mix it. Our storage it always
+    // can. Returns the original address if the copy can't be made.
+    if (action === "copy_score") {
+      const src = typeof body.url === "string" ? body.url.trim() : "";
+      if (!/^https:\/\//.test(src)) return res.status(400).json({ error: "Missing score URL." });
+      const url = await copyToStorage(src, userId + "/scores/" + Date.now() + "-" + Math.random().toString(36).slice(2, 7) + ".audio");
+      return res.status(200).json({ url });
     }
 
     // ── AUDIO: pull just the audio track out of the video for transcription.

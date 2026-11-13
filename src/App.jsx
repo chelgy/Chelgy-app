@@ -6987,6 +6987,13 @@ function VideoStudio({ useCredits=()=>true, credits=0, onBalance=()=>{}, onToolU
           if(typeof mus.balance==="number") onBalance(mus.balance);
           musicUrl = await pollVideo(mus.id, (pct)=>setStage("Composing your score — " + pct + "%…"));
           if(!musicUrl) throw new Error("The score didn't come back.");
+          // Into our own storage, so this device can read it (beat + mix). Never fatal.
+          try{
+            const tk = await freshToken();
+            const cr = await fetch("/api/studio-ffmpeg", { method:"POST", headers:{ "Content-Type":"application/json", ...(tk?{Authorization:"Bearer "+tk}:{}) }, body: JSON.stringify({ action:"copy_score", url: musicUrl }) });
+            const cd = await cr.json().catch(()=>({}));
+            if(cr.ok && cd && typeof cd.url === "string" && /^https:\/\//.test(cd.url)) musicUrl = cd.url;
+          }catch(_){ }
         } catch(e){
           console.warn("score skipped:", e && e.message);
           setStage("Couldn't compose the score — carrying on without music.");

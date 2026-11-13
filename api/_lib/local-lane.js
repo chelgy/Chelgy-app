@@ -139,8 +139,13 @@ export function planFaceless({ plan, words, orientation, voUrl, musicUrl }) {
 export async function copyToStorage(url, path) {
   try {
     if (!isUrl(url) || url.indexOf(SB_URL + "/storage/") === 0) return url;
-    const r = await fetch(url);
+    // Only a public https address, never a machine on a private network.
+    const host = new URL(url).hostname.toLowerCase();
+    if (new URL(url).protocol !== "https:" || host === "localhost" || /^[\d.:\[\]]+$/.test(host) || host.endsWith(".internal") || host.endsWith(".local")) return url;
+    const r = await fetch(url, { redirect: "follow" });
     if (!r.ok) return url;
+    const type = String(r.headers.get("content-type") || "").toLowerCase();
+    if (type && !/^(audio\/|application\/octet-stream|binary\/octet-stream|video\/mp4)/.test(type)) return url;
     const buf = Buffer.from(await r.arrayBuffer());
     if (!buf.length || buf.length > 40 * 1024 * 1024) return url;
     const up = await fetch(SB_URL + "/storage/v1/object/sites/" + path, {
