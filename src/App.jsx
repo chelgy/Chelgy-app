@@ -11727,6 +11727,86 @@ function StripeConnect({ user }) {
     </div>
   );
 }
+// SQUARE, next to Stripe. A member connects their own Square account and sales go
+// straight into it (api/square-account.js, api/square-callback.js). With both
+// connected they choose which one their checkouts use.
+function SquareConnect({ user }) {
+  const [st, setSt] = useState(null);
+  const [stripeReady, setStripeReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const call = async (body) => {
+    const tok = await freshToken(); if (!tok) throw new Error("Please log in again.");
+    const r = await fetch("/api/square-account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: tok, ...body }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "Something went wrong.");
+    return d;
+  };
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try { const d = await call({ action: "status" }); if (!cancel) setSt(d); } catch (_) { if (!cancel) setSt({ connected: false }); }
+      try {
+        const tok = await freshToken(); if (!tok) return;
+        const r = await fetch("/api/stripe-status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: tok }) });
+        const d = await r.json().catch(() => ({}));
+        if (!cancel) setStripeReady(!!d.charges_enabled);
+      } catch (_) {}
+    })();
+    return () => { cancel = true; };
+  }, []);
+  // Back from Square's sign-in page.
+  const back = (() => { try { return new URLSearchParams(window.location.search).get("square"); } catch (_) { return null; } })();
+  const connect = async () => {
+    setBusy(true); setErr("");
+    try { const d = await call({ action: "connect" }); window.location.href = d.url; }
+    catch (e) { setErr(e.message); setBusy(false); }
+  };
+  const prefer = async (square) => {
+    setBusy(true); setErr("");
+    try { await call({ action: "prefer", square }); setSt((x) => ({ ...(x || {}), preferred: square })); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const disconnect = async () => {
+    if (!window.confirm("Disconnect Square? Checkouts will stop using it.")) return;
+    setBusy(true); setErr("");
+    try { await call({ action: "disconnect" }); setSt((x) => ({ ...(x || {}), connected: false, ready: false, preferred: false })); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  if (st && st.configured === false && !st.connected) return null;   // not switched on for Chelgy yet
+  const ready = !!(st && st.ready);
+  const font = "Jost,Helvetica,Arial,sans-serif";
+  return (
+    <div style={{ border: "1px solid " + (ready ? "#7DBE7D" : "#E3DCCB"), background: ready ? "#EAF5EA" : "#FBF7F0", padding: "14px 16px", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontFamily: font, fontSize: 13, fontWeight: 700, color: "#241E18" }}>{ready ? "✓ Square connected" + (st.name ? " — " + st.name : "") : "Or get paid with Square"}</div>
+          <div style={{ fontFamily: font, fontSize: 11.5, color: "#8A7E70", lineHeight: 1.5, marginTop: 3 }}>{ready
+            ? (stripeReady ? (st.preferred ? "Checkouts use Square. Payments go straight into your Square account." : "Checkouts use Stripe right now. Switch below to take payments with Square instead.")
+                           : "Store sales, booking payments and invoices are paid straight into your Square account.")
+            : (st && st.connected ? "Square is connected but has no location that can take card payments. Add one in Square, then reconnect."
+                                   : "Already use Square? Connect it and payments go straight into your Square account.")}</div>
+          {back === "cancelled" && !ready && <div style={{ fontFamily: font, fontSize: 11, color: "#8A7E70", marginTop: 6 }}>Square connection cancelled.</div>}
+          {back === "error" && !ready && <div style={{ fontFamily: font, fontSize: 11, color: "#C0392B", marginTop: 6 }}>Square didn't finish connecting. Please try again.</div>}
+        </div>
+        {!ready && <button onClick={connect} disabled={busy || !st} style={{ background: "#000", color: "#fff", border: "none", padding: "10px 18px", fontFamily: font, fontSize: 12, fontWeight: 700, borderRadius: 4, cursor: (busy || !st) ? "default" : "pointer", opacity: (busy || !st) ? 0.6 : 1, whiteSpace: "nowrap" }}>{busy ? "Opening…" : (st && st.connected ? "Reconnect Square" : "Connect Square")}</button>}
+      </div>
+      {ready && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
+        {stripeReady && <>
+          <span style={{ fontFamily: font, fontSize: 11, color: "#8A7E70" }}>Take payments with:</span>
+          {[["Stripe", false], ["Square", true]].map(([label, sq]) => (
+            <button key={label} disabled={busy} onClick={() => prefer(sq)} style={{ background: (!!st.preferred === sq) ? "#241E18" : "#fff", color: (!!st.preferred === sq) ? "#fff" : "#241E18", border: "1px solid #241E18", padding: "6px 12px", fontFamily: font, fontSize: 11, fontWeight: 700, borderRadius: 4, cursor: busy ? "default" : "pointer" }}>{label}</button>
+          ))}
+        </>}
+        <button disabled={busy} onClick={disconnect} style={{ marginLeft: "auto", background: "none", border: "none", color: "#8A7E70", fontFamily: font, fontSize: 11, textDecoration: "underline", cursor: busy ? "default" : "pointer" }}>Disconnect Square</button>
+      </div>}
+      {err && <div style={{ fontFamily: font, fontSize: 11, color: "#C0392B", marginTop: 8 }}>{err}</div>}
+    </div>
+  );
+}
+function PaymentsConnect({ user }) {
+  return <><StripeConnect user={user} /><SquareConnect user={user} /></>;
+}
 function OrdersPanel({ user }){
   const [state,setState]=useState({loading:true,orders:[],error:""});
   useEffect(()=>{
@@ -11761,10 +11841,10 @@ function OrdersPanel({ user }){
   return (
     <div>
       <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Orders</div>
-      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Every sale from your store. Payments go straight to your connected Stripe account.</p>
+      <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Every sale from your store. Payments go straight to your connected Stripe or Square account.</p>
       {state.loading ? <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,padding:"20px 0"}}>Loading your orders…</div>
       : state.error ? <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.red}}>{state.error}</div>
-      : orders.length===0 ? <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,background:B.offwhite,border:"1px solid "+B.stone,padding:"18px",lineHeight:1.6}}>No orders yet. When a customer buys from your store, it'll show up here. Make sure Stripe is connected in the Products tab and your products have a price.</div>
+      : orders.length===0 ? <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,background:B.offwhite,border:"1px solid "+B.stone,padding:"18px",lineHeight:1.6}}>No orders yet. When a customer buys from your store, it'll show up here. Make sure Stripe or Square is connected in the Products tab and your products have a price.</div>
       : (<>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
           <div style={{flex:1,minWidth:100,border:"1px solid "+B.stone,background:B.white,padding:"12px 14px"}}><div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:9,letterSpacing:"0.12em",color:B.mid,textTransform:"uppercase"}}>Orders</div><div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:22,color:B.charcoal}}>{orders.length}</div></div>
@@ -11792,7 +11872,7 @@ function OrdersPanel({ user }){
                 </div>}
           </div>
         ); })}
-        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,color:B.mid,lineHeight:1.5,marginTop:6}}>Earnings shown are before Stripe's payment-processing fee, which Stripe deducts from each payout.</div>
+        <div style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:10,color:B.mid,lineHeight:1.5,marginTop:6}}>Earnings shown are before the payment-processing fee, which Stripe or Square deducts from each payout.</div>
       </>)}
     </div>
   );
@@ -13719,7 +13799,7 @@ function ToolsPage({ tool, onBack, onGoTool=()=>{}, credits=9999, useCredits=()=
           {edTab==="products"&&<div>
             <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:19,color:B.charcoal,marginBottom:4}}>Products &amp; services</div>
             <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:14,color:B.mid,lineHeight:1.6,margin:"0 0 16px"}}>Edit names, prices, descriptions and photos. Add or remove anytime — or let Chelgy write one for you. Tap Save when you're done.</p>
-            <StripeConnect user={user} />
+            <PaymentsConnect user={user} />
             <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid "+B.stone,marginBottom:16}}>
               <div style={{fontFamily:"Outfit,Helvetica Neue,Helvetica,Arial,sans-serif",fontSize:15,color:B.charcoal,marginBottom:4}}>Auto-dropshipping with CJ</div>
               <p style={{fontFamily:"Jost,Helvetica,Arial,sans-serif",fontSize:12.5,color:B.mid,lineHeight:1.6,margin:"0 0 10px"}}>Connect your free CJ account to source products and have orders fulfilled in-house. In CJ, open <strong>My CJ &rarr; Authorization &rarr; API &rarr; Generate</strong>, then paste the key here. No CJ account yet? <a href="https://www.cjdropshipping.com/register.html?token=4c381321-2ac5-4821-bd64-243b8e67b04f" target="_blank" rel="noopener noreferrer" style={{color:B.goldDark,fontWeight:700}}>Create one free &rarr;</a></p>
@@ -19688,7 +19768,7 @@ function CgCalendar({ site, sec, i }){
                 <textarea placeholder="Anything we should know? (optional)" rows={3} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} />
               </div>
               <div className="cg-center"><button type="button" className="btn-line cg-cal-go" onClick={submit} disabled={busy}>{busy?"One moment…":chosen.charge?("Pay "+cgCalMoney(chosen.charge)+(chosen.pay==="deposit"?" deposit":"")+" & book"):"Confirm booking"}</button></div>
-              {chosen.charge>0&&<p className="note cg-center" style={{marginTop:10,fontSize:12}}>Secure payment by Stripe.{chosen.pay==="deposit"?" The remaining "+cgCalMoney(chosen.balance)+" is collected at your appointment.":""}</p>}
+              {chosen.charge>0&&<p className="note cg-center" style={{marginTop:10,fontSize:12}}>Secure payment.{chosen.pay==="deposit"?" The remaining "+cgCalMoney(chosen.balance)+" is collected at your appointment.":""}</p>}
             </>}
             {err&&<div className="cg-cal-err">{err}</div>}
           </div>
@@ -19754,7 +19834,7 @@ function CgCalendarPanel({ draft, update, mutate, idx, onClose, siteId }){
   const [stripeOk,setStripeOk] = useState(null);
   const [newClosed,setNewClosed] = useState("");
   const [extra,setExtra] = useState({date:"",from:"10:00",to:"14:00"});
-  useEffect(()=>{ let c=false; (async()=>{ try{ const tok=await freshToken(); if(!tok) return; const r=await fetch("/api/stripe-status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({access_token:tok})}); const d=await r.json().catch(()=>({})); if(!c) setStripeOk(!!d.charges_enabled); }catch(e){} })(); return ()=>{c=true;}; },[]);
+  useEffect(()=>{ let c=false; (async()=>{ try{ const tok=await freshToken(); if(!tok) return; const H={method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({access_token:tok})}; const [a,b]=await Promise.all([fetch("/api/stripe-status",H).then(r=>r.json()).catch(()=>({})), fetch("/api/square-account",{...H,body:JSON.stringify({access_token:tok,action:"status"})}).then(r=>r.json()).catch(()=>({}))]); if(!c) setStripeOk(!!(a&&a.charges_enabled)||!!(b&&b.ready)); }catch(e){} })(); return ()=>{c=true;}; },[]);
   if(!sec||sec.type!=="calendar") return null;
   const P=f=>"sections."+idx+"."+f;
   const services=Array.isArray(sec.services)?sec.services:[];
@@ -19772,7 +19852,7 @@ function CgCalendarPanel({ draft, update, mutate, idx, onClose, siteId }){
     <div className="cg-panel cg-panel-wide" onClick={e=>e.stopPropagation()}>
       <div className="cg-panel-h"><span>Booking settings</span><button onClick={onClose} aria-label="Close">✕</button></div>
       <div className="cg-panel-list cg-cp">
-        {needsPay&&stripeOk===false&&<div className="cg-panel-note" style={{margin:"4px 0 12px"}}>To take deposits or payments, connect Stripe first: <b>Website → Orders → Connect Stripe</b>. Until then, paid services can't be booked.</div>}
+        {needsPay&&stripeOk===false&&<div className="cg-panel-note" style={{margin:"4px 0 12px"}}>To take deposits or payments, connect Stripe or Square first: <b>Website → Products → Connect Stripe / Connect Square</b>. Until then, paid services can't be booked.</div>}
 
         <div className="cg-cp-h">Services</div>
         {services.map((s,j)=>{ const pay=s.pay||(cgCents(s.price)?"full":"none"); return (
@@ -20523,7 +20603,7 @@ function StoreCart({ site, slug }){
           {err&&<div style={{color:"#C0392B",fontSize:14,marginBottom:10,lineHeight:1.4}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:14}}><span style={{color:"#888"}}>Total</span><span style={{fontWeight:700,color:B.charcoal}}>{cgMoney(total)}</span></div>
           <button onClick={checkout} disabled={busy||count===0} style={{width:"100%",background:count===0?"#ccc":"#111",color:"#fff",border:"none",borderRadius:6,padding:"14px",fontSize:15,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:(busy||count===0)?"default":"pointer"}}>{busy?"Starting checkout…":"Checkout"}</button>
-          <div style={{textAlign:"center",fontSize:10,color:"#aaa",marginTop:8,letterSpacing:"0.04em"}}>Secure checkout by Stripe</div>
+          <div style={{textAlign:"center",fontSize:10,color:"#aaa",marginTop:8,letterSpacing:"0.04em"}}>Secure checkout</div>
         </div>
       </div>
     </div>}
@@ -21683,8 +21763,8 @@ function BusinessManager({ user, bizCtx, locked, onUpgrade }) {
       {tab === "invoices" && (
         <div>
           <div style={{ marginBottom: 14 }}>
-            <StripeConnect user={user} />
-            <div style={{ fontFamily: "Jost,Helvetica,Arial,sans-serif", fontSize: 11, color: B.mid, lineHeight: 1.5, marginTop: -8 }}>Connect Stripe once (you may have already for your store) to send clients a “Pay now” link. Payments go straight to your Stripe.</div>
+            <PaymentsConnect user={user} />
+            <div style={{ fontFamily: "Jost,Helvetica,Arial,sans-serif", fontSize: 11, color: B.mid, lineHeight: 1.5, marginTop: -8 }}>Connect Stripe or Square once (you may have already for your store) to send clients a “Pay now” link. Payments go straight to your account.</div>
           </div>
           <Btn dark small onClick={() => setEdit({ kind: "invoice", row: { items: [{ desc: "", qty: 1, price: 0 }], currency: "USD", status: "draft", number: "INV-" + String(invoices.length + 1).padStart(3, "0") } })}>+ NEW INVOICE</Btn>
           {edit && edit.kind === "invoice" && (

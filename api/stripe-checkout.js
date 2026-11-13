@@ -5,7 +5,13 @@
 // transferred to the store owner's connected Stripe account (destination charge).
 // Prices are read SERVER-SIDE from the saved site, so a shopper can't tamper with them.
 //
-// Env: STRIPE_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_APP_URL
+// SQUARE: if the owner takes payments through Square instead (or as well, and chose
+// Square), the same cart goes to a Square checkout page — same server-side prices,
+// same 5% for Chelgy (as Square's app fee). See api/_square.js.
+//
+// Env: STRIPE_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_APP_URL,
+//      SQUARE_* (api/_square.js)
+import { squareForCheckout, squarePaymentLink } from "./_square.js";
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -34,7 +40,6 @@ function okUrl(u, fallback) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
-    if (!STRIPE_KEY) return res.status(500).json({ error: "Payments aren't configured yet." });
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const slug = String(body.slug || "").trim();
     const cart = Array.isArray(body.cart) ? body.cart : [];
@@ -52,11 +57,16 @@ export default async function handler(req, res) {
     const off = secs.find((s) => s && s.type === "offerings");
     const products = (off && Array.isArray(off.items)) ? off.items : [];
 
-    // 2) is the owner set up to take payments?
-    const aq = await fetch(SB_URL + "/rest/v1/stripe_accounts?select=account_id,charges_enabled&user_id=eq." + ownerId, { headers: svc });
-    const arows = await aq.json();
-    const acct = Array.isArray(arows) && arows[0];
-    if (!acct || !acct.account_id || !acct.charges_enabled) return res.status(400).json({ error: "This store isn't set up to take payments yet." });
+    // 2) is the owner set up to take payments? Stripe, Square, or both.
+    let acct = null;
+    try {
+      const aq = await fetch(SB_URL + "/rest/v1/stripe_accounts?select=account_id,charges_enabled&user_id=eq." + ownerId, { headers: svc });
+      const arows = await aq.json();
+      acct = Array.isArray(arows) && arows[0] ? arows[0] : null;
+    } catch {}
+    const stripeReady = !!(STRIPE_KEY && acct && acct.account_id && acct.charges_enabled);
+    const sqAcct = await squareForCheckout(ownerId, stripeReady);
+    if (!stripeReady && !sqAcct) return res.status(400).json({ error: "This store isn't set up to take payments yet." });
 
     // 3) build line items from trusted server prices
     const params = {};
@@ -76,6 +86,24 @@ export default async function handler(req, res) {
     if (!n) return res.status(400).json({ error: "Those items aren't available." });
 
     const fee = Math.round(total * PLATFORM_FEE_BPS / 10000);
+
+    // ── through Square ──
+    if (sqAcct) {
+      const lines = [];
+      for (const c of cart) {
+        const it = products[c && c.i]; if (!it) continue;
+        const cents = centsFromPrice(it.price); if (cents <= 0) continue;
+        lines.push({ name: String(it.name || "Item").slice(0, 120), cents, qty: Math.max(1, Math.min(99, parseInt(c && c.qty, 10) || 1)) });
+      }
+      const link = await squarePaymentLink(sqAcct, {
+        lines, feeCents: fee, askShipping: true,
+        redirectUrl: okUrl(body.success_url, APP_URL + "/?paid=1"),
+        meta: { type: "store", owner_id: ownerId, slug: slug.slice(0, 120), fee: String(fee), items: JSON.stringify(meta).slice(0, 255) },
+      });
+      if (!link.url) return res.status(502).json({ error: link.error || "Couldn't start checkout." });
+      return res.status(200).json({ url: link.url, provider: "square" });
+    }
+
     params["mode"] = "payment";
     params["success_url"] = okUrl(body.success_url, APP_URL + "/?paid=1");
     params["cancel_url"] = okUrl(body.cancel_url, APP_URL + "/");

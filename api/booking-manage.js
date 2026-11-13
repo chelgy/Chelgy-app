@@ -6,7 +6,11 @@
 //   charge_balance  { booking_id }  charge the card saved at booking; if the bank needs the
 //                                   customer (or no card is saved), email them a pay link instead
 //   send_balance_link { booking_id }
-import { sb, getUser, stripe, refundIntent, feeFor, connectedAccount, sendEmail, emailHtml, money, formatWhen, ownerEmail, body as readBody } from "./_booking-lib.js";
+import { sb, getUser, stripe, refundIntent, feeFor, connectedAccount, sendEmail, emailHtml, money, formatWhen, ownerEmail, body as readBody, STRIPE_KEY } from "./_booking-lib.js";
+import { squareForCheckout, squarePaymentLink, squareAccount } from "./_square.js";
+import { isSquareId, squareRefund, squareFee } from "./_square-pay.js";
+// SQUARE: bookings paid through Square are refunded through Square, and a balance is
+// collected with a Square pay link when the business takes payments through Square.
 
 const APP_URL = (process.env.SHOPIFY_APP_URL || process.env.APP_URL || "https://chelgy.app").trim();
 const COLS = "id,site_id,section_index,service_index,service_name,duration_min,start_at,end_at,tz,customer_name,customer_email,customer_phone,notes,status,pay_mode,currency,price_cents,amount_paid_cents,balance_due_cents,refunded_cents,payment_method,created_at,confirmed_at,completed_at,cancelled_at";
@@ -22,6 +26,25 @@ async function siteInfo(siteId) {
   const q = await sb("websites?select=slug,custom_domain,data&id=eq." + encodeURIComponent(siteId) + "&limit=1");
   const s = Array.isArray(q.j) && q.j[0];
   return { name: (s && s.data && s.data.brand && s.data.brand.name) || "", url: s ? (s.custom_domain ? "https://" + s.custom_domain : APP_URL + "/?site=" + encodeURIComponent(s.slug)) : APP_URL };
+}
+
+// The emailed "pay your balance" link, through Square.
+async function squareBalanceLink(b, acct) {
+  const site = await siteInfo(b.site_id);
+  const link = await squarePaymentLink(acct, {
+    lines: [{ name: "Balance — " + b.service_name + " · " + formatWhen(Date.parse(b.start_at), b.tz), cents: b.balance_due_cents, qty: 1 }],
+    feeCents: squareFee(feeFor(b.balance_due_cents), b.balance_due_cents),
+    email: b.customer_email,
+    redirectUrl: site.url + (site.url.includes("?") ? "&" : "?") + "balance_paid=" + b.id,
+    meta: { type: "booking_balance", owner_id: b.owner_id, booking_id: b.id },
+  });
+  if (!link.url) return null;
+  await patch(b.id, { balance_session_id: "sq:" + (link.orderId || "") + ":" + (link.linkId || "") });
+  const oEmail = await ownerEmail(b.owner_id);
+  await sendEmail({ to: b.customer_email, replyTo: oEmail || undefined, subject: "Balance for your " + b.service_name + (site.name ? " — " + site.name : ""),
+    html: emailHtml("Your remaining balance", [["Service", b.service_name], ["When", formatWhen(Date.parse(b.start_at), b.tz)], ["Balance due", money(b.balance_due_cents, b.currency)]],
+      `<a href="${link.url}" style="display:inline-block;background:#171512;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px">Pay ${money(b.balance_due_cents, b.currency)}</a>`) });
+  return link.url;
 }
 
 async function balanceLink(b, account) {
@@ -84,6 +107,12 @@ export default async function handler(req, res) {
       if (b.refund) {
         // Refund everything paid (deposit/full + any balance). Chelgy's fee is kept, since Stripe keeps its own.
         for (const pi of [bk.payment_intent, bk.balance_intent].filter(Boolean)) {
+          if (isSquareId(pi)) {
+            const acct = await squareAccount(user.id);
+            const r = acct ? await squareRefund(acct, pi, "Booking cancelled") : { ok: false, error: "Reconnect Square to refund this booking." };
+            if (r.ok) { refunded += r.amount || 0; continue; }
+            return res.status(502).json({ error: r.error || "Refund failed — nothing was cancelled. Try again." });
+          }
           const r = await refundIntent(pi);
           if (r.ok && r.j && typeof r.j.amount === "number") refunded += r.j.amount;
           else if (!(r.j && r.j.error && /already been refunded/i.test(r.j.error.message || ""))) return res.status(502).json({ error: (r.j && r.j.error && r.j.error.message) || "Refund failed — nothing was cancelled. Try again." });
@@ -101,10 +130,11 @@ export default async function handler(req, res) {
       if (!["confirmed", "completed"].includes(bk.status)) return res.status(400).json({ error: "This booking isn't active." });
       if (!(bk.balance_due_cents > 0)) return res.status(400).json({ error: "Nothing left to pay." });
       if (bk.balance_due_cents < 50) return res.status(400).json({ error: "The balance is too small to charge by card." });
-      const account = await connectedAccount(user.id);
-      if (!account) return res.status(400).json({ error: "Connect Stripe first (Website → Orders) to collect payments." });
+      const account = STRIPE_KEY ? await connectedAccount(user.id) : null;
+      const sqAcct = await squareForCheckout(user.id, !!account);
+      if (!account && !sqAcct) return res.status(400).json({ error: "Connect Stripe or Square first (Website → Products) to collect payments." });
 
-      if (b.action === "charge_balance" && bk.stripe_customer && bk.payment_method) {
+      if (b.action === "charge_balance" && account && bk.stripe_customer && bk.payment_method) {
         const pi = await stripe("payment_intents", {
           amount: String(bk.balance_due_cents), currency: bk.currency || "usd",
           customer: bk.stripe_customer, payment_method: bk.payment_method, off_session: "true", confirm: "true",
@@ -120,7 +150,7 @@ export default async function handler(req, res) {
         }
         // Bank wants the customer to approve, or the card was declined → fall through to a pay link.
       }
-      const url = await balanceLink(bk, account);
+      const url = sqAcct ? await squareBalanceLink(bk, sqAcct) : await balanceLink(bk, account);
       if (!url) return res.status(502).json({ error: "Couldn't create a payment link. Try again." });
       return res.status(200).json({ ok: true, link_sent: true, url });
     }

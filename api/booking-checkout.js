@@ -6,12 +6,19 @@
 //                   releases the hold (Stripe "expired" event, the release link, or time).
 // POST { action:"release", booking_id, token } → customer backed out of Stripe; free the slot now.
 //
+// SQUARE: if the business takes payments through Square (api/_square.js), a paid
+// service goes to a Square checkout page instead. Same hold, same fee; the Square
+// webhook (api/square-webhook.js) confirms it. A Square page has no "back out" link, so
+// an abandoned hold is released by time, and its payment link is taken down.
+//
 // Double booking is prevented by the database itself (bookings_no_overlap constraint),
 // so even two simultaneous requests for the same time can't both succeed.
 import crypto from "crypto";
 import { loadCalendar, releaseStaleHolds, busyBetween, slotsForDate, localDate, formatWhen, connectedAccount, feeFor,
   sb, stripe, sendBookingEmails, ipHash, okUrl, body as readBody, HOLD_MINUTES, HOLD_GRACE_MINUTES,
   MAX_PENDING_PER_IP, MAX_FREE_PER_IP_PER_DAY, STRIPE_KEY } from "./_booking-lib.js";
+import { squareForCheckout, squarePaymentLink } from "./_square.js";
+import { isSquareId, squareDropLink, squareFee } from "./_square-pay.js";
 
 const APP_URL = (process.env.SHOPIFY_APP_URL || process.env.APP_URL || "https://chelgy.app").trim();
 const releaseToken = id => crypto.createHmac("sha256", STRIPE_KEY || "chelgy").update("release:" + id).digest("hex").slice(0, 32);
@@ -29,10 +36,11 @@ export default async function handler(req, res) {
       const id = String(b.booking_id || "");
       const tok = String(b.token || "");
       if (!id || tok.length !== 32 || !crypto.timingSafeEqual(Buffer.from(tok), Buffer.from(releaseToken(id)))) return res.status(400).json({ error: "Invalid link." });
-      const q = await sb("bookings?select=id,status,session_id&id=eq." + encodeURIComponent(id) + "&limit=1");
+      const q = await sb("bookings?select=id,status,session_id,owner_id&id=eq." + encodeURIComponent(id) + "&limit=1");
       const row = Array.isArray(q.j) && q.j[0];
       if (row && row.status === "pending") {
-        if (row.session_id) await stripe("checkout/sessions/" + encodeURIComponent(row.session_id) + "/expire", {});
+        if (row.session_id && isSquareId(row.session_id)) await squareDropLink(row.owner_id, row.session_id);
+        else if (row.session_id) await stripe("checkout/sessions/" + encodeURIComponent(row.session_id) + "/expire", {});
         await sb("bookings?id=eq." + encodeURIComponent(id) + "&status=eq.pending", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "expired" }) });
       }
       return res.status(200).json({ ok: true });
@@ -76,10 +84,11 @@ export default async function handler(req, res) {
       if (Array.isArray(c.j) && c.j.length >= MAX_FREE_PER_IP_PER_DAY) return res.status(429).json({ error: "Too many bookings from this device today. Please contact the business directly." });
     }
 
-    let account = null;
+    let account = null, sqAcct = null;
     if (paid) {
-      account = await connectedAccount(site.user_id);
-      if (!account) return res.status(400).json({ error: "This business isn't set up to take payments yet. Please contact them directly." });
+      account = STRIPE_KEY ? await connectedAccount(site.user_id) : null;
+      sqAcct = await squareForCheckout(site.user_id, !!account);
+      if (!account && !sqAcct) return res.status(400).json({ error: "This business isn't set up to take payments yet. Please contact them directly." });
     }
 
     // ── create the booking row (the database refuses overlaps) ──
@@ -108,6 +117,24 @@ export default async function handler(req, res) {
     if (!paid) {
       await sendBookingEmails(booking, brand.name);
       return res.status(200).json({ ok: true, confirmed: true, booking_id: booking.id, when: formatWhen(startMs, cfg.tz) });
+    }
+
+    // ── paid, through Square: a Square checkout page, paid to the business, Chelgy's fee on top ──
+    if (sqAcct) {
+      const link = await squarePaymentLink(sqAcct, {
+        lines: [{ name: (service.pay === "deposit" ? "Deposit — " : "") + service.name + " · " + formatWhen(startMs, cfg.tz), cents: service.charge, qty: 1 }],
+        feeCents: squareFee(row.fee_cents, service.charge),
+        email,
+        redirectUrl: withParam(successBase, "booked", booking.id),
+        meta: { type: "booking", owner_id: site.user_id, booking_id: booking.id },
+      });
+      if (!link.url) {
+        await sb("bookings?id=eq." + encodeURIComponent(booking.id), { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "failed" }) });
+        return res.status(502).json({ error: link.error || "Couldn't start checkout. Please try again." });
+      }
+      await sb("bookings?id=eq." + encodeURIComponent(booking.id), { method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ session_id: "sq:" + (link.orderId || "") + ":" + (link.linkId || "") }) });
+      return res.status(200).json({ ok: true, url: link.url, booking_id: booking.id });
     }
 
     // ── paid: Stripe Checkout (destination charge to the business, Chelgy keeps its fee) ──

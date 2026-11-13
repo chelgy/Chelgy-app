@@ -6,7 +6,11 @@
 // client can't tamper with it. Reuses the same env + stripe_accounts table as
 // api/stripe-checkout.js — no new configuration needed.
 //
+// SQUARE: members who take payments through Square get a Square pay link instead
+// (api/_square.js); the Square webhook marks the invoice paid.
+//
 // Env: STRIPE_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SHOPIFY_APP_URL / APP_URL
+import { squareForCheckout, squarePaymentLink } from "./_square.js";
 
 const SB_URL = (process.env.SUPABASE_URL || "").trim();
 const SB_SVC = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -33,7 +37,6 @@ function okUrl(u, fallback) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
-    if (!STRIPE_KEY) return res.status(500).json({ error: "Payments aren't configured yet." });
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const token = String(body.access_token || "").trim();
     const invoiceId = String(body.invoice_id || "").trim();
@@ -54,10 +57,15 @@ export default async function handler(req, res) {
     if (!inv) return res.status(404).json({ error: "Invoice not found." });
 
     // 3) is the member set up to take payments? (same table as the store)
-    const aq = await fetch(SB_URL + "/rest/v1/stripe_accounts?select=account_id,charges_enabled&user_id=eq." + ownerId, { headers: svc });
-    const arows = await aq.json();
-    const acct = Array.isArray(arows) && arows[0];
-    if (!acct || !acct.account_id || !acct.charges_enabled) return res.status(400).json({ error: "Connect your Stripe account first to accept payments." });
+    let acct = null;
+    try {
+      const aq = await fetch(SB_URL + "/rest/v1/stripe_accounts?select=account_id,charges_enabled&user_id=eq." + ownerId, { headers: svc });
+      const arows = await aq.json();
+      acct = Array.isArray(arows) && arows[0] ? arows[0] : null;
+    } catch {}
+    const stripeReady = !!(STRIPE_KEY && acct && acct.account_id && acct.charges_enabled);
+    const sqAcct = await squareForCheckout(ownerId, stripeReady);
+    if (!stripeReady && !sqAcct) return res.status(400).json({ error: "Connect your Stripe or Square account first to accept payments." });
 
     // 4) recompute the amount from the saved invoice (never trust the client)
     const items = Array.isArray(inv.items) ? inv.items : [];
@@ -67,6 +75,21 @@ export default async function handler(req, res) {
     const cents = Math.round(total * 100);
     if (cents <= 0) return res.status(400).json({ error: "This invoice has no payable amount." });
     const currency = String(inv.currency || "usd").toLowerCase();
+
+    // 5a) through Square: a one-line Square pay link, paid to the member's account
+    if (sqAcct) {
+      if (currency !== String(sqAcct.currency || "USD").toLowerCase())
+        return res.status(400).json({ error: "This invoice is in " + currency.toUpperCase() + " but your Square account takes " + String(sqAcct.currency || "USD").toUpperCase() + "." });
+      const link = await squarePaymentLink(sqAcct, {
+        lines: [{ name: ("Invoice " + (inv.number || "") + (inv.client_name ? " · " + inv.client_name : "")).slice(0, 120), cents, qty: 1 }],
+        feeCents: Math.round(cents * INVOICE_FEE_BPS / 10000),
+        email: inv.client_email || undefined,
+        redirectUrl: okUrl(body.success_url, APP_URL + "/?inv_paid=" + invoiceId),
+        meta: { type: "invoice", owner_id: ownerId, invoice_id: invoiceId },
+      });
+      if (!link.url) return res.status(502).json({ error: link.error || "Couldn't start checkout." });
+      return res.status(200).json({ url: link.url, provider: "square" });
+    }
 
     // 5) one-line Checkout session, destination charge to the member's account
     const params = {};
